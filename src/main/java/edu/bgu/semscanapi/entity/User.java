@@ -32,7 +32,7 @@ public class User {
 
     // UserRole enum
     public enum UserRole {
-        STUDENT, TEACHER, ADMIN
+        STUDENT, PRESENTER
     }
 
     public String getUserId() {

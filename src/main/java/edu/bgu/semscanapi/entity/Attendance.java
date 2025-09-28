@@ -21,9 +21,6 @@ public class Attendance {
     @Column(name = "attendance_time")
     private LocalDateTime attendanceTime;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private AttendanceStatus status;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "method")
@@ -32,10 +29,6 @@ public class Attendance {
     public Attendance() {
     }
 
-    // AttendanceStatus enum
-    public enum AttendanceStatus {
-        PRESENT, LATE, ABSENT
-    }
 
     // AttendanceMethod enum
     public enum AttendanceMethod {
@@ -75,13 +68,6 @@ public class Attendance {
         this.attendanceTime = attendanceTime;
     }
 
-    public AttendanceStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(AttendanceStatus status) {
-        this.status = status;
-    }
 
     public AttendanceMethod getMethod() {
         return method;
@@ -111,7 +97,6 @@ public class Attendance {
                 ", sessionId='" + sessionId + '\'' +
                 ", studentId='" + studentId + '\'' +
                 ", attendanceTime=" + attendanceTime +
-                ", status=" + status +
                 ", method=" + method +
                 '}';
     }

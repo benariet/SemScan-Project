@@ -12,8 +12,8 @@ public class Session {
     @Column(name = "session_id", length = 36)
     private String sessionId;
 
-    @Column(name = "course_id", length = 36)
-    private String courseId;
+    @Column(name = "seminar_id", length = 36)
+    private String seminarId;
 
     @Column(name = "start_time")
     private LocalDateTime startTime;
@@ -25,8 +25,6 @@ public class Session {
     @Column(name = "status")
     private SessionStatus status;
 
-    @Column(name = "qr_code_data", columnDefinition = "TEXT")
-    private String qrCodeData;
 
     public Session() {
     }
@@ -45,12 +43,12 @@ public class Session {
         this.sessionId = sessionId;
     }
 
-    public String getCourseId() {
-        return courseId;
+    public String getSeminarId() {
+        return seminarId;
     }
 
-    public void setCourseId(String courseId) {
-        this.courseId = courseId;
+    public void setSeminarId(String seminarId) {
+        this.seminarId = seminarId;
     }
 
     public LocalDateTime getStartTime() {
@@ -77,13 +75,6 @@ public class Session {
         this.status = status;
     }
 
-    public String getQrCodeData() {
-        return qrCodeData;
-    }
-
-    public void setQrCodeData(String qrCodeData) {
-        this.qrCodeData = qrCodeData;
-    }
 
     @Override
     public boolean equals(Object o) {
@@ -102,11 +93,10 @@ public class Session {
     public String toString() {
         return "Session{" +
                 "sessionId='" + sessionId + '\'' +
-                ", courseId='" + courseId + '\'' +
+                ", seminarId='" + seminarId + '\'' +
                 ", startTime=" + startTime +
                 ", endTime=" + endTime +
                 ", status=" + status +
-                ", qrCodeData='" + qrCodeData + '\'' +
                 '}';
     }
 }
