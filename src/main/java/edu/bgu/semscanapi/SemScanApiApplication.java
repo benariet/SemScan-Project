@@ -1,7 +1,10 @@
 package edu.bgu.semscanapi;
 
+import edu.bgu.semscanapi.util.LoggerUtil;
+import org.slf4j.Logger;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * Main Spring Boot Application class for SemScan API
@@ -11,10 +14,34 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class SemScanApiApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(SemScanApiApplication.class, args);
-        System.out.println("🚀 SemScan API started successfully!");
-        System.out.println("📱 API Base URL: http://localhost:8080/");
-    }
+    private static final Logger logger = LoggerUtil.getLogger(SemScanApiApplication.class);
 
+    public static void main(String[] args) {
+        logger.info("Starting SemScan API Application...");
+        
+        try {
+            ConfigurableApplicationContext context = SpringApplication.run(SemScanApiApplication.class, args);
+            
+            // Log successful startup
+            logger.info("🚀 SemScan API started successfully!");
+            logger.info("📱 API Base URL: http://localhost:8080/");
+            logger.info("📊 Actuator endpoints available at: http://localhost:8080/actuator");
+            logger.info("🔐 Security password generated - check logs for details");
+            
+            // Log application info
+            String appName = context.getEnvironment().getProperty("app.name", "SemScan Attendance System");
+            String appVersion = context.getEnvironment().getProperty("app.version", "1.0.0");
+            logger.info("Application: {} v{}", appName, appVersion);
+            
+            // Log database connection info
+            String dbUrl = context.getEnvironment().getProperty("spring.datasource.url");
+            if (dbUrl != null) {
+                logger.info("Database connected: {}", dbUrl.replaceAll("password=[^&]*", "password=***"));
+            }
+            
+        } catch (Exception e) {
+            logger.error("Failed to start SemScan API Application", e);
+            System.exit(1);
+        }
+    }
 }
