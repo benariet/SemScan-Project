@@ -1,5 +1,6 @@
 package edu.bgu.semscanapi.controller;
 
+import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.entity.Seminar;
 import edu.bgu.semscanapi.service.SeminarService;
 import edu.bgu.semscanapi.util.LoggerUtil;
@@ -29,7 +30,7 @@ public class SeminarController {
      * Create a new seminar
      */
     @PostMapping
-    public ResponseEntity<Seminar> createSeminar(@RequestBody Seminar seminar) {
+    public ResponseEntity<Object> createSeminar(@RequestBody Seminar seminar) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Creating seminar - Name: {}, Code: {}", seminar.getSeminarName(), seminar.getSeminarCode());
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/seminars", seminar.toString());
@@ -45,13 +46,27 @@ public class SeminarController {
         } catch (IllegalArgumentException e) {
             logger.error("Invalid seminar data: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/seminars", 400, "Bad Request: " + e.getMessage());
-            return ResponseEntity.badRequest().build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                e.getMessage(),
+                "Bad Request",
+                400,
+                "/api/v1/seminars"
+            );
+            return ResponseEntity.badRequest().body(errorResponse);
             
         } catch (Exception e) {
             logger.error("Failed to create seminar", e);
             LoggerUtil.logError(logger, "Failed to create seminar", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/seminars", 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while creating the seminar",
+                "Internal Server Error",
+                500,
+                "/api/v1/seminars"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -61,7 +76,7 @@ public class SeminarController {
      * Get seminar by ID
      */
     @GetMapping("/{seminarId}")
-    public ResponseEntity<Seminar> getSeminarById(@PathVariable String seminarId) {
+    public ResponseEntity<Object> getSeminarById(@PathVariable String seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving seminar by ID: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/seminars/" + seminarId, null);
@@ -76,14 +91,28 @@ public class SeminarController {
             } else {
                 logger.warn("Seminar not found: {}", seminarId);
                 LoggerUtil.logApiResponse(logger, "GET", "/api/v1/seminars/" + seminarId, 404, "Not Found");
-                return ResponseEntity.notFound().build();
+                
+                ErrorResponse errorResponse = new ErrorResponse(
+                    "Seminar not found with ID: " + seminarId,
+                    "Not Found",
+                    404,
+                    "/api/v1/seminars/" + seminarId
+                );
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             }
             
         } catch (Exception e) {
             logger.error("Failed to retrieve seminar: {}", seminarId, e);
             LoggerUtil.logError(logger, "Failed to retrieve seminar", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/seminars/" + seminarId, 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving the seminar",
+                "Internal Server Error",
+                500,
+                "/api/v1/seminars/" + seminarId
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -178,7 +207,7 @@ public class SeminarController {
      * Update seminar
      */
     @PutMapping("/{seminarId}")
-    public ResponseEntity<Seminar> updateSeminar(@PathVariable String seminarId, @RequestBody Seminar seminar) {
+    public ResponseEntity<Object> updateSeminar(@PathVariable String seminarId, @RequestBody Seminar seminar) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Updating seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/seminars/" + seminarId, seminar.toString());
@@ -194,7 +223,14 @@ public class SeminarController {
         } catch (IllegalArgumentException e) {
             logger.error("Invalid seminar update data: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "PUT", "/api/v1/seminars/" + seminarId, 400, "Bad Request: " + e.getMessage());
-            return ResponseEntity.badRequest().build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                e.getMessage(),
+                "Bad Request",
+                400,
+                "/api/v1/seminars/" + seminarId
+            );
+            return ResponseEntity.badRequest().body(errorResponse);
             
         } catch (Exception e) {
             logger.error("Failed to update seminar: {}", seminarId, e);
@@ -210,7 +246,7 @@ public class SeminarController {
      * Delete seminar
      */
     @DeleteMapping("/{seminarId}")
-    public ResponseEntity<Void> deleteSeminar(@PathVariable String seminarId) {
+    public ResponseEntity<Object> deleteSeminar(@PathVariable String seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Deleting seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/seminars/" + seminarId, null);
@@ -225,7 +261,14 @@ public class SeminarController {
         } catch (IllegalArgumentException e) {
             logger.error("Seminar not found for deletion: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "DELETE", "/api/v1/seminars/" + seminarId, 404, "Not Found");
-            return ResponseEntity.notFound().build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                e.getMessage(),
+                "Not Found",
+                404,
+                "/api/v1/seminars/" + seminarId
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             
         } catch (Exception e) {
             logger.error("Failed to delete seminar: {}", seminarId, e);

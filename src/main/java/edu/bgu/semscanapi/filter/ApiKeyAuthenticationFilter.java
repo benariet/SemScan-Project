@@ -35,7 +35,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
                                   FilterChain filterChain) throws ServletException, IOException {
         
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        String apiKey = request.getHeader("X-API-Key");
+        String apiKey = request.getHeader("x-api-key");
         
         logger.debug("Processing authentication for request: {} {}", request.getMethod(), request.getRequestURI());
         

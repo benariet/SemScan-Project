@@ -1,5 +1,6 @@
 package edu.bgu.semscanapi.controller;
 
+import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.service.SessionService;
 import edu.bgu.semscanapi.util.LoggerUtil;
@@ -30,7 +31,7 @@ public class SessionController {
      * Create a new session
      */
     @PostMapping
-    public ResponseEntity<Session> createSession(@RequestBody Session session) {
+    public ResponseEntity<Object> createSession(@RequestBody Session session) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Creating session for seminar: {}", session.getSeminarId());
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/sessions", session.toString());
@@ -46,13 +47,27 @@ public class SessionController {
         } catch (IllegalArgumentException e) {
             logger.error("Invalid session data: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/sessions", 400, "Bad Request: " + e.getMessage());
-            return ResponseEntity.badRequest().build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                e.getMessage(),
+                "Bad Request",
+                400,
+                "/api/v1/sessions"
+            );
+            return ResponseEntity.badRequest().body(errorResponse);
             
         } catch (Exception e) {
             logger.error("Failed to create session", e);
             LoggerUtil.logError(logger, "Failed to create session", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/sessions", 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while creating the session",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -62,7 +77,7 @@ public class SessionController {
      * Get session by ID
      */
     @GetMapping("/{sessionId}")
-    public ResponseEntity<Session> getSessionById(@PathVariable String sessionId) {
+    public ResponseEntity<Object> getSessionById(@PathVariable String sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving session by ID: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/" + sessionId, null);
@@ -78,14 +93,28 @@ public class SessionController {
             } else {
                 logger.warn("Session not found: {}", sessionId);
                 LoggerUtil.logApiResponse(logger, "GET", "/api/v1/sessions/" + sessionId, 404, "Not Found");
-                return ResponseEntity.notFound().build();
+                
+                ErrorResponse errorResponse = new ErrorResponse(
+                    "Session not found with ID: " + sessionId,
+                    "Not Found",
+                    404,
+                    "/api/v1/sessions/" + sessionId
+                );
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             }
             
         } catch (Exception e) {
             logger.error("Failed to retrieve session: {}", sessionId, e);
             LoggerUtil.logError(logger, "Failed to retrieve session", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/sessions/" + sessionId, 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving the session",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/" + sessionId
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -95,7 +124,7 @@ public class SessionController {
      * Get sessions by seminar
      */
     @GetMapping("/seminar/{seminarId}")
-    public ResponseEntity<List<Session>> getSessionsBySeminar(@PathVariable String seminarId) {
+    public ResponseEntity<Object> getSessionsBySeminar(@PathVariable String seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving sessions for seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/seminar/" + seminarId, null);
@@ -112,7 +141,14 @@ public class SessionController {
             logger.error("Failed to retrieve sessions for seminar: {}", seminarId, e);
             LoggerUtil.logError(logger, "Failed to retrieve sessions for seminar", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/sessions/seminar/" + seminarId, 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving sessions for seminar",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/seminar/" + seminarId
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -122,7 +158,7 @@ public class SessionController {
      * Get open sessions
      */
     @GetMapping("/open")
-    public ResponseEntity<List<Session>> getOpenSessions() {
+    public ResponseEntity<Object> getOpenSessions() {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving all open sessions");
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/open", null);
@@ -139,7 +175,14 @@ public class SessionController {
             logger.error("Failed to retrieve open sessions", e);
             LoggerUtil.logError(logger, "Failed to retrieve open sessions", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/sessions/open", 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving open sessions",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/open"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -149,7 +192,7 @@ public class SessionController {
      * Get closed sessions
      */
     @GetMapping("/closed")
-    public ResponseEntity<List<Session>> getClosedSessions() {
+    public ResponseEntity<Object> getClosedSessions() {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving all closed sessions");
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/closed", null);
@@ -166,7 +209,14 @@ public class SessionController {
             logger.error("Failed to retrieve closed sessions", e);
             LoggerUtil.logError(logger, "Failed to retrieve closed sessions", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/sessions/closed", 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving closed sessions",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/closed"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -176,7 +226,7 @@ public class SessionController {
      * Update session status
      */
     @PutMapping("/{sessionId}/status")
-    public ResponseEntity<Session> updateSessionStatus(@PathVariable String sessionId, 
+    public ResponseEntity<Object> updateSessionStatus(@PathVariable String sessionId, 
                                                      @RequestParam Session.SessionStatus status) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Updating session status - ID: {}, Status: {}", sessionId, status);
@@ -193,23 +243,82 @@ public class SessionController {
         } catch (IllegalArgumentException e) {
             logger.error("Session not found for status update: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "PUT", "/api/v1/sessions/" + sessionId + "/status", 404, "Not Found");
-            return ResponseEntity.notFound().build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                e.getMessage(),
+                "Not Found",
+                404,
+                "/api/v1/sessions/" + sessionId + "/status"
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             
         } catch (Exception e) {
             logger.error("Failed to update session status: {}", sessionId, e);
             LoggerUtil.logError(logger, "Failed to update session status", e);
             LoggerUtil.logApiResponse(logger, "PUT", "/api/v1/sessions/" + sessionId + "/status", 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while updating session status",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/" + sessionId + "/status"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
     }
     
     /**
-     * Close session
+     * Close session (PATCH method for mobile app compatibility)
+     */
+    @PatchMapping("/{sessionId}/close")
+    public ResponseEntity<Object> closeSessionPatch(@PathVariable String sessionId) {
+        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Closing session (PATCH): {}", sessionId);
+        LoggerUtil.logApiRequest(logger, "PATCH", "/api/v1/sessions/" + sessionId + "/close", null);
+        
+        try {
+            Session closedSession = sessionService.closeSession(sessionId);
+            logger.info("Session closed successfully (PATCH) - ID: {}", sessionId);
+            LoggerUtil.logApiResponse(logger, "PATCH", "/api/v1/sessions/" + sessionId + "/close", 200, closedSession.toString());
+            
+            return ResponseEntity.ok(closedSession);
+            
+        } catch (IllegalArgumentException e) {
+            logger.error("Session not found for closing (PATCH): {}", e.getMessage());
+            LoggerUtil.logApiResponse(logger, "PATCH", "/api/v1/sessions/" + sessionId + "/close", 404, "Not Found");
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                e.getMessage(),
+                "Not Found",
+                404,
+                "/api/v1/sessions/" + sessionId + "/close"
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            
+        } catch (Exception e) {
+            logger.error("Failed to close session (PATCH): {}", sessionId, e);
+            LoggerUtil.logError(logger, "Failed to close session (PATCH)", e);
+            LoggerUtil.logApiResponse(logger, "PATCH", "/api/v1/sessions/" + sessionId + "/close", 500, "Internal Server Error");
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while closing session",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/" + sessionId + "/close"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+    
+    /**
+     * Close session (PUT method)
      */
     @PutMapping("/{sessionId}/close")
-    public ResponseEntity<Session> closeSession(@PathVariable String sessionId) {
+    public ResponseEntity<Object> closeSession(@PathVariable String sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Closing session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/sessions/" + sessionId + "/close", null);
@@ -224,13 +333,27 @@ public class SessionController {
         } catch (IllegalArgumentException e) {
             logger.error("Session not found for closing: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "PUT", "/api/v1/sessions/" + sessionId + "/close", 404, "Not Found");
-            return ResponseEntity.notFound().build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                e.getMessage(),
+                "Not Found",
+                404,
+                "/api/v1/sessions/" + sessionId + "/close"
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             
         } catch (Exception e) {
             logger.error("Failed to close session: {}", sessionId, e);
             LoggerUtil.logError(logger, "Failed to close session", e);
             LoggerUtil.logApiResponse(logger, "PUT", "/api/v1/sessions/" + sessionId + "/close", 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while closing session",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/" + sessionId + "/close"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -240,7 +363,7 @@ public class SessionController {
      * Open session
      */
     @PutMapping("/{sessionId}/open")
-    public ResponseEntity<Session> openSession(@PathVariable String sessionId) {
+    public ResponseEntity<Object> openSession(@PathVariable String sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Opening session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/sessions/" + sessionId + "/open", null);
@@ -255,13 +378,27 @@ public class SessionController {
         } catch (IllegalArgumentException e) {
             logger.error("Session not found for opening: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "PUT", "/api/v1/sessions/" + sessionId + "/open", 404, "Not Found");
-            return ResponseEntity.notFound().build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                e.getMessage(),
+                "Not Found",
+                404,
+                "/api/v1/sessions/" + sessionId + "/open"
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             
         } catch (Exception e) {
             logger.error("Failed to open session: {}", sessionId, e);
             LoggerUtil.logError(logger, "Failed to open session", e);
             LoggerUtil.logApiResponse(logger, "PUT", "/api/v1/sessions/" + sessionId + "/open", 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while opening session",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/" + sessionId + "/open"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -271,7 +408,7 @@ public class SessionController {
      * Delete session
      */
     @DeleteMapping("/{sessionId}")
-    public ResponseEntity<Void> deleteSession(@PathVariable String sessionId) {
+    public ResponseEntity<Object> deleteSession(@PathVariable String sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Deleting session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/sessions/" + sessionId, null);
@@ -286,13 +423,27 @@ public class SessionController {
         } catch (IllegalArgumentException e) {
             logger.error("Session not found for deletion: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "DELETE", "/api/v1/sessions/" + sessionId, 404, "Not Found");
-            return ResponseEntity.notFound().build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                e.getMessage(),
+                "Not Found",
+                404,
+                "/api/v1/sessions/" + sessionId
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
             
         } catch (Exception e) {
             logger.error("Failed to delete session: {}", sessionId, e);
             LoggerUtil.logError(logger, "Failed to delete session", e);
             LoggerUtil.logApiResponse(logger, "DELETE", "/api/v1/sessions/" + sessionId, 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while deleting session",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/" + sessionId
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -302,7 +453,7 @@ public class SessionController {
      * Get sessions within date range
      */
     @GetMapping("/date-range")
-    public ResponseEntity<List<Session>> getSessionsBetweenDates(
+    public ResponseEntity<Object> getSessionsBetweenDates(
             @RequestParam String startDate, 
             @RequestParam String endDate) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
@@ -325,7 +476,14 @@ public class SessionController {
             logger.error("Failed to retrieve sessions between dates", e);
             LoggerUtil.logError(logger, "Failed to retrieve sessions between dates", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/sessions/date-range", 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving sessions between dates",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/date-range"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
@@ -335,7 +493,7 @@ public class SessionController {
      * Get active sessions for a seminar
      */
     @GetMapping("/seminar/{seminarId}/active")
-    public ResponseEntity<List<Session>> getActiveSessionsBySeminar(@PathVariable String seminarId) {
+    public ResponseEntity<Object> getActiveSessionsBySeminar(@PathVariable String seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving active sessions for seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/seminar/" + seminarId + "/active", null);
@@ -352,7 +510,14 @@ public class SessionController {
             logger.error("Failed to retrieve active sessions for seminar: {}", seminarId, e);
             LoggerUtil.logError(logger, "Failed to retrieve active sessions for seminar", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/sessions/seminar/" + seminarId + "/active", 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving active sessions for seminar",
+                "Internal Server Error",
+                500,
+                "/api/v1/sessions/seminar/" + seminarId + "/active"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();
         }
