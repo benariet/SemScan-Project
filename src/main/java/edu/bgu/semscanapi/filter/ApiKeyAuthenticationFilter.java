@@ -103,6 +103,8 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         
         // Public endpoints that don't require authentication
         return requestURI.startsWith("/api/v1/attendance") ||
+               requestURI.startsWith("/api/v1/info") ||
+               requestURI.startsWith("/api/v1/qr") || // QR code endpoints
                requestURI.equals("/actuator/health") ||
                requestURI.equals("/actuator/info") ||
                requestURI.startsWith("/api/v1/logging-example"); // For testing

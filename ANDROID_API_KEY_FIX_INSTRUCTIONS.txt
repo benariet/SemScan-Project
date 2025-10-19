@@ -1,0 +1,229 @@
+# ANDROID API KEY FIX INSTRUCTIONS
+# =================================
+
+## 🎯 PROBLEM IDENTIFIED
+**Error:** "No API key provided for protected endpoint: /api/v1/sessions/open"
+**Status:** 401 Unauthorized
+
+## ✅ GOOD NEWS
+- ✅ Network connection is working perfectly
+- ✅ Android app can reach the server
+- ✅ Server is responding correctly
+- ❌ Android app is missing API key in request headers
+
+## 🔧 SOLUTION: Add API Key to Android App
+
+### 1. Get a Valid API Key
+First, you need to get a valid API key from your database. You can:
+
+**Option A: Check existing API keys in database**
+```sql
+SELECT * FROM presenter_api_keys WHERE is_active = true;
+```
+
+**Option B: Create a new API key (if you have admin access)**
+- Use your admin interface to generate an API key for a presenter
+- Or create one through your API endpoints
+
+### 2. Update Android App API Calls
+
+#### Update ApiInterface.java
+```java
+@GET("api/v1/sessions/open")
+Call<List<Session>> getOpenSessions(@Header("x-api-key") String apiKey);
+```
+
+#### Update ApiService.java
+```java
+public class ApiService {
+    // Add your API key here
+    private static final String API_KEY = "your-api-key-here";
+    
+    public static ApiInterface getApiInterface() {
+        return retrofit.create(ApiInterface.class);
+    }
+    
+    public static String getApiKey() {
+        return API_KEY;
+    }
+}
+```
+
+#### Update your API calls in activities/fragments
+```java
+// OLD (missing API key)
+Call<List<Session>> call = apiInterface.getOpenSessions();
+
+// NEW (with API key)
+Call<List<Session>> call = apiInterface.getOpenSessions(ApiService.getApiKey());
+```
+
+### 3. Common API Endpoints That Need API Key
+
+Based on your server logs, these endpoints require API key:
+- `/api/v1/sessions/open` - Get open sessions
+- `/api/v1/sessions` - Get all sessions  
+- `/api/v1/seminars` - Get seminars
+- `/api/v1/attendance/pending-requests` - Get pending requests
+- `/api/v1/attendance/{id}/approve` - Approve attendance
+- `/api/v1/attendance/{id}/reject` - Reject attendance
+- `/api/v1/export/csv` - Export CSV
+- `/api/v1/export/xlsx` - Export XLSX
+
+### 4. Update All API Calls
+
+#### Example: Get Open Sessions
+```java
+// In your activity/fragment
+private void loadOpenSessions() {
+    Call<List<Session>> call = apiInterface.getOpenSessions(ApiService.getApiKey());
+    call.enqueue(new Callback<List<Session>>() {
+        @Override
+        public void onResponse(Call<List<Session>> call, Response<List<Session>> response) {
+            if (response.isSuccessful()) {
+                // Handle success
+                List<Session> sessions = response.body();
+                // Update UI
+            } else {
+                // Handle error
+                Log.e("API_ERROR", "Error: " + response.code());
+            }
+        }
+        
+        @Override
+        public void onFailure(Call<List<Session>> call, Throwable t) {
+            // Handle network error
+            Log.e("API_ERROR", "Network error: " + t.getMessage());
+        }
+    });
+}
+```
+
+### 5. API Key Configuration
+
+#### Option A: Hardcode API Key (Quick Fix)
+```java
+public class ApiService {
+    private static final String API_KEY = "your-actual-api-key-here";
+    
+    public static String getApiKey() {
+        return API_KEY;
+    }
+}
+```
+
+#### Option B: Store API Key in SharedPreferences (Better)
+```java
+public class ApiService {
+    private static final String PREF_API_KEY = "api_key";
+    
+    public static String getApiKey(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+        return prefs.getString(PREF_API_KEY, "");
+    }
+    
+    public static void setApiKey(Context context, String apiKey) {
+        SharedPreferences prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+        prefs.edit().putString(PREF_API_KEY, apiKey).apply();
+    }
+}
+```
+
+### 6. Update All API Interface Methods
+
+Make sure all protected endpoints include the API key header:
+
+```java
+public interface ApiInterface {
+    
+    // Seminars
+    @GET("api/v1/seminars")
+    Call<List<Seminar>> getSeminars(@Header("x-api-key") String apiKey);
+    
+    // Sessions
+    @GET("api/v1/sessions")
+    Call<List<Session>> getSessions(@Header("x-api-key") String apiKey);
+    
+    @GET("api/v1/sessions/open")
+    Call<List<Session>> getOpenSessions(@Header("x-api-key") String apiKey);
+    
+    // Attendance
+    @GET("api/v1/attendance/pending-requests")
+    Call<List<ManualAttendanceResponse>> getPendingRequests(
+            @Query("sessionId") String sessionId,
+            @Header("x-api-key") String apiKey
+    );
+    
+    @POST("api/v1/attendance/{id}/approve")
+    Call<ManualAttendanceResponse> approveRequest(
+            @Path("id") String attendanceId,
+            @Header("x-api-key") String apiKey
+    );
+    
+    @POST("api/v1/attendance/{id}/reject")
+    Call<ManualAttendanceResponse> rejectRequest(
+            @Path("id") String attendanceId,
+            @Header("x-api-key") String apiKey
+    );
+    
+    // Export
+    @GET("api/v1/export/csv")
+    Call<ResponseBody> exportCsv(
+            @Query("sessionId") String sessionId,
+            @Header("x-api-key") String apiKey
+    );
+    
+    @GET("api/v1/export/xlsx")
+    Call<ResponseBody> exportXlsx(
+            @Query("sessionId") String sessionId,
+            @Header("x-api-key") String apiKey
+    );
+}
+```
+
+## 🧪 TESTING STEPS
+
+### 1. Get a Valid API Key
+- Check your database for existing API keys
+- Or create a new one through your admin interface
+
+### 2. Update Your Android App
+- Add the API key to your ApiService
+- Update all API calls to include the API key header
+- Test the connection
+
+### 3. Verify the Fix
+- Check server logs - you should see successful authentication
+- No more "No API key provided" warnings
+- API calls should return data instead of 401 errors
+
+## 🎯 QUICK FIX SUMMARY
+
+1. **Get a valid API key** from your database
+2. **Add API key to ApiService.java**
+3. **Update all API calls** to include `@Header("x-api-key") String apiKey`
+4. **Pass the API key** in all API calls
+5. **Test the connection**
+
+## ✅ EXPECTED RESULTS
+
+After adding the API key:
+- ✅ No more 401 Unauthorized errors
+- ✅ "Failed to get active sessions" error will disappear
+- ✅ Manual attendance will work
+- ✅ All API endpoints will work properly
+- ✅ Server logs will show successful authentication
+
+## 🚨 IMPORTANT NOTES
+
+1. **Keep your API key secure** - don't commit it to version control
+2. **Use environment-specific API keys** for different environments
+3. **Handle API key expiration** - implement re-authentication if needed
+4. **Test with different API keys** to ensure they work
+
+## 🎉 SUCCESS!
+
+Once you add the API key to your Android app, the "Failed to get active sessions" error will disappear and all API calls will work perfectly!
+
+---
+**The network connection is working perfectly - you just need to add the API key to authenticate your requests!**

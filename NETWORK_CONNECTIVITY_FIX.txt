@@ -1,0 +1,150 @@
+ANDROID NETWORK CONNECTIVITY FIX
+=================================
+
+PROBLEM IDENTIFIED:
+Your Android app is getting this error:
+"Network error: failed to connect to /132.72.54.104 (port 8080) from /132.73.228.198 (port 40871) after 10000ms"
+
+This is a NETWORK CONNECTIVITY issue, not a cleartext communication issue.
+
+ROOT CAUSE:
+Windows Firewall is blocking incoming connections on port 8080.
+
+SOLUTION STEPS:
+================
+
+STEP 1: Open Windows Firewall (Run as Administrator)
+====================================================
+
+1. Press Windows + R
+2. Type: wf.msc
+3. Press Enter
+4. Click "Yes" when prompted for administrator privileges
+
+STEP 2: Create Inbound Rule for Port 8080
+=========================================
+
+1. In Windows Firewall with Advanced Security:
+   - Click "Inbound Rules" in the left panel
+   - Click "New Rule..." in the right panel
+
+2. Rule Type:
+   - Select "Port"
+   - Click "Next"
+
+3. Protocol and Ports:
+   - Select "TCP"
+   - Select "Specific local ports"
+   - Enter: 8080
+   - Click "Next"
+
+4. Action:
+   - Select "Allow the connection"
+   - Click "Next"
+
+5. Profile:
+   - Check all three boxes:
+     ✓ Domain
+     ✓ Private
+     ✓ Public
+   - Click "Next"
+
+6. Name:
+   - Name: "SemScan API Server - Port 8080"
+   - Description: "Allow incoming connections to SemScan API server"
+   - Click "Finish"
+
+STEP 3: Create Outbound Rule (Optional but Recommended)
+======================================================
+
+1. Click "Outbound Rules" in the left panel
+2. Click "New Rule..." in the right panel
+3. Follow the same steps as above for port 8080
+4. Name: "SemScan API Server - Port 8080 Outbound"
+
+STEP 4: Alternative Quick Fix (Temporary)
+==========================================
+
+If you want a quick temporary fix:
+
+1. Press Windows + R
+2. Type: cmd
+3. Press Ctrl + Shift + Enter (Run as Administrator)
+4. Run this command:
+   netsh advfirewall firewall add rule name="SemScan API" dir=in action=allow protocol=TCP localport=8080
+
+STEP 5: Verify Firewall Rules
+=============================
+
+1. In Windows Firewall, go to "Inbound Rules"
+2. Look for "SemScan API Server - Port 8080"
+3. Make sure it shows:
+   - Action: Allow
+   - Protocol: TCP
+   - Local Port: 8080
+   - Profile: All
+
+STEP 6: Test Connectivity
+=========================
+
+After creating the firewall rule, test from your Android device again.
+
+If still not working, try these additional steps:
+
+STEP 7: Check Windows Defender Firewall Status
+==============================================
+
+1. Press Windows + R
+2. Type: firewall.cpl
+3. Press Enter
+4. Make sure Windows Defender Firewall is ON for both:
+   - Private networks
+   - Public networks
+
+STEP 8: Check Router/Network Configuration
+==========================================
+
+If the firewall fix doesn't work, the issue might be:
+
+1. Router blocking port 8080
+2. Network NAT configuration
+3. Corporate firewall
+
+For home networks, you might need to:
+1. Access your router admin panel
+2. Set up port forwarding for port 8080
+3. Forward external port 8080 to your computer's IP (132.72.54.104)
+
+STEP 9: Alternative Testing
+===========================
+
+Test if the issue is network-specific:
+
+1. Try connecting from the same network (WiFi) as your computer
+2. Try using your computer's local IP instead of external IP
+3. Check if other devices on the same network can reach the server
+
+VERIFICATION:
+=============
+
+After applying the firewall fix:
+
+1. Your Android app should be able to connect to:
+   http://132.72.54.104:8080/api/v1/seminars
+
+2. The server logs should show incoming requests from your Android device's IP
+
+3. You should see successful API responses instead of connection timeouts
+
+TROUBLESHOOTING:
+===============
+
+If still not working:
+
+1. Check Windows Event Viewer for firewall logs
+2. Try temporarily disabling Windows Firewall completely (for testing only)
+3. Check if your antivirus software has its own firewall
+4. Verify your computer's IP address hasn't changed
+5. Try using a different port (like 8081) and update both server and Android app
+
+The server is working perfectly - this is purely a Windows Firewall configuration issue!

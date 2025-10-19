@@ -88,4 +88,41 @@ public interface AttendanceRepository extends JpaRepository<Attendance, String> 
     List<Attendance> findSessionAttendanceBetweenDates(@Param("sessionId") String sessionId,
                                                       @Param("startDate") LocalDateTime startDate, 
                                                       @Param("endDate") LocalDateTime endDate);
+    
+    // Manual Attendance Request Methods
+    
+    /**
+     * Find pending manual attendance requests for a session
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.sessionId = :sessionId AND a.requestStatus = 'PENDING_APPROVAL'")
+    List<Attendance> findPendingRequestsBySessionId(@Param("sessionId") String sessionId);
+    
+    /**
+     * Find pending manual attendance requests for a student
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.studentId = :studentId AND a.requestStatus = 'PENDING_APPROVAL'")
+    List<Attendance> findPendingRequestsByStudentId(@Param("studentId") String studentId);
+    
+    /**
+     * Check if student has pending request for a session
+     */
+    @Query("SELECT COUNT(a) > 0 FROM Attendance a WHERE a.sessionId = :sessionId AND a.studentId = :studentId AND a.requestStatus = 'PENDING_APPROVAL'")
+    boolean hasPendingRequest(@Param("sessionId") String sessionId, @Param("studentId") String studentId);
+    
+    /**
+     * Find attendance records by request status
+     */
+    List<Attendance> findByRequestStatus(Attendance.RequestStatus requestStatus);
+    
+    /**
+     * Count pending requests for a session
+     */
+    @Query("SELECT COUNT(a) FROM Attendance a WHERE a.sessionId = :sessionId AND a.requestStatus = 'PENDING_APPROVAL'")
+    long countPendingRequestsBySessionId(@Param("sessionId") String sessionId);
+    
+    /**
+     * Find attendance records with student information for pending requests
+     */
+    @Query("SELECT a FROM Attendance a JOIN User u ON a.studentId = u.userId WHERE a.sessionId = :sessionId AND a.requestStatus = 'PENDING_APPROVAL'")
+    List<Attendance> findPendingRequestsWithStudentInfo(@Param("sessionId") String sessionId);
 }

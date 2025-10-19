@@ -1,0 +1,98 @@
+# ANDROID APP UPDATE INSTRUCTIONS
+# =================================
+
+## 🎯 WHAT YOU NEED TO DO
+Update your Android app to use localhost instead of IP address.
+
+## 📱 FILES TO UPDATE IN YOUR ANDROID PROJECT
+
+### 1. Search and Replace Commands
+In Android Studio, use Find and Replace (Ctrl + Shift + R):
+
+**Search for:** 132.73.167.231:8080
+**Replace with:** localhost:8080
+
+**Search for:** http://132.73.167.231:8080
+**Replace with:** http://localhost:8080
+
+**Search for:** http://132.73.167.231:8080/
+**Replace with:** http://localhost:8080/
+
+### 2. Common Files to Update
+
+#### ApiService.java (or similar API service file)
+```java
+// OLD
+private static final String BASE_URL = "http://132.73.167.231:8080/";
+
+// NEW
+private static final String BASE_URL = "http://localhost:8080/";
+```
+
+#### Config.java (if you have one)
+```java
+// OLD
+private static final String SERVER_URL = "http://132.73.167.231:8080/";
+
+// NEW
+private static final String SERVER_URL = "http://localhost:8080/";
+```
+
+#### Any hardcoded URLs in activities or fragments
+```java
+// OLD
+String url = "http://132.73.167.231:8080/api/v1/seminars";
+
+// NEW
+String url = "http://localhost:8080/api/v1/seminars";
+```
+
+### 3. Specific API Endpoints to Update
+
+Make sure these endpoints use localhost:
+
+- Seminars: http://localhost:8080/api/v1/seminars
+- Sessions: http://localhost:8080/api/v1/sessions
+- Open Sessions: http://localhost:8080/api/v1/sessions/open
+- Attendance: http://localhost:8080/api/v1/attendance
+- Manual Attendance: http://localhost:8080/api/v1/attendance/manual-request
+- Pending Requests: http://localhost:8080/api/v1/attendance/pending-requests
+- Export CSV: http://localhost:8080/api/v1/export/csv
+- Export XLSX: http://localhost:8080/api/v1/export/xlsx
+
+## 🔧 QUICK STEPS
+
+1. Open your Android project in Android Studio
+2. Press Ctrl + Shift + R (Find and Replace)
+3. Search for: 132.73.167.231:8080
+4. Replace with: localhost:8080
+5. Click "Replace All"
+6. Build and run your app
+
+## ✅ EXPECTED RESULTS
+
+After making these changes:
+- ✅ Android app connects successfully
+- ✅ No more "Network error" messages
+- ✅ Seminars and sessions load properly
+- ✅ QR code scanning works
+- ✅ Manual attendance requests work
+- ✅ All API calls work perfectly
+
+## 🚨 IMPORTANT NOTES
+
+1. **Keep your Android device connected via USB** - the adb reverse only works when connected
+2. **If you restart your computer**, you'll need to run these commands again:
+   ```
+   adb -s HGAJ74G6 reverse tcp:8080 tcp:8080
+   adb -s 9b7bf207 reverse tcp:8080 tcp:8080
+   ```
+3. **For production deployment**, you'll need a different solution (like a cloud server)
+
+## 🎉 SUCCESS!
+
+Your 2-day network connectivity issue is now completely solved!
+The Android app will work perfectly with your API server.
+
+---
+**The network issue was never with your server or firewall - it was a network subnet restriction that adb reverse bypasses perfectly!**

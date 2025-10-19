@@ -51,6 +51,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                     // Public endpoints
                     .requestMatchers("/api/v1/attendance/**").permitAll()
+                    .requestMatchers("/api/v1/info/**").permitAll()
+                    .requestMatchers("/api/v1/qr/**").permitAll() // QR code endpoints
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers("/actuator/info").permitAll()
                     

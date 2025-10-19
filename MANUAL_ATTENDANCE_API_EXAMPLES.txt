@@ -1,0 +1,384 @@
+# =============================================
+# MANUAL ATTENDANCE API EXAMPLES
+# =============================================
+# Complete examples for using the Manual Attendance API
+# Last Updated: 2025-10-16
+
+# =============================================
+# 1. CREATE MANUAL ATTENDANCE REQUEST
+# =============================================
+
+# Endpoint: POST /api/v1/attendance/manual-request
+# No API key required (public endpoint)
+# Content-Type: application/json
+
+# Example Request:
+curl -X POST "http://localhost:8080/api/v1/attendance/manual-request" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionId": "session-001",
+    "studentId": "student-001", 
+    "reason": "Camera broken, cannot scan QR code",
+    "deviceId": "device-12345"
+  }'
+
+# Example Response (Success - 201 Created):
+{
+  "attendanceId": "attendance-abc123",
+  "sessionId": "session-001",
+  "studentId": "student-001",
+  "studentName": "John Doe",
+  "reason": "Camera broken, cannot scan QR code",
+  "requestStatus": "PENDING_APPROVAL",
+  "requestedAt": "2025-10-16T12:00:00",
+  "autoFlags": "{\"inWindow\":true,\"duplicate\":false,\"capExceeded\":false}",
+  "message": "Request submitted successfully. Waiting for approval."
+}
+
+# Example Response (Error - 400 Bad Request):
+{
+  "error": "Student already has attendance for this session.",
+  "message": "Bad Request",
+  "status": 400,
+  "path": "/api/v1/attendance/manual-request"
+}
+
+# =============================================
+# 2. GET PENDING REQUESTS
+# =============================================
+
+# Endpoint: GET /api/v1/attendance/pending-requests?sessionId={sessionId}
+# API key required
+# Header: x-api-key: presenter-001-api-key-12345
+
+# Example Request:
+curl -X GET "http://localhost:8080/api/v1/attendance/pending-requests?sessionId=session-001" \
+  -H "x-api-key: presenter-001-api-key-12345"
+
+# Example Response (Success - 200 OK):
+[
+  {
+    "attendanceId": "attendance-abc123",
+    "sessionId": "session-001",
+    "studentId": "student-001",
+    "studentName": "John Doe",
+    "reason": "Camera broken, cannot scan QR code",
+    "requestStatus": "PENDING_APPROVAL",
+    "requestedAt": "2025-10-16T12:00:00",
+    "autoFlags": "{\"inWindow\":true,\"duplicate\":false,\"capExceeded\":false}",
+    "message": "Request submitted successfully. Waiting for approval."
+  },
+  {
+    "attendanceId": "attendance-def456",
+    "sessionId": "session-001",
+    "studentId": "student-002",
+    "studentName": "Jane Smith",
+    "reason": "Phone battery died",
+    "requestStatus": "PENDING_APPROVAL",
+    "requestedAt": "2025-10-16T12:05:00",
+    "autoFlags": "{\"inWindow\":true,\"duplicate\":false,\"capExceeded\":false}",
+    "message": "Request submitted successfully. Waiting for approval."
+  }
+]
+
+# =============================================
+# 3. APPROVE REQUEST
+# =============================================
+
+# Endpoint: POST /api/v1/attendance/{attendanceId}/approve
+# API key required
+# Header: x-api-key: presenter-001-api-key-12345
+
+# Example Request:
+curl -X POST "http://localhost:8080/api/v1/attendance/attendance-abc123/approve" \
+  -H "x-api-key: presenter-001-api-key-12345"
+
+# Example Response (Success - 200 OK):
+{
+  "attendanceId": "attendance-abc123",
+  "sessionId": "session-001",
+  "studentId": "student-001",
+  "studentName": "John Doe",
+  "reason": "Camera broken, cannot scan QR code",
+  "requestStatus": "CONFIRMED",
+  "requestedAt": "2025-10-16T12:00:00",
+  "approvedAt": "2025-10-16T12:10:00",
+  "approvedBy": "presenter-001",
+  "autoFlags": "{\"inWindow\":true,\"duplicate\":false,\"capExceeded\":false}",
+  "message": "Manual attendance request approved successfully."
+}
+
+# =============================================
+# 4. REJECT REQUEST
+# =============================================
+
+# Endpoint: POST /api/v1/attendance/{attendanceId}/reject
+# API key required
+# Header: x-api-key: presenter-001-api-key-12345
+
+# Example Request:
+curl -X POST "http://localhost:8080/api/v1/attendance/attendance-def456/reject" \
+  -H "x-api-key: presenter-001-api-key-12345"
+
+# Example Response (Success - 200 OK):
+{
+  "attendanceId": "attendance-def456",
+  "sessionId": "session-001",
+  "studentId": "student-002",
+  "studentName": "Jane Smith",
+  "reason": "Phone battery died",
+  "requestStatus": "REJECTED",
+  "requestedAt": "2025-10-16T12:05:00",
+  "approvedAt": "2025-10-16T12:15:00",
+  "approvedBy": "presenter-001",
+  "autoFlags": "{\"inWindow\":true,\"duplicate\":false,\"capExceeded\":false}",
+  "message": "Manual attendance request rejected."
+}
+
+# =============================================
+# 5. ANDROID IMPLEMENTATION EXAMPLES
+# =============================================
+
+# Java/Android Code Examples:
+
+# 1. Create Manual Request (Android)
+/*
+// Request DTO
+public class ManualAttendanceRequest {
+    private String sessionId;
+    private String studentId;
+    private String reason;
+    private String deviceId;
+    
+    // Constructors, getters, setters...
+}
+
+// API Interface
+@POST("api/v1/attendance/manual-request")
+Call<ManualAttendanceResponse> createManualRequest(@Body ManualAttendanceRequest request);
+
+// Usage
+ManualAttendanceRequest request = new ManualAttendanceRequest(
+    "session-001",
+    "student-001", 
+    "Camera broken, cannot scan QR code",
+    "device-12345"
+);
+
+Call<ManualAttendanceResponse> call = apiService.createManualRequest(request);
+call.enqueue(new Callback<ManualAttendanceResponse>() {
+    @Override
+    public void onResponse(Call<ManualAttendanceResponse> call, Response<ManualAttendanceResponse> response) {
+        if (response.isSuccessful()) {
+            ManualAttendanceResponse result = response.body();
+            // Handle success - show "Request submitted" message
+            showMessage("Request submitted successfully. Waiting for approval.");
+        } else {
+            // Handle error
+            showError("Failed to submit request: " + response.message());
+        }
+    }
+    
+    @Override
+    public void onFailure(Call<ManualAttendanceResponse> call, Throwable t) {
+        // Handle network error
+        showError("Network error: " + t.getMessage());
+    }
+});
+*/
+
+# 2. Get Pending Requests (Android)
+/*
+// API Interface
+@GET("api/v1/attendance/pending-requests")
+Call<List<ManualAttendanceResponse>> getPendingRequests(
+    @Query("sessionId") String sessionId,
+    @Header("x-api-key") String apiKey
+);
+
+// Usage
+Call<List<ManualAttendanceResponse>> call = apiService.getPendingRequests(
+    "session-001", 
+    "presenter-001-api-key-12345"
+);
+
+call.enqueue(new Callback<List<ManualAttendanceResponse>>() {
+    @Override
+    public void onResponse(Call<List<ManualAttendanceResponse>> call, Response<List<ManualAttendanceResponse>> response) {
+        if (response.isSuccessful()) {
+            List<ManualAttendanceResponse> requests = response.body();
+            // Display requests in UI
+            displayPendingRequests(requests);
+        }
+    }
+    
+    @Override
+    public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
+        showError("Failed to load pending requests: " + t.getMessage());
+    }
+});
+*/
+
+# 3. Approve Request (Android)
+/*
+// API Interface
+@POST("api/v1/attendance/{id}/approve")
+Call<ManualAttendanceResponse> approveRequest(
+    @Path("id") String attendanceId,
+    @Header("x-api-key") String apiKey
+);
+
+// Usage
+Call<ManualAttendanceResponse> call = apiService.approveRequest(
+    "attendance-abc123",
+    "presenter-001-api-key-12345"
+);
+
+call.enqueue(new Callback<ManualAttendanceResponse>() {
+    @Override
+    public void onResponse(Call<ManualAttendanceResponse> call, Response<ManualAttendanceResponse> response) {
+        if (response.isSuccessful()) {
+            // Request approved successfully
+            showMessage("Request approved successfully");
+            // Refresh pending requests list
+            loadPendingRequests();
+        }
+    }
+    
+    @Override
+    public void onFailure(Call<ManualAttendanceResponse> call, Throwable t) {
+        showError("Failed to approve request: " + t.getMessage());
+    }
+});
+*/
+
+# =============================================
+# 6. BUSINESS RULES & VALIDATION
+# =============================================
+
+# Time Window Validation:
+# - Manual requests are allowed from -10 minutes to +15 minutes from session start
+# - Outside this window: Request is rejected with "Window closed" error
+
+# Duplicate Prevention:
+# - If student already has attendance (QR_SCAN, MANUAL, PROXY): Rejected as "Already present"
+# - If student has pending request: Existing request is updated
+
+# Auto-Flags Generated:
+# - inWindow: true/false (within time window)
+# - duplicate: true/false (already has attendance)
+# - capExceeded: true/false (beyond approval cap)
+
+# Cap System:
+# - Safe auto-approve cap: max(5, 5% of roster size)
+# - Example: 40 students → cap = 5, 120 students → cap = 6
+
+# =============================================
+# 7. ERROR HANDLING
+# =============================================
+
+# Common Error Responses:
+
+# 400 Bad Request - Invalid Data:
+{
+  "error": "Session not found: session-999",
+  "message": "Bad Request",
+  "status": 400,
+  "path": "/api/v1/attendance/manual-request"
+}
+
+# 400 Bad Request - Duplicate:
+{
+  "error": "Student already has attendance for this session.",
+  "message": "Bad Request", 
+  "status": 400,
+  "path": "/api/v1/attendance/manual-request"
+}
+
+# 400 Bad Request - Window Closed:
+{
+  "error": "Manual attendance window is closed. Requests allowed from -10 to +15 minutes from session start.",
+  "message": "Bad Request",
+  "status": 400,
+  "path": "/api/v1/attendance/manual-request"
+}
+
+# 404 Not Found - Request Not Found:
+{
+  "error": "Manual attendance request not found: attendance-999",
+  "message": "Not Found",
+  "status": 404,
+  "path": "/api/v1/attendance/attendance-999/approve"
+}
+
+# 500 Internal Server Error:
+{
+  "error": "Failed to create manual attendance request",
+  "message": "Internal Server Error",
+  "status": 500,
+  "path": "/api/v1/attendance/manual-request"
+}
+
+# =============================================
+# 8. TESTING EXAMPLES
+# =============================================
+
+# Test 1: Create Valid Request
+curl -X POST "http://localhost:8080/api/v1/attendance/manual-request" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionId": "session-001",
+    "studentId": "student-001",
+    "reason": "Camera broken",
+    "deviceId": "device-123"
+  }'
+
+# Test 2: Create Duplicate Request (should fail)
+curl -X POST "http://localhost:8080/api/v1/attendance/manual-request" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionId": "session-001",
+    "studentId": "student-001",
+    "reason": "Camera still broken",
+    "deviceId": "device-123"
+  }'
+
+# Test 3: Get Pending Requests
+curl -X GET "http://localhost:8080/api/v1/attendance/pending-requests?sessionId=session-001" \
+  -H "x-api-key: presenter-001-api-key-12345"
+
+# Test 4: Approve Request
+curl -X POST "http://localhost:8080/api/v1/attendance/attendance-abc123/approve" \
+  -H "x-api-key: presenter-001-api-key-12345"
+
+# Test 5: Reject Request
+curl -X POST "http://localhost:8080/api/v1/attendance/attendance-def456/reject" \
+  -H "x-api-key: presenter-001-api-key-12345"
+
+# =============================================
+# 9. INTEGRATION WITH EXISTING APIS
+# =============================================
+
+# Export APIs will check for pending requests:
+# - If pending requests exist: Export is blocked with 409 Conflict
+# - Error message: "Cannot export while X requests are pending approval"
+
+# Example Export Error:
+{
+  "error": "Cannot export while 2 manual attendance requests are pending approval. Please review and resolve all pending requests before exporting.",
+  "message": "Conflict",
+  "status": 409,
+  "path": "/api/v1/export/csv"
+}
+
+# =============================================
+# 10. NOTES
+# =============================================
+# - Manual attendance requests are stored in the same attendance table
+# - request_status field tracks the approval state
+# - method field is set to 'MANUAL_REQUEST' for pending requests
+# - After approval: method becomes 'MANUAL', request_status becomes 'CONFIRMED'
+# - After rejection: request_status becomes 'REJECTED'
+# - All actions are logged with timestamps and approver information
+# - Auto-flags help presenters make informed decisions
+# - Export is blocked until all pending requests are resolved

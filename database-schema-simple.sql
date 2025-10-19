@@ -50,9 +50,17 @@ CREATE TABLE IF NOT EXISTS attendance (
     session_id VARCHAR(36) NOT NULL,
     student_id VARCHAR(36) NOT NULL,
     attendance_time TIMESTAMP NOT NULL,
-    method ENUM('QR_SCAN', 'MANUAL', 'PROXY') DEFAULT 'QR_SCAN',
+    method ENUM('QR_SCAN', 'MANUAL', 'MANUAL_REQUEST', 'PROXY') DEFAULT 'QR_SCAN',
+    request_status ENUM('CONFIRMED', 'PENDING_APPROVAL', 'REJECTED') DEFAULT 'CONFIRMED',
+    manual_reason VARCHAR(255) NULL,
+    requested_at TIMESTAMP NULL,
+    approved_by VARCHAR(36) NULL,
+    approved_at TIMESTAMP NULL,
+    device_id VARCHAR(255) NULL,
+    auto_flags JSON NULL,
     FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
     FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (approved_by) REFERENCES users(user_id) ON DELETE SET NULL,
     UNIQUE KEY unique_attendance (session_id, student_id)
 );
 
@@ -152,9 +160,19 @@ INSERT INTO presenter_api_keys (api_key_id, presenter_id, api_key, is_active) VA
 ('api-key-003', 'presenter-003', 'presenter-003-api-key-abcde', TRUE)
 ON DUPLICATE KEY UPDATE api_key = api_key;
 
+-- =============================================
+-- INDEXES FOR PERFORMANCE
+-- =============================================
+
+-- Indexes for manual attendance requests
+CREATE INDEX IF NOT EXISTS idx_attendance_request_status ON attendance(request_status);
+CREATE INDEX IF NOT EXISTS idx_attendance_session_status ON attendance(session_id, request_status);
+CREATE INDEX IF NOT EXISTS idx_attendance_student_status ON attendance(student_id, request_status);
+
 SELECT 'SemScan Seminar Attendance MVP Database Schema Created Successfully!' as Status;
 
 -- Note: This schema uses proper TIMESTAMP fields for better logging and debugging
 -- Mobile apps send Unix milliseconds, server converts to TIMESTAMP
--- No absence_requests table - MVP focuses on seminar attendance only
+-- Includes manual attendance request system with approval workflow
 -- Uses seminars and presenters instead of courses and teachers
+-- Manual attendance requests are stored in the same attendance table with request_status field

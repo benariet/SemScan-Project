@@ -4,6 +4,7 @@ import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.entity.Attendance;
 import edu.bgu.semscanapi.service.AttendanceService;
 import edu.bgu.semscanapi.service.AuthenticationService;
+import edu.bgu.semscanapi.service.ManualAttendanceService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,9 @@ public class ExportController {
     
     @Autowired
     private AuthenticationService authenticationService;
+    
+    @Autowired
+    private ManualAttendanceService manualAttendanceService;
     
     /**
      * Export attendance data as CSV
@@ -73,6 +77,23 @@ public class ExportController {
                     "/api/v1/export/csv"
                 );
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+            }
+            
+            // Check for pending manual attendance requests
+            if (manualAttendanceService.hasPendingRequests(sessionId)) {
+                long pendingCount = manualAttendanceService.getPendingRequestCount(sessionId);
+                logger.warn("Cannot export CSV for session: {} - {} pending manual attendance requests", 
+                           sessionId, pendingCount);
+                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/csv", 409, 
+                    "Conflict - " + pendingCount + " pending requests");
+                
+                ErrorResponse errorResponse = new ErrorResponse(
+                    "Cannot export while " + pendingCount + " manual attendance requests are pending approval. Please review and resolve all pending requests before exporting.",
+                    "Conflict",
+                    409,
+                    "/api/v1/export/csv"
+                );
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
             }
             
             // Get attendance records for the session
@@ -149,6 +170,23 @@ public class ExportController {
                     "/api/v1/export/xlsx"
                 );
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+            }
+            
+            // Check for pending manual attendance requests
+            if (manualAttendanceService.hasPendingRequests(sessionId)) {
+                long pendingCount = manualAttendanceService.getPendingRequestCount(sessionId);
+                logger.warn("Cannot export XLSX for session: {} - {} pending manual attendance requests", 
+                           sessionId, pendingCount);
+                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/xlsx", 409, 
+                    "Conflict - " + pendingCount + " pending requests");
+                
+                ErrorResponse errorResponse = new ErrorResponse(
+                    "Cannot export while " + pendingCount + " manual attendance requests are pending approval. Please review and resolve all pending requests before exporting.",
+                    "Conflict",
+                    409,
+                    "/api/v1/export/xlsx"
+                );
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
             }
             
             // Get attendance records for the session
