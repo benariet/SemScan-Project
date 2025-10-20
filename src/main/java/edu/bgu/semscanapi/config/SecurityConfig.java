@@ -53,6 +53,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/v1/attendance/**").permitAll()
                     .requestMatchers("/api/v1/info/**").permitAll()
                     .requestMatchers("/api/v1/qr/**").permitAll() // QR code endpoints
+                    .requestMatchers("/api/v1/logs/**").permitAll() // App logs endpoints
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers("/actuator/info").permitAll()
                     

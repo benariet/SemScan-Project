@@ -101,8 +101,11 @@ public class AppLogService {
      * Check if log level is valid
      */
     private boolean isValidLogLevel(String level) {
-        return level != null && (level.equals("DEBUG") || level.equals("INFO") || 
-                                level.equals("WARN") || level.equals("ERROR"));
+        if (level == null) {
+            return false;
+        }
+        String upper = level.toUpperCase();
+        return upper.equals("DEBUG") || upper.equals("INFO") || upper.equals("WARN") || upper.equals("ERROR");
     }
     
     /**
@@ -120,7 +123,21 @@ public class AppLogService {
     private AppLog convertToEntity(AppLogEntry logEntry) {
         AppLog appLog = new AppLog();
         appLog.setTimestamp(logEntry.getTimestamp());
-        appLog.setLevel(logEntry.getLevel());
+
+        // Normalize level and auto-upgrade to ERROR if exception context is present
+        String incomingLevel = logEntry.getLevel();
+        String normalizedLevel = incomingLevel != null ? incomingLevel.toUpperCase() : null;
+        boolean hasExceptionInfo =
+                (logEntry.getStackTrace() != null && !logEntry.getStackTrace().trim().isEmpty()) ||
+                (logEntry.getExceptionType() != null && !logEntry.getExceptionType().trim().isEmpty());
+        if (hasExceptionInfo) {
+            normalizedLevel = "ERROR";
+        }
+        if (normalizedLevel == null) {
+            normalizedLevel = "INFO";
+        }
+        appLog.setLevel(normalizedLevel);
+
         appLog.setTag(logEntry.getTag());
         appLog.setMessage(logEntry.getMessage());
         appLog.setUserId(logEntry.getUserId());

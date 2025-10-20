@@ -107,6 +107,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
                requestURI.startsWith("/api/v1/qr") || // QR code endpoints
                requestURI.startsWith("/api/v1/student") || // Student endpoints
                requestURI.startsWith("/api/v1/debug") || // Debug endpoints
+               requestURI.startsWith("/api/v1/logs") || // App logs endpoints
                requestURI.equals("/actuator/health") ||
                requestURI.equals("/actuator/info") ||
                requestURI.startsWith("/api/v1/logging-example"); // For testing

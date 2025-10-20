@@ -45,6 +45,17 @@ public class AppLogController {
             HttpServletRequest httpRequest) {
         
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        
+        // Enhanced debug logging
+        System.out.println("=== LOG REQUEST DEBUG ===");
+        System.out.println("Correlation ID: " + correlationId);
+        System.out.println("API Key: " + (apiKey != null ? "***" + apiKey.substring(Math.max(0, apiKey.length() - 4)) : "null"));
+        System.out.println("Remote Address: " + httpRequest.getRemoteAddr());
+        System.out.println("Content-Type: " + httpRequest.getContentType());
+        System.out.println("Request Body: " + (request != null ? request.toString() : "null"));
+        System.out.println("Number of logs: " + (request != null && request.getLogs() != null ? request.getLogs().size() : 0));
+        System.out.println("=== END DEBUG ===");
+        
         logger.info("Received logs request from: {} - Correlation ID: {}", 
                    httpRequest.getRemoteAddr(), correlationId);
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/logs", request != null ? request.toString() : null);
@@ -262,6 +273,47 @@ public class AppLogController {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", "Internal server error: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+    
+    /**
+     * Check database health
+     * GET /api/v1/logs/health
+     */
+    @GetMapping("/health")
+    public ResponseEntity<Object> checkDatabaseHealth() {
+        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Checking database health - Correlation ID: {}", correlationId);
+        
+        try {
+            // Test database connection
+            long logCount = appLogService.getTotalLogCount();
+            
+            Map<String, Object> health = new HashMap<>();
+            health.put("status", "UP");
+            health.put("database", "Connected");
+            health.put("totalLogs", logCount);
+            health.put("timestamp", System.currentTimeMillis());
+            health.put("correlationId", correlationId);
+            
+            logger.info("Database health check successful - {} logs found - Correlation ID: {}", 
+                       logCount, correlationId);
+            
+            return ResponseEntity.ok(health);
+            
+        } catch (Exception e) {
+            logger.error("Database health check failed - Correlation ID: {}", correlationId, e);
+            
+            Map<String, Object> health = new HashMap<>();
+            health.put("status", "DOWN");
+            health.put("database", "Disconnected");
+            health.put("error", e.getMessage());
+            health.put("timestamp", System.currentTimeMillis());
+            health.put("correlationId", correlationId);
+            
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(health);
         } finally {
             LoggerUtil.clearContext();
         }
