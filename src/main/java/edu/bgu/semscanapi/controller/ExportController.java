@@ -20,6 +20,10 @@ import java.io.PrintWriter;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+// Apache POI imports for Excel generation
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
 /**
  * REST Controller for Export operations
  * Provides export functionality for attendance data
@@ -196,7 +200,7 @@ public class ExportController {
             byte[] excelData = generateExcelForSession(sessionId, attendanceList);
             
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
             headers.setContentDispositionFormData("attachment", "attendance_" + sessionId + ".xlsx");
             
             logger.info("XLSX export successful for session: {} by presenter: {} - {} records", 
@@ -254,12 +258,65 @@ public class ExportController {
     }
     
     /**
-     * Generate Excel data for a session (simplified implementation)
-     * Note: For a full Excel implementation, you would need Apache POI dependency
+     * Generate Excel data for a session using Apache POI
      */
     private byte[] generateExcelForSession(String sessionId, List<Attendance> attendanceList) throws IOException {
-        // For now, return CSV format as Excel
-        // In a real implementation, you would use Apache POI to create actual Excel files
-        return generateCsvForSession(sessionId, attendanceList);
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Attendance Report");
+            
+            // Create header row
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {
+                "Attendance ID", "Session ID", "Student ID", "Attendance Time", 
+                "Method", "Request Status", "Manual Reason", "Requested At", 
+                "Approved By", "Approved At"
+            };
+            
+            // Style for header row
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.LIGHT_BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            
+            // Create header cells
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+            
+            // Create data rows
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            for (int i = 0; i < attendanceList.size(); i++) {
+                Attendance attendance = attendanceList.get(i);
+                Row dataRow = sheet.createRow(i + 1);
+                
+                dataRow.createCell(0).setCellValue(attendance.getAttendanceId() != null ? attendance.getAttendanceId() : "");
+                dataRow.createCell(1).setCellValue(attendance.getSessionId() != null ? attendance.getSessionId() : "");
+                dataRow.createCell(2).setCellValue(attendance.getStudentId() != null ? attendance.getStudentId() : "");
+                dataRow.createCell(3).setCellValue(attendance.getAttendanceTime() != null ? 
+                    attendance.getAttendanceTime().format(formatter) : "");
+                dataRow.createCell(4).setCellValue(attendance.getMethod() != null ? attendance.getMethod().toString() : "");
+                dataRow.createCell(5).setCellValue(attendance.getRequestStatus() != null ? attendance.getRequestStatus().toString() : "");
+                dataRow.createCell(6).setCellValue(attendance.getManualReason() != null ? attendance.getManualReason() : "");
+                dataRow.createCell(7).setCellValue(attendance.getRequestedAt() != null ? 
+                    attendance.getRequestedAt().format(formatter) : "");
+                dataRow.createCell(8).setCellValue(attendance.getApprovedBy() != null ? attendance.getApprovedBy() : "");
+                dataRow.createCell(9).setCellValue(attendance.getApprovedAt() != null ? 
+                    attendance.getApprovedAt().format(formatter) : "");
+            }
+            
+            // Auto-size columns
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+            
+            // Write to byte array
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+        }
     }
 }

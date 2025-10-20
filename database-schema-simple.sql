@@ -169,6 +169,43 @@ CREATE INDEX IF NOT EXISTS idx_attendance_request_status ON attendance(request_s
 CREATE INDEX IF NOT EXISTS idx_attendance_session_status ON attendance(session_id, request_status);
 CREATE INDEX IF NOT EXISTS idx_attendance_student_status ON attendance(student_id, request_status);
 
+-- =============================================
+-- 6. APP LOGS TABLE (Logging System)
+-- =============================================
+CREATE TABLE IF NOT EXISTS app_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    timestamp BIGINT NOT NULL,
+    level VARCHAR(10) NOT NULL,
+    tag VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    user_id VARCHAR(50),
+    user_role VARCHAR(20),
+    device_info TEXT,
+    app_version VARCHAR(20),
+    stack_trace TEXT,
+    exception_type VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_timestamp (timestamp),
+    INDEX idx_level (level),
+    INDEX idx_tag (tag),
+    INDEX idx_user_id (user_id),
+    INDEX idx_created_at (created_at)
+);
+
+-- =============================================
+-- 7. LOG ANALYTICS TABLE
+-- =============================================
+CREATE TABLE IF NOT EXISTS log_analytics (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    date DATE NOT NULL,
+    level VARCHAR(10) NOT NULL,
+    tag VARCHAR(50) NOT NULL,
+    count INT NOT NULL,
+    unique_users INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_date_level_tag (date, level, tag)
+);
+
 SELECT 'SemScan Seminar Attendance MVP Database Schema Created Successfully!' as Status;
 
 -- Note: This schema uses proper TIMESTAMP fields for better logging and debugging
@@ -176,3 +213,4 @@ SELECT 'SemScan Seminar Attendance MVP Database Schema Created Successfully!' as
 -- Includes manual attendance request system with approval workflow
 -- Uses seminars and presenters instead of courses and teachers
 -- Manual attendance requests are stored in the same attendance table with request_status field
+-- Includes comprehensive logging system for mobile app analytics

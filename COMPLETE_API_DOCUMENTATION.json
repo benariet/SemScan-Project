@@ -1,0 +1,551 @@
+{
+  "api_documentation": {
+    "title": "SemScan API - Complete Documentation",
+    "version": "1.0.0",
+    "base_url": "http://localhost:8080",
+    "authentication": {
+      "type": "API Key",
+      "header": "x-api-key",
+      "description": "All endpoints require API key authentication"
+    },
+    "endpoints": {
+      "app_logs": {
+        "submit_logs": {
+          "method": "POST",
+          "path": "/api/v1/logs",
+          "description": "Submit mobile app logs to the server",
+          "authentication": "Required",
+          "request_headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "presenter-001-api-key-12345"
+          },
+          "request_body": {
+            "type": "object",
+            "properties": {
+              "logs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "timestamp": {
+                      "type": "integer",
+                      "description": "Unix timestamp in milliseconds",
+                      "example": 1697784000000
+                    },
+                    "level": {
+                      "type": "string",
+                      "enum": ["DEBUG", "INFO", "WARN", "ERROR"],
+                      "description": "Log level"
+                    },
+                    "tag": {
+                      "type": "string",
+                      "maxLength": 50,
+                      "description": "Log category/tag",
+                      "example": "UserLogin"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Log message",
+                      "example": "User logged in successfully"
+                    },
+                    "userId": {
+                      "type": "string",
+                      "maxLength": 50,
+                      "description": "User ID who generated the log",
+                      "example": "student-001"
+                    },
+                    "userRole": {
+                      "type": "string",
+                      "maxLength": 20,
+                      "enum": ["STUDENT", "PRESENTER"],
+                      "description": "User role"
+                    },
+                    "deviceInfo": {
+                      "type": "string",
+                      "description": "Device information",
+                      "example": "Android 13 - Samsung SM-G991B"
+                    },
+                    "appVersion": {
+                      "type": "string",
+                      "maxLength": 20,
+                      "description": "App version",
+                      "example": "1.0.0"
+                    },
+                    "stackTrace": {
+                      "type": "string",
+                      "description": "Exception stack trace",
+                      "example": "java.lang.Exception: Network timeout..."
+                    },
+                    "exceptionType": {
+                      "type": "string",
+                      "maxLength": 100,
+                      "description": "Exception type",
+                      "example": "java.net.SocketTimeoutException"
+                    }
+                  },
+                  "required": ["timestamp", "level", "tag", "message"]
+                }
+              }
+            },
+            "required": ["logs"]
+          },
+          "example_request": {
+            "logs": [
+              {
+                "timestamp": 1697784000000,
+                "level": "INFO",
+                "tag": "UserLogin",
+                "message": "User logged in successfully",
+                "userId": "student-001",
+                "userRole": "STUDENT",
+                "deviceInfo": "Android 13 - Samsung SM-G991B",
+                "appVersion": "1.0.0"
+              },
+              {
+                "timestamp": 1697784001000,
+                "level": "ERROR",
+                "tag": "Payment",
+                "message": "Payment processing failed",
+                "userId": "student-001",
+                "userRole": "STUDENT",
+                "deviceInfo": "Android 13 - Samsung SM-G991B",
+                "appVersion": "1.0.0",
+                "stackTrace": "java.lang.Exception: Network timeout...",
+                "exceptionType": "java.net.SocketTimeoutException"
+              }
+            ]
+          },
+          "response": {
+            "success": {
+              "status_code": 200,
+              "body": {
+                "success": true,
+                "message": "Logs processed successfully",
+                "processedCount": 2
+              }
+            },
+            "error": {
+              "status_code": 400,
+              "body": {
+                "success": false,
+                "message": "Error processing logs: Invalid log level"
+              }
+            }
+          }
+        },
+        "get_error_logs": {
+          "method": "GET",
+          "path": "/api/v1/logs/errors",
+          "description": "Retrieve all error logs from the database",
+          "authentication": "Required",
+          "request_headers": {
+            "x-api-key": "presenter-001-api-key-12345"
+          },
+          "response": {
+            "success": {
+              "status_code": 200,
+              "body": [
+                {
+                  "id": 1,
+                  "timestamp": 1697784000000,
+                  "level": "ERROR",
+                  "tag": "SemScan-API",
+                  "message": "Connection failed",
+                  "userId": "student-001",
+                  "userRole": "STUDENT",
+                  "deviceInfo": "Android 13 - Samsung SM-G991B",
+                  "appVersion": "1.0.0",
+                  "stackTrace": "java.net.ConnectException...",
+                  "exceptionType": "java.net.ConnectException",
+                  "createdAt": "2024-10-19T16:30:00"
+                }
+              ]
+            }
+          }
+        },
+        "get_recent_logs": {
+          "method": "GET",
+          "path": "/api/v1/logs/recent",
+          "description": "Retrieve recent logs with optional limit",
+          "authentication": "Required",
+          "request_headers": {
+            "x-api-key": "presenter-001-api-key-12345"
+          },
+          "query_parameters": {
+            "limit": {
+              "type": "integer",
+              "default": 100,
+              "description": "Maximum number of logs to return"
+            }
+          },
+          "example_url": "/api/v1/logs/recent?limit=50",
+          "response": {
+            "success": {
+              "status_code": 200,
+              "body": [
+                {
+                  "id": 1,
+                  "timestamp": 1697784000000,
+                  "level": "INFO",
+                  "tag": "UserLogin",
+                  "message": "User logged in successfully",
+                  "userId": "student-001",
+                  "userRole": "STUDENT",
+                  "deviceInfo": "Android 13 - Samsung SM-G991B",
+                  "appVersion": "1.0.0",
+                  "createdAt": "2024-10-19T16:30:00"
+                }
+              ]
+            }
+          }
+        },
+        "get_log_statistics": {
+          "method": "GET",
+          "path": "/api/v1/logs/stats",
+          "description": "Get log statistics by level",
+          "authentication": "Required",
+          "request_headers": {
+            "x-api-key": "presenter-001-api-key-12345"
+          },
+          "response": {
+            "success": {
+              "status_code": 200,
+              "body": {
+                "totalLogs": 150,
+                "errorLogs": 5,
+                "infoLogs": 120,
+                "warnLogs": 20,
+                "debugLogs": 5
+              }
+            }
+          }
+        }
+      },
+      "attendance": {
+        "record_attendance": {
+          "method": "POST",
+          "path": "/api/v1/attendance/record",
+          "description": "Record student attendance for a session",
+          "authentication": "Required",
+          "request_headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "presenter-001-api-key-12345"
+          },
+          "request_body": {
+            "type": "object",
+            "properties": {
+              "studentId": {
+                "type": "string",
+                "description": "Student ID",
+                "example": "student-001"
+              },
+              "sessionId": {
+                "type": "string",
+                "description": "Session ID",
+                "example": "session-47ab61a6"
+              },
+              "qrCode": {
+                "type": "string",
+                "description": "QR code scanned by student",
+                "example": "QR_CODE_DATA_HERE"
+              }
+            },
+            "required": ["studentId", "sessionId", "qrCode"]
+          },
+          "example_request": {
+            "studentId": "student-001",
+            "sessionId": "session-47ab61a6",
+            "qrCode": "QR_CODE_DATA_HERE"
+          },
+          "response": {
+            "success": {
+              "status_code": 200,
+              "body": {
+                "success": true,
+                "message": "Attendance recorded successfully",
+                "attendanceId": "attendance-123"
+              }
+            },
+            "error": {
+              "status_code": 400,
+              "body": {
+                "success": false,
+                "message": "Invalid QR code or session not active"
+              }
+            }
+          }
+        },
+        "get_attendance": {
+          "method": "GET",
+          "path": "/api/v1/attendance/{sessionId}",
+          "description": "Get attendance records for a specific session",
+          "authentication": "Required",
+          "request_headers": {
+            "x-api-key": "presenter-001-api-key-12345"
+          },
+          "path_parameters": {
+            "sessionId": {
+              "type": "string",
+              "description": "Session ID",
+              "example": "session-47ab61a6"
+            }
+          },
+          "example_url": "/api/v1/attendance/session-47ab61a6",
+          "response": {
+            "success": {
+              "status_code": 200,
+              "body": [
+                {
+                  "attendanceId": "attendance-123",
+                  "studentId": "student-001",
+                  "sessionId": "session-47ab61a6",
+                  "timestamp": "2024-10-19T16:30:00",
+                  "status": "PRESENT"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "sessions": {
+        "create_session": {
+          "method": "POST",
+          "path": "/api/v1/sessions",
+          "description": "Create a new attendance session",
+          "authentication": "Required",
+          "request_headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "presenter-001-api-key-12345"
+          },
+          "request_body": {
+            "type": "object",
+            "properties": {
+              "seminarId": {
+                "type": "string",
+                "description": "Seminar ID",
+                "example": "seminar-001"
+              },
+              "title": {
+                "type": "string",
+                "description": "Session title",
+                "example": "Introduction to Machine Learning"
+              },
+              "startTime": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Session start time",
+                "example": "2024-10-19T16:00:00Z"
+              },
+              "endTime": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Session end time",
+                "example": "2024-10-19T18:00:00Z"
+              }
+            },
+            "required": ["seminarId", "title", "startTime", "endTime"]
+          },
+          "example_request": {
+            "seminarId": "seminar-001",
+            "title": "Introduction to Machine Learning",
+            "startTime": "2024-10-19T16:00:00Z",
+            "endTime": "2024-10-19T18:00:00Z"
+          },
+          "response": {
+            "success": {
+              "status_code": 201,
+              "body": {
+                "sessionId": "session-47ab61a6",
+                "qrCode": "QR_CODE_DATA_HERE",
+                "message": "Session created successfully"
+              }
+            }
+          }
+        },
+        "get_session": {
+          "method": "GET",
+          "path": "/api/v1/sessions/{sessionId}",
+          "description": "Get session details",
+          "authentication": "Required",
+          "request_headers": {
+            "x-api-key": "presenter-001-api-key-12345"
+          },
+          "path_parameters": {
+            "sessionId": {
+              "type": "string",
+              "description": "Session ID",
+              "example": "session-47ab61a6"
+            }
+          },
+          "example_url": "/api/v1/sessions/session-47ab61a6",
+          "response": {
+            "success": {
+              "status_code": 200,
+              "body": {
+                "sessionId": "session-47ab61a6",
+                "seminarId": "seminar-001",
+                "title": "Introduction to Machine Learning",
+                "startTime": "2024-10-19T16:00:00Z",
+                "endTime": "2024-10-19T18:00:00Z",
+                "status": "ACTIVE",
+                "qrCode": "QR_CODE_DATA_HERE"
+              }
+            }
+          }
+        }
+      },
+      "students": {
+        "get_student": {
+          "method": "GET",
+          "path": "/api/v1/students/{studentId}",
+          "description": "Get student information",
+          "authentication": "Required",
+          "request_headers": {
+            "x-api-key": "presenter-001-api-key-12345"
+          },
+          "path_parameters": {
+            "studentId": {
+              "type": "string",
+              "description": "Student ID",
+              "example": "student-001"
+            }
+          },
+          "example_url": "/api/v1/students/student-001",
+          "response": {
+            "success": {
+              "status_code": 200,
+              "body": {
+                "studentId": "student-001",
+                "name": "John Doe",
+                "email": "john.doe@example.com",
+                "studentNumber": "12345",
+                "role": "STUDENT"
+              }
+            }
+          }
+        }
+      },
+      "info": {
+        "get_endpoints": {
+          "method": "GET",
+          "path": "/api/v1/info/endpoints",
+          "description": "Get all available API endpoints",
+          "authentication": "Not Required",
+          "response": {
+            "success": {
+              "status_code": 200,
+              "body": {
+                "endpoints": [
+                  {
+                    "method": "POST",
+                    "path": "/api/v1/logs",
+                    "description": "Submit mobile app logs"
+                  },
+                  {
+                    "method": "GET",
+                    "path": "/api/v1/logs/errors",
+                    "description": "Get error logs"
+                  },
+                  {
+                    "method": "GET",
+                    "path": "/api/v1/logs/recent",
+                    "description": "Get recent logs"
+                  },
+                  {
+                    "method": "GET",
+                    "path": "/api/v1/logs/stats",
+                    "description": "Get log statistics"
+                  },
+                  {
+                    "method": "POST",
+                    "path": "/api/v1/attendance/record",
+                    "description": "Record attendance"
+                  },
+                  {
+                    "method": "GET",
+                    "path": "/api/v1/attendance/{sessionId}",
+                    "description": "Get attendance for session"
+                  },
+                  {
+                    "method": "POST",
+                    "path": "/api/v1/sessions",
+                    "description": "Create session"
+                  },
+                  {
+                    "method": "GET",
+                    "path": "/api/v1/sessions/{sessionId}",
+                    "description": "Get session details"
+                  },
+                  {
+                    "method": "GET",
+                    "path": "/api/v1/students/{studentId}",
+                    "description": "Get student information"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "error_responses": {
+      "400": {
+        "description": "Bad Request",
+        "body": {
+          "success": false,
+          "message": "Invalid request data"
+        }
+      },
+      "401": {
+        "description": "Unauthorized",
+        "body": {
+          "success": false,
+          "message": "Invalid or missing API key"
+        }
+      },
+      "404": {
+        "description": "Not Found",
+        "body": {
+          "success": false,
+          "message": "Resource not found"
+        }
+      },
+      "500": {
+        "description": "Internal Server Error",
+        "body": {
+          "success": false,
+          "message": "Internal server error"
+        }
+      }
+    },
+    "api_keys": {
+      "presenter-001": "presenter-001-api-key-12345",
+      "presenter-002": "presenter-002-api-key-67890",
+      "presenter-003": "presenter-003-api-key-abcde"
+    },
+    "database_schema": {
+      "app_logs": {
+        "description": "Table for storing mobile app logs",
+        "fields": {
+          "id": "BIGINT AUTO_INCREMENT PRIMARY KEY",
+          "timestamp": "BIGINT NOT NULL",
+          "level": "VARCHAR(10) NOT NULL",
+          "tag": "VARCHAR(50) NOT NULL",
+          "message": "TEXT NOT NULL",
+          "user_id": "VARCHAR(50)",
+          "user_role": "VARCHAR(20)",
+          "device_info": "TEXT",
+          "app_version": "VARCHAR(20)",
+          "stack_trace": "TEXT",
+          "exception_type": "VARCHAR(100)",
+          "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        }
+      }
+    },
+    "testing": {
+      "test_script": "test_logs_endpoint.ps1",
+      "description": "PowerShell script to test the logs endpoint",
+      "usage": "Run the script to verify API functionality"
+    }
+  }
+}

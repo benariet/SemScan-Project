@@ -1,0 +1,218 @@
+# MOBILE APP AUTHENTICATION FIX
+# ==============================
+
+## 🎯 PROBLEM IDENTIFIED
+**Issue:** Mobile app shows "Failed to get active sessions" 
+**Root Cause:** Mobile app is NOT sending API key in request headers
+**Result:** Server returns 401 Unauthorized, no sessions returned
+
+## ✅ BACKEND STATUS: WORKING PERFECTLY
+- ✅ API endpoint `/api/v1/sessions/open` works correctly
+- ✅ Database contains open session: `session-498d73cc`
+- ✅ Server returns proper JSON response when API key is provided
+- ✅ Network connection between mobile app and server works
+
+## ❌ MOBILE APP ISSUE: MISSING API KEY
+The mobile app is making requests WITHOUT the required API key header.
+
+### Current Mobile App Request:
+```
+GET /api/v1/sessions/open
+Headers: (missing x-api-key)
+Result: 401 Unauthorized
+```
+
+### Required Mobile App Request:
+```
+GET /api/v1/sessions/open
+Headers: x-api-key: presenter-001-api-key-12345
+Result: 200 OK with session data
+```
+
+## 🔧 MOBILE APP FIXES REQUIRED
+
+### 1. Add API Key Constant
+```java
+// In your mobile app's ApiService.java or Config.java
+private static final String API_KEY = "presenter-001-api-key-12345";
+
+public static String getApiKey() {
+    return API_KEY;
+}
+```
+
+### 2. Update ApiInterface.java
+```java
+// OLD (missing API key)
+@GET("api/v1/sessions/open")
+Call<List<Session>> getOpenSessions();
+
+// NEW (with API key)
+@GET("api/v1/sessions/open")
+Call<List<Session>> getOpenSessions(@Header("x-api-key") String apiKey);
+```
+
+### 3. Update API Calls
+```java
+// OLD (no API key)
+Call<List<Session>> call = apiInterface.getOpenSessions();
+
+// NEW (with API key)
+Call<List<Session>> call = apiInterface.getOpenSessions(ApiService.getApiKey());
+```
+
+### 4. Update All Protected Endpoints
+Make sure ALL protected endpoints include the API key:
+
+```java
+// Seminars
+@GET("api/v1/seminars")
+Call<List<Seminar>> getSeminars(@Header("x-api-key") String apiKey);
+
+// Sessions
+@GET("api/v1/sessions")
+Call<List<Session>> getSessions(@Header("x-api-key") String apiKey);
+
+@GET("api/v1/sessions/open")
+Call<List<Session>> getOpenSessions(@Header("x-api-key") String apiKey);
+
+// Attendance
+@GET("api/v1/attendance/pending-requests")
+Call<List<ManualAttendanceResponse>> getPendingRequests(
+        @Query("sessionId") String sessionId,
+        @Header("x-api-key") String apiKey
+);
+
+@POST("api/v1/attendance/{id}/approve")
+Call<ManualAttendanceResponse> approveRequest(
+        @Path("id") String attendanceId,
+        @Header("x-api-key") String apiKey
+);
+
+@POST("api/v1/attendance/{id}/reject")
+Call<ManualAttendanceResponse> rejectRequest(
+        @Path("id") String attendanceId,
+        @Header("x-api-key") String apiKey
+);
+
+// Export
+@GET("api/v1/export/csv")
+Call<ResponseBody> exportCsv(
+        @Query("sessionId") String sessionId,
+        @Header("x-api-key") String apiKey
+);
+
+@GET("api/v1/export/xlsx")
+Call<ResponseBody> exportXlsx(
+        @Query("sessionId") String sessionId,
+        @Header("x-api-key") String apiKey
+);
+```
+
+## 🧪 TESTING
+
+### Test the API Key
+```bash
+# This works (returns session data)
+curl -H "x-api-key: presenter-001-api-key-12345" http://localhost:8080/api/v1/sessions/open
+
+# This fails (returns 401 Unauthorized)
+curl http://localhost:8080/api/v1/sessions/open
+```
+
+### Expected Response with API Key:
+```json
+[
+  {
+    "sessionId": "session-498d73cc",
+    "seminarId": "seminar-003",
+    "startTime": "2025-10-19T14:47:48",
+    "endTime": null,
+    "status": "OPEN"
+  }
+]
+```
+
+## 📱 MOBILE APP FILES TO UPDATE
+
+### 1. ApiService.java
+- Add API key constant
+- Provide method to get API key
+
+### 2. ApiInterface.java
+- Add `@Header("x-api-key") String apiKey` to all protected endpoints
+- Update method signatures
+
+### 3. All Activities/Fragments
+- Update API calls to pass API key
+- Handle authentication errors properly
+
+### 4. Error Handling
+```java
+@Override
+public void onResponse(Call<List<Session>> call, Response<List<Session>> response) {
+    if (response.isSuccessful()) {
+        // Handle success
+        List<Session> sessions = response.body();
+        updateSessionList(sessions);
+    } else if (response.code() == 401) {
+        // Handle authentication error
+        showError("Authentication failed. Please check API key.");
+    } else {
+        // Handle other errors
+        showError("API Error: " + response.code());
+    }
+}
+```
+
+## 🔑 API KEY INFORMATION
+
+### Required API Key:
+- **Key:** `presenter-001-api-key-12345`
+- **Usage:** All protected endpoints
+- **Header:** `x-api-key`
+
+### Protected Endpoints (Require API Key):
+- `/api/v1/seminars` (GET, POST)
+- `/api/v1/sessions` (GET, POST)
+- `/api/v1/sessions/open` (GET)
+- `/api/v1/attendance/pending-requests` (GET)
+- `/api/v1/attendance/{id}/approve` (POST)
+- `/api/v1/attendance/{id}/reject` (POST)
+- `/api/v1/export/csv` (GET)
+- `/api/v1/export/xlsx` (GET)
+
+### Public Endpoints (No API Key Required):
+- `/api/v1/info/endpoints` (GET)
+- `/api/v1/attendance` (GET, POST)
+- `/api/v1/attendance/session/{sessionId}` (GET)
+- `/api/v1/attendance/manual-request` (POST)
+- `/api/v1/qr/session/{sessionId}` (GET)
+- `/api/v1/qr/config` (GET)
+
+## ✅ EXPECTED RESULTS
+
+After adding the API key to the mobile app:
+- ✅ No more 401 Unauthorized errors
+- ✅ "Failed to get active sessions" error will disappear
+- ✅ Manual attendance will show available sessions
+- ✅ All protected endpoints will work properly
+- ✅ Server logs will show successful authentication
+
+## 🚨 IMPORTANT NOTES
+
+1. **The backend is working perfectly** - No server-side changes needed
+2. **The database has open sessions** - Data is available
+3. **The network connection works** - Mobile app can reach server
+4. **Only the mobile app needs to be updated** - Add API key to requests
+
+## 🎉 SUCCESS!
+
+Once the mobile app includes the API key in request headers:
+- ✅ Manual attendance will work
+- ✅ Session list will load properly
+- ✅ All API calls will succeed
+- ✅ No more authentication errors
+
+---
+**The issue is 100% mobile app authentication - the backend is working perfectly!**

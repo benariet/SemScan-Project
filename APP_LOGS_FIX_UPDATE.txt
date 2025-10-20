@@ -1,0 +1,86 @@
+CRITICAL FIX: App Logs Not Being Saved to Database
+====================================================
+
+ISSUE SUMMARY:
+--------------
+The mobile app logs were not being saved to the app_logs table due to a critical bug 
+in the AppLogService.processLogs() method.
+
+ROOT CAUSE:
+-----------
+The logs were being saved ASYNCHRONOUSLY using CompletableFuture.runAsync(), which caused:
+- Async operations ran outside the database transaction
+- Database save failures were silent (only logged, not reported to client)
+- API returned success immediately without waiting for actual database save
+- Transaction context was lost in async operations
+
+FIX APPLIED:
+-----------
+✅ Changed from async to synchronous database save
+✅ Added proper error handling with exception propagation
+✅ Ensured transaction safety
+✅ Removed unused CompletableFuture imports
+
+CODE CHANGES MADE:
+-----------------
+File: src/main/java/edu/bgu/semscanapi/service/AppLogService.java
+
+BEFORE (Problematic):
+--------------------
+// Save logs asynchronously for better performance
+CompletableFuture.runAsync(() -> {
+    try {
+        appLogRepository.saveAll(appLogs);
+        logger.info("Successfully saved {} log entries", appLogs.size());
+    } catch (Exception e) {
+        logger.error("Error saving log entries", e);
+    }
+});
+
+AFTER (Fixed):
+--------------
+// Save logs synchronously to ensure they are persisted
+try {
+    appLogRepository.saveAll(appLogs);
+    logger.info("Successfully saved {} log entries - Correlation ID: {}", 
+               appLogs.size(), correlationId);
+} catch (Exception e) {
+    logger.error("Error saving log entries - Correlation ID: {}", correlationId, e);
+    throw new RuntimeException("Failed to save log entries", e);
+}
+
+IMPACT:
+-------
+✅ App logs will now be properly saved to database
+✅ Database errors will be reported to mobile apps
+✅ Transaction integrity maintained
+✅ No more silent failures
+
+TESTING:
+--------
+A test script has been created (test_logs_endpoint.ps1) to verify the fix works correctly.
+
+ACTION REQUIRED:
+----------------
+1. Deploy the updated code to production
+2. Test the /api/v1/logs endpoint to confirm logs are being saved
+3. Monitor the app_logs table to verify data is being inserted
+4. Check application logs for any database connection issues
+
+API ENDPOINT DETAILS:
+--------------------
+- Endpoint: POST /api/v1/logs
+- Authentication: API key required (x-api-key header)
+- Sample API Key: presenter-001-api-key-12345
+- Response: Now properly reports success/failure of database save
+
+DATABASE TABLE:
+--------------
+The app_logs table should now receive data with these fields:
+- id, timestamp, level, tag, message
+- user_id, user_role, device_info, app_version
+- stack_trace, exception_type, created_at
+
+STATUS: ✅ FIXED - Ready for deployment and testing
+
+Generated: $(Get-Date)
