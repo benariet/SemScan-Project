@@ -40,3 +40,16 @@ out/
 logs/
 *.log
 *.log.*
+
+### Text Files ###
+*.txt
+*.log
+*.md
+!README.md
+
+### Archives ###
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z

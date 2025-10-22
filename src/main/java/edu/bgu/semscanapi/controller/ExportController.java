@@ -48,40 +48,13 @@ public class ExportController {
      */
     @GetMapping("/csv")
     public ResponseEntity<Object> exportCsv(
-            @RequestParam String sessionId,
-            @RequestHeader("x-api-key") String apiKey) {
+            @RequestParam String sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Exporting CSV for session: {} with API key authentication", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/export/csv?sessionId=" + sessionId, null);
         
         try {
-            // Validate API key
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.warn("No API key provided for CSV export request");
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/csv", 401, "Unauthorized - No API key");
-                
-                ErrorResponse errorResponse = new ErrorResponse(
-                    "API key is required for this request",
-                    "Unauthorized",
-                    401,
-                    "/api/v1/export/csv"
-                );
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-            
-            var presenter = authenticationService.validateApiKey(apiKey);
-            if (presenter.isEmpty()) {
-                logger.warn("Invalid API key provided for CSV export request");
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/csv", 401, "Unauthorized - Invalid API key");
-                
-                ErrorResponse errorResponse = new ErrorResponse(
-                    "Invalid API key provided",
-                    "Unauthorized",
-                    401,
-                    "/api/v1/export/csv"
-                );
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
+            // No API key validation for POC
             
             // Check for pending manual attendance requests
             if (manualAttendanceService.hasPendingRequests(sessionId)) {
@@ -110,8 +83,8 @@ public class ExportController {
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
             headers.setContentDispositionFormData("attachment", "attendance_" + sessionId + ".csv");
             
-            logger.info("CSV export successful for session: {} by presenter: {} - {} records", 
-                sessionId, presenter.get().getUserId(), attendanceList.size());
+            logger.info("CSV export successful for session: {} - {} records", 
+                sessionId, attendanceList.size());
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/csv", 200, 
                 "CSV file with " + attendanceList.size() + " records");
             
@@ -141,40 +114,13 @@ public class ExportController {
      */
     @GetMapping("/xlsx")
     public ResponseEntity<Object> exportXlsx(
-            @RequestParam String sessionId,
-            @RequestHeader("x-api-key") String apiKey) {
+            @RequestParam String sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Exporting XLSX for session: {} with API key authentication", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/export/xlsx?sessionId=" + sessionId, null);
         
         try {
-            // Validate API key
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.warn("No API key provided for XLSX export request");
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/xlsx", 401, "Unauthorized - No API key");
-                
-                ErrorResponse errorResponse = new ErrorResponse(
-                    "API key is required for this request",
-                    "Unauthorized",
-                    401,
-                    "/api/v1/export/xlsx"
-                );
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-            
-            var presenter = authenticationService.validateApiKey(apiKey);
-            if (presenter.isEmpty()) {
-                logger.warn("Invalid API key provided for XLSX export request");
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/xlsx", 401, "Unauthorized - Invalid API key");
-                
-                ErrorResponse errorResponse = new ErrorResponse(
-                    "Invalid API key provided",
-                    "Unauthorized",
-                    401,
-                    "/api/v1/export/xlsx"
-                );
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
+            // No API key validation for POC
             
             // Check for pending manual attendance requests
             if (manualAttendanceService.hasPendingRequests(sessionId)) {
@@ -203,8 +149,8 @@ public class ExportController {
             headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
             headers.setContentDispositionFormData("attachment", "attendance_" + sessionId + ".xlsx");
             
-            logger.info("XLSX export successful for session: {} by presenter: {} - {} records", 
-                sessionId, presenter.get().getUserId(), attendanceList.size());
+            logger.info("XLSX export successful for session: {} - {} records", 
+                sessionId, attendanceList.size());
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/xlsx", 200, 
                 "XLSX file with " + attendanceList.size() + " records");
             

@@ -4,9 +4,8 @@
     "version": "1.0.0",
     "base_url": "http://localhost:8080",
     "authentication": {
-      "type": "API Key",
-      "header": "x-api-key",
-      "description": "All endpoints require API key authentication"
+      "type": "None",
+      "description": "No authentication required - all endpoints are public for POC"
     },
     "endpoints": {
       "app_logs": {
@@ -14,10 +13,9 @@
           "method": "POST",
           "path": "/api/v1/logs",
           "description": "Submit mobile app logs to the server",
-          "authentication": "Required",
+          "authentication": "None",
           "request_headers": {
             "Content-Type": "application/json",
-            "x-api-key": "presenter-001-api-key-12345"
           },
           "request_body": {
             "type": "object",
@@ -137,9 +135,8 @@
           "method": "GET",
           "path": "/api/v1/logs/errors",
           "description": "Retrieve all error logs from the database",
-          "authentication": "Required",
+          "authentication": "None",
           "request_headers": {
-            "x-api-key": "presenter-001-api-key-12345"
           },
           "response": {
             "success": {
@@ -167,9 +164,8 @@
           "method": "GET",
           "path": "/api/v1/logs/recent",
           "description": "Retrieve recent logs with optional limit",
-          "authentication": "Required",
+          "authentication": "None",
           "request_headers": {
-            "x-api-key": "presenter-001-api-key-12345"
           },
           "query_parameters": {
             "limit": {
@@ -203,9 +199,8 @@
           "method": "GET",
           "path": "/api/v1/logs/stats",
           "description": "Get log statistics by level",
-          "authentication": "Required",
+          "authentication": "None",
           "request_headers": {
-            "x-api-key": "presenter-001-api-key-12345"
           },
           "response": {
             "success": {
@@ -226,10 +221,9 @@
           "method": "POST",
           "path": "/api/v1/attendance/record",
           "description": "Record student attendance for a session",
-          "authentication": "Required",
+          "authentication": "None",
           "request_headers": {
             "Content-Type": "application/json",
-            "x-api-key": "presenter-001-api-key-12345"
           },
           "request_body": {
             "type": "object",
@@ -279,9 +273,8 @@
           "method": "GET",
           "path": "/api/v1/attendance/{sessionId}",
           "description": "Get attendance records for a specific session",
-          "authentication": "Required",
+          "authentication": "None",
           "request_headers": {
-            "x-api-key": "presenter-001-api-key-12345"
           },
           "path_parameters": {
             "sessionId": {
@@ -312,10 +305,9 @@
           "method": "POST",
           "path": "/api/v1/sessions",
           "description": "Create a new attendance session",
-          "authentication": "Required",
+          "authentication": "None",
           "request_headers": {
             "Content-Type": "application/json",
-            "x-api-key": "presenter-001-api-key-12345"
           },
           "request_body": {
             "type": "object",
@@ -366,9 +358,8 @@
           "method": "GET",
           "path": "/api/v1/sessions/{sessionId}",
           "description": "Get session details",
-          "authentication": "Required",
+          "authentication": "None",
           "request_headers": {
-            "x-api-key": "presenter-001-api-key-12345"
           },
           "path_parameters": {
             "sessionId": {
@@ -399,9 +390,8 @@
           "method": "GET",
           "path": "/api/v1/students/{studentId}",
           "description": "Get student information",
-          "authentication": "Required",
+          "authentication": "None",
           "request_headers": {
-            "x-api-key": "presenter-001-api-key-12345"
           },
           "path_parameters": {
             "studentId": {
@@ -519,9 +509,7 @@
       }
     },
     "api_keys": {
-      "presenter-001": "presenter-001-api-key-12345",
-      "presenter-002": "presenter-002-api-key-67890",
-      "presenter-003": "presenter-003-api-key-abcde"
+      "note": "No API keys required for POC"
     },
     "database_schema": {
       "app_logs": {

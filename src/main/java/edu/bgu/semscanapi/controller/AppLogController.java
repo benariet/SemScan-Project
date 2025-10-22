@@ -40,7 +40,6 @@ public class AppLogController {
      */
     @PostMapping
     public ResponseEntity<Object> receiveLogs(
-            @RequestHeader("x-api-key") String apiKey,
             @RequestBody LogRequest request,
             HttpServletRequest httpRequest) {
         
@@ -49,7 +48,7 @@ public class AppLogController {
         // Enhanced debug logging
         System.out.println("=== LOG REQUEST DEBUG ===");
         System.out.println("Correlation ID: " + correlationId);
-        System.out.println("API Key: " + (apiKey != null ? "***" + apiKey.substring(Math.max(0, apiKey.length() - 4)) : "null"));
+        System.out.println("API Key: Not required for POC");
         System.out.println("Remote Address: " + httpRequest.getRemoteAddr());
         System.out.println("Content-Type: " + httpRequest.getContentType());
         System.out.println("Request Body: " + (request != null ? request.toString() : "null"));
@@ -61,34 +60,14 @@ public class AppLogController {
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/logs", request != null ? request.toString() : null);
         
         try {
-            // Validate API key
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.warn("No API key provided for logs request - Correlation ID: {}", correlationId);
-                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/logs", 401, "Unauthorized - No API key");
-                
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("success", "false");
-                errorResponse.put("message", "API key is required");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-            
-            var presenter = authenticationService.validateApiKey(apiKey);
-            if (presenter.isEmpty()) {
-                logger.warn("Invalid API key provided for logs request - Correlation ID: {}", correlationId);
-                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/logs", 401, "Unauthorized - Invalid API key");
-                
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("success", "false");
-                errorResponse.put("message", "Invalid API key");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
+            // No API key validation for POC
             
             // Process logs
             LogResponse response = appLogService.processLogs(request);
             
             if (response.isSuccess()) {
-                logger.info("Logs processed successfully - {} entries by presenter: {} - Correlation ID: {}", 
-                           response.getProcessedCount(), presenter.get().getUserId(), correlationId);
+                logger.info("Logs processed successfully - {} entries - Correlation ID: {}", 
+                           response.getProcessedCount(), correlationId);
                 LoggerUtil.logApiResponse(logger, "POST", "/api/v1/logs", 200, 
                     "Processed " + response.getProcessedCount() + " log entries");
                 
@@ -120,31 +99,13 @@ public class AppLogController {
      * GET /api/v1/logs/errors
      */
     @GetMapping("/errors")
-    public ResponseEntity<Object> getErrorLogs(@RequestHeader("x-api-key") String apiKey) {
+    public ResponseEntity<Object> getErrorLogs() {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving error logs - Correlation ID: {}", correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/errors", null);
         
         try {
-            // Validate API key
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.warn("No API key provided for error logs request - Correlation ID: {}", correlationId);
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/errors", 401, "Unauthorized - No API key");
-                
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("error", "API key is required");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-            
-            var presenter = authenticationService.validateApiKey(apiKey);
-            if (presenter.isEmpty()) {
-                logger.warn("Invalid API key provided for error logs request - Correlation ID: {}", correlationId);
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/errors", 401, "Unauthorized - Invalid API key");
-                
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("error", "Invalid API key");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
+            // No API key validation for POC
             
             List<AppLog> errorLogs = appLogService.getErrorLogs();
             
@@ -173,7 +134,6 @@ public class AppLogController {
      */
     @GetMapping("/recent")
     public ResponseEntity<Object> getRecentLogs(
-            @RequestHeader("x-api-key") String apiKey,
             @RequestParam(defaultValue = "100") int limit) {
         
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
@@ -181,25 +141,7 @@ public class AppLogController {
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/recent?limit=" + limit, null);
         
         try {
-            // Validate API key
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.warn("No API key provided for recent logs request - Correlation ID: {}", correlationId);
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/recent", 401, "Unauthorized - No API key");
-                
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("error", "API key is required");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-            
-            var presenter = authenticationService.validateApiKey(apiKey);
-            if (presenter.isEmpty()) {
-                logger.warn("Invalid API key provided for recent logs request - Correlation ID: {}", correlationId);
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/recent", 401, "Unauthorized - Invalid API key");
-                
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("error", "Invalid API key");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
+            // No API key validation for POC
             
             List<AppLog> recentLogs = appLogService.getRecentLogs(limit);
             
@@ -227,31 +169,13 @@ public class AppLogController {
      * GET /api/v1/logs/stats
      */
     @GetMapping("/stats")
-    public ResponseEntity<Object> getLogStats(@RequestHeader("x-api-key") String apiKey) {
+    public ResponseEntity<Object> getLogStats() {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving log statistics - Correlation ID: {}", correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/stats", null);
         
         try {
-            // Validate API key
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.warn("No API key provided for log stats request - Correlation ID: {}", correlationId);
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/stats", 401, "Unauthorized - No API key");
-                
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("error", "API key is required");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-            
-            var presenter = authenticationService.validateApiKey(apiKey);
-            if (presenter.isEmpty()) {
-                logger.warn("Invalid API key provided for log stats request - Correlation ID: {}", correlationId);
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/stats", 401, "Unauthorized - Invalid API key");
-                
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("error", "Invalid API key");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
+            // No API key validation for POC
             
             Map<String, Object> stats = new HashMap<>();
             stats.put("totalLogs", appLogService.getTotalLogCount());

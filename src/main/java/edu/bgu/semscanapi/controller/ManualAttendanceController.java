@@ -3,6 +3,8 @@ package edu.bgu.semscanapi.controller;
 import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.dto.ManualAttendanceRequest;
 import edu.bgu.semscanapi.dto.ManualAttendanceResponse;
+import edu.bgu.semscanapi.entity.User;
+import edu.bgu.semscanapi.service.AuthenticationService;
 import edu.bgu.semscanapi.service.ManualAttendanceService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import jakarta.validation.Valid;
@@ -24,6 +26,19 @@ public class ManualAttendanceController {
     
     @Autowired
     private ManualAttendanceService manualAttendanceService;
+    
+    @Autowired
+    private AuthenticationService authenticationService;
+    
+    /**
+     * Get the first available presenter for POC
+     * In a real application, this would be determined by the authenticated user
+     */
+    private String getDefaultPresenterId() {
+        // For POC, get the first presenter from the database
+        // In production, this would come from the authenticated user context
+        return authenticationService.getFirstPresenterId();
+    }
     
     /**
      * Create a manual attendance request
@@ -101,22 +116,12 @@ public class ManualAttendanceController {
      * POST /api/v1/attendance/{attendanceId}/approve
      */
     @PostMapping("/{attendanceId}/approve")
-    public ResponseEntity<Object> approveRequest(@PathVariable String attendanceId,
-                                               @RequestHeader("x-api-key") String apiKey) {
+    public ResponseEntity<Object> approveRequest(@PathVariable String attendanceId) {
         logger.info("Approving manual attendance request: {}", attendanceId);
         
         try {
-            // Extract presenter ID from API key (you might want to add this to your authentication service)
-            String presenterId = extractPresenterIdFromApiKey(apiKey);
-            if (presenterId == null) {
-                ErrorResponse errorResponse = new ErrorResponse(
-                    "Invalid API key",
-                    "Unauthorized",
-                    401,
-                    "/api/v1/attendance/" + attendanceId + "/approve"
-                );
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
+            // No API key validation for POC - use default presenter
+            String presenterId = getDefaultPresenterId();
             
             ManualAttendanceResponse response = manualAttendanceService.approveRequest(attendanceId, presenterId);
             logger.info("Manual attendance request approved successfully - ID: {}", attendanceId);
@@ -149,22 +154,12 @@ public class ManualAttendanceController {
      * POST /api/v1/attendance/{attendanceId}/reject
      */
     @PostMapping("/{attendanceId}/reject")
-    public ResponseEntity<Object> rejectRequest(@PathVariable String attendanceId,
-                                              @RequestHeader("x-api-key") String apiKey) {
+    public ResponseEntity<Object> rejectRequest(@PathVariable String attendanceId) {
         logger.info("Rejecting manual attendance request: {}", attendanceId);
         
         try {
-            // Extract presenter ID from API key
-            String presenterId = extractPresenterIdFromApiKey(apiKey);
-            if (presenterId == null) {
-                ErrorResponse errorResponse = new ErrorResponse(
-                    "Invalid API key",
-                    "Unauthorized",
-                    401,
-                    "/api/v1/attendance/" + attendanceId + "/reject"
-                );
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
+            // No API key validation for POC - use default presenter
+            String presenterId = getDefaultPresenterId();
             
             ManualAttendanceResponse response = manualAttendanceService.rejectRequest(attendanceId, presenterId);
             logger.info("Manual attendance request rejected - ID: {}", attendanceId);

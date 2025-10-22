@@ -285,4 +285,25 @@ public class AuthenticationService {
         public long getActiveKeys() { return activeKeys; }
         public long getInactiveKeys() { return inactiveKeys; }
     }
+    
+    /**
+     * Get the first available presenter ID for POC
+     * In production, this would come from the authenticated user context
+     */
+    @Transactional(readOnly = true)
+    public String getFirstPresenterId() {
+        logger.debug("Getting first available presenter ID for POC");
+        
+        // Get the first presenter from the database
+        List<User> presenters = userRepository.findByRole(User.UserRole.PRESENTER);
+        
+        if (!presenters.isEmpty()) {
+            String presenterId = presenters.get(0).getUserId();
+            logger.info("Found first presenter for POC: {} ({} {})", 
+                       presenterId, presenters.get(0).getFirstName(), presenters.get(0).getLastName());
+            return presenterId;
+        } else {
+            throw new RuntimeException("No presenters found in database - cannot proceed without valid presenter");
+        }
+    }
 }

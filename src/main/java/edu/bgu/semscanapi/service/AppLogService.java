@@ -41,6 +41,12 @@ public class AppLogService {
             // Validate logs
             validateLogs(logEntries);
             
+            // Handle empty logs list gracefully
+            if (logEntries.isEmpty()) {
+                logger.info("No log entries to process - Correlation ID: {}", correlationId);
+                return LogResponse.success(0);
+            }
+            
             // Convert DTOs to entities
             List<AppLog> appLogs = convertToEntities(logEntries);
             
@@ -75,8 +81,14 @@ public class AppLogService {
      * Validate log entries
      */
     private void validateLogs(List<AppLogEntry> logs) {
-        if (logs == null || logs.isEmpty()) {
-            throw new IllegalArgumentException("No logs provided");
+        if (logs == null) {
+            throw new IllegalArgumentException("Logs list is null");
+        }
+        
+        // Allow empty logs list - mobile app may send 0 entries
+        if (logs.isEmpty()) {
+            logger.debug("Received empty logs list - this is valid");
+            return;
         }
         
         for (AppLogEntry log : logs) {

@@ -47,28 +47,17 @@ public class SecurityConfig {
                 // Configure session management
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 
-                // Configure authorization
+                // Configure authorization - ALL ENDPOINTS PUBLIC FOR POC
                 .authorizeHttpRequests(authz -> authz
-                    // Public endpoints
-                    .requestMatchers("/api/v1/attendance/**").permitAll()
-                    .requestMatchers("/api/v1/info/**").permitAll()
-                    .requestMatchers("/api/v1/qr/**").permitAll() // QR code endpoints
-                    .requestMatchers("/api/v1/logs/**").permitAll() // App logs endpoints
-                    .requestMatchers("/actuator/health").permitAll()
-                    .requestMatchers("/actuator/info").permitAll()
+                    // All API endpoints are public (no API key required)
+                    .requestMatchers("/api/**").permitAll()
+                    .requestMatchers("/actuator/**").permitAll()
                     
-                    // Protected endpoints (require API key)
-                    .requestMatchers("/api/v1/seminars/**").authenticated()
-                    .requestMatchers("/api/v1/sessions/**").authenticated()
-                    .requestMatchers("/actuator/**").authenticated()
-                    
-                    // All other requests require authentication
-                    .anyRequest().authenticated()
+                    // All other requests are also public
+                    .anyRequest().permitAll()
                 )
                 
-                // Add custom API key authentication filter
-                .addFilterBefore(new ApiKeyAuthenticationFilter(authenticationService), 
-                    UsernamePasswordAuthenticationFilter.class)
+                // No API key authentication filter needed for POC
                 
                 // Configure exception handling
                 .exceptionHandling(exceptions -> exceptions
