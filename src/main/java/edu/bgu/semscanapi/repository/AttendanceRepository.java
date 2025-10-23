@@ -17,7 +17,7 @@ import java.util.Optional;
  * Provides data access methods with comprehensive logging
  */
 @Repository
-public interface AttendanceRepository extends JpaRepository<Attendance, String> {
+public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     
     Logger logger = LoggerUtil.getLogger(AttendanceRepository.class);
     
@@ -25,6 +25,11 @@ public interface AttendanceRepository extends JpaRepository<Attendance, String> 
      * Find attendance records by session ID
      */
     List<Attendance> findBySessionId(String sessionId);
+    
+    /**
+     * Find attendance by attendance ID (string ID)
+     */
+    Optional<Attendance> findByAttendanceId(String attendanceId);
     
     /**
      * Find attendance records by student ID

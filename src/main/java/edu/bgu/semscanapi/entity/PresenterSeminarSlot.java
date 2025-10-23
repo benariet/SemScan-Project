@@ -7,10 +7,14 @@ import jakarta.persistence.*;
 public class PresenterSeminarSlot {
 
     @Id
-    @Column(name = "presenter_seminar_slot_id", length = 36)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "presenter_seminar_slot_id", length = 30, unique = true)
     private String presenterSeminarSlotId;
 
-    @Column(name = "presenter_seminar_id", length = 36, nullable = false)
+    @Column(name = "presenter_seminar_id", nullable = false)
     private String presenterSeminarId;
 
     @Column(name = "weekday", nullable = false)
@@ -22,6 +26,8 @@ public class PresenterSeminarSlot {
     @Column(name = "end_hour", nullable = false)
     private Integer endHour; // 1-24
 
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
     public String getPresenterSeminarSlotId() { return presenterSeminarSlotId; }
     public void setPresenterSeminarSlotId(String presenterSeminarSlotId) { this.presenterSeminarSlotId = presenterSeminarSlotId; }
     public String getPresenterSeminarId() { return presenterSeminarId; }

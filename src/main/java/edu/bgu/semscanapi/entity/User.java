@@ -8,7 +8,11 @@ import java.util.Objects;
 public class User {
 
     @Id
-    @Column(name = "user_id", length = 36)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "user_id", length = 30, unique = true)
     private String userId;
 
     @Column(name = "first_name")
@@ -33,6 +37,14 @@ public class User {
     // UserRole enum
     public enum UserRole {
         STUDENT, PRESENTER
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public String getUserId() {
@@ -99,7 +111,8 @@ public class User {
     @Override
     public String toString() {
         return "User{" +
-                "userId='" + userId + '\'' +
+                "id=" + id +
+                ", userId='" + userId + '\'' +
                 ", firstName='" + firstName + '\'' +
                 ", lastName='" + lastName + '\'' +
                 ", email='" + email + '\'' +

@@ -17,7 +17,7 @@ import java.util.Optional;
  * Provides data access methods with comprehensive logging
  */
 @Repository
-public interface SessionRepository extends JpaRepository<Session, String> {
+public interface SessionRepository extends JpaRepository<Session, Long> {
     
     Logger logger = LoggerUtil.getLogger(SessionRepository.class);
     
@@ -25,6 +25,11 @@ public interface SessionRepository extends JpaRepository<Session, String> {
      * Find sessions by seminar ID
      */
     List<Session> findBySeminarId(String seminarId);
+    
+    /**
+     * Find session by session ID (string ID)
+     */
+    Optional<Session> findBySessionId(String sessionId);
     
     /**
      * Find sessions by status

@@ -10,7 +10,7 @@ import java.util.Map;
 
 /**
  * Test controller for development and testing purposes
- * Provides test endpoints and API key information
+ * Provides test endpoints and system information
  */
 @RestController
 @RequestMapping("/api/v1/test")
@@ -20,20 +20,20 @@ public class TestController {
     private static final Logger logger = LoggerUtil.getLogger(TestController.class);
 
     /**
-     * Get test API key for development
+     * Get system information for development
      */
-    @GetMapping("/api-key")
-    public ResponseEntity<Object> getTestApiKey() {
+    @GetMapping("/info")
+    public ResponseEntity<Object> getSystemInfo() {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Providing test API key - Correlation ID: {}", correlationId);
+        logger.info("Providing system info - Correlation ID: {}", correlationId);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("testApiKey", "presenter-001-api-key-12345");
-        response.put("message", "Use this API key for testing in Swagger UI");
-        response.put("instructions", "Click 'Authorize' button in Swagger UI and enter this key");
+        response.put("message", "SemScan API is running");
+        response.put("note", "No authentication required for POC");
+        response.put("status", "ready");
         response.put("correlationId", correlationId);
 
-        logger.info("Test API key provided successfully - Correlation ID: {}", correlationId);
+        logger.info("System info provided successfully - Correlation ID: {}", correlationId);
         return ResponseEntity.ok(response);
     }
 
@@ -47,7 +47,7 @@ public class TestController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("testEndpoints", new String[]{
-            "/api/v1/test/api-key",
+            "/api/v1/test/info",
             "/api/v1/test/endpoints",
             "/api/v1/info/endpoints"
         });

@@ -249,7 +249,8 @@ public class ExportController {
                 dataRow.createCell(6).setCellValue(attendance.getManualReason() != null ? attendance.getManualReason() : "");
                 dataRow.createCell(7).setCellValue(attendance.getRequestedAt() != null ? 
                     attendance.getRequestedAt().format(formatter) : "");
-                dataRow.createCell(8).setCellValue(attendance.getApprovedBy() != null ? attendance.getApprovedBy() : "");
+                String approvedBy = attendance.getApprovedBy() != null ? attendance.getApprovedBy() : "";
+                dataRow.createCell(8).setCellValue(approvedBy);
                 dataRow.createCell(9).setCellValue(attendance.getApprovedAt() != null ? 
                     attendance.getApprovedAt().format(formatter) : "");
             }

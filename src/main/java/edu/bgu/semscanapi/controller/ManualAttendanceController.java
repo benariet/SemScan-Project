@@ -9,6 +9,7 @@ import edu.bgu.semscanapi.service.ManualAttendanceService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +38,11 @@ public class ManualAttendanceController {
     private String getDefaultPresenterId() {
         // For POC, get the first presenter from the database
         // In production, this would come from the authenticated user context
-        return authenticationService.getFirstPresenterId();
+        List<User> presenters = authenticationService.findPresenters();
+        if (!presenters.isEmpty()) {
+            return presenters.get(0).getUserId();
+        }
+        throw new RuntimeException("No presenters found in the system");
     }
     
     /**
@@ -213,21 +218,10 @@ public class ManualAttendanceController {
     
     /**
      * Extract presenter ID from API key
-     * This is a simplified implementation - you might want to enhance this
+     * No API key authentication for POC - return null
      */
     private String extractPresenterIdFromApiKey(String apiKey) {
-        // This is a simplified implementation
-        // In a real application, you would validate the API key and return the associated presenter ID
-        // For now, we'll use a simple mapping based on the existing API keys
-        switch (apiKey) {
-            case "presenter-001-api-key-12345":
-                return "presenter-001";
-            case "presenter-002-api-key-67890":
-                return "presenter-002";
-            case "presenter-003-api-key-abcde":
-                return "presenter-003";
-            default:
-                return null;
-        }
+        // No API key authentication for POC
+        return null;
     }
 }

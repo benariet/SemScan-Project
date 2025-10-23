@@ -10,13 +10,17 @@ import com.fasterxml.jackson.annotation.JsonRawValue;
 public class Attendance {
 
     @Id
-    @Column(name = "attendance_id", length = 36)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "attendance_id", length = 30, unique = true)
     private String attendanceId;
 
-    @Column(name = "session_id", length = 36)
+    @Column(name = "session_id")
     private String sessionId;
 
-    @Column(name = "student_id", length = 36)
+    @Column(name = "student_id")
     private String studentId;
 
     @Column(name = "attendance_time")
@@ -37,7 +41,7 @@ public class Attendance {
     @Column(name = "requested_at")
     private LocalDateTime requestedAt;
 
-    @Column(name = "approved_by", length = 36)
+    @Column(name = "approved_by")
     private String approvedBy;
 
     @Column(name = "approved_at")
@@ -64,6 +68,14 @@ public class Attendance {
     }
 
     // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getAttendanceId() {
         return attendanceId;
     }
@@ -166,26 +178,27 @@ public class Attendance {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Attendance that = (Attendance) o;
-        return Objects.equals(attendanceId, that.attendanceId);
+        return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(attendanceId);
+        return Objects.hash(id);
     }
 
     @Override
     public String toString() {
         return "Attendance{" +
-                "attendanceId='" + attendanceId + '\'' +
-                ", sessionId='" + sessionId + '\'' +
-                ", studentId='" + studentId + '\'' +
+                "id=" + id +
+                ", attendanceId='" + attendanceId + '\'' +
+                ", sessionId=" + sessionId +
+                ", studentId=" + studentId +
                 ", attendanceTime=" + attendanceTime +
                 ", method=" + method +
                 ", requestStatus=" + requestStatus +
                 ", manualReason='" + manualReason + '\'' +
                 ", requestedAt=" + requestedAt +
-                ", approvedBy='" + approvedBy + '\'' +
+                ", approvedBy=" + approvedBy +
                 ", approvedAt=" + approvedAt +
                 ", deviceId='" + deviceId + '\'' +
                 ", autoFlags='" + autoFlags + '\'' +

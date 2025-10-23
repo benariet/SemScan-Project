@@ -6,7 +6,6 @@ import org.slf4j.MDC;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 /**
  * Utility class for consistent logging across the SemScan API
@@ -42,7 +41,7 @@ public class LoggerUtil {
      * Generate and set a new correlation ID
      */
     public static String generateAndSetCorrelationId() {
-        String correlationId = UUID.randomUUID().toString().substring(0, 8);
+        String correlationId = "CORREL-" + String.format("%04d", (int)(Math.random() * 9000) + 10000) + "-" + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
         setCorrelationId(correlationId);
         return correlationId;
     }
@@ -57,7 +56,16 @@ public class LoggerUtil {
     }
     
     /**
-     * Set student ID for context (alias for setUserId)
+     * Set student ID for context (accepts Long ID)
+     */
+    public static void setStudentId(Long studentId) {
+        if (studentId != null) {
+            MDC.put(USER_ID_KEY, studentId.toString());
+        }
+    }
+    
+    /**
+     * Set student ID for context (accepts String ID)
      */
     public static void setStudentId(String studentId) {
         if (studentId != null && !studentId.isEmpty()) {
@@ -66,7 +74,7 @@ public class LoggerUtil {
     }
     
     /**
-     * Set session ID for context
+     * Set session ID for context (accepts String ID)
      */
     public static void setSessionId(String sessionId) {
         if (sessionId != null && !sessionId.isEmpty()) {
@@ -75,11 +83,29 @@ public class LoggerUtil {
     }
     
     /**
-     * Set seminar ID for context
+     * Set session ID for context (accepts Long ID)
+     */
+    public static void setSessionId(Long sessionId) {
+        if (sessionId != null) {
+            MDC.put(SESSION_ID_KEY, sessionId.toString());
+        }
+    }
+    
+    /**
+     * Set seminar ID for context (accepts String ID)
      */
     public static void setSeminarId(String seminarId) {
         if (seminarId != null && !seminarId.isEmpty()) {
             MDC.put(SEMINAR_ID_KEY, seminarId);
+        }
+    }
+    
+    /**
+     * Set seminar ID for context (accepts Long ID)
+     */
+    public static void setSeminarId(Long seminarId) {
+        if (seminarId != null) {
+            MDC.put(SEMINAR_ID_KEY, seminarId.toString());
         }
     }
     
@@ -130,8 +156,8 @@ public class LoggerUtil {
     /**
      * Log authentication event
      */
-    public static void logAuthentication(Logger logger, String event, String userId, String apiKey) {
-        logger.info("Authentication - Event: {}, User: {}, API Key: {}", event, userId, apiKey != null ? "***" + apiKey.substring(Math.max(0, apiKey.length() - 4)) : "null");
+    public static void logAuthentication(Logger logger, String event, String userId, String authToken) {
+        logger.info("Authentication - Event: {}, User: {}, Token: {}", event, userId, authToken != null ? "***" + authToken.substring(Math.max(0, authToken.length() - 4)) : "null");
     }
     
     /**

@@ -16,7 +16,7 @@ import java.util.Optional;
  * Provides data access methods with comprehensive logging
  */
 @Repository
-public interface SeminarRepository extends JpaRepository<Seminar, String> {
+public interface SeminarRepository extends JpaRepository<Seminar, Long> {
     
     Logger logger = LoggerUtil.getLogger(SeminarRepository.class);
     
@@ -24,6 +24,11 @@ public interface SeminarRepository extends JpaRepository<Seminar, String> {
      * Find seminar by seminar code
      */
     Optional<Seminar> findBySeminarCode(String seminarCode);
+    
+    /**
+     * Find seminar by seminar ID (string ID)
+     */
+    Optional<Seminar> findBySeminarId(String seminarId);
     
     /**
      * Find seminars by presenter ID

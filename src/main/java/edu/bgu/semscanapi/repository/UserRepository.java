@@ -16,7 +16,7 @@ import java.util.Optional;
  * Provides data access methods with comprehensive logging
  */
 @Repository
-public interface UserRepository extends JpaRepository<User, String> {
+public interface UserRepository extends JpaRepository<User, Long> {
     
     Logger logger = LoggerUtil.getLogger(UserRepository.class);
     
@@ -29,6 +29,11 @@ public interface UserRepository extends JpaRepository<User, String> {
      * Find user by student ID
      */
     Optional<User> findByStudentId(String studentId);
+    
+    /**
+     * Find user by user ID (string ID)
+     */
+    Optional<User> findByUserId(String userId);
     
     /**
      * Find users by role

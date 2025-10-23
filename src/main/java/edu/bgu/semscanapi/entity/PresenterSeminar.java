@@ -8,10 +8,14 @@ import java.time.LocalDateTime;
 public class PresenterSeminar {
 
     @Id
-    @Column(name = "presenter_seminar_id", length = 36)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "presenter_seminar_id", length = 30, unique = true)
     private String presenterSeminarId;
 
-    @Column(name = "presenter_id", length = 36, nullable = false)
+    @Column(name = "presenter_id", nullable = false)
     private String presenterId;
 
     @Column(name = "seminar_name")
@@ -20,6 +24,9 @@ public class PresenterSeminar {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
     public String getPresenterSeminarId() { return presenterSeminarId; }
     public void setPresenterSeminarId(String presenterSeminarId) { this.presenterSeminarId = presenterSeminarId; }
     public String getPresenterId() { return presenterId; }
@@ -28,6 +35,7 @@ public class PresenterSeminar {
     public void setSeminarName(String seminarName) { this.seminarName = seminarName; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
 }
 
 

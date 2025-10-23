@@ -1,6 +1,5 @@
 package edu.bgu.semscanapi.config;
 
-import edu.bgu.semscanapi.filter.ApiKeyAuthenticationFilter;
 import edu.bgu.semscanapi.service.AuthenticationService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
@@ -55,29 +54,9 @@ public class SecurityConfig {
                     
                     // All other requests are also public
                     .anyRequest().permitAll()
-                )
-                
-                // No API key authentication filter needed for POC
-                
-                // Configure exception handling
-                .exceptionHandling(exceptions -> exceptions
-                    .authenticationEntryPoint((request, response, authException) -> {
-                        logger.warn("Authentication failed for request: {} - {}", 
-                            request.getMethod(), request.getRequestURI());
-                        LoggerUtil.logAuthentication(logger, "AUTHENTICATION_FAILED", null, 
-                            request.getHeader("X-API-Key"));
-                        response.setStatus(401);
-                        response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Valid API key required\"}");
-                    })
-                    .accessDeniedHandler((request, response, accessDeniedException) -> {
-                        logger.warn("Access denied for request: {} - {}", 
-                            request.getMethod(), request.getRequestURI());
-                        LoggerUtil.logAuthentication(logger, "ACCESS_DENIED", null, 
-                            request.getHeader("X-API-Key"));
-                        response.setStatus(403);
-                        response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"Insufficient permissions\"}");
-                    })
                 );
+                
+                // No authentication required for POC
             
             logger.info("Spring Security filter chain configured successfully");
             return http.build();

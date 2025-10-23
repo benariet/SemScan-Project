@@ -8,7 +8,11 @@ import java.util.Objects;
 public class Seminar {
 
     @Id
-    @Column(name = "seminar_id", length = 36)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "seminar_id", length = 30, unique = true)
     private String seminarId;
 
     @Column(name = "seminar_name")
@@ -20,13 +24,21 @@ public class Seminar {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "presenter_id", length = 36)
+    @Column(name = "presenter_id")
     private String presenterId;
 
     public Seminar() {
     }
 
     // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getSeminarId() {
         return seminarId;
     }
@@ -72,22 +84,23 @@ public class Seminar {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Seminar seminar = (Seminar) o;
-        return Objects.equals(seminarId, seminar.seminarId);
+        return Objects.equals(id, seminar.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(seminarId);
+        return Objects.hash(id);
     }
 
     @Override
     public String toString() {
         return "Seminar{" +
-                "seminarId='" + seminarId + '\'' +
+                "id=" + id +
+                ", seminarId='" + seminarId + '\'' +
                 ", seminarName='" + seminarName + '\'' +
                 ", seminarCode='" + seminarCode + '\'' +
                 ", description='" + description + '\'' +
-                ", presenterId='" + presenterId + '\'' +
+                ", presenterId=" + presenterId +
                 '}';
     }
 }

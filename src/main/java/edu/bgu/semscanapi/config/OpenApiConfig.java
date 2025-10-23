@@ -40,12 +40,11 @@ public class OpenApiConfig {
                         new Server()
                                 .url("http://132.73.167.231:8080")
                                 .description("Production server")))
-                .addSecurityItem(new SecurityRequirement().addList("ApiKeyAuth"))
+                .addSecurityItem(new SecurityRequirement().addList("NoAuth"))
                 .components(new io.swagger.v3.oas.models.Components()
-                        .addSecuritySchemes("ApiKeyAuth", new SecurityScheme()
-                                .type(SecurityScheme.Type.APIKEY)
-                                .in(SecurityScheme.In.HEADER)
-                                .name("x-api-key")
-                                .description("API key for authentication")));
+                        .addSecuritySchemes("NoAuth", new SecurityScheme()
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .description("No authentication required for POC")));
     }
 }

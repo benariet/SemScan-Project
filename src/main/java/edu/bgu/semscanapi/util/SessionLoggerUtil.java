@@ -6,7 +6,6 @@ import org.slf4j.MDC;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 /**
  * Utility class for session-specific logging.
@@ -152,6 +151,6 @@ public class SessionLoggerUtil {
      * @return A unique identifier for session logging
      */
     public static String generateSessionLogId() {
-        return "session-" + UUID.randomUUID().toString().substring(0, 8);
+        return "SESLOG-" + String.format("%04d", (int)(Math.random() * 9000) + 10000) + "-" + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
     }
 }

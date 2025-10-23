@@ -85,16 +85,16 @@ public class PresenterSeminarController {
         }
         logger.info("Validated {} slots - Correlation ID: {}", body.slots.size(), correlationId);
         // Persist
-        String psId = java.util.UUID.randomUUID().toString();
         PresenterSeminar ps = new PresenterSeminar();
-        ps.setPresenterSeminarId(psId);
+        ps.setPresenterSeminarId("TEMP-ID"); // Temporary ID - database trigger will override
         ps.setPresenterId(presenterId);
         ps.setSeminarName(body.seminarName);
         seminars.save(ps);
+        String psId = ps.getPresenterSeminarId(); // Get the auto-generated ID
         logger.debug("PresenterSeminar saved: {} - Correlation ID: {}", psId, correlationId);
         for (SeminarSlotDto s : body.slots) {
             PresenterSeminarSlot slot = new PresenterSeminarSlot();
-            slot.setPresenterSeminarSlotId(java.util.UUID.randomUUID().toString());
+            slot.setPresenterSeminarSlotId("TEMP-ID"); // Temporary ID - database trigger will override
             slot.setPresenterSeminarId(psId);
             slot.setWeekday(s.weekday);
             slot.setStartHour(s.startHour);
@@ -117,14 +117,15 @@ public class PresenterSeminarController {
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/presenters/"+presenterId+"/seminars/"+psId, null);
         // No authentication required for POC
         logger.info("Processing seminar delete for presenter {} - Correlation ID: {}", presenterId, correlationId);
-        if (!seminars.existsById(psId)) {
+        Optional<PresenterSeminar> seminar = seminars.findByPresenterSeminarId(psId);
+        if (seminar.isEmpty()) {
             LoggerUtil.logApiResponse(logger, "DELETE", "/api/v1/presenters/"+presenterId+"/seminars/"+psId, 404, "Not Found");
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Seminar tile not found"));
         }
         // remove slots then tile
         slots.findByPresenterSeminarIdOrderByWeekdayAscStartHourAsc(psId)
-                .forEach(s -> slots.deleteById(s.getPresenterSeminarSlotId()));
-        seminars.deleteById(psId);
+                .forEach(s -> slots.delete(s));
+        seminars.delete(seminar.get());
         LoggerUtil.logApiResponse(logger, "DELETE", "/api/v1/presenters/"+presenterId+"/seminars/"+psId, 204, "Deleted");
         return ResponseEntity.noContent().build();
     }

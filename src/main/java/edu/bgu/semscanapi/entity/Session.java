@@ -9,10 +9,14 @@ import java.util.Objects;
 public class Session {
 
     @Id
-    @Column(name = "session_id", length = 36)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "session_id", length = 30, unique = true)
     private String sessionId;
 
-    @Column(name = "seminar_id", length = 36)
+    @Column(name = "seminar_id")
     private String seminarId;
 
     @Column(name = "start_time")
@@ -35,6 +39,14 @@ public class Session {
     }
 
     // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public String getSessionId() {
         return sessionId;
     }
@@ -92,8 +104,9 @@ public class Session {
     @Override
     public String toString() {
         return "Session{" +
-                "sessionId='" + sessionId + '\'' +
-                ", seminarId='" + seminarId + '\'' +
+                "id=" + id +
+                ", sessionId='" + sessionId + '\'' +
+                ", seminarId=" + seminarId +
                 ", startTime=" + startTime +
                 ", endTime=" + endTime +
                 ", status=" + status +
