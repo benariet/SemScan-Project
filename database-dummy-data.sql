@@ -1,235 +1,159 @@
--- SemScan Seminar Attendance System - Dummy Data
--- MySQL 8.4 Database Dummy Data
--- Sample data for testing and development
--- Run this AFTER running database-schema-ddl.sql
-
 USE semscan_db;
 
+-- =============================
+--  CLEAR EXISTING DATA (optional)
+-- =============================
+DELETE FROM app_logs;
+DELETE FROM presenter_seminar_slot;
+DELETE FROM presenter_seminar;
+DELETE FROM attendance;
+DELETE FROM sessions;
+DELETE FROM seminars;
+DELETE FROM users;
 
+-- =============================
+--  USERS
+-- =============================
+INSERT INTO users (email, first_name, last_name, role)
+VALUES ('dr.john.smith@university.edu', 'Dr. John', 'Smith', 'PRESENTER');
 
--- =============================================
--- DUMMY DATA FOR ALL TABLES
--- =============================================
+INSERT INTO users (email, first_name, last_name, role)
+VALUES ('prof.sarah.jones@university.edu', 'Prof. Sarah', 'Jones', 'PRESENTER');
 
--- Insert sample presenters
-INSERT INTO users (email, first_name, last_name, role) VALUES
-('dr.john.smith@university.edu', 'Dr. John', 'Smith', 'PRESENTER'),
-('prof.sarah.jones@university.edu', 'Prof. Sarah', 'Jones', 'PRESENTER'),
-('dr.mike.wilson@university.edu', 'Dr. Mike', 'Wilson', 'PRESENTER'),
-('dr.anna.brown@university.edu', 'Dr. Anna', 'Brown', 'PRESENTER'),
-('prof.david.garcia@university.edu', 'Prof. David', 'Garcia', 'PRESENTER')
-ON DUPLICATE KEY UPDATE email = email;
+INSERT INTO users (email, first_name, last_name, role)
+VALUES ('dr.mike.wilson@university.edu', 'Dr. Mike', 'Wilson', 'PRESENTER');
 
--- Insert sample students
-INSERT INTO users (email, first_name, last_name, role, student_id) VALUES
-('alice.johnson@student.edu', 'Alice', 'Johnson', 'STUDENT', 'STU001'),
-('bob.brown@student.edu', 'Bob', 'Brown', 'STUDENT', 'STU002'),
-('charlie.davis@student.edu', 'Charlie', 'Davis', 'STUDENT', 'STU003'),
-('diana.wilson@student.edu', 'Diana', 'Wilson', 'STUDENT', 'STU004'),
-('eve.garcia@student.edu', 'Eve', 'Garcia', 'STUDENT', 'STU005'),
-('frank.miller@student.edu', 'Frank', 'Miller', 'STUDENT', 'STU006'),
-('grace.lee@student.edu', 'Grace', 'Lee', 'STUDENT', 'STU007'),
-('henry.taylor@student.edu', 'Henry', 'Taylor', 'STUDENT', 'STU008'),
-('isabella.martinez@student.edu', 'Isabella', 'Martinez', 'STUDENT', 'STU009'),
-('james.anderson@student.edu', 'James', 'Anderson', 'STUDENT', 'STU010')
-ON DUPLICATE KEY UPDATE email = email;
+INSERT INTO users (email, first_name, last_name, role)
+VALUES ('dr.anna.brown@university.edu', 'Dr. Anna', 'Brown', 'PRESENTER');
 
--- Insert sample seminars (using numeric IDs for foreign keys)
-INSERT INTO seminars (seminar_id, seminar_name, seminar_code, description, presenter_id) VALUES
-('SEMINR-1-20250122', 'AI and Machine Learning in Healthcare', 'AI-HLTH-001', 'Exploring applications of AI in medical diagnosis and treatment', 1),
-('SEMINR-2-20250122', 'Blockchain Technology and Cryptocurrency', 'BLK-CRYPT-001', 'Understanding blockchain fundamentals and crypto markets', 1),
-('SEMINR-3-20250122', 'Cybersecurity Best Practices', 'CYBER-SEC-001', 'Modern cybersecurity threats and defense strategies', 2),
-('SEMINR-4-20250122', 'Cloud Computing Architecture', 'CLOUD-ARCH-001', 'Designing scalable cloud infrastructure', 2),
-('SEMINR-5-20250122', 'Data Science and Analytics', 'DATA-ANAL-001', 'Extracting insights from big data', 3),
-('SEMINR-6-20250122', 'IoT and Smart Cities', 'IOT-SMART-001', 'Internet of Things applications in urban development', 3),
-('SEMINR-7-20250122', 'Quantum Computing Fundamentals', 'QUANT-COMP-001', 'Introduction to quantum computing principles', 4),
-('SEMINR-8-20250122', 'Robotics and Automation', 'ROBOT-AUTO-001', 'Industrial robotics and automation systems', 4),
-('SEMINR-9-20250122', 'Digital Marketing Strategies', 'DIGI-MARK-001', 'Modern digital marketing techniques and tools', 5),
-('SEMINR-10-20250122', 'Sustainable Technology', 'SUST-TECH-001', 'Green technology and sustainable development', 5)
-ON DUPLICATE KEY UPDATE seminar_name = seminar_name;
+INSERT INTO users (email, first_name, last_name, role)
+VALUES ('prof.david.garcia@university.edu', 'Prof. David', 'Garcia', 'PRESENTER');
 
--- Insert sample sessions
-INSERT INTO sessions (session_id, seminar_id, start_time, status) VALUES
--- AI Healthcare sessions
-('SESSIN-1-20250122', 1, '2025-01-22 10:00:00', 'CLOSED'),
-('SESSIN-2-20250122', 1, '2025-01-24 10:00:00', 'CLOSED'),
-('SESSIN-3-20250122', 1, '2025-01-29 10:00:00', 'CLOSED'),
+INSERT INTO users (email, first_name, last_name, role, student_id)
+VALUES ('alice.johnson@student.edu', 'Alice', 'Johnson', 'STUDENT', 'STU001');
 
--- Blockchain sessions
-('SESSIN-4-20250122', 2, '2025-01-23 14:00:00', 'CLOSED'),
-('SESSIN-5-20250122', 2, '2025-01-25 14:00:00', 'CLOSED'),
-('SESSIN-6-20250122', 2, '2025-01-30 14:00:00', 'CLOSED'),
+INSERT INTO users (email, first_name, last_name, role, student_id)
+VALUES ('bob.brown@student.edu', 'Bob', 'Brown', 'STUDENT', 'STU002');
 
--- Cybersecurity sessions
-('SESSIN-7-20250122', 3, '2025-01-22 16:00:00', 'CLOSED'),
-('SESSIN-8-20250122', 3, '2025-01-26 16:00:00', 'CLOSED'),
-('SESSIN-9-20250122', 3, '2025-01-31 16:00:00', 'CLOSED'),
+INSERT INTO users (email, first_name, last_name, role, student_id)
+VALUES ('charlie.davis@student.edu', 'Charlie', 'Davis', 'STUDENT', 'STU003');
 
--- Cloud Computing sessions
-('SESSIN-10-20250122', 4, '2025-01-23 12:00:00', 'CLOSED'),
-('SESSIN-11-20250122', 4, '2025-01-27 12:00:00', 'CLOSED'),
+INSERT INTO users (email, first_name, last_name, role, student_id)
+VALUES ('diana.wilson@student.edu', 'Diana', 'Wilson', 'STUDENT', 'STU004');
 
--- Data Science sessions
-('SESSIN-12-20250122', 5, '2025-01-24 15:00:00', 'CLOSED'),
-('SESSIN-13-20250122', 5, '2025-01-28 15:00:00', 'CLOSED'),
+INSERT INTO users (email, first_name, last_name, role, student_id)
+VALUES ('eve.garcia@student.edu', 'Eve', 'Garcia', 'STUDENT', 'STU005');
 
--- IoT sessions
-('SESSIN-14-20250122', 6, '2025-01-25 11:00:00', 'CLOSED'),
-('SESSIN-15-20250122', 6, '2025-01-29 11:00:00', 'CLOSED'),
+-- =============================
+--  SEMINARS
+-- =============================
+INSERT INTO seminars (seminar_name, description, presenter_id)
+VALUES ('AI and Machine Learning in Healthcare', 'Applications of AI in medicine.', (SELECT user_id FROM users WHERE email = 'dr.john.smith@university.edu'));
 
--- Quantum Computing sessions
-('SESSIN-16-20250122', 7, '2025-01-26 09:00:00', 'CLOSED'),
-('SESSIN-17-20250122', 7, '2025-01-30 09:00:00', 'CLOSED'),
+INSERT INTO seminars (seminar_name, description, presenter_id)
+VALUES ('Blockchain Technology and Cryptocurrency', 'Fundamentals of blockchain and crypto markets.', (SELECT user_id FROM users WHERE email = 'prof.sarah.jones@university.edu'));
 
--- Robotics sessions
-('SESSIN-18-20250122', 8, '2025-01-27 13:00:00', 'CLOSED'),
-('SESSIN-19-20250122', 8, '2025-01-31 13:00:00', 'CLOSED'),
+INSERT INTO seminars (seminar_name, description, presenter_id)
+VALUES ('Cybersecurity Best Practices', 'Defending against modern cyber threats.', (SELECT user_id FROM users WHERE email = 'dr.mike.wilson@university.edu'));
 
--- Digital Marketing sessions
-('SESSIN-20-20250122', 9, '2025-01-28 10:00:00', 'CLOSED'),
-('SESSIN-21-20250122', 9, '2025-02-01 10:00:00', 'CLOSED'),
+-- =============================
+--  SESSIONS
+-- =============================
+INSERT INTO sessions (seminar_id, start_time, end_time, status)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), '2025-02-10 10:00:00', '2025-02-10 11:30:00', 'OPEN');
 
--- Sustainable Technology sessions
-('SESSIN-22-20250122', 10, '2025-01-29 14:00:00', 'CLOSED'),
-('SESSIN-23-20250122', 10, '2025-02-02 14:00:00', 'CLOSED')
-ON DUPLICATE KEY UPDATE start_time = start_time;
+INSERT INTO sessions (seminar_id, start_time, end_time, status)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), '2025-02-17 10:00:00', '2025-02-17 11:30:00', 'OPEN');
 
--- Insert sample attendance records
-INSERT INTO attendance (attendance_id, session_id, student_id, attendance_time, method) VALUES
--- Session 1 (AI Healthcare - CLOSED) - Some students attended
-('ATTEND-1-20250122', 1, 6, '2025-01-22 10:05:00', 'QR_SCAN'),
-('ATTEND-2-20250122', 1, 7, '2025-01-22 10:15:00', 'QR_SCAN'),
-('ATTEND-3-20250122', 1, 8, '2025-01-22 10:02:00', 'QR_SCAN'),
-('ATTEND-4-20250122', 1, 9, '2025-01-22 10:08:00', 'QR_SCAN'),
-('ATTEND-5-20250122', 1, 10, '2025-01-22 10:12:00', 'QR_SCAN'),
+INSERT INTO sessions (seminar_id, start_time, end_time, status)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency'), '2025-02-12 14:00:00', '2025-02-12 15:30:00', 'OPEN');
 
--- Session 4 (Blockchain - CLOSED) - Some students attended
-('ATTEND-6-20250122', 4, 6, '2025-01-23 14:03:00', 'QR_SCAN'),
-('ATTEND-7-20250122', 4, 7, '2025-01-23 14:20:00', 'QR_SCAN'),
-('ATTEND-8-20250122', 4, 10, '2025-01-23 14:01:00', 'QR_SCAN'),
-('ATTEND-9-20250122', 4, 11, '2025-01-23 14:15:00', 'QR_SCAN'),
+INSERT INTO sessions (seminar_id, start_time, end_time, status)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices'), '2025-02-15 09:00:00', '2025-02-15 10:30:00', 'OPEN');
 
--- Session 7 (Cybersecurity - CLOSED) - Some students attended
-('ATTEND-10-20250122', 7, 8, '2025-01-22 16:05:00', 'QR_SCAN'),
-('ATTEND-11-20250122', 7, 11, '2025-01-22 16:02:00', 'QR_SCAN'),
-('ATTEND-12-20250122', 7, 12, '2025-01-22 16:10:00', 'QR_SCAN'),
-('ATTEND-13-20250122', 7, 13, '2025-01-22 16:07:00', 'QR_SCAN'),
+-- =============================
+--  ATTENDANCE
+-- =============================
+INSERT INTO attendance (session_id, student_id, attendance_time, method)
+VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare') AND start_time = '2025-02-10 10:00:00'), (SELECT user_id FROM users WHERE student_id = 'STU001'), '2025-02-10 10:05:00', 'QR_SCAN');
 
--- Some manual attendance requests (PENDING_APPROVAL)
-('ATTEND-14-20250122', 2, 14, '2025-01-24 10:30:00', 'MANUAL_REQUEST'),
-('ATTEND-15-20250122', 5, 15, '2025-01-25 14:45:00', 'MANUAL_REQUEST')
-ON DUPLICATE KEY UPDATE attendance_time = attendance_time;
+INSERT INTO attendance (session_id, student_id, attendance_time, method)
+VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare') AND start_time = '2025-02-10 10:00:00'), (SELECT user_id FROM users WHERE student_id = 'STU002'), '2025-02-10 10:07:00', 'QR_SCAN');
 
--- Update some attendance records to show manual requests
-UPDATE attendance SET 
-    request_status = 'PENDING_APPROVAL',
-    manual_reason = 'Technical issues with QR scanner',
-    requested_at = '2025-01-24 10:30:00'
-WHERE session_id = 2 
-AND student_id = 14;
+INSERT INTO attendance (session_id, student_id, attendance_time, method)
+VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency') AND start_time = '2025-02-12 14:00:00'), (SELECT user_id FROM users WHERE student_id = 'STU003'), '2025-02-12 14:10:00', 'MANUAL');
 
-UPDATE attendance SET 
-    request_status = 'PENDING_APPROVAL',
-    manual_reason = 'Device battery died during scan',
-    requested_at = '2025-01-25 14:45:00'
-WHERE session_id = 5 
-AND student_id = 15;
+INSERT INTO attendance (session_id, student_id, attendance_time, method)
+VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices') AND start_time = '2025-02-15 09:00:00'), (SELECT user_id FROM users WHERE student_id = 'STU004'), '2025-02-15 09:02:00', 'QR_SCAN');
 
--- API keys removed - no authentication required for POC
+-- =============================
+--  PRESENTER SEMINAR AVAILABILITY
+-- =============================
+INSERT INTO presenter_seminar (presenter_id, seminar_id, instance_name, instance_description)
+VALUES ((SELECT user_id FROM users WHERE email = 'dr.john.smith@university.edu'),
+        (SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'),
+        'AI Healthcare Availability',
+        'Recurring weekly availability for AI seminar');
 
--- Insert sample presenter seminars (subject-free)
-INSERT INTO presenter_seminar (presenter_seminar_id, presenter_id, seminar_name) VALUES
-('PRESEM-1-20250122', 1, 'AI and Machine Learning in Healthcare'),
-('PRESEM-2-20250122', 1, 'Blockchain Technology and Cryptocurrency'),
-('PRESEM-3-20250122', 2, 'Cybersecurity Best Practices'),
-('PRESEM-4-20250122', 2, 'Cloud Computing Architecture'),
-('PRESEM-5-20250122', 3, 'Data Science and Analytics'),
-('PRESEM-6-20250122', 3, 'IoT and Smart Cities'),
-('PRESEM-7-20250122', 4, 'Quantum Computing Fundamentals'),
-('PRESEM-8-20250122', 4, 'Robotics and Automation'),
-('PRESEM-9-20250122', 5, 'Digital Marketing Strategies'),
-('PRESEM-10-20250122', 5, 'Sustainable Technology')
-ON DUPLICATE KEY UPDATE seminar_name = seminar_name;
+INSERT INTO presenter_seminar (presenter_id, seminar_id, instance_name, instance_description)
+VALUES ((SELECT user_id FROM users WHERE email = 'prof.sarah.jones@university.edu'),
+        (SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency'),
+        'Blockchain Workshop Availability',
+        'Professor Jones weekly slots');
 
--- Insert sample presenter seminar slots
-INSERT INTO presenter_seminar_slot (presenter_seminar_slot_id, presenter_seminar_id, weekday, start_hour, end_hour) VALUES
--- AI Healthcare seminar slots (Monday 10-11, Wednesday 14-15)
-('PRESLT-1-20250122', 1, 1, 10, 11),
-('PRESLT-2-20250122', 1, 3, 14, 15),
+INSERT INTO presenter_seminar (presenter_id, seminar_id, instance_name, instance_description)
+VALUES ((SELECT user_id FROM users WHERE email = 'dr.mike.wilson@university.edu'),
+        (SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices'),
+        'Cybersecurity Availability',
+        'Availability for cybersecurity topics');
 
--- Blockchain seminar slots (Tuesday 9-10, Thursday 15-16)
-('PRESLT-3-20250122', 2, 2, 9, 10),
-('PRESLT-4-20250122', 2, 4, 15, 16),
+INSERT INTO presenter_seminar_slot (presenter_seminar_id, weekday, start_hour, end_hour)
+VALUES ((SELECT presenter_seminar_id FROM presenter_seminar WHERE presenter_id = (SELECT user_id FROM users WHERE email = 'dr.john.smith@university.edu') AND instance_name = 'AI Healthcare Availability' LIMIT 1), 1, 10, 12);
 
--- Cybersecurity seminar slots (Monday 16-17, Friday 10-11)
-('PRESLT-5-20250122', 3, 1, 16, 17),
-('PRESLT-6-20250122', 3, 5, 10, 11),
+INSERT INTO presenter_seminar_slot (presenter_seminar_id, weekday, start_hour, end_hour)
+VALUES ((SELECT presenter_seminar_id FROM presenter_seminar WHERE presenter_id = (SELECT user_id FROM users WHERE email = 'prof.sarah.jones@university.edu') AND instance_name = 'Blockchain Workshop Availability' LIMIT 1), 3, 14, 16);
 
--- Cloud Computing seminar slots (Tuesday 12-13, Thursday 11-12)
-('PRESLT-7-20250122', 4, 2, 12, 13),
-('PRESLT-8-20250122', 4, 4, 11, 12),
+INSERT INTO presenter_seminar_slot (presenter_seminar_id, weekday, start_hour, end_hour)
+VALUES ((SELECT presenter_seminar_id FROM presenter_seminar WHERE presenter_id = (SELECT user_id FROM users WHERE email = 'dr.mike.wilson@university.edu') AND instance_name = 'Cybersecurity Availability' LIMIT 1), 5, 9, 11);
 
--- Data Science seminar slots (Wednesday 15-16, Friday 14-15)
-('PRESLT-9-20250122', 5, 3, 15, 16),
-('PRESLT-10-20250122', 5, 5, 14, 15),
+-- =============================
+--  APP LOGS
+-- =============================
+INSERT INTO app_logs (log_timestamp, level, tag, message, user_id)
+VALUES ('2025-02-10 10:04:00', 'INFO', 'LOGIN', 'Alice signed in.', (SELECT user_id FROM users WHERE student_id = 'STU001'));
 
--- IoT seminar slots (Tuesday 11-12, Thursday 13-14)
-('PRESLT-11-20250122', 6, 2, 11, 12),
-('PRESLT-12-20250122', 6, 4, 13, 14),
+INSERT INTO app_logs (log_timestamp, level, tag, message, user_id)
+VALUES ('2025-02-10 10:05:30', 'INFO', 'ATTENDANCE', 'Alice marked attendance via QR.', (SELECT user_id FROM users WHERE student_id = 'STU001'));
 
--- Quantum Computing seminar slots (Monday 9-10, Wednesday 16-17)
-('PRESLT-13-20250122', 7, 1, 9, 10),
-('PRESLT-14-20250122', 7, 3, 16, 17),
+INSERT INTO app_logs (log_timestamp, level, tag, message, user_id)
+VALUES ('2025-02-12 14:05:00', 'ERROR', 'NETWORK', 'Connection lost during session.', (SELECT user_id FROM users WHERE student_id = 'STU003'));
 
--- Robotics seminar slots (Tuesday 13-14, Thursday 9-10)
-('PRESLT-15-20250122', 8, 2, 13, 14),
-('PRESLT-16-20250122', 8, 4, 9, 10),
+INSERT INTO app_logs (log_timestamp, level, tag, message, user_id)
+VALUES ('2025-02-15 09:01:00', 'INFO', 'ATTENDANCE', 'Diana checked in via QR.', (SELECT user_id FROM users WHERE student_id = 'STU004'));
 
--- Digital Marketing seminar slots (Monday 10-11, Friday 15-16)
-('PRESLT-17-20250122', 9, 1, 10, 11),
-('PRESLT-18-20250122', 9, 5, 15, 16),
+-- =============================
+--  VERIFICATION QUERIES
+-- =============================
+SELECT 'Presenters' AS label, COUNT(*) AS total FROM users WHERE role = 'PRESENTER';
+SELECT 'Students' AS label, COUNT(*) AS total FROM users WHERE role = 'STUDENT';
+SELECT 'Seminars' AS label, COUNT(*) AS total FROM seminars;
+SELECT 'Sessions' AS label, COUNT(*) AS total FROM sessions;
+SELECT 'Attendance rows' AS label, COUNT(*) AS total FROM attendance;
+SELECT 'Presenter seminar slots' AS label, COUNT(*) AS total FROM presenter_seminar_slot;
+SELECT 'App logs' AS label, COUNT(*) AS total FROM app_logs;
 
--- Sustainable Technology seminar slots (Wednesday 14-15, Friday 9-10)
-('PRESLT-19-20250122', 10, 3, 14, 15),
-('PRESLT-20-20250122', 10, 5, 9, 10)
-ON DUPLICATE KEY UPDATE start_hour = start_hour;
+SELECT 'Seminars with presenters' AS label, s.seminar_name, u.first_name AS presenter
+FROM seminars s JOIN users u ON s.presenter_id = u.user_id;
 
--- Insert sample app logs
-INSERT INTO app_logs (timestamp, level, tag, message, user_id, user_role, device_info, app_version, exception_type) VALUES
-(1737632345678, 'INFO', 'LOGIN', 'User logged in successfully', 6, 'STUDENT', 'Android 13, Samsung Galaxy S21', '1.2.3', NULL),
-(1737632346000, 'INFO', 'QR_SCAN', 'QR code scanned successfully', 6, 'STUDENT', 'Android 13, Samsung Galaxy S21', '1.2.3', NULL),
-(1737632346500, 'ERROR', 'NETWORK', 'Network connection failed', 7, 'STUDENT', 'iOS 16, iPhone 14', '1.2.3', 'NetworkException'),
-(1737632347000, 'WARN', 'ATTENDANCE', 'Duplicate attendance attempt', 8, 'STUDENT', 'Android 12, Google Pixel 6', '1.2.3', NULL),
-(1737632347500, 'INFO', 'SESSION', 'Session started', 1, 'PRESENTER', 'Web Browser, Chrome 117', '1.2.3', NULL),
-(1737632348000, 'ERROR', 'API', 'Invalid API key provided', NULL, NULL, 'Mobile App, Version 1.2.3', '1.2.3', 'AuthenticationException'),
-(1737632348500, 'INFO', 'ATTENDANCE', 'Manual attendance request submitted', 9, 'STUDENT', 'Android 13, OnePlus 9', '1.2.3', NULL),
-(1737632349000, 'INFO', 'APPROVAL', 'Manual attendance approved', 1, 'PRESENTER', 'Web Browser, Chrome 117', '1.2.3', NULL)
-ON DUPLICATE KEY UPDATE timestamp = timestamp;
+SELECT 'Attendance details' AS label,
+       se.start_time,
+       su.first_name AS student
+FROM attendance a
+JOIN sessions se ON a.session_id = se.session_id
+JOIN users su ON a.student_id = su.user_id;
 
--- Insert sample log analytics
-INSERT INTO log_analytics (date, level, tag, count, unique_users) VALUES
-('2025-01-22', 'INFO', 'LOGIN', 25, 15),
-('2025-01-22', 'INFO', 'QR_SCAN', 45, 20),
-('2025-01-22', 'ERROR', 'NETWORK', 3, 2),
-('2025-01-22', 'WARN', 'ATTENDANCE', 2, 2),
-('2025-01-23', 'INFO', 'LOGIN', 30, 18),
-('2025-01-23', 'INFO', 'QR_SCAN', 52, 22),
-('2025-01-23', 'ERROR', 'API', 1, 1),
-('2025-01-23', 'INFO', 'ATTENDANCE', 38, 19),
-('2025-01-24', 'INFO', 'LOGIN', 28, 16),
-('2025-01-24', 'INFO', 'QR_SCAN', 48, 21),
-('2025-01-24', 'INFO', 'SESSION', 5, 3),
-('2025-01-24', 'INFO', 'APPROVAL', 2, 1)
-ON DUPLICATE KEY UPDATE count = count + VALUES(count), unique_users = unique_users + VALUES(unique_users);
+SELECT 'Logs summary' AS label, level, COUNT(*) AS total
+FROM app_logs
+GROUP BY level;
 
-SELECT 'SemScan Dummy Data Inserted Successfully!' as Status;
-
--- Note: This dummy data includes:
--- - 5 presenters and 10 students
--- - 10 seminars with 23 sessions
--- - 15 attendance records (some with manual requests)
--- - 10 presenter seminars with 20 time slots
--- - Sample app logs and analytics data
--- - Realistic data relationships and timestamps
--- - All dates updated to 2025-01-22 format
--- - All IDs use 5-digit format starting from 10000
+SELECT 'Dummy data loaded successfully.' AS status;

@@ -4,8 +4,12 @@ import edu.bgu.semscanapi.dto.SeminarSlotDto;
 import edu.bgu.semscanapi.dto.SeminarTileDto;
 import edu.bgu.semscanapi.entity.PresenterSeminar;
 import edu.bgu.semscanapi.entity.PresenterSeminarSlot;
+import edu.bgu.semscanapi.entity.Seminar;
+import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.PresenterSeminarRepository;
 import edu.bgu.semscanapi.repository.PresenterSeminarSlotRepository;
+import edu.bgu.semscanapi.repository.SeminarRepository;
+import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.service.AuthenticationService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
@@ -14,7 +18,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -27,10 +36,12 @@ public class PresenterSeminarController {
     @Autowired private AuthenticationService auth;
     @Autowired private PresenterSeminarRepository seminars;
     @Autowired private PresenterSeminarSlotRepository slots;
+    @Autowired private SeminarRepository seminarRepository;
+    @Autowired private UserRepository userRepository;
 
     @GetMapping
     public ResponseEntity<Object> list(
-                                       @PathVariable String presenterId) {
+                                       @PathVariable Long presenterId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("GET /api/v1/presenters/{}/seminars - Correlation ID: {}", presenterId, correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/presenters/"+presenterId+"/seminars", null);
@@ -54,19 +65,21 @@ public class PresenterSeminarController {
 
     @PostMapping
     public ResponseEntity<Object> create(
-                                         @PathVariable String presenterId,
+                                         @PathVariable Long presenterId,
                                          @RequestBody CreateRequest body) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("POST /api/v1/presenters/{}/seminars - Correlation ID: {}", presenterId, correlationId);
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/presenters/"+presenterId+"/seminars", body != null ? body.toString() : null);
         // No authentication required for POC
         logger.info("Processing seminar create for presenter {} - Correlation ID: {}", presenterId, correlationId);
-        // No subject validation (subject removed)
         if (body == null) {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/presenters/"+presenterId+"/seminars", 400, "Body required");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Request body is required"));
         }
-        // Validate slots
+        if (body.seminarId == null && (body.seminarName == null || body.seminarName.isBlank())) {
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/presenters/"+presenterId+"/seminars", 400, "Seminar name required");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Seminar name is required when seminarId is not provided"));
+        }
         if (body.slots == null || body.slots.isEmpty()) {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/presenters/"+presenterId+"/seminars", 400, "No slots provided");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "At least one slot is required"));
@@ -86,15 +99,35 @@ public class PresenterSeminarController {
         logger.info("Validated {} slots - Correlation ID: {}", body.slots.size(), correlationId);
         // Persist
         PresenterSeminar ps = new PresenterSeminar();
-        ps.setPresenterSeminarId("TEMP-ID"); // Temporary ID - database trigger will override
         ps.setPresenterId(presenterId);
-        ps.setSeminarName(body.seminarName);
+
+        PresenterCreateResult result;
+        try {
+            result = createOrAttachSeminar(correlationId, presenterId, body);
+        } catch (IllegalArgumentException ex) {
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/presenters/"+presenterId+"/seminars", 400, ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+        } catch (Exception ex) {
+            logger.error("Failed to create presenter seminar tile", ex);
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/presenters/"+presenterId+"/seminars", 500, "Internal Server Error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to create presenter seminar"));
+        }
+
+        ps.setSeminarId(result.seminarId());
+        ps.setInstanceName(body.instanceName != null && !body.instanceName.isBlank()
+                ? body.instanceName
+                : result.seminarName());
+        String description = body.instanceDescription != null && !body.instanceDescription.isBlank()
+                ? body.instanceDescription
+                : result.description();
+        ps.setInstanceDescription(description);
+
         seminars.save(ps);
-        String psId = ps.getPresenterSeminarId(); // Get the auto-generated ID
+        Long psId = ps.getPresenterSeminarId(); // Get the auto-generated ID
         logger.debug("PresenterSeminar saved: {} - Correlation ID: {}", psId, correlationId);
         for (SeminarSlotDto s : body.slots) {
             PresenterSeminarSlot slot = new PresenterSeminarSlot();
-            slot.setPresenterSeminarSlotId("TEMP-ID"); // Temporary ID - database trigger will override
             slot.setPresenterSeminarId(psId);
             slot.setWeekday(s.weekday);
             slot.setStartHour(s.startHour);
@@ -110,8 +143,8 @@ public class PresenterSeminarController {
 
     @DeleteMapping("/{seminarId}")
     public ResponseEntity<Object> delete(
-                                         @PathVariable String presenterId,
-                                         @PathVariable("seminarId") String psId) {
+                                         @PathVariable Long presenterId,
+                                         @PathVariable("seminarId") Long psId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("DELETE /api/v1/presenters/{}/seminars/{} - Correlation ID: {}", presenterId, psId, correlationId);
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/presenters/"+presenterId+"/seminars/"+psId, null);
@@ -130,7 +163,7 @@ public class PresenterSeminarController {
         return ResponseEntity.noContent().build();
     }
 
-    private ResponseEntity<Object> bad(String msg, String presenterId, String correlationId, String method) {
+    private ResponseEntity<Object> bad(String msg, Long presenterId, String correlationId, String method) {
         LoggerUtil.logApiResponse(logger, method, "/api/v1/presenters/"+presenterId+"/seminars", 400, msg);
         logger.warn("Validation failed: {} - Correlation ID: {}", msg, correlationId);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", msg));
@@ -140,8 +173,10 @@ public class PresenterSeminarController {
         SeminarTileDto dto = new SeminarTileDto();
         dto.id = ps.getPresenterSeminarId();
         dto.presenterId = ps.getPresenterId();
+        dto.seminarId = ps.getSeminarId();
         dto.createdAt = ps.getCreatedAt();
-        dto.seminarName = ps.getSeminarName();
+        dto.instanceName = ps.getInstanceName();
+        dto.instanceDescription = ps.getInstanceDescription();
         dto.slots = slots.findByPresenterSeminarIdOrderByWeekdayAscStartHourAsc(ps.getPresenterSeminarId())
                 .stream().map(s -> {
                     SeminarSlotDto sd = new SeminarSlotDto();
@@ -154,10 +189,54 @@ public class PresenterSeminarController {
     }
 
     public static class CreateRequest {
-        public String seminarName; // optional free label
+        public Long seminarId;
+        public String seminarName;
+        public String seminarDescription;
+        public String instanceName;
+        public String instanceDescription;
+        public String tileDescription;
         public List<SeminarSlotDto> slots;
-        @Override public String toString() { return "CreateRequest{"+"seminarName='"+seminarName+'\''+", slots="+(slots==null?0:slots.size())+'}'; }
+
+        @Override public String toString() {
+            return "CreateRequest{"+
+                    "seminarId="+seminarId+
+                    ", seminarName='"+seminarName+'\''+
+                    ", instanceName='"+instanceName+'\''+
+                    ", slots="+(slots==null?0:slots.size())+
+                    '}'; }
     }
+
+    private PresenterCreateResult createOrAttachSeminar(String correlationId, Long presenterId, CreateRequest body) {
+        if (body.seminarId != null) {
+            Optional<Seminar> seminarOpt = seminarRepository.findById(body.seminarId);
+            if (seminarOpt.isEmpty()) {
+                throw new IllegalArgumentException("Seminar not found: " + body.seminarId);
+            }
+            Seminar seminar = seminarOpt.get();
+            if (!Objects.equals(seminar.getPresenterId(), presenterId)) {
+                throw new IllegalArgumentException("Seminar " + body.seminarId + " does not belong to presenter " + presenterId);
+            }
+            return new PresenterCreateResult(seminar.getSeminarId(), seminar.getSeminarName(), seminar.getDescription());
+        }
+
+        // create new seminar
+        User presenter = userRepository.findById(presenterId)
+                .orElseThrow(() -> new IllegalArgumentException("Presenter not found: " + presenterId));
+        if (presenter.getRole() != User.UserRole.PRESENTER) {
+            throw new IllegalArgumentException("User " + presenterId + " is not a presenter");
+        }
+
+        Seminar seminar = new Seminar();
+        seminar.setSeminarName(body.seminarName);
+        seminar.setDescription(body.seminarDescription);
+        seminar.setPresenterId(presenterId);
+
+        Seminar saved = seminarRepository.save(seminar);
+        logger.info("Created new seminar {} for presenter {} - Correlation ID: {}", saved.getSeminarId(), presenterId, correlationId);
+        return new PresenterCreateResult(saved.getSeminarId(), saved.getSeminarName(), saved.getDescription());
+    }
+
+    private record PresenterCreateResult(Long seminarId, String seminarName, String description) {}
 }
 
 

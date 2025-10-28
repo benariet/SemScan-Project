@@ -3,7 +3,6 @@ package edu.bgu.semscanapi.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.Objects;
-import com.fasterxml.jackson.annotation.JsonRawValue;
 
 @Entity
 @Table(name = "attendance")
@@ -11,24 +10,20 @@ public class Attendance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @Column(name = "attendance_id")
+    private Long attendanceId;
 
-    @Column(name = "attendance_id", length = 30, unique = true)
-    private String attendanceId;
+    @Column(name = "session_id", nullable = false)
+    private Long sessionId;
 
-    @Column(name = "session_id")
-    private String sessionId;
+    @Column(name = "student_id", nullable = false)
+    private Long studentId;
 
-    @Column(name = "student_id")
-    private String studentId;
-
-    @Column(name = "attendance_time")
+    @Column(name = "attendance_time", nullable = false)
     private LocalDateTime attendanceTime;
 
-
     @Enumerated(EnumType.STRING)
-    @Column(name = "method")
+    @Column(name = "method", nullable = false)
     private AttendanceMethod method;
 
     @Enumerated(EnumType.STRING)
@@ -42,61 +37,58 @@ public class Attendance {
     private LocalDateTime requestedAt;
 
     @Column(name = "approved_by")
-    private String approvedBy;
+    private Long approvedBy;
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
-    @Column(name = "device_id", length = 255)
+    @Column(name = "device_id", length = 100)
     private String deviceId;
 
-    @Column(name = "auto_flags", columnDefinition = "JSON")
-    @JsonRawValue
+    @Column(name = "auto_flags", columnDefinition = "TEXT")
     private String autoFlags;
+
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     public Attendance() {
     }
 
-    // AttendanceMethod enum
     public enum AttendanceMethod {
         QR_SCAN, MANUAL, MANUAL_REQUEST, PROXY
     }
 
-    // RequestStatus enum
     public enum RequestStatus {
         CONFIRMED, PENDING_APPROVAL, REJECTED
     }
 
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getAttendanceId() {
+    public Long getAttendanceId() {
         return attendanceId;
     }
 
-    public void setAttendanceId(String attendanceId) {
+    public void setAttendanceId(Long attendanceId) {
         this.attendanceId = attendanceId;
     }
 
-    public String getSessionId() {
+    public Long getSessionId() {
         return sessionId;
     }
 
-    public void setSessionId(String sessionId) {
+    public void setSessionId(Long sessionId) {
         this.sessionId = sessionId;
     }
 
-    public String getStudentId() {
+    public Long getStudentId() {
         return studentId;
     }
 
-    public void setStudentId(String studentId) {
+    public void setStudentId(Long studentId) {
         this.studentId = studentId;
     }
 
@@ -107,7 +99,6 @@ public class Attendance {
     public void setAttendanceTime(LocalDateTime attendanceTime) {
         this.attendanceTime = attendanceTime;
     }
-
 
     public AttendanceMethod getMethod() {
         return method;
@@ -141,11 +132,11 @@ public class Attendance {
         this.requestedAt = requestedAt;
     }
 
-    public String getApprovedBy() {
+    public Long getApprovedBy() {
         return approvedBy;
     }
 
-    public void setApprovedBy(String approvedBy) {
+    public void setApprovedBy(Long approvedBy) {
         this.approvedBy = approvedBy;
     }
 
@@ -173,24 +164,57 @@ public class Attendance {
         this.autoFlags = autoFlags;
     }
 
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    @PrePersist
+    public void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Attendance that = (Attendance) o;
-        return Objects.equals(id, that.id);
+        return Objects.equals(attendanceId, that.attendanceId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id);
+        return Objects.hash(attendanceId);
     }
 
     @Override
     public String toString() {
         return "Attendance{" +
-                "id=" + id +
-                ", attendanceId='" + attendanceId + '\'' +
+                "attendanceId=" + attendanceId +
                 ", sessionId=" + sessionId +
                 ", studentId=" + studentId +
                 ", attendanceTime=" + attendanceTime +
@@ -198,10 +222,6 @@ public class Attendance {
                 ", requestStatus=" + requestStatus +
                 ", manualReason='" + manualReason + '\'' +
                 ", requestedAt=" + requestedAt +
-                ", approvedBy=" + approvedBy +
-                ", approvedAt=" + approvedAt +
-                ", deviceId='" + deviceId + '\'' +
-                ", autoFlags='" + autoFlags + '\'' +
                 '}';
     }
 }

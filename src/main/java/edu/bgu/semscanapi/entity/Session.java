@@ -10,56 +10,51 @@ public class Session {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @Column(name = "session_id")
+    private Long sessionId;
 
-    @Column(name = "session_id", length = 30, unique = true)
-    private String sessionId;
+    @Column(name = "seminar_id", nullable = false)
+    private Long seminarId;
 
-    @Column(name = "seminar_id")
-    private String seminarId;
-
-    @Column(name = "start_time")
+    @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 
     @Column(name = "end_time")
     private LocalDateTime endTime;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
+    @Column(name = "status", nullable = false)
     private SessionStatus status;
 
+    @Column(name = "location")
+    private String location;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     public Session() {
     }
 
-    // SessionStatus enum
     public enum SessionStatus {
         OPEN, CLOSED
     }
 
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getSessionId() {
+    public Long getSessionId() {
         return sessionId;
     }
 
-    public void setSessionId(String sessionId) {
+    public void setSessionId(Long sessionId) {
         this.sessionId = sessionId;
     }
 
-    public String getSeminarId() {
+    public Long getSeminarId() {
         return seminarId;
     }
 
-    public void setSeminarId(String seminarId) {
+    public void setSeminarId(Long seminarId) {
         this.seminarId = seminarId;
     }
 
@@ -87,6 +82,39 @@ public class Session {
         this.status = status;
     }
 
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    @PrePersist
+    public void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -104,8 +132,7 @@ public class Session {
     @Override
     public String toString() {
         return "Session{" +
-                "id=" + id +
-                ", sessionId='" + sessionId + '\'' +
+                "sessionId=" + sessionId +
                 ", seminarId=" + seminarId +
                 ", startTime=" + startTime +
                 ", endTime=" + endTime +

@@ -4,9 +4,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public class SeminarTileDto {
-    public String id;
-    public String presenterId;
-    public String seminarName;
+    public Long id;
+    public Long presenterId;
+    public Long seminarId;
+    public String instanceName;
+    public String instanceDescription;
     public List<SeminarSlotDto> slots;
     public LocalDateTime createdAt;
 }

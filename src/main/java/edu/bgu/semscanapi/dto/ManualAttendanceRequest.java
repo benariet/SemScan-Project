@@ -5,11 +5,11 @@ import jakarta.validation.constraints.NotNull;
 
 public class ManualAttendanceRequest {
     
-    @NotBlank(message = "Session ID is required")
-    private String sessionId;
+    @NotNull(message = "Session ID is required")
+    private Long sessionId;
     
-    @NotBlank(message = "Student ID is required")
-    private String studentId;
+    @NotNull(message = "Student ID is required")
+    private Long studentId;
     
     @NotBlank(message = "Reason is required")
     private String reason;
@@ -19,7 +19,7 @@ public class ManualAttendanceRequest {
     public ManualAttendanceRequest() {
     }
 
-    public ManualAttendanceRequest(String sessionId, String studentId, String reason, String deviceId) {
+    public ManualAttendanceRequest(Long sessionId, Long studentId, String reason, String deviceId) {
         this.sessionId = sessionId;
         this.studentId = studentId;
         this.reason = reason;
@@ -27,19 +27,19 @@ public class ManualAttendanceRequest {
     }
 
     // Getters and Setters
-    public String getSessionId() {
+    public Long getSessionId() {
         return sessionId;
     }
 
-    public void setSessionId(String sessionId) {
+    public void setSessionId(Long sessionId) {
         this.sessionId = sessionId;
     }
 
-    public String getStudentId() {
+    public Long getStudentId() {
         return studentId;
     }
 
-    public void setStudentId(String studentId) {
+    public void setStudentId(Long studentId) {
         this.studentId = studentId;
     }
 

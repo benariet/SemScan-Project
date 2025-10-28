@@ -1,6 +1,7 @@
 package edu.bgu.semscanapi.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "presenter_seminar_slot")
@@ -8,14 +9,11 @@ public class PresenterSeminarSlot {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
-
-    @Column(name = "presenter_seminar_slot_id", length = 30, unique = true)
-    private String presenterSeminarSlotId;
+    @Column(name = "presenter_seminar_slot_id")
+    private Long presenterSeminarSlotId;
 
     @Column(name = "presenter_seminar_id", nullable = false)
-    private String presenterSeminarId;
+    private Long presenterSeminarId;
 
     @Column(name = "weekday", nullable = false)
     private Integer weekday; // 0-6
@@ -26,18 +24,24 @@ public class PresenterSeminarSlot {
     @Column(name = "end_hour", nullable = false)
     private Integer endHour; // 1-24
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getPresenterSeminarSlotId() { return presenterSeminarSlotId; }
-    public void setPresenterSeminarSlotId(String presenterSeminarSlotId) { this.presenterSeminarSlotId = presenterSeminarSlotId; }
-    public String getPresenterSeminarId() { return presenterSeminarId; }
-    public void setPresenterSeminarId(String presenterSeminarId) { this.presenterSeminarId = presenterSeminarId; }
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    public Long getPresenterSeminarSlotId() { return presenterSeminarSlotId; }
+    public void setPresenterSeminarSlotId(Long presenterSeminarSlotId) { this.presenterSeminarSlotId = presenterSeminarSlotId; }
+    public Long getPresenterSeminarId() { return presenterSeminarId; }
+    public void setPresenterSeminarId(Long presenterSeminarId) { this.presenterSeminarId = presenterSeminarId; }
     public Integer getWeekday() { return weekday; }
     public void setWeekday(Integer weekday) { this.weekday = weekday; }
     public Integer getStartHour() { return startHour; }
     public void setStartHour(Integer startHour) { this.startHour = startHour; }
     public Integer getEndHour() { return endHour; }
     public void setEndHour(Integer endHour) { this.endHour = endHour; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    @PrePersist
+    public void onCreate() { this.createdAt = LocalDateTime.now(); }
 }
 
 

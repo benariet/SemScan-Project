@@ -87,7 +87,7 @@ public class LoggerUtil {
      */
     public static void setSessionId(Long sessionId) {
         if (sessionId != null) {
-            MDC.put(SESSION_ID_KEY, sessionId.toString());
+            setSessionId(sessionId.toString());
         }
     }
     
@@ -166,12 +166,26 @@ public class LoggerUtil {
     public static void logAttendanceEvent(Logger logger, String event, String studentId, String sessionId, String method) {
         logger.info("Attendance Event - Event: {}, Student: {}, Session: {}, Method: {}", event, studentId, sessionId, method);
     }
+
+    public static void logAttendanceEvent(Logger logger, String event, Long studentId, Long sessionId, String method) {
+        logAttendanceEvent(logger, event,
+                studentId != null ? studentId.toString() : null,
+                sessionId != null ? sessionId.toString() : null,
+                method);
+    }
     
     /**
      * Log session event
      */
     public static void logSessionEvent(Logger logger, String event, String sessionId, String seminarId, String presenterId) {
         logger.info("Session Event - Event: {}, Session: {}, Seminar: {}, Presenter: {}", event, sessionId, seminarId, presenterId);
+    }
+
+    public static void logSessionEvent(Logger logger, String event, Long sessionId, Long seminarId, Long presenterId) {
+        logSessionEvent(logger, event,
+                sessionId != null ? sessionId.toString() : null,
+                seminarId != null ? seminarId.toString() : null,
+                presenterId != null ? presenterId.toString() : null);
     }
     
     /**

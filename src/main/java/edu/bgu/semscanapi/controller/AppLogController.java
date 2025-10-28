@@ -242,4 +242,32 @@ public class AppLogController {
             LoggerUtil.clearContext();
         }
     }
+
+    /**
+     * Get logs by user
+     * GET /api/v1/logs/user?userId=123
+     */
+    @GetMapping("/user")
+    public ResponseEntity<Object> getLogsByUser(@RequestParam Long userId) {
+        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Retrieving logs for user: {}", userId);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/user?userId=" + userId, null);
+        
+        try {
+            List<AppLog> userLogs = appLogService.getLogsByUser(userId);
+            logger.info("Retrieved {} logs for user: {}", userLogs.size(), userId);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/user", 200,
+                "Retrieved " + userLogs.size() + " user logs");
+            return ResponseEntity.ok(userLogs);
+        } catch (Exception e) {
+            logger.error("Error retrieving logs for user: {}", userId, e);
+            LoggerUtil.logError(logger, "Error retrieving logs for user", e);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/user", 500, "Internal Server Error");
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Internal server error: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
 }

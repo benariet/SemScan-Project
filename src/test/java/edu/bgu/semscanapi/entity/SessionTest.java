@@ -16,15 +16,15 @@ class SessionTest {
     void testSessionCreation() {
         // Given
         Session session = new Session();
-        session.setSessionId("session-001");
-        session.setSeminarId("seminar-001");
+        session.setSessionId(1L);
+        session.setSeminarId(1L);
         session.setStartTime(LocalDateTime.now());
         session.setStatus(Session.SessionStatus.OPEN);
 
         // When & Then
         assertNotNull(session);
-        assertEquals("session-001", session.getSessionId());
-        assertEquals("seminar-001", session.getSeminarId());
+        assertEquals(1L, session.getSessionId());
+        assertEquals(1L, session.getSeminarId());
         assertNotNull(session.getStartTime());
         assertEquals(Session.SessionStatus.OPEN, session.getStatus());
     }
@@ -42,18 +42,18 @@ class SessionTest {
         LocalDateTime now = LocalDateTime.now();
         
         Session session1 = new Session();
-        session1.setSessionId("session-001");
-        session1.setSeminarId("seminar-001");
+        session1.setSessionId(1L);
+        session1.setSeminarId(1L);
         session1.setStartTime(now);
 
         Session session2 = new Session();
-        session2.setSessionId("session-001");
-        session2.setSeminarId("seminar-001");
+        session2.setSessionId(1L);
+        session2.setSeminarId(1L);
         session2.setStartTime(now);
 
         Session session3 = new Session();
-        session3.setSessionId("session-002");
-        session3.setSeminarId("seminar-001");
+        session3.setSessionId(2L);
+        session3.setSeminarId(1L);
         session3.setStartTime(now);
 
         // When & Then
@@ -67,8 +67,8 @@ class SessionTest {
     void testSessionToString() {
         // Given
         Session session = new Session();
-        session.setSessionId("session-001");
-        session.setSeminarId("seminar-001");
+        session.setSessionId(1L);
+        session.setSeminarId(1L);
         session.setStartTime(LocalDateTime.now());
         session.setStatus(Session.SessionStatus.OPEN);
 
@@ -77,8 +77,8 @@ class SessionTest {
 
         // Then
         assertNotNull(sessionString);
-        assertTrue(sessionString.contains("session-001"));
-        assertTrue(sessionString.contains("seminar-001"));
+        assertTrue(sessionString.contains("1"));
+        assertTrue(sessionString.contains("1"));
         assertTrue(sessionString.contains("OPEN"));
     }
 }

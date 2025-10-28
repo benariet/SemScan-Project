@@ -88,8 +88,8 @@ public class AttendanceController {
     /**
      * Get attendance by ID
      */
-    @GetMapping("/{attendanceId}")
-    public ResponseEntity<Object> getAttendanceById(@PathVariable String attendanceId) {
+    @GetMapping("/{attendanceId:\\d+}")
+    public ResponseEntity<Object> getAttendanceById(@PathVariable Long attendanceId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving attendance by ID: {}", attendanceId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/" + attendanceId, null);
@@ -136,7 +136,7 @@ public class AttendanceController {
      * Get attendance records by session
      */
     @GetMapping("/session/{sessionId}")
-    public ResponseEntity<Object> getAttendanceBySession(@PathVariable String sessionId) {
+    public ResponseEntity<Object> getAttendanceBySession(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving attendance records for session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/session/" + sessionId, null);
@@ -170,7 +170,7 @@ public class AttendanceController {
      * Get attendance records by student
      */
     @GetMapping("/student/{studentId}")
-    public ResponseEntity<Object> getAttendanceByStudent(@PathVariable String studentId) {
+    public ResponseEntity<Object> getAttendanceByStudent(@PathVariable Long studentId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving attendance records for student: {}", studentId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/student/" + studentId, null);
@@ -204,8 +204,8 @@ public class AttendanceController {
      * Check if student attended a session
      */
     @GetMapping("/check")
-    public ResponseEntity<Object> hasStudentAttended(@RequestParam String sessionId, 
-                                                     @RequestParam String studentId) {
+    public ResponseEntity<Object> hasStudentAttended(@RequestParam Long sessionId, 
+                                                     @RequestParam Long studentId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Checking if student attended session - Student: {}, Session: {}", studentId, sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/check", 
@@ -314,7 +314,7 @@ public class AttendanceController {
      * Get attendance statistics for a session
      */
     @GetMapping("/session/{sessionId}/stats")
-    public ResponseEntity<Object> getSessionAttendanceStats(@PathVariable String sessionId) {
+    public ResponseEntity<Object> getSessionAttendanceStats(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Calculating attendance statistics for session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/session/" + sessionId + "/stats", null);
@@ -348,8 +348,8 @@ public class AttendanceController {
     /**
      * Delete attendance record
      */
-    @DeleteMapping("/{attendanceId}")
-    public ResponseEntity<Object> deleteAttendance(@PathVariable String attendanceId) {
+    @DeleteMapping("/{attendanceId:\\d+}")
+    public ResponseEntity<Object> deleteAttendance(@PathVariable Long attendanceId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Deleting attendance record: {}", attendanceId);
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/attendance/" + attendanceId, null);
@@ -395,7 +395,7 @@ public class AttendanceController {
      */
     @GetMapping
     public ResponseEntity<Object> getAttendanceBySessionQuery(
-            @RequestParam String sessionId) {
+            @RequestParam Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving attendance records for session: {} with API key authentication", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance?sessionId=" + sessionId, null);
@@ -430,11 +430,53 @@ public class AttendanceController {
     }
     
     /**
+     * Get pending manual attendance requests for a session
+     * Delegates to ManualAttendanceController
+     */
+    @GetMapping("/pending-requests")
+    public ResponseEntity<Object> getPendingRequests(@RequestParam Long sessionId) {
+        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Retrieving pending manual attendance requests for session: {}", sessionId);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/pending-requests?sessionId=" + sessionId, null);
+        
+        try {
+            // Redirect to the manual attendance service
+            List<Attendance> attendanceList = attendanceService.getAttendanceBySession(sessionId);
+            
+            // Filter for pending requests (PENDING_APPROVAL status)
+            List<Attendance> pendingRequests = attendanceList.stream()
+                .filter(attendance -> attendance.getRequestStatus() == Attendance.RequestStatus.PENDING_APPROVAL)
+                .collect(java.util.stream.Collectors.toList());
+            
+            logger.info("Retrieved {} pending requests for session: {}", pendingRequests.size(), sessionId);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/pending-requests", 200, 
+                "List of " + pendingRequests.size() + " pending requests");
+            
+            return ResponseEntity.ok(pendingRequests);
+            
+        } catch (Exception e) {
+            logger.error("Failed to retrieve pending manual attendance requests for session: {}", sessionId, e);
+            LoggerUtil.logError(logger, "Failed to retrieve pending manual attendance requests", e);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/pending-requests", 500, "Internal Server Error");
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving pending requests",
+                "Internal Server Error",
+                500,
+                "/api/v1/attendance/pending-requests"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+    
+    /**
      * Export attendance data as CSV
      */
     @GetMapping("/export/csv")
     public ResponseEntity<Object> exportCsv(
-            @RequestParam String sessionId) {
+            @RequestParam Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Exporting CSV for session: {} with API key authentication", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/export/csv?sessionId=" + sessionId, null);
@@ -483,7 +525,7 @@ public class AttendanceController {
      */
     @GetMapping("/export/xlsx")
     public ResponseEntity<Object> exportXlsx(
-            @RequestParam String sessionId) {
+            @RequestParam Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Exporting XLSX for session: {} with API key authentication", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/export/xlsx?sessionId=" + sessionId, null);
@@ -530,7 +572,7 @@ public class AttendanceController {
     /**
      * Generate CSV data for a session
      */
-    private byte[] generateCsvForSession(String sessionId, List<Attendance> attendanceList) throws IOException {
+    private byte[] generateCsvForSession(Long sessionId, List<Attendance> attendanceList) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PrintWriter writer = new PrintWriter(outputStream);
         
@@ -559,7 +601,7 @@ public class AttendanceController {
      * Generate Excel data for a session (simplified implementation)
      * Note: For a full Excel implementation, you would need Apache POI dependency
      */
-    private byte[] generateExcelForSession(String sessionId, List<Attendance> attendanceList) throws IOException {
+    private byte[] generateExcelForSession(Long sessionId, List<Attendance> attendanceList) throws IOException {
         // For now, return CSV format as Excel
         // In a real implementation, you would use Apache POI to create actual Excel files
         return generateCsvForSession(sessionId, attendanceList);

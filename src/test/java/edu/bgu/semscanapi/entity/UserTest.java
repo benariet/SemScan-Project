@@ -14,7 +14,7 @@ class UserTest {
     void testUserCreation() {
         // Given
         User user = new User();
-        user.setUserId("user-001");
+        user.setUserId(1L);
         user.setEmail("test@example.com");
         user.setFirstName("John");
         user.setLastName("Doe");
@@ -23,7 +23,7 @@ class UserTest {
 
         // When & Then
         assertNotNull(user);
-        assertEquals("user-001", user.getUserId());
+        assertEquals(1L, user.getUserId());
         assertEquals("test@example.com", user.getEmail());
         assertEquals("John", user.getFirstName());
         assertEquals("Doe", user.getLastName());
@@ -42,15 +42,15 @@ class UserTest {
     void testUserEqualsAndHashCode() {
         // Given
         User user1 = new User();
-        user1.setUserId("user-001");
+        user1.setUserId(1L);
         user1.setEmail("test@example.com");
 
         User user2 = new User();
-        user2.setUserId("user-001");
+        user2.setUserId(1L);
         user2.setEmail("test@example.com");
 
         User user3 = new User();
-        user3.setUserId("user-002");
+        user3.setUserId(2L);
         user3.setEmail("test@example.com");
 
         // When & Then
@@ -64,7 +64,7 @@ class UserTest {
     void testUserToString() {
         // Given
         User user = new User();
-        user.setUserId("user-001");
+        user.setUserId(1L);
         user.setEmail("test@example.com");
         user.setFirstName("John");
         user.setLastName("Doe");
@@ -74,7 +74,7 @@ class UserTest {
 
         // Then
         assertNotNull(userString);
-        assertTrue(userString.contains("user-001"));
+        assertTrue(userString.contains("1"));
         assertTrue(userString.contains("test@example.com"));
         assertTrue(userString.contains("John"));
         assertTrue(userString.contains("Doe"));

@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/attendance")
+@RequestMapping("/api/v1/attendance/manual")
 @CrossOrigin(origins = "*")
 public class ManualAttendanceController {
     
@@ -40,7 +40,8 @@ public class ManualAttendanceController {
         // In production, this would come from the authenticated user context
         List<User> presenters = authenticationService.findPresenters();
         if (!presenters.isEmpty()) {
-            return presenters.get(0).getUserId();
+            Long userId = presenters.get(0).getUserId();
+            return userId != null ? userId.toString() : null;
         }
         throw new RuntimeException("No presenters found in the system");
     }
@@ -49,35 +50,39 @@ public class ManualAttendanceController {
      * Create a manual attendance request
      * POST /api/v1/attendance/manual-request
      */
-    @PostMapping("/manual-request")
-    public ResponseEntity<Object> createManualRequest(@Valid @RequestBody ManualAttendanceRequest request) {
-        logger.info("Creating manual attendance request - Session: {}, Student: {}", 
-                   request.getSessionId(), request.getStudentId());
+    @PostMapping
+    public ResponseEntity<Object> createManualAttendance(@RequestBody ManualAttendanceRequest request) {
+        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Creating manual attendance request: sessionId={}, studentId={}", request.getSessionId(), request.getStudentId());
+        LoggerUtil.logApiRequest(logger, "POST", "/api/v1/attendance/manual", request.toString());
         
         try {
             ManualAttendanceResponse response = manualAttendanceService.createManualRequest(request);
             logger.info("Manual attendance request created successfully - ID: {}", response.getAttendanceId());
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual", 201, response.toString());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-            
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid manual attendance request: {}", e.getMessage());
+            logger.error("Invalid manual attendance request: {}", e.getMessage());
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual", 400, "Bad Request: " + e.getMessage());
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
                 "Bad Request",
                 400,
-                "/api/v1/attendance/manual-request"
+                "/api/v1/attendance/manual"
             );
             return ResponseEntity.badRequest().body(errorResponse);
-            
         } catch (Exception e) {
-            logger.error("Error creating manual attendance request: {}", e.getMessage(), e);
+            logger.error("Failed to create manual attendance request", e);
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual", 500, "Internal Server Error");
             ErrorResponse errorResponse = new ErrorResponse(
-                "Failed to create manual attendance request",
+                "An unexpected error occurred while creating the manual attendance request",
                 "Internal Server Error",
                 500,
-                "/api/v1/attendance/manual-request"
+                "/api/v1/attendance/manual"
             );
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
         }
     }
     
@@ -86,33 +91,28 @@ public class ManualAttendanceController {
      * GET /api/v1/attendance/pending-requests?sessionId=session-123
      */
     @GetMapping("/pending-requests")
-    public ResponseEntity<Object> getPendingRequests(@RequestParam String sessionId) {
+    public ResponseEntity<Object> getPendingRequests(@RequestParam Long sessionId) {
+        String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving pending manual attendance requests for session: {}", sessionId);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/manual/pending-requests?sessionId=" + sessionId, null);
         
         try {
-            List<ManualAttendanceResponse> requests = manualAttendanceService.getPendingRequests(sessionId);
-            logger.info("Retrieved {} pending requests for session: {}", requests.size(), sessionId);
-            return ResponseEntity.ok(requests);
-            
-        } catch (IllegalArgumentException e) {
-            logger.warn("Invalid session ID for pending requests: {}", e.getMessage());
-            ErrorResponse errorResponse = new ErrorResponse(
-                e.getMessage(),
-                "Bad Request",
-                400,
-                "/api/v1/attendance/pending-requests"
-            );
-            return ResponseEntity.badRequest().body(errorResponse);
-            
+            List<ManualAttendanceResponse> responses = manualAttendanceService.getPendingRequests(sessionId);
+            logger.info("Retrieved {} pending requests for session: {}", responses.size(), sessionId);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/manual/pending-requests", 200, "List size: " + responses.size());
+            return ResponseEntity.ok(responses);
         } catch (Exception e) {
-            logger.error("Error retrieving pending requests: {}", e.getMessage(), e);
+            logger.error("Failed to retrieve pending manual attendance requests", e);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/manual/pending-requests", 500, "Internal Server Error");
             ErrorResponse errorResponse = new ErrorResponse(
-                "Failed to retrieve pending requests",
+                "An unexpected error occurred while retrieving pending requests",
                 "Internal Server Error",
                 500,
-                "/api/v1/attendance/pending-requests"
+                "/api/v1/attendance/manual/pending-requests"
             );
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
         }
     }
     
@@ -121,36 +121,39 @@ public class ManualAttendanceController {
      * POST /api/v1/attendance/{attendanceId}/approve
      */
     @PostMapping("/{attendanceId}/approve")
-    public ResponseEntity<Object> approveRequest(@PathVariable String attendanceId) {
-        logger.info("Approving manual attendance request: {}", attendanceId);
+    public ResponseEntity<Object> approveManualAttendance(@PathVariable Long attendanceId,
+                                                         @RequestParam Long approvedBy) {
+        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Approving manual attendance request: {} by: {}", attendanceId, approvedBy);
+        LoggerUtil.logApiRequest(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/approve", "approvedBy=" + approvedBy);
         
         try {
-            // No API key validation for POC - use default presenter
-            String presenterId = getDefaultPresenterId();
-            
-            ManualAttendanceResponse response = manualAttendanceService.approveRequest(attendanceId, presenterId);
-            logger.info("Manual attendance request approved successfully - ID: {}", attendanceId);
+            ManualAttendanceResponse response = manualAttendanceService.approveRequest(attendanceId, approvedBy);
+            logger.info("Manual attendance request approved - ID: {}", attendanceId);
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/approve", 200, response.toString());
             return ResponseEntity.ok(response);
-            
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid approval request: {}", e.getMessage());
+            logger.error("Manual attendance request not found or invalid state: {}", e.getMessage());
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/approve", 400, "Bad Request: " + e.getMessage());
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
                 "Bad Request",
                 400,
-                "/api/v1/attendance/" + attendanceId + "/approve"
+                "/api/v1/attendance/manual/" + attendanceId + "/approve"
             );
             return ResponseEntity.badRequest().body(errorResponse);
-            
         } catch (Exception e) {
-            logger.error("Error approving manual attendance request: {}", e.getMessage(), e);
+            logger.error("Failed to approve manual attendance request", e);
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/approve", 500, "Internal Server Error");
             ErrorResponse errorResponse = new ErrorResponse(
-                "Failed to approve request",
+                "An unexpected error occurred while approving the manual attendance request",
                 "Internal Server Error",
                 500,
-                "/api/v1/attendance/" + attendanceId + "/approve"
+                "/api/v1/attendance/manual/" + attendanceId + "/approve"
             );
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
         }
     }
     
@@ -159,36 +162,39 @@ public class ManualAttendanceController {
      * POST /api/v1/attendance/{attendanceId}/reject
      */
     @PostMapping("/{attendanceId}/reject")
-    public ResponseEntity<Object> rejectRequest(@PathVariable String attendanceId) {
-        logger.info("Rejecting manual attendance request: {}", attendanceId);
+    public ResponseEntity<Object> rejectManualAttendance(@PathVariable Long attendanceId,
+                                                        @RequestParam Long approvedBy) {
+        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Rejecting manual attendance request: {} by: {}", attendanceId, approvedBy);
+        LoggerUtil.logApiRequest(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/reject", "approvedBy=" + approvedBy);
         
         try {
-            // No API key validation for POC - use default presenter
-            String presenterId = getDefaultPresenterId();
-            
-            ManualAttendanceResponse response = manualAttendanceService.rejectRequest(attendanceId, presenterId);
+            ManualAttendanceResponse response = manualAttendanceService.rejectRequest(attendanceId, approvedBy);
             logger.info("Manual attendance request rejected - ID: {}", attendanceId);
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/reject", 200, response.toString());
             return ResponseEntity.ok(response);
-            
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid rejection request: {}", e.getMessage());
+            logger.error("Manual attendance request not found or invalid state: {}", e.getMessage());
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/reject", 400, "Bad Request: " + e.getMessage());
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
                 "Bad Request",
                 400,
-                "/api/v1/attendance/" + attendanceId + "/reject"
+                "/api/v1/attendance/manual/" + attendanceId + "/reject"
             );
             return ResponseEntity.badRequest().body(errorResponse);
-            
         } catch (Exception e) {
-            logger.error("Error rejecting manual attendance request: {}", e.getMessage(), e);
+            logger.error("Failed to reject manual attendance request", e);
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/reject", 500, "Internal Server Error");
             ErrorResponse errorResponse = new ErrorResponse(
-                "Failed to reject request",
+                "An unexpected error occurred while rejecting the manual attendance request",
                 "Internal Server Error",
                 500,
-                "/api/v1/attendance/" + attendanceId + "/reject"
+                "/api/v1/attendance/manual/" + attendanceId + "/reject"
             );
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
         }
     }
     
@@ -197,7 +203,7 @@ public class ManualAttendanceController {
      * GET /api/v1/attendance/pending-count?sessionId=session-123
      */
     @GetMapping("/pending-count")
-    public ResponseEntity<Object> getPendingRequestCount(@RequestParam String sessionId) {
+    public ResponseEntity<Object> getPendingRequestCount(@RequestParam Long sessionId) {
         logger.info("Checking pending request count for session: {}", sessionId);
         
         try {

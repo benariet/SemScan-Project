@@ -29,12 +29,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Find user by student ID
      */
     Optional<User> findByStudentId(String studentId);
-    
-    /**
-     * Find user by user ID (string ID)
-     */
-    Optional<User> findByUserId(String userId);
-    
+
     /**
      * Find users by role
      */
@@ -67,4 +62,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     List<User> findByFirstNameAndLastName(String firstName, String lastName);
 
+    @Query("SELECT u FROM User u WHERE LOWER(u.firstName) LIKE LOWER(CONCAT('%', :name, '%')) OR LOWER(u.lastName) LIKE LOWER(CONCAT('%', :name, '%'))")
+    List<User> searchByName(@Param("name") String name);
 }

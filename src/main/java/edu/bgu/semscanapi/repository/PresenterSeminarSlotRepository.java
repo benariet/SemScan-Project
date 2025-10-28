@@ -9,13 +9,8 @@ import java.util.Optional;
 
 @Repository
 public interface PresenterSeminarSlotRepository extends JpaRepository<PresenterSeminarSlot, Long> {
-    List<PresenterSeminarSlot> findByPresenterSeminarIdOrderByWeekdayAscStartHourAsc(String presenterSeminarId);
-    boolean existsByPresenterSeminarIdAndWeekdayAndStartHourAndEndHour(String presenterSeminarId, Integer weekday, Integer startHour, Integer endHour);
-    
-    /**
-     * Find presenter seminar slot by presenter seminar slot ID (string ID)
-     */
-    Optional<PresenterSeminarSlot> findByPresenterSeminarSlotId(String presenterSeminarSlotId);
+    List<PresenterSeminarSlot> findByPresenterSeminarIdOrderByWeekdayAscStartHourAsc(Long presenterSeminarId);
+    boolean existsByPresenterSeminarIdAndWeekdayAndStartHourAndEndHour(Long presenterSeminarId, Integer weekday, Integer startHour, Integer endHour);
 }
 
 

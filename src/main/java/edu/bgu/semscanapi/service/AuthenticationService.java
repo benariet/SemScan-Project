@@ -24,25 +24,15 @@ public class AuthenticationService {
     @Autowired
     private UserRepository userRepository;
     
-    @Autowired
-    private IdMappingService idMappingService;
-    
     /**
      * Find user by ID
      */
     @Transactional(readOnly = true)
-    public Optional<User> findUserById(String userId) {
+    public Optional<User> findUserById(Long userId) {
         logger.debug("Finding user by ID: {}", userId);
         
         try {
-            // Convert String ID to Long ID using IdMappingService
-            Optional<Long> numericId = idMappingService.getUserIdFromStringId(userId);
-            if (numericId.isEmpty()) {
-                logger.warn("User not found with string ID: {}", userId);
-                return Optional.empty();
-            }
-            
-            Optional<User> user = userRepository.findById(numericId.get());
+            Optional<User> user = userRepository.findById(userId);
             if (user.isPresent()) {
                 logger.info("User found: {}", userId);
             } else {
@@ -114,18 +104,11 @@ public class AuthenticationService {
      * Check if user exists
      */
     @Transactional(readOnly = true)
-    public boolean userExists(String userId) {
+    public boolean userExists(Long userId) {
         logger.debug("Checking if user exists: {}", userId);
         
         try {
-            // Convert String ID to Long ID using IdMappingService
-            Optional<Long> numericId = idMappingService.getUserIdFromStringId(userId);
-            if (numericId.isEmpty()) {
-                logger.debug("User not found with string ID: {}", userId);
-                return false;
-            }
-            
-            boolean exists = userRepository.existsById(numericId.get());
+            boolean exists = userRepository.existsById(userId);
             logger.debug("User exists: {} = {}", userId, exists);
             return exists;
         } catch (Exception e) {

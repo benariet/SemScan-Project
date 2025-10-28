@@ -29,7 +29,7 @@ FROM   log_analytics;
 -- USER REPOSITORY QUERIES (AuthenticationService)
 SELECT *
 FROM   users
-WHERE  user_id = 'USERID-10000-20250122';
+WHERE  user_id = 'USERID-10001-20250122';
 
 SELECT *
 FROM   users
@@ -48,7 +48,7 @@ WHERE  role = 'PRESENTER';
 -- SEMINAR REPOSITORY QUERIES (SeminarService)
 SELECT *
 FROM   seminars
-WHERE  seminar_id = 'SEMINR-10000-20250122';
+WHERE  seminar_id = 'SEMINR-10001-20250122';
 
 SELECT *
 FROM   seminars
@@ -56,7 +56,7 @@ WHERE  seminar_code = 'AI-HLTH-001';
 
 SELECT *
 FROM   seminars
-WHERE  presenter_id = 'USERID-10000-20250122';
+WHERE  presenter_id = 'USERID-10001-20250122';
 
 
 SELECT s.*,
@@ -71,11 +71,11 @@ WHERE  u.role = 'PRESENTER';
 -- SESSION REPOSITORY QUERIES (SessionService)
 SELECT *
 FROM   sessions
-WHERE  session_id = 'SESSIN-10000-20250122';
+WHERE  session_id = 'SESSIN-10001-20250122';
 
 SELECT *
 FROM   sessions
-WHERE  seminar_id = 'SEMINR-10000-20250122';
+WHERE  seminar_id = 'SEMINR-10001-20250122';
 
 SELECT *
 FROM   sessions
@@ -87,12 +87,12 @@ WHERE  status = 'CLOSED';
 
 SELECT *
 FROM   sessions
-WHERE  seminar_id = 'SEMINR-10000-20250122'
+WHERE  seminar_id = 'SEMINR-10001-20250122'
        AND status = 'OPEN';
 
 SELECT Count(*)
 FROM   sessions
-WHERE  seminar_id = 'SEMINR-10000-20250122';
+WHERE  seminar_id = 'SEMINR-10001-20250122';
 
 SELECT Count(*)
 FROM   sessions
@@ -101,11 +101,11 @@ WHERE  status = 'OPEN';
 -- ATTENDANCE REPOSITORY QUERIES (AttendanceService)
 SELECT *
 FROM   attendance
-WHERE  attendance_id = 'ATTEND-10000-20250122';
+WHERE  attendance_id = 'ATTEND-10001-20250122';
 
 SELECT *
 FROM   attendance
-WHERE  session_id = 'SESSIN-10000-20250122';
+WHERE  session_id = 'SESSIN-10001-20250122';
 
 SELECT *
 FROM   attendance
@@ -113,12 +113,12 @@ WHERE  student_id = 'USERID-10005-20250122';
 
 SELECT *
 FROM   attendance
-WHERE  session_id = 'SESSIN-10000-20250122'
+WHERE  session_id = 'SESSIN-10001-20250122'
        AND student_id = 'USERID-10005-20250122';
 
 SELECT Count(*) > 0
 FROM   attendance
-WHERE  session_id = 'SESSIN-10000-20250122'
+WHERE  session_id = 'SESSIN-10001-20250122'
        AND student_id = 'USERID-10005-20250122';
 
 SELECT *
@@ -127,12 +127,12 @@ WHERE  method = 'QR_SCAN';
 
 SELECT *
 FROM   attendance
-WHERE  session_id = 'SESSIN-10000-20250122'
+WHERE  session_id = 'SESSIN-10001-20250122'
        AND method = 'QR_SCAN';
 
 SELECT Count(*)
 FROM   attendance
-WHERE  session_id = 'SESSIN-10000-20250122';
+WHERE  session_id = 'SESSIN-10001-20250122';
 
 SELECT Count(*)
 FROM   attendance
@@ -216,18 +216,18 @@ WHERE  created_at < '2024-09-01 00:00:00';
 -- PRESENTER SEMINAR REPOSITORY QUERIES (PresenterSeminarService)
 SELECT *
 FROM   presenter_seminar
-WHERE  presenter_id = 'USERID-10000-20250122'
+WHERE  presenter_id = 'USERID-10001-20250122'
 ORDER  BY created_at DESC;
 
 SELECT *
 FROM   presenter_seminar_slot
-WHERE  presenter_seminar_id = 'PRESEM-10000-20250122'
+WHERE  presenter_seminar_id = 'PRESEM-10001-20250122'
 ORDER  BY weekday ASC,
           start_hour ASC;
 
 SELECT Count(*) > 0
 FROM   presenter_seminar_slot
-WHERE  presenter_seminar_id = 'PRESEM-10000-20250122'
+WHERE  presenter_seminar_id = 'PRESEM-10001-20250122'
        AND weekday = 1
        AND start_hour = 10
        AND end_hour = 11;
@@ -237,70 +237,70 @@ WHERE  presenter_seminar_id = 'PRESEM-10000-20250122'
 
 UPDATE sessions
 SET    status = 'CLOSED'
-WHERE  session_id = 'SESSIN-10000-20250122';
+WHERE  session_id = 'SESSIN-10001-20250122';
 
 UPDATE sessions
 SET    status = 'OPEN'
-WHERE  session_id = 'SESSIN-10000-20250122';
+WHERE  session_id = 'SESSIN-10001-20250122';
 
 UPDATE sessions
 SET    end_time = '2024-09-18 11:00:00'
-WHERE  session_id = 'SESSIN-10000-20250122';
+WHERE  session_id = 'SESSIN-10001-20250122';
 
 UPDATE attendance
 SET    method = 'MANUAL'
-WHERE  attendance_id = 'ATTEND-10000-20250122';
+WHERE  attendance_id = 'ATTEND-10001-20250122';
 
 UPDATE users
 SET    first_name = 'Dr. John Updated'
-WHERE  user_id = 'USERID-10000-20250122';
+WHERE  user_id = 'USERID-10001-20250122';
 
 UPDATE users
 SET    last_name = 'Smith Updated'
-WHERE  user_id = 'USERID-10000-20250122';
+WHERE  user_id = 'USERID-10001-20250122';
 
 UPDATE users
 SET    email = 'dr.john.updated@university.edu'
-WHERE  user_id = 'USERID-10000-20250122';
+WHERE  user_id = 'USERID-10001-20250122';
 
 UPDATE seminars
 SET    seminar_name = 'AI and Machine Learning in Healthcare Updated'
-WHERE  seminar_id = 'SEMINR-10000-20250122';
+WHERE  seminar_id = 'SEMINR-10001-20250122';
 
 UPDATE seminars
 SET    description = 'Updated description for AI applications'
-WHERE  seminar_id = 'SEMINR-10000-20250122';
+WHERE  seminar_id = 'SEMINR-10001-20250122';
 
 UPDATE presenter_seminar
 SET    seminar_name = 'AI Healthcare Updated'
-WHERE  presenter_seminar_id = 'PRESEM-10000-20250122';
+WHERE  presenter_seminar_id = 'PRESEM-10001-20250122';
 
 UPDATE presenter_seminar_slot
 SET    start_hour = 11,
        end_hour = 12
-WHERE  presenter_seminar_slot_id = 'PRESLT-10000-20250122';
+WHERE  presenter_seminar_slot_id = 'PRESLT-10001-20250122';
 
 UPDATE presenter_seminar_slot
 SET    weekday = 2
-WHERE  presenter_seminar_slot_id = 'PRESLT-10000-20250122';
+WHERE  presenter_seminar_slot_id = 'PRESLT-10001-20250122';
 
 DELETE FROM sessions
-WHERE  session_id = 'SESSIN-10000-20250122';
+WHERE  session_id = 'SESSIN-10001-20250122';
 
 DELETE FROM attendance
-WHERE  attendance_id = 'ATTEND-10000-20250122';
+WHERE  attendance_id = 'ATTEND-10001-20250122';
 
 DELETE FROM seminars
-WHERE  seminar_id = 'SEMINR-10000-20250122';
+WHERE  seminar_id = 'SEMINR-10001-20250122';
 
 DELETE FROM presenter_seminar
-WHERE  presenter_seminar_id = 'PRESEM-10000-20250122';
+WHERE  presenter_seminar_id = 'PRESEM-10001-20250122';
 
 DELETE FROM presenter_seminar_slot
-WHERE  presenter_seminar_slot_id = 'PRESLT-10000-20250122';
+WHERE  presenter_seminar_slot_id = 'PRESLT-10001-20250122';
 
 DELETE FROM users
-WHERE  user_id = 'USERID-10000-20250122';
+WHERE  user_id = 'USERID-10001-20250122';
 
 DELETE FROM app_logs
 WHERE  id = 1; 
@@ -311,8 +311,8 @@ INSERT INTO sessions
              seminar_id,
              start_time,
              status)
-VALUES      ('SESSIN-10000-20250122',
-             'SEMINR-10000-20250122',
+VALUES      ('SESSIN-10001-20250122',
+             'SEMINR-10001-20250122',
              '2024-09-18 10:00:00',
              'OPEN');
 
@@ -322,11 +322,11 @@ INSERT INTO seminars
              seminar_code,
              description,
              presenter_id)
-VALUES      ('SEMINR-10000-20250122',
+VALUES      ('SEMINR-10001-20250122',
              'AI Healthcare',
              'AI-HLTH-001',
              'AI applications',
-             'USERID-10000-20250122');
+             1);
 
 INSERT INTO attendance
             (attendance_id,
@@ -335,8 +335,8 @@ INSERT INTO attendance
              attendance_time,
              method,
              request_status)
-VALUES      ('ATTEND-10000-20250122',
-             'SESSIN-10000-20250122',
+VALUES      ('ATTEND-10001-20250122',
+             'SESSIN-10001-20250122',
              'USERID-10005-20250122',
              '2024-09-18 10:05:00',
              'QR_SCAN',
@@ -347,8 +347,8 @@ INSERT INTO presenter_seminar
              presenter_id,
              seminar_name,
              created_at)
-VALUES      ('PRESEM-10000-20250122',
-             'USERID-10000-20250122',
+VALUES      ('PRESEM-10001-20250122',
+             'USERID-10001-20250122',
              'AI Healthcare',
              '2024-09-18 10:00:00');
 
@@ -358,8 +358,8 @@ INSERT INTO presenter_seminar_slot
              weekday,
              start_hour,
              end_hour)
-VALUES      ('PRESLT-10000-20250122',
-             'PRESEM-10000-20250122',
+VALUES      ('PRESLT-10001-20250122',
+             'PRESEM-10001-20250122',
              1,
              10,
              11);
@@ -378,7 +378,7 @@ VALUES      (1695123456789,
              'INFO',
              'LOGIN',
              'User logged in successfully',
-             'USERID-10005-20250122',
+             5,
              'STUDENT',
              'Android 13, Samsung Galaxy S21',
              '1.2.3',

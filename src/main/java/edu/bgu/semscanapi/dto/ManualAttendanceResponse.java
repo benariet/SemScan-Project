@@ -4,9 +4,9 @@ import java.time.LocalDateTime;
 
 public class ManualAttendanceResponse {
     
-    private String attendanceId;
-    private String sessionId;
-    private String studentId;
+    private Long attendanceId;
+    private Long sessionId;
+    private Long studentId;
     private String studentName;
     private String reason;
     private String requestStatus;
@@ -17,7 +17,7 @@ public class ManualAttendanceResponse {
     public ManualAttendanceResponse() {
     }
 
-    public ManualAttendanceResponse(String attendanceId, String sessionId, String studentId, 
+    public ManualAttendanceResponse(Long attendanceId, Long sessionId, Long studentId, 
                                   String studentName, String reason, String requestStatus, 
                                   LocalDateTime requestedAt, String autoFlags, String message) {
         this.attendanceId = attendanceId;
@@ -32,27 +32,27 @@ public class ManualAttendanceResponse {
     }
 
     // Getters and Setters
-    public String getAttendanceId() {
+    public Long getAttendanceId() {
         return attendanceId;
     }
 
-    public void setAttendanceId(String attendanceId) {
+    public void setAttendanceId(Long attendanceId) {
         this.attendanceId = attendanceId;
     }
 
-    public String getSessionId() {
+    public Long getSessionId() {
         return sessionId;
     }
 
-    public void setSessionId(String sessionId) {
+    public void setSessionId(Long sessionId) {
         this.sessionId = sessionId;
     }
 
-    public String getStudentId() {
+    public Long getStudentId() {
         return studentId;
     }
 
-    public void setStudentId(String studentId) {
+    public void setStudentId(Long studentId) {
         this.studentId = studentId;
     }
 
@@ -107,9 +107,9 @@ public class ManualAttendanceResponse {
     @Override
     public String toString() {
         return "ManualAttendanceResponse{" +
-                "attendanceId='" + attendanceId + '\'' +
-                ", sessionId='" + sessionId + '\'' +
-                ", studentId='" + studentId + '\'' +
+                "attendanceId=" + attendanceId +
+                ", sessionId=" + sessionId +
+                ", studentId=" + studentId +
                 ", studentName='" + studentName + '\'' +
                 ", reason='" + reason + '\'' +
                 ", requestStatus='" + requestStatus + '\'' +

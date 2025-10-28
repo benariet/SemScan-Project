@@ -9,8 +9,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
-
 /**
  * Repository interface for Seminar entity operations
  * Provides data access methods with comprehensive logging
@@ -21,31 +19,13 @@ public interface SeminarRepository extends JpaRepository<Seminar, Long> {
     Logger logger = LoggerUtil.getLogger(SeminarRepository.class);
     
     /**
-     * Find seminar by seminar code
-     */
-    Optional<Seminar> findBySeminarCode(String seminarCode);
-    
-    /**
-     * Find seminar by seminar ID (string ID)
-     */
-    Optional<Seminar> findBySeminarId(String seminarId);
-    
-    /**
      * Find seminars by presenter ID
      */
-    List<Seminar> findByPresenterId(String presenterId);
+    List<Seminar> findByPresenterId(Long presenterId);
     
     /**
      * Find seminars by presenter ID and active status
      */
-    @Query("SELECT s FROM Seminar s WHERE s.presenterId = :presenterId")
-    List<Seminar> findActiveSeminarsByPresenter(@Param("presenterId") String presenterId);
-    
-    /**
-     * Check if seminar code exists
-     */
-    boolean existsBySeminarCode(String seminarCode);
-    
     /**
      * Find seminars by name containing (case-insensitive)
      */
@@ -55,10 +35,10 @@ public interface SeminarRepository extends JpaRepository<Seminar, Long> {
     /**
      * Count seminars by presenter
      */
-    long countByPresenterId(String presenterId);
+    long countByPresenterId(Long presenterId);
     
     /**
-     * Find all seminars with their presenter information
+     * Find all seminars with presenter users
      */
     @Query("SELECT s FROM Seminar s JOIN User u ON s.presenterId = u.userId WHERE u.role = 'PRESENTER'")
     List<Seminar> findAllWithPresenters();

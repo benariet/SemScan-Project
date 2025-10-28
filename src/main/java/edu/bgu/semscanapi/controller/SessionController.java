@@ -77,7 +77,7 @@ public class SessionController {
      * Get session by ID
      */
     @GetMapping("/{sessionId}")
-    public ResponseEntity<Object> getSessionById(@PathVariable String sessionId) {
+    public ResponseEntity<Object> getSessionById(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving session by ID: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/" + sessionId, null);
@@ -124,7 +124,7 @@ public class SessionController {
      * Get sessions by seminar
      */
     @GetMapping("/seminar/{seminarId}")
-    public ResponseEntity<Object> getSessionsBySeminar(@PathVariable String seminarId) {
+    public ResponseEntity<Object> getSessionsBySeminar(@PathVariable Long seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving sessions for seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/seminar/" + seminarId, null);
@@ -226,7 +226,7 @@ public class SessionController {
      * Update session status
      */
     @PutMapping("/{sessionId}/status")
-    public ResponseEntity<Object> updateSessionStatus(@PathVariable String sessionId, 
+    public ResponseEntity<Object> updateSessionStatus(@PathVariable Long sessionId, 
                                                      @RequestParam Session.SessionStatus status) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Updating session status - ID: {}, Status: {}", sessionId, status);
@@ -273,7 +273,7 @@ public class SessionController {
      * Close session (PATCH method for mobile app compatibility)
      */
     @PatchMapping("/{sessionId}/close")
-    public ResponseEntity<Object> closeSessionPatch(@PathVariable String sessionId) {
+    public ResponseEntity<Object> closeSessionPatch(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Closing session (PATCH): {}", sessionId);
         LoggerUtil.logApiRequest(logger, "PATCH", "/api/v1/sessions/" + sessionId + "/close", null);
@@ -318,7 +318,7 @@ public class SessionController {
      * Close session (PUT method)
      */
     @PutMapping("/{sessionId}/close")
-    public ResponseEntity<Object> closeSession(@PathVariable String sessionId) {
+    public ResponseEntity<Object> closeSession(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Closing session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/sessions/" + sessionId + "/close", null);
@@ -363,7 +363,7 @@ public class SessionController {
      * Open session
      */
     @PutMapping("/{sessionId}/open")
-    public ResponseEntity<Object> openSession(@PathVariable String sessionId) {
+    public ResponseEntity<Object> openSession(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Opening session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/sessions/" + sessionId + "/open", null);
@@ -408,7 +408,7 @@ public class SessionController {
      * Delete session
      */
     @DeleteMapping("/{sessionId}")
-    public ResponseEntity<Object> deleteSession(@PathVariable String sessionId) {
+    public ResponseEntity<Object> deleteSession(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Deleting session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/sessions/" + sessionId, null);
@@ -493,7 +493,7 @@ public class SessionController {
      * Get active sessions for a seminar
      */
     @GetMapping("/seminar/{seminarId}/active")
-    public ResponseEntity<Object> getActiveSessionsBySeminar(@PathVariable String seminarId) {
+    public ResponseEntity<Object> getActiveSessionsBySeminar(@PathVariable Long seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving active sessions for seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/seminar/" + seminarId + "/active", null);

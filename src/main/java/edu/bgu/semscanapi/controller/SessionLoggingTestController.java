@@ -19,10 +19,10 @@ public class SessionLoggingTestController {
      * Test session-specific logging by creating a mock session
      */
     @PostMapping("/create-session")
-    public ResponseEntity<Map<String, Object>> testSessionCreation(@RequestParam String sessionId) {
+    public ResponseEntity<Map<String, Object>> testSessionCreation(@RequestParam Long sessionId) {
         try {
             // Simulate session creation
-            SessionLoggerUtil.logSessionCreated(sessionId, "seminar-001", "presenter-001");
+            SessionLoggerUtil.logSessionCreated(sessionId, 1L, 1L);
             
             return ResponseEntity.ok(Map.of(
                 "status", "success",
@@ -45,7 +45,7 @@ public class SessionLoggingTestController {
      */
     @PostMapping("/change-status")
     public ResponseEntity<Map<String, Object>> testStatusChange(
-            @RequestParam String sessionId,
+            @RequestParam Long sessionId,
             @RequestParam String newStatus) {
         try {
             SessionLoggerUtil.logSessionStatusChange(sessionId, "OPEN", newStatus);
@@ -71,8 +71,8 @@ public class SessionLoggingTestController {
      */
     @PostMapping("/log-attendance")
     public ResponseEntity<Map<String, Object>> testAttendanceLogging(
-            @RequestParam String sessionId,
-            @RequestParam String studentId) {
+            @RequestParam Long sessionId,
+            @RequestParam Long studentId) {
         try {
             SessionLoggerUtil.logAttendance(sessionId, studentId, "QR_SCAN", 
                 LocalDateTime.now().toString());
@@ -98,7 +98,7 @@ public class SessionLoggingTestController {
      */
     @PostMapping("/close-session")
     public ResponseEntity<Map<String, Object>> testSessionClosure(
-            @RequestParam String sessionId,
+            @RequestParam Long sessionId,
             @RequestParam(defaultValue = "90") int durationMinutes,
             @RequestParam(defaultValue = "15") int attendanceCount) {
         try {
@@ -126,7 +126,7 @@ public class SessionLoggingTestController {
      */
     @PostMapping("/log-statistics")
     public ResponseEntity<Map<String, Object>> testStatisticsLogging(
-            @RequestParam String sessionId,
+            @RequestParam Long sessionId,
             @RequestParam(defaultValue = "25") int totalStudents,
             @RequestParam(defaultValue = "20") int attendedStudents) {
         try {

@@ -37,7 +37,7 @@ public class QRCodeController {
      * Returns the URL that should be encoded in the QR code
      */
     @GetMapping("/session/{sessionId}")
-    public ResponseEntity<Object> generateSessionQR(@PathVariable String sessionId) {
+    public ResponseEntity<Object> generateSessionQR(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Generating QR code for session: {} - Correlation ID: {}", sessionId, correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/qr/session/" + sessionId, null);
@@ -174,9 +174,10 @@ public class QRCodeController {
         Map<String, Object> qrData = new HashMap<>();
         
         // Generate different URL formats for flexibility
-        String fullUrl = globalConfig.getSessionsEndpoint() + "/" + session.getSessionId();
-        String relativePath = "/api/v1/sessions/" + session.getSessionId();
-        String sessionIdOnly = session.getSessionId();
+        String sessionIdString = String.valueOf(session.getSessionId());
+        String fullUrl = globalConfig.getSessionsEndpoint() + "/" + sessionIdString;
+        String relativePath = "/api/v1/sessions/" + sessionIdString;
+        String sessionIdOnly = sessionIdString;
         
         qrData.put("sessionId", session.getSessionId());
         qrData.put("seminarId", session.getSeminarId());

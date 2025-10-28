@@ -1,6 +1,7 @@
 package edu.bgu.semscanapi.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
@@ -9,41 +10,32 @@ public class Seminar {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
-
-    @Column(name = "seminar_id", length = 30, unique = true)
-    private String seminarId;
+    @Column(name = "seminar_id")
+    private Long seminarId;
 
     @Column(name = "seminar_name")
     private String seminarName;
 
-    @Column(name = "seminar_code", unique = true)
-    private String seminarCode;
-
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "presenter_id")
-    private String presenterId;
+    @Column(name = "presenter_id", nullable = false)
+    private Long presenterId;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     public Seminar() {
     }
 
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getSeminarId() {
+    public Long getSeminarId() {
         return seminarId;
     }
 
-    public void setSeminarId(String seminarId) {
+    public void setSeminarId(Long seminarId) {
         this.seminarId = seminarId;
     }
 
@@ -55,14 +47,6 @@ public class Seminar {
         this.seminarName = seminarName;
     }
 
-    public String getSeminarCode() {
-        return seminarCode;
-    }
-
-    public void setSeminarCode(String seminarCode) {
-        this.seminarCode = seminarCode;
-    }
-
     public String getDescription() {
         return description;
     }
@@ -71,12 +55,28 @@ public class Seminar {
         this.description = description;
     }
 
-    public String getPresenterId() {
+    public Long getPresenterId() {
         return presenterId;
     }
 
-    public void setPresenterId(String presenterId) {
+    public void setPresenterId(Long presenterId) {
         this.presenterId = presenterId;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     @Override
@@ -84,21 +84,19 @@ public class Seminar {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Seminar seminar = (Seminar) o;
-        return Objects.equals(id, seminar.id);
+        return Objects.equals(seminarId, seminar.seminarId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id);
+        return Objects.hash(seminarId);
     }
 
     @Override
     public String toString() {
         return "Seminar{" +
-                "id=" + id +
-                ", seminarId='" + seminarId + '\'' +
+                "seminarId=" + seminarId +
                 ", seminarName='" + seminarName + '\'' +
-                ", seminarCode='" + seminarCode + '\'' +
                 ", description='" + description + '\'' +
                 ", presenterId=" + presenterId +
                 '}';

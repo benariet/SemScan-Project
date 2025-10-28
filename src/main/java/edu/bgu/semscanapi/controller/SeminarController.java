@@ -32,7 +32,7 @@ public class SeminarController {
     @PostMapping
     public ResponseEntity<Object> createSeminar(@RequestBody Seminar seminar) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Creating seminar - Name: {}, Code: {}", seminar.getSeminarName(), seminar.getSeminarCode());
+        logger.info("Creating seminar - Name: {}", seminar.getSeminarName());
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/seminars", seminar.toString());
         
         try {
@@ -76,7 +76,7 @@ public class SeminarController {
      * Get seminar by ID
      */
     @GetMapping("/{seminarId}")
-    public ResponseEntity<Object> getSeminarById(@PathVariable String seminarId) {
+    public ResponseEntity<Object> getSeminarById(@PathVariable Long seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving seminar by ID: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/seminars/" + seminarId, null);
@@ -119,38 +119,6 @@ public class SeminarController {
     }
     
     /**
-     * Get seminar by code
-     */
-    @GetMapping("/code/{seminarCode}")
-    public ResponseEntity<Seminar> getSeminarByCode(@PathVariable String seminarCode) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving seminar by code: {}", seminarCode);
-        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/seminars/code/" + seminarCode, null);
-        
-        try {
-            Optional<Seminar> seminar = seminarService.getSeminarByCode(seminarCode);
-            
-            if (seminar.isPresent()) {
-                logger.info("Seminar found by code - Code: {}, Name: {}", seminarCode, seminar.get().getSeminarName());
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/seminars/code/" + seminarCode, 200, seminar.get().toString());
-                return ResponseEntity.ok(seminar.get());
-            } else {
-                logger.warn("Seminar not found by code: {}", seminarCode);
-                LoggerUtil.logApiResponse(logger, "GET", "/api/v1/seminars/code/" + seminarCode, 404, "Not Found");
-                return ResponseEntity.notFound().build();
-            }
-            
-        } catch (Exception e) {
-            logger.error("Failed to retrieve seminar by code: {}", seminarCode, e);
-            LoggerUtil.logError(logger, "Failed to retrieve seminar by code", e);
-            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/seminars/code/" + seminarCode, 500, "Internal Server Error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } finally {
-            LoggerUtil.clearContext();
-        }
-    }
-    
-    /**
      * Get all seminars
      */
     @GetMapping
@@ -180,7 +148,7 @@ public class SeminarController {
      * Get seminars by presenter
      */
     @GetMapping("/presenter/{presenterId}")
-    public ResponseEntity<List<Seminar>> getSeminarsByPresenter(@PathVariable String presenterId) {
+    public ResponseEntity<List<Seminar>> getSeminarsByPresenter(@PathVariable Long presenterId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving seminars for presenter: {}", presenterId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/seminars/presenter/" + presenterId, null);
@@ -207,7 +175,7 @@ public class SeminarController {
      * Update seminar
      */
     @PutMapping("/{seminarId}")
-    public ResponseEntity<Object> updateSeminar(@PathVariable String seminarId, @RequestBody Seminar seminar) {
+    public ResponseEntity<Object> updateSeminar(@PathVariable Long seminarId, @RequestBody Seminar seminar) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Updating seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/seminars/" + seminarId, seminar.toString());
@@ -246,7 +214,7 @@ public class SeminarController {
      * Delete seminar
      */
     @DeleteMapping("/{seminarId}")
-    public ResponseEntity<Object> deleteSeminar(@PathVariable String seminarId) {
+    public ResponseEntity<Object> deleteSeminar(@PathVariable Long seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
         logger.info("Deleting seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/seminars/" + seminarId, null);

@@ -56,10 +56,16 @@ public class SessionLoggerUtil {
      * @param seminarId The seminar ID
      * @param presenterId The presenter ID
      */
-    public static void logSessionCreated(String sessionId, String seminarId, String presenterId) {
-        setSessionContext(sessionId);
-        sessionLogger.info("SESSION_CREATED - Session: {}, Seminar: {}, Presenter: {}", 
+    public static void logSessionCreated(Long sessionId, Long seminarId, Long presenterId) {
+        setSessionContextValue(sessionId);
+        sessionLogger.info("SESSION_CREATED - Session: {}, Seminar: {}, Presenter: {}",
                           sessionId, seminarId, presenterId);
+    }
+
+    private static void setSessionContextValue(Long sessionId) {
+        if (sessionId != null) {
+            setSessionContext(sessionId.toString());
+        }
     }
 
     /**
@@ -69,9 +75,9 @@ public class SessionLoggerUtil {
      * @param oldStatus The previous status
      * @param newStatus The new status
      */
-    public static void logSessionStatusChange(String sessionId, String oldStatus, String newStatus) {
-        setSessionContext(sessionId);
-        sessionLogger.info("SESSION_STATUS_CHANGED - Session: {}, Status: {} -> {}", 
+    public static void logSessionStatusChange(Long sessionId, String oldStatus, String newStatus) {
+        setSessionContextValue(sessionId);
+        sessionLogger.info("SESSION_STATUS_CHANGED - Session: {}, Status: {} -> {}",
                           sessionId, oldStatus, newStatus);
     }
 
@@ -82,9 +88,9 @@ public class SessionLoggerUtil {
      * @param durationMinutes Duration of the session in minutes
      * @param attendanceCount Number of students who attended
      */
-    public static void logSessionClosed(String sessionId, long durationMinutes, int attendanceCount) {
-        setSessionContext(sessionId);
-        sessionLogger.info("SESSION_CLOSED - Session: {}, Duration: {} minutes, Attendance: {} students", 
+    public static void logSessionClosed(Long sessionId, long durationMinutes, int attendanceCount) {
+        setSessionContextValue(sessionId);
+        sessionLogger.info("SESSION_CLOSED - Session: {}, Duration: {} minutes, Attendance: {} students",
                           sessionId, durationMinutes, attendanceCount);
     }
 
@@ -96,9 +102,9 @@ public class SessionLoggerUtil {
      * @param method The attendance method (QR_SCAN, MANUAL, etc.)
      * @param timestamp The attendance timestamp
      */
-    public static void logAttendance(String sessionId, String studentId, String method, String timestamp) {
-        setSessionContext(sessionId);
-        sessionLogger.info("ATTENDANCE_RECORDED - Session: {}, Student: {}, Method: {}, Time: {}", 
+    public static void logAttendance(Long sessionId, Long studentId, String method, String timestamp) {
+        setSessionContextValue(sessionId);
+        sessionLogger.info("ATTENDANCE_RECORDED - Session: {}, Student: {}, Method: {}, Time: {}",
                           sessionId, studentId, method, timestamp);
     }
 
@@ -109,8 +115,8 @@ public class SessionLoggerUtil {
      * @param errorMessage The error message
      * @param throwable The exception (if any)
      */
-    public static void logSessionError(String sessionId, String errorMessage, Throwable throwable) {
-        setSessionContext(sessionId);
+    public static void logSessionError(Long sessionId, String errorMessage, Throwable throwable) {
+        setSessionContextValue(sessionId);
         if (throwable != null) {
             sessionLogger.error("SESSION_ERROR - Session: {}, Error: {}", sessionId, errorMessage, throwable);
         } else {
@@ -125,9 +131,9 @@ public class SessionLoggerUtil {
      * @param activity The activity description
      * @param details Additional details
      */
-    public static void logSessionActivity(String sessionId, String activity, String details) {
-        setSessionContext(sessionId);
-        sessionLogger.info("SESSION_ACTIVITY - Session: {}, Activity: {}, Details: {}", 
+    public static void logSessionActivity(Long sessionId, String activity, String details) {
+        setSessionContextValue(sessionId);
+        sessionLogger.info("SESSION_ACTIVITY - Session: {}, Activity: {}, Details: {}",
                           sessionId, activity, details);
     }
 
@@ -139,9 +145,9 @@ public class SessionLoggerUtil {
      * @param attendedStudents Number of students who attended
      * @param attendanceRate Attendance rate percentage
      */
-    public static void logSessionStatistics(String sessionId, int totalStudents, int attendedStudents, double attendanceRate) {
-        setSessionContext(sessionId);
-        sessionLogger.info("SESSION_STATISTICS - Session: {}, Total: {}, Attended: {}, Rate: {:.2f}%", 
+    public static void logSessionStatistics(Long sessionId, int totalStudents, int attendedStudents, double attendanceRate) {
+        setSessionContextValue(sessionId);
+        sessionLogger.info("SESSION_STATISTICS - Session: {}, Total: {}, Attended: {}, Rate: {:.2f}%",
                           sessionId, totalStudents, attendedStudents, attendanceRate);
     }
 

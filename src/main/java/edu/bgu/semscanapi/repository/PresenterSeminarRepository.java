@@ -9,12 +9,9 @@ import java.util.Optional;
 
 @Repository
 public interface PresenterSeminarRepository extends JpaRepository<PresenterSeminar, Long> {
-    List<PresenterSeminar> findByPresenterIdOrderByCreatedAtDesc(String presenterId);
-    
-    /**
-     * Find presenter seminar by presenter seminar ID (string ID)
-     */
-    Optional<PresenterSeminar> findByPresenterSeminarId(String presenterSeminarId);
+    List<PresenterSeminar> findByPresenterIdOrderByCreatedAtDesc(Long presenterId);
+
+    Optional<PresenterSeminar> findByPresenterSeminarId(Long presenterSeminarId);
 }
 
 

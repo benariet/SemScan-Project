@@ -134,7 +134,7 @@ public class AppLogService {
      */
     private AppLog convertToEntity(AppLogEntry logEntry) {
         AppLog appLog = new AppLog();
-        appLog.setTimestamp(logEntry.getTimestamp());
+        appLog.setLogTimestamp(toLocalDateTime(logEntry.getTimestamp()));
 
         // Normalize level and auto-upgrade to ERROR if exception context is present
         String incomingLevel = logEntry.getLevel();
@@ -152,8 +152,8 @@ public class AppLogService {
 
         appLog.setTag(logEntry.getTag());
         appLog.setMessage(logEntry.getMessage());
-        appLog.setUserId(logEntry.getUserId());
-        appLog.setUserRole(logEntry.getUserRole());
+        appLog.setUserId(toLongOrNull(logEntry.getUserId()));
+        appLog.setUserRole(parseUserRole(logEntry.getUserRole()));
         appLog.setDeviceInfo(logEntry.getDeviceInfo());
         appLog.setAppVersion(logEntry.getAppVersion());
         appLog.setStackTrace(logEntry.getStackTrace());
@@ -184,7 +184,7 @@ public class AppLogService {
     /**
      * Get logs by user ID
      */
-    public List<AppLog> getLogsByUser(String userId) {
+    public List<AppLog> getLogsByUser(Long userId) {
         return appLogRepository.findByUserId(userId);
     }
     
@@ -213,7 +213,7 @@ public class AppLogService {
      * Get logs by user role
      */
     public List<AppLog> getLogsByUserRole(String userRole) {
-        return appLogRepository.findByUserRole(userRole);
+        return appLogRepository.findByUserRole(parseUserRole(userRole));
     }
     
     /**
@@ -244,5 +244,37 @@ public class AppLogService {
     public int cleanupOldLogs(int daysToKeep) {
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(daysToKeep);
         return appLogRepository.deleteOldLogs(cutoffDate);
+    }
+
+    private LocalDateTime toLocalDateTime(Long epochMillis) {
+        if (epochMillis == null) {
+            return LocalDateTime.now();
+        }
+        return LocalDateTime.ofEpochSecond(epochMillis / 1000, (int) (epochMillis % 1000) * 1_000_000,
+                java.time.ZoneOffset.UTC);
+    }
+
+    private Long toLongOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ex) {
+            logger.warn("Invalid numeric value provided: {}", value);
+            return null;
+        }
+    }
+
+    private AppLog.UserRole parseUserRole(String role) {
+        if (role == null) {
+            return null;
+        }
+        try {
+            return AppLog.UserRole.valueOf(role.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Unknown user role received: {}", role);
+            return null;
+        }
     }
 }

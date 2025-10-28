@@ -8,8 +8,8 @@ import java.util.Map;
  */
 public class QRCodeResponse {
     
-    private String sessionId;
-    private String seminarId;
+    private Long sessionId;
+    private Long seminarId;
     private String status;
     private LocalDateTime startTime;
     private Map<String, String> qrContent;
@@ -19,7 +19,7 @@ public class QRCodeResponse {
     public QRCodeResponse() {
     }
     
-    public QRCodeResponse(String sessionId, String seminarId, String status, LocalDateTime startTime,
+    public QRCodeResponse(Long sessionId, Long seminarId, String status, LocalDateTime startTime,
                          Map<String, String> qrContent, Map<String, String> serverInfo, 
                          Map<String, Object> metadata) {
         this.sessionId = sessionId;
@@ -32,19 +32,19 @@ public class QRCodeResponse {
     }
     
     // Getters and Setters
-    public String getSessionId() {
+    public Long getSessionId() {
         return sessionId;
     }
     
-    public void setSessionId(String sessionId) {
+    public void setSessionId(Long sessionId) {
         this.sessionId = sessionId;
     }
     
-    public String getSeminarId() {
+    public Long getSeminarId() {
         return seminarId;
     }
     
-    public void setSeminarId(String seminarId) {
+    public void setSeminarId(Long seminarId) {
         this.seminarId = seminarId;
     }
     
