@@ -8,16 +8,22 @@ USE semscan_db;
 CREATE TABLE users (
     user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
+    bgu_username VARCHAR(50) UNIQUE,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     role ENUM('STUDENT','PRESENTER','ADMIN') NOT NULL,
     student_id VARCHAR(50) UNIQUE,
+    is_presenter BOOLEAN DEFAULT FALSE,
+    is_participant BOOLEAN DEFAULT FALSE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_student_id ON users(student_id);
+CREATE INDEX idx_users_bgu_username ON users(bgu_username);
+CREATE INDEX idx_users_is_presenter ON users(is_presenter);
+CREATE INDEX idx_users_is_participant ON users(is_participant);
 
 -- =====================================================================
 --  SEMINARS
@@ -27,6 +33,7 @@ CREATE TABLE seminars (
     seminar_name VARCHAR(255) NOT NULL,
     description TEXT,
     presenter_id BIGINT NOT NULL,
+    max_enrollment_capacity INT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_seminars_presenter
@@ -36,6 +43,28 @@ CREATE TABLE seminars (
 
 CREATE INDEX idx_seminars_presenter ON seminars(presenter_id);
 CREATE INDEX idx_seminars_name ON seminars(seminar_name);
+
+-- =====================================================================
+--  SEMINAR PARTICIPANTS (Per-Seminar Roles)
+-- =====================================================================
+CREATE TABLE seminar_participants (
+    participant_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    seminar_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    role ENUM('STUDENT','PRESENTER') NOT NULL,
+    joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_seminar_participants_seminar
+        FOREIGN KEY (seminar_id) REFERENCES seminars(seminar_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_seminar_participants_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    UNIQUE KEY unique_seminar_user (seminar_id, user_id)
+);
+
+CREATE INDEX idx_seminar_participants_seminar ON seminar_participants(seminar_id);
+CREATE INDEX idx_seminar_participants_user ON seminar_participants(user_id);
+CREATE INDEX idx_seminar_participants_role ON seminar_participants(role);
 
 -- =====================================================================
 --  SESSIONS

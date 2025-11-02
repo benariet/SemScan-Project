@@ -29,6 +29,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Find user by student ID
      */
     Optional<User> findByStudentId(String studentId);
+    
+    /**
+     * Find user by BGU username
+     */
+    Optional<User> findByBguUsername(String bguUsername);
 
     /**
      * Find users by role
@@ -56,6 +61,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Check if student ID exists
      */
     boolean existsByStudentId(String studentId);
+    
+    /**
+     * Check if BGU username exists
+     */
+    boolean existsByBguUsername(String bguUsername);
     
     /**
      * Find users by first name and last name

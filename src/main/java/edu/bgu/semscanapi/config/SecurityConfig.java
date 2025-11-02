@@ -1,9 +1,7 @@
 package edu.bgu.semscanapi.config;
 
-import edu.bgu.semscanapi.service.AuthenticationService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -11,7 +9,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -27,9 +24,6 @@ import java.util.Arrays;
 public class SecurityConfig {
     
     private static final Logger logger = LoggerUtil.getLogger(SecurityConfig.class);
-    
-    @Autowired
-    private AuthenticationService authenticationService;
     
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -48,15 +42,13 @@ public class SecurityConfig {
                 
                 // Configure authorization - ALL ENDPOINTS PUBLIC FOR POC
                 .authorizeHttpRequests(authz -> authz
-                    // All API endpoints are public (no API key required)
+                    // All API endpoints are public (no authentication required for POC)
                     .requestMatchers("/api/**").permitAll()
                     .requestMatchers("/actuator/**").permitAll()
                     
                     // All other requests are also public
                     .anyRequest().permitAll()
                 );
-                
-                // No authentication required for POC
             
             logger.info("Spring Security filter chain configured successfully");
             return http.build();

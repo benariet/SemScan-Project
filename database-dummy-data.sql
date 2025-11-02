@@ -14,35 +14,35 @@ DELETE FROM users;
 -- =============================
 --  USERS
 -- =============================
-INSERT INTO users (email, first_name, last_name, role)
-VALUES ('dr.john.smith@university.edu', 'Dr. John', 'Smith', 'PRESENTER');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, is_presenter, is_participant)
+VALUES ('dr.john.smith@university.edu', 'jsmith', 'Dr. John', 'Smith', 'PRESENTER', TRUE, TRUE);
 
-INSERT INTO users (email, first_name, last_name, role)
-VALUES ('prof.sarah.jones@university.edu', 'Prof. Sarah', 'Jones', 'PRESENTER');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, is_presenter, is_participant)
+VALUES ('prof.sarah.jones@university.edu', 'sjones', 'Prof. Sarah', 'Jones', 'PRESENTER', TRUE, TRUE);
 
-INSERT INTO users (email, first_name, last_name, role)
-VALUES ('dr.mike.wilson@university.edu', 'Dr. Mike', 'Wilson', 'PRESENTER');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, is_presenter, is_participant)
+VALUES ('dr.mike.wilson@university.edu', 'mwilson', 'Dr. Mike', 'Wilson', 'PRESENTER', TRUE, TRUE);
 
-INSERT INTO users (email, first_name, last_name, role)
-VALUES ('dr.anna.brown@university.edu', 'Dr. Anna', 'Brown', 'PRESENTER');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, is_presenter, is_participant)
+VALUES ('dr.anna.brown@university.edu', 'abrown', 'Dr. Anna', 'Brown', 'PRESENTER', TRUE, TRUE);
 
-INSERT INTO users (email, first_name, last_name, role)
-VALUES ('prof.david.garcia@university.edu', 'Prof. David', 'Garcia', 'PRESENTER');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, is_presenter, is_participant)
+VALUES ('prof.david.garcia@university.edu', 'dgarcia', 'Prof. David', 'Garcia', 'PRESENTER', TRUE, TRUE);
 
-INSERT INTO users (email, first_name, last_name, role, student_id)
-VALUES ('alice.johnson@student.edu', 'Alice', 'Johnson', 'STUDENT', 'STU001');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, student_id, is_presenter, is_participant)
+VALUES ('alice.johnson@student.edu', 'alice', 'Alice', 'Johnson', 'STUDENT', 'STU001', TRUE, TRUE);
 
-INSERT INTO users (email, first_name, last_name, role, student_id)
-VALUES ('bob.brown@student.edu', 'Bob', 'Brown', 'STUDENT', 'STU002');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, student_id, is_presenter, is_participant)
+VALUES ('bob.brown@student.edu', 'bob', 'Bob', 'Brown', 'STUDENT', 'STU002', FALSE, TRUE);
 
-INSERT INTO users (email, first_name, last_name, role, student_id)
-VALUES ('charlie.davis@student.edu', 'Charlie', 'Davis', 'STUDENT', 'STU003');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, student_id, is_presenter, is_participant)
+VALUES ('charlie.davis@student.edu', 'charlie', 'Charlie', 'Davis', 'STUDENT', 'STU003', FALSE, TRUE);
 
-INSERT INTO users (email, first_name, last_name, role, student_id)
-VALUES ('diana.wilson@student.edu', 'Diana', 'Wilson', 'STUDENT', 'STU004');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, student_id, is_presenter, is_participant)
+VALUES ('diana.wilson@student.edu', 'diana', 'Diana', 'Wilson', 'STUDENT', 'STU004', FALSE, TRUE);
 
-INSERT INTO users (email, first_name, last_name, role, student_id)
-VALUES ('eve.garcia@student.edu', 'Eve', 'Garcia', 'STUDENT', 'STU005');
+INSERT INTO users (email, bgu_username, first_name, last_name, role, student_id, is_presenter, is_participant)
+VALUES ('eve.garcia@student.edu', 'eve', 'Eve', 'Garcia', 'STUDENT', 'STU005', FALSE, TRUE);
 
 -- =============================
 --  SEMINARS
@@ -55,6 +55,52 @@ VALUES ('Blockchain Technology and Cryptocurrency', 'Fundamentals of blockchain 
 
 INSERT INTO seminars (seminar_name, description, presenter_id)
 VALUES ('Cybersecurity Best Practices', 'Defending against modern cyber threats.', (SELECT user_id FROM users WHERE email = 'dr.mike.wilson@university.edu'));
+
+-- =============================
+--  SEMINAR PARTICIPANTS (Per-Seminar Roles)
+-- =============================
+-- AI Seminar: Dr. John Smith is PRESENTER, Alice is PRESENTER, others are STUDENTS
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), 
+        (SELECT user_id FROM users WHERE email = 'dr.john.smith@university.edu'), 'PRESENTER');
+
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), 
+        (SELECT user_id FROM users WHERE email = 'alice.johnson@student.edu'), 'PRESENTER');
+
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), 
+        (SELECT user_id FROM users WHERE email = 'bob.brown@student.edu'), 'STUDENT');
+
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), 
+        (SELECT user_id FROM users WHERE email = 'charlie.davis@student.edu'), 'STUDENT');
+
+-- Blockchain Seminar: Prof. Sarah Jones is PRESENTER, others are STUDENTS
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency'), 
+        (SELECT user_id FROM users WHERE email = 'prof.sarah.jones@university.edu'), 'PRESENTER');
+
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency'), 
+        (SELECT user_id FROM users WHERE email = 'diana.wilson@student.edu'), 'STUDENT');
+
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency'), 
+        (SELECT user_id FROM users WHERE email = 'eve.garcia@student.edu'), 'STUDENT');
+
+-- Cybersecurity Seminar: Dr. Mike Wilson is PRESENTER, Alice is STUDENT
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices'), 
+        (SELECT user_id FROM users WHERE email = 'dr.mike.wilson@university.edu'), 'PRESENTER');
+
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices'), 
+        (SELECT user_id FROM users WHERE email = 'alice.johnson@student.edu'), 'STUDENT');
+
+INSERT INTO seminar_participants (seminar_id, user_id, role)
+VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices'), 
+        (SELECT user_id FROM users WHERE email = 'bob.brown@student.edu'), 'STUDENT');
 
 -- =============================
 --  SESSIONS

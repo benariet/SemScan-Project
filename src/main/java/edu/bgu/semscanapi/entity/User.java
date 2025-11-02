@@ -29,6 +29,15 @@ public class User {
     @Column(name = "student_id", unique = true)
     private String studentId;
 
+    @Column(name = "bgu_username", unique = true)
+    private String bguUsername;
+
+    @Column(name = "is_presenter")
+    private Boolean isPresenter = false;
+
+    @Column(name = "is_participant")
+    private Boolean isParticipant = false;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -100,6 +109,30 @@ public class User {
         this.studentId = studentId;
     }
 
+    public String getBguUsername() {
+        return bguUsername;
+    }
+
+    public void setBguUsername(String bguUsername) {
+        this.bguUsername = bguUsername;
+    }
+
+    public Boolean getIsPresenter() {
+        return isPresenter;
+    }
+
+    public void setIsPresenter(Boolean isPresenter) {
+        this.isPresenter = isPresenter;
+    }
+
+    public Boolean getIsParticipant() {
+        return isParticipant;
+    }
+
+    public void setIsParticipant(Boolean isParticipant) {
+        this.isParticipant = isParticipant;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -138,6 +171,9 @@ public class User {
                 ", email='" + email + '\'' +
                 ", role=" + role +
                 ", studentId='" + studentId + '\'' +
+                ", bguUsername='" + bguUsername + '\'' +
+                ", isPresenter=" + isPresenter +
+                ", isParticipant=" + isParticipant +
                 '}';
     }
 }

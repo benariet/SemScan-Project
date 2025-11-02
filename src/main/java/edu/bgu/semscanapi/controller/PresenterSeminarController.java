@@ -84,6 +84,9 @@ public class PresenterSeminarController {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/presenters/"+presenterId+"/seminars", 400, "No slots provided");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "At least one slot is required"));
         }
+        if (body.maxEnrollmentCapacity != null && body.maxEnrollmentCapacity < 0) {
+            return bad("maxEnrollmentCapacity must be >= 0", presenterId, correlationId, "POST");
+        }
         Set<String> dedup = new HashSet<>();
         int i = 0;
         for (SeminarSlotDto s : body.slots) {
@@ -192,6 +195,7 @@ public class PresenterSeminarController {
         public Long seminarId;
         public String seminarName;
         public String seminarDescription;
+        public Integer maxEnrollmentCapacity;
         public String instanceName;
         public String instanceDescription;
         public String tileDescription;
@@ -201,6 +205,7 @@ public class PresenterSeminarController {
             return "CreateRequest{"+
                     "seminarId="+seminarId+
                     ", seminarName='"+seminarName+'\''+
+                    ", maxEnrollmentCapacity="+maxEnrollmentCapacity+
                     ", instanceName='"+instanceName+'\''+
                     ", slots="+(slots==null?0:slots.size())+
                     '}'; }
@@ -230,6 +235,7 @@ public class PresenterSeminarController {
         seminar.setSeminarName(body.seminarName);
         seminar.setDescription(body.seminarDescription);
         seminar.setPresenterId(presenterId);
+        seminar.setMaxEnrollmentCapacity(body.maxEnrollmentCapacity);
 
         Seminar saved = seminarRepository.save(seminar);
         logger.info("Created new seminar {} for presenter {} - Correlation ID: {}", saved.getSeminarId(), presenterId, correlationId);

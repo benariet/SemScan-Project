@@ -22,6 +22,9 @@ public class Seminar {
     @Column(name = "presenter_id", nullable = false)
     private Long presenterId;
 
+    @Column(name = "max_enrollment_capacity")
+    private Integer maxEnrollmentCapacity;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -63,6 +66,14 @@ public class Seminar {
         this.presenterId = presenterId;
     }
 
+    public Integer getMaxEnrollmentCapacity() {
+        return maxEnrollmentCapacity;
+    }
+
+    public void setMaxEnrollmentCapacity(Integer maxEnrollmentCapacity) {
+        this.maxEnrollmentCapacity = maxEnrollmentCapacity;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -99,6 +110,7 @@ public class Seminar {
                 ", seminarName='" + seminarName + '\'' +
                 ", description='" + description + '\'' +
                 ", presenterId=" + presenterId +
+                ", maxEnrollmentCapacity=" + maxEnrollmentCapacity +
                 '}';
     }
 }
