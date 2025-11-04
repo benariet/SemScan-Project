@@ -4,6 +4,7 @@ import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.entity.Attendance;
 import edu.bgu.semscanapi.service.AttendanceService;
 import edu.bgu.semscanapi.service.AuthenticationService;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ public class AttendanceController {
     @Autowired
     private AuthenticationService authenticationService;
     
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+    
     /**
      * Record attendance for a student in a session
      */
@@ -60,6 +64,14 @@ public class AttendanceController {
             logger.error("Invalid attendance data: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance", 400, "Bad Request: " + e.getMessage());
             
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException ignored) {}
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, userIdLong, payload);
+            
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
                 "Bad Request",
@@ -72,6 +84,14 @@ public class AttendanceController {
             logger.error("Failed to record attendance", e);
             LoggerUtil.logError(logger, "Failed to record attendance", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance", 500, "Internal Server Error");
+            
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException ignored) {}
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("ATTENDANCE_RECORDING_ERROR", "Failed to record attendance", e, userIdLong, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while recording attendance",

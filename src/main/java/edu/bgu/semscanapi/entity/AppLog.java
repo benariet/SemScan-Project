@@ -23,6 +23,13 @@ public class AppLog {
     @Column(name = "message", nullable = false, columnDefinition = "TEXT")
     private String message;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false)
+    private Source source = Source.API;
+
+    @Column(name = "correlation_id", length = 50)
+    private String correlationId;
+
     @Column(name = "user_id")
     private Long userId;
 
@@ -47,6 +54,10 @@ public class AppLog {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    public enum Source {
+        API, MOBILE
+    }
 
     public enum UserRole {
         STUDENT, PRESENTER, ADMIN
@@ -93,6 +104,22 @@ public class AppLog {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public Source getSource() {
+        return source;
+    }
+
+    public void setSource(Source source) {
+        this.source = source;
+    }
+
+    public String getCorrelationId() {
+        return correlationId;
+    }
+
+    public void setCorrelationId(String correlationId) {
+        this.correlationId = correlationId;
     }
 
     public Long getUserId() {

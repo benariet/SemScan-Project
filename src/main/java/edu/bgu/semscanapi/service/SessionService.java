@@ -31,6 +31,9 @@ public class SessionService {
     @Autowired
     private SeminarRepository seminarRepository;
     
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+    
     /**
      * Create a new session
      */
@@ -74,6 +77,10 @@ public class SessionService {
                 savedSession.getSessionId().toString(),
                 savedSession.getSeminarId().toString(),
                 seminar.get().getPresenterId().toString());
+            
+            // Log to database
+            databaseLoggerService.logSessionEvent("SESSION_CREATED", 
+                savedSession.getSessionId(), savedSession.getSeminarId(), seminar.get().getPresenterId());
             
             return savedSession;
             

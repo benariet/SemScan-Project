@@ -34,6 +34,9 @@ public class AttendanceService {
     private SessionRepository sessionRepository;
     
     @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+    
+    @Autowired
     private UserRepository userRepository;
     
     /**
@@ -107,6 +110,11 @@ public class AttendanceService {
                     LoggerUtil.logAttendanceEvent(logger, "ATTENDANCE_RECORDED",
                         savedAttendance.getStudentId(), savedAttendance.getSessionId(),
                         savedAttendance.getMethod().toString());
+            
+            // Log to database
+            databaseLoggerService.logAttendance("ATTENDANCE_RECORDED", 
+                savedAttendance.getStudentId(), savedAttendance.getSessionId(), 
+                savedAttendance.getMethod().toString());
             
             return savedAttendance;
             

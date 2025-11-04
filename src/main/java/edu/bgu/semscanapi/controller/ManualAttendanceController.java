@@ -5,6 +5,7 @@ import edu.bgu.semscanapi.dto.ManualAttendanceRequest;
 import edu.bgu.semscanapi.dto.ManualAttendanceResponse;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.service.AuthenticationService;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.ManualAttendanceService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import jakarta.validation.Valid;
@@ -31,6 +32,9 @@ public class ManualAttendanceController {
     @Autowired
     private AuthenticationService authenticationService;
     
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+    
     /**
      * Get the first available presenter for POC
      * In a real application, this would be determined by the authenticated user
@@ -40,7 +44,7 @@ public class ManualAttendanceController {
         // In production, this would come from the authenticated user context
         List<User> presenters = authenticationService.findPresenters();
         if (!presenters.isEmpty()) {
-            Long userId = presenters.get(0).getUserId();
+            Long userId = presenters.get(0).getId();
             return userId != null ? userId.toString() : null;
         }
         throw new RuntimeException("No presenters found in the system");
@@ -64,6 +68,15 @@ public class ManualAttendanceController {
         } catch (IllegalArgumentException e) {
             logger.error("Invalid manual attendance request: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual", 400, "Bad Request: " + e.getMessage());
+            
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException ignored) {}
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, userIdLong, payload);
+            
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
                 "Bad Request",
@@ -74,6 +87,15 @@ public class ManualAttendanceController {
         } catch (Exception e) {
             logger.error("Failed to create manual attendance request", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual", 500, "Internal Server Error");
+            
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException ignored) {}
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_CREATION_ERROR", "Failed to create manual attendance request", e, userIdLong, payload);
+            
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while creating the manual attendance request",
                 "Internal Server Error",

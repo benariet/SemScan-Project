@@ -20,8 +20,8 @@ public class AppLogEntry {
     @JsonProperty("message")
     private String message;
     
-    @JsonProperty("userId")
-    private String userId;
+    @JsonProperty("bguUsername")
+    private String bguUsername;
     
     @JsonProperty("userRole")
     private String userRole;
@@ -81,12 +81,12 @@ public class AppLogEntry {
         this.message = message;
     }
     
-    public String getUserId() {
-        return userId;
+    public String getBguUsername() {
+        return bguUsername;
     }
-    
-    public void setUserId(String userId) {
-        this.userId = userId;
+
+    public void setBguUsername(String bguUsername) {
+        this.bguUsername = bguUsername;
     }
     
     public String getUserRole() {
@@ -136,7 +136,7 @@ public class AppLogEntry {
                 ", level='" + level + '\'' +
                 ", tag='" + tag + '\'' +
                 ", message='" + message + '\'' +
-                ", userId='" + userId + '\'' +
+                ", bguUsername='" + bguUsername + '\'' +
                 ", userRole='" + userRole + '\'' +
                 ", deviceInfo='" + deviceInfo + '\'' +
                 ", appVersion='" + appVersion + '\'' +

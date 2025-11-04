@@ -1,6 +1,7 @@
 package edu.bgu.semscanapi.config;
 
 import edu.bgu.semscanapi.filter.RequestLoggingFilter;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +13,12 @@ import org.springframework.web.filter.CommonsRequestLoggingFilter;
  */
 @Configuration
 public class LoggingConfig {
+    
+    private final DatabaseLoggerService databaseLoggerService;
+    
+    public LoggingConfig(DatabaseLoggerService databaseLoggerService) {
+        this.databaseLoggerService = databaseLoggerService;
+    }
     
     /**
      * Configure CommonsRequestLoggingFilter for detailed request logging
@@ -33,7 +40,7 @@ public class LoggingConfig {
     @Bean
     public FilterRegistrationBean<RequestLoggingFilter> customRequestLoggingFilterRegistration() {
         FilterRegistrationBean<RequestLoggingFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new RequestLoggingFilter());
+        registration.setFilter(new RequestLoggingFilter(databaseLoggerService));
         registration.addUrlPatterns("/api/*");
         registration.setName("customRequestLoggingFilter");
         registration.setOrder(1);

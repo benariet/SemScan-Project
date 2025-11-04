@@ -6,11 +6,12 @@ USE semscan_db;
 --  USERS
 -- =====================================================================
 CREATE TABLE users (
-    user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     bgu_username VARCHAR(50) UNIQUE,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
+    degree ENUM('MSc','PhD') NULL,
     role ENUM('STUDENT','PRESENTER','ADMIN') NOT NULL,
     student_id VARCHAR(50) UNIQUE,
     is_presenter BOOLEAN DEFAULT FALSE,
@@ -20,6 +21,7 @@ CREATE TABLE users (
 );
 
 CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_degree ON users(degree);
 CREATE INDEX idx_users_student_id ON users(student_id);
 CREATE INDEX idx_users_bgu_username ON users(bgu_username);
 CREATE INDEX idx_users_is_presenter ON users(is_presenter);
@@ -37,7 +39,7 @@ CREATE TABLE seminars (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_seminars_presenter
-        FOREIGN KEY (presenter_id) REFERENCES users(user_id)
+        FOREIGN KEY (presenter_id) REFERENCES users(id)
         ON DELETE CASCADE
 );
 
@@ -57,7 +59,7 @@ CREATE TABLE seminar_participants (
         FOREIGN KEY (seminar_id) REFERENCES seminars(seminar_id)
         ON DELETE CASCADE,
     CONSTRAINT fk_seminar_participants_user
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE CASCADE,
     UNIQUE KEY unique_seminar_user (seminar_id, user_id)
 );
@@ -110,10 +112,10 @@ CREATE TABLE attendance (
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
         ON DELETE CASCADE,
     CONSTRAINT fk_attendance_student
-        FOREIGN KEY (student_id) REFERENCES users(user_id)
+        FOREIGN KEY (student_id) REFERENCES users(id)
         ON DELETE CASCADE,
     CONSTRAINT fk_attendance_approver
-        FOREIGN KEY (approved_by) REFERENCES users(user_id)
+        FOREIGN KEY (approved_by) REFERENCES users(id)
         ON DELETE SET NULL,
     CONSTRAINT uq_attendance_session_student UNIQUE (session_id, student_id)
 );
@@ -134,7 +136,7 @@ CREATE TABLE presenter_seminar (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_presenter_seminar_presenter
-        FOREIGN KEY (presenter_id) REFERENCES users(user_id)
+        FOREIGN KEY (presenter_id) REFERENCES users(id)
         ON DELETE CASCADE,
     CONSTRAINT fk_presenter_seminar_seminar
         FOREIGN KEY (seminar_id) REFERENCES seminars(seminar_id)
@@ -169,6 +171,8 @@ CREATE TABLE app_logs (
     level VARCHAR(20) NOT NULL,
     tag VARCHAR(100),
     message TEXT NOT NULL,
+    source ENUM('API','MOBILE') NOT NULL DEFAULT 'API',
+    correlation_id VARCHAR(50),
     user_id BIGINT,
     user_role ENUM('STUDENT','PRESENTER','ADMIN'),
     device_info VARCHAR(255),
@@ -178,12 +182,14 @@ CREATE TABLE app_logs (
     payload TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_logs_user
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        FOREIGN KEY (user_id) REFERENCES users(id)
         ON DELETE SET NULL
 );
 
 CREATE INDEX idx_logs_timestamp ON app_logs(log_timestamp);
 CREATE INDEX idx_logs_level ON app_logs(level);
+CREATE INDEX idx_logs_source ON app_logs(source);
+CREATE INDEX idx_logs_correlation_id ON app_logs(correlation_id);
 CREATE INDEX idx_logs_user ON app_logs(user_id);
 
 SELECT 'Schema deployed with descriptive numeric identifiers.' AS status;

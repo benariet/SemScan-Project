@@ -29,6 +29,9 @@ public class SeminarService {
     @Autowired
     private UserRepository userRepository;
     
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+    
     /**
      * Create a new seminar
      */
@@ -53,6 +56,10 @@ public class SeminarService {
             logger.info("Seminar created successfully: {} with ID: {}", savedSeminar.getSeminarName(), savedSeminar.getSeminarId());
             LoggerUtil.logBusinessEvent(logger, "SEMINAR_CREATED", 
                 "Seminar: " + savedSeminar.getSeminarName() + ", Presenter: " + savedSeminar.getPresenterId());
+            
+            // Log to database
+            String details = String.format("Seminar: %s, Presenter: %s", savedSeminar.getSeminarName(), savedSeminar.getPresenterId());
+            databaseLoggerService.logBusinessEvent("SEMINAR_CREATED", details, savedSeminar.getPresenterId());
             
             return savedSeminar;
             

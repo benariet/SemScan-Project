@@ -11,6 +11,7 @@ import edu.bgu.semscanapi.repository.PresenterSeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SeminarRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.service.AuthenticationService;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,7 @@ public class PresenterSeminarController {
     @Autowired private PresenterSeminarSlotRepository slots;
     @Autowired private SeminarRepository seminarRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private DatabaseLoggerService databaseLoggerService;
 
     @GetMapping
     public ResponseEntity<Object> list(
@@ -109,10 +111,18 @@ public class PresenterSeminarController {
             result = createOrAttachSeminar(correlationId, presenterId, body);
         } catch (IllegalArgumentException ex) {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/presenters/"+presenterId+"/seminars", 400, ex.getMessage());
+            
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("PRESENTER_SEMINAR_VALIDATION_ERROR", ex.getMessage(), ex, presenterId, payload);
+            
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             logger.error("Failed to create presenter seminar tile", ex);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/presenters/"+presenterId+"/seminars", 500, "Internal Server Error");
+            
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("PRESENTER_SEMINAR_CREATION_ERROR", "Failed to create presenter seminar", ex, presenterId, payload);
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to create presenter seminar"));
         }
@@ -235,7 +245,21 @@ public class PresenterSeminarController {
         seminar.setSeminarName(body.seminarName);
         seminar.setDescription(body.seminarDescription);
         seminar.setPresenterId(presenterId);
-        seminar.setMaxEnrollmentCapacity(body.maxEnrollmentCapacity);
+        
+        // Set capacity based on presenter's degree: PhD = 1, MSc = 2
+        if (presenter.getDegree() != null) {
+            int capacity = presenter.getDegree() == User.Degree.PhD ? 1 : 2;
+            seminar.setMaxEnrollmentCapacity(capacity);
+            logger.info("Setting max enrollment capacity to {} based on presenter degree {} - Correlation ID: {}", 
+                capacity, presenter.getDegree(), correlationId);
+        } else {
+            // If degree is not set, use the provided value or default
+            seminar.setMaxEnrollmentCapacity(body.maxEnrollmentCapacity);
+            if (body.maxEnrollmentCapacity == null) {
+                logger.warn("Presenter {} has no degree set and no capacity provided - Correlation ID: {}", 
+                    presenterId, correlationId);
+            }
+        }
 
         Seminar saved = seminarRepository.save(seminar);
         logger.info("Created new seminar {} for presenter {} - Correlation ID: {}", saved.getSeminarId(), presenterId, correlationId);

@@ -4,7 +4,9 @@ import edu.bgu.semscanapi.dto.AppLogEntry;
 import edu.bgu.semscanapi.dto.LogRequest;
 import edu.bgu.semscanapi.dto.LogResponse;
 import edu.bgu.semscanapi.entity.AppLog;
+import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.AppLogRepository;
+import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -26,6 +29,9 @@ public class AppLogService {
     
     @Autowired
     private AppLogRepository appLogRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
     
     /**
      * Process logs from mobile applications
@@ -152,7 +158,42 @@ public class AppLogService {
 
         appLog.setTag(logEntry.getTag());
         appLog.setMessage(logEntry.getMessage());
-        appLog.setUserId(toLongOrNull(logEntry.getUserId()));
+        appLog.setSource(AppLog.Source.MOBILE); // Mobile logs come from mobile apps
+        // Set correlation_id from current context (set by RequestLoggingFilter) or from log entry if provided
+        String correlationId = LoggerUtil.getCurrentCorrelationId();
+        appLog.setCorrelationId(correlationId);
+        
+        // Validate bguUsername from mobile log - it's the BGU username from login
+        String bguUsername = logEntry.getBguUsername();
+        Long userIdLong = null;
+        
+        if (bguUsername != null && !bguUsername.trim().isEmpty()) {
+            try {
+                // Mobile sends BGU username, so we need to look it up by bgu_username
+                Optional<User> user = userRepository.findByBguUsername(bguUsername);
+                if (user.isPresent()) {
+                    // Found user by BGU username - use the local id for the log entry
+                    userIdLong = user.get().getId();
+                } else {
+                    // User doesn't exist with this BGU username - auto-create user on first login/log
+                    logger.info("User with BGU username {} not found, creating new user record", bguUsername);
+                    User newUser = createUserFromBguUsername(bguUsername);
+                    if (newUser != null) {
+                        userIdLong = newUser.getId();
+                        logger.info("Successfully created user with BGU username {} (local id: {})", bguUsername, userIdLong);
+                    } else {
+                        logger.warn("Failed to create user with BGU username {}, setting userId to null", bguUsername);
+                        userIdLong = null;
+                    }
+                }
+            } catch (Exception e) {
+                // If user lookup or creation fails, set to null to avoid constraint violation
+                logger.error("Error looking up or creating user by BGU username {} from mobile log: {}", bguUsername, e.getMessage(), e);
+                userIdLong = null;
+            }
+        }
+        
+        appLog.setUserId(userIdLong);
         appLog.setUserRole(parseUserRole(logEntry.getUserRole()));
         appLog.setDeviceInfo(logEntry.getDeviceInfo());
         appLog.setAppVersion(logEntry.getAppVersion());
@@ -254,14 +295,33 @@ public class AppLogService {
                 java.time.ZoneOffset.UTC);
     }
 
-    private Long toLongOrNull(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
+    /**
+     * Auto-create a user from BGU username when first encountered in mobile logs
+     * This ensures users are created quickly on first login/log
+     */
+    @Transactional
+    private User createUserFromBguUsername(String bguUsername) {
         try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException ex) {
-            logger.warn("Invalid numeric value provided: {}", value);
+            // Check again to avoid race condition
+            Optional<User> existingUser = userRepository.findByBguUsername(bguUsername);
+            if (existingUser.isPresent()) {
+                return existingUser.get();
+            }
+            
+            // Create minimal user record with BGU username
+            // Other details can be filled in later during proper login/registration
+            User newUser = new User();
+            newUser.setBguUsername(bguUsername);
+            newUser.setRole(User.UserRole.STUDENT); // Default role, can be updated later
+            newUser.setFirstName("User"); // Placeholder, should be updated from BGU Auth
+            newUser.setLastName(bguUsername); // Placeholder, should be updated from BGU Auth
+            newUser.setEmail(bguUsername + "@bgu.ac.il"); // Placeholder email, should be updated from BGU Auth
+            
+            User savedUser = userRepository.save(newUser);
+            logger.info("Auto-created user with BGU username {} (local id: {})", bguUsername, savedUser.getId());
+            return savedUser;
+        } catch (Exception e) {
+            logger.error("Failed to auto-create user with BGU username {}: {}", bguUsername, e.getMessage(), e);
             return null;
         }
     }

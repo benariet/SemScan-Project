@@ -2,6 +2,7 @@ package edu.bgu.semscanapi.controller;
 
 import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.entity.Session;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.SessionService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
@@ -27,6 +28,9 @@ public class SessionController {
     @Autowired
     private SessionService sessionService;
     
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+    
     /**
      * Create a new session
      */
@@ -48,6 +52,14 @@ public class SessionController {
             logger.error("Invalid session data: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/sessions", 400, "Bad Request: " + e.getMessage());
             
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException ignored) {}
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("SESSION_VALIDATION_ERROR", e.getMessage(), e, userIdLong, payload);
+            
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
                 "Bad Request",
@@ -60,6 +72,14 @@ public class SessionController {
             logger.error("Failed to create session", e);
             LoggerUtil.logError(logger, "Failed to create session", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/sessions", 500, "Internal Server Error");
+            
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException ignored) {}
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("SESSION_CREATION_ERROR", "Failed to create session", e, userIdLong, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while creating the session",

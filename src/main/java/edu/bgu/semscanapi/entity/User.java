@@ -10,8 +10,8 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_id")
-    private Long userId;
+    @Column(name = "id")
+    private Long id;
 
     @Column(name = "first_name")
     private String firstName;
@@ -21,6 +21,10 @@ public class User {
 
     @Column(name = "email", unique = true)
     private String email;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "degree")
+    private Degree degree;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
@@ -47,6 +51,10 @@ public class User {
     public User() {
     }
 
+    public enum Degree {
+        MSc, PhD
+    }
+
     public enum UserRole {
         STUDENT, PRESENTER, ADMIN
     }
@@ -61,12 +69,23 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public Long getUserId() {
-        return userId;
+    public Long getId() {
+        return id;
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    // Deprecated: Use getId() instead. Kept for backward compatibility
+    @Deprecated
+    public Long getUserId() {
+        return id;
+    }
+
+    @Deprecated
     public void setUserId(Long userId) {
-        this.userId = userId;
+        this.id = userId;
     }
 
     public String getFirstName() {
@@ -91,6 +110,14 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public Degree getDegree() {
+        return degree;
+    }
+
+    public void setDegree(Degree degree) {
+        this.degree = degree;
     }
 
     public UserRole getRole() {
@@ -154,21 +181,22 @@ public class User {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         User user = (User) o;
-        return Objects.equals(userId, user.userId);
+        return Objects.equals(id, user.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(userId);
+        return Objects.hash(id);
     }
 
     @Override
     public String toString() {
         return "User{" +
-                "userId=" + userId +
+                "id=" + id +
                 ", firstName='" + firstName + '\'' +
                 ", lastName='" + lastName + '\'' +
                 ", email='" + email + '\'' +
+                ", degree=" + degree +
                 ", role=" + role +
                 ", studentId='" + studentId + '\'' +
                 ", bguUsername='" + bguUsername + '\'' +

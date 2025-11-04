@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
  * Main Spring Boot Application class for SemScan API
@@ -12,6 +13,7 @@ import org.springframework.context.ConfigurableApplicationContext;
  * This application provides REST API endpoints for the SemScan QR Attendance System.
  */
 @SpringBootApplication
+@EnableAsync
 public class SemScanApiApplication {
 
     private static final Logger logger = LoggerUtil.getLogger(SemScanApiApplication.class);

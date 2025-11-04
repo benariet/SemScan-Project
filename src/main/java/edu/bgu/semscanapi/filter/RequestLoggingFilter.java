@@ -1,5 +1,6 @@
 package edu.bgu.semscanapi.filter;
 
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,10 +17,18 @@ import java.util.Map;
 /**
  * Filter for logging HTTP requests and responses
  * Provides detailed logging of API calls with correlation IDs
+ * Logs all actions to both file and database
  */
 public class RequestLoggingFilter implements Filter {
     
     private static final Logger logger = LoggerFactory.getLogger(RequestLoggingFilter.class);
+    
+    private DatabaseLoggerService databaseLoggerService;
+    
+    // Constructor injection for proper dependency injection
+    public RequestLoggingFilter(DatabaseLoggerService databaseLoggerService) {
+        this.databaseLoggerService = databaseLoggerService;
+    }
     
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -61,9 +70,23 @@ public class RequestLoggingFilter implements Filter {
             String queryString = request.getQueryString();
             String fullUrl = queryString != null ? uri + "?" + queryString : uri;
             
-            // Log basic request info
+            // Log to file
             logger.info("Incoming Request - Method: {}, URL: {}, Remote Address: {}", 
                        method, fullUrl, getClientIpAddress(request));
+            
+            // Log to database
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException e) {
+                // User ID is not a valid number, skip
+            }
+            String payload = String.format("url=%s,remoteAddr=%s,correlationId=%s", 
+                fullUrl, getClientIpAddress(request), LoggerUtil.getCurrentCorrelationId());
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logApiAction(method, uri, "API_REQUEST", userIdLong, payload);
+            }
             
             // Log headers (excluding sensitive ones)
             Map<String, String> headers = getFilteredHeaders(request);
@@ -90,9 +113,21 @@ public class RequestLoggingFilter implements Filter {
             String uri = request.getRequestURI();
             int statusCode = response.getStatus();
             
-            // Log response info
+            // Log to file
             logger.info("Outgoing Response - Method: {}, URL: {}, Status: {}, Duration: {}ms", 
                        method, uri, statusCode, duration);
+            
+            // Log to database
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException e) {
+                // User ID is not a valid number, skip
+            }
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logApiResponse(method, uri, statusCode, userIdLong);
+            }
             
             // Log response headers
             Map<String, String> responseHeaders = getResponseHeaders(response);
@@ -103,6 +138,12 @@ public class RequestLoggingFilter implements Filter {
             // Log performance warning for slow requests
             if (duration > 1000) {
                 logger.warn("Slow Request - Method: {}, URL: {}, Duration: {}ms", method, uri, duration);
+                // Log slow request to database
+                if (databaseLoggerService != null) {
+                    String slowPayload = String.format("duration=%dms,correlationId=%s", duration, LoggerUtil.getCurrentCorrelationId());
+                    databaseLoggerService.logAction("WARN", "PERFORMANCE", 
+                        String.format("Slow request: %s %s took %dms", method, uri, duration), userIdLong, slowPayload);
+                }
             }
             
         } catch (Exception e) {

@@ -2,6 +2,7 @@ package edu.bgu.semscanapi.controller;
 
 import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.entity.Seminar;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.SeminarService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
@@ -26,6 +27,9 @@ public class SeminarController {
     @Autowired
     private SeminarService seminarService;
     
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+    
     /**
      * Create a new seminar
      */
@@ -47,6 +51,14 @@ public class SeminarController {
             logger.error("Invalid seminar data: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/seminars", 400, "Bad Request: " + e.getMessage());
             
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException ignored) {}
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("SEMINAR_VALIDATION_ERROR", e.getMessage(), e, userIdLong, payload);
+            
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
                 "Bad Request",
@@ -59,6 +71,14 @@ public class SeminarController {
             logger.error("Failed to create seminar", e);
             LoggerUtil.logError(logger, "Failed to create seminar", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/seminars", 500, "Internal Server Error");
+            
+            String userId = LoggerUtil.getCurrentUserId();
+            Long userIdLong = null;
+            try {
+                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
+            } catch (NumberFormatException ignored) {}
+            String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
+            databaseLoggerService.logError("SEMINAR_CREATION_ERROR", "Failed to create seminar", e, userIdLong, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while creating the seminar",
