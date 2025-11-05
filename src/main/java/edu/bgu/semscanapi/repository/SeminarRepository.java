@@ -40,6 +40,6 @@ public interface SeminarRepository extends JpaRepository<Seminar, Long> {
     /**
      * Find all seminars with presenter users
      */
-    @Query("SELECT s FROM Seminar s JOIN User u ON s.presenterId = u.id WHERE u.role = 'PRESENTER'")
+    @Query("SELECT s FROM Seminar s JOIN User u ON s.presenterId = u.id WHERE u.isPresenter = true")
     List<Seminar> findAllWithPresenters();
 }

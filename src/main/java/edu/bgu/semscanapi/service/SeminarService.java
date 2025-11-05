@@ -47,7 +47,7 @@ public class SeminarService {
                 throw new IllegalArgumentException("Presenter not found: " + seminar.getPresenterId());
             }
             
-            if (presenter.get().getRole() != User.UserRole.PRESENTER) {
+            if (!Boolean.TRUE.equals(presenter.get().getIsPresenter())) {
                 logger.error("User is not a presenter: {}", seminar.getPresenterId());
                 throw new IllegalArgumentException("User is not a presenter: " + seminar.getPresenterId());
             }
@@ -76,6 +76,9 @@ public class SeminarService {
      */
     @Transactional(readOnly = true)
     public Optional<Seminar> getSeminarById(Long seminarId) {
+        if (seminarId == null) {
+            throw new IllegalArgumentException("seminarId must not be null");
+        }
         logger.debug("Retrieving seminar by ID: {}", seminarId);
         LoggerUtil.setSeminarId(seminarId != null ? seminarId.toString() : null);
         
@@ -136,6 +139,9 @@ public class SeminarService {
      * Update seminar
      */
     public Seminar updateSeminar(Long seminarId, Seminar updatedSeminar) {
+        if (seminarId == null) {
+            throw new IllegalArgumentException("seminarId must not be null");
+        }
         logger.info("Updating seminar: {}", seminarId);
         LoggerUtil.setSeminarId(seminarId != null ? seminarId.toString() : null);
         
@@ -158,7 +164,7 @@ public class SeminarService {
             if (updatedSeminar.getPresenterId() != null) {
                 // Validate new presenter
                 Optional<User> presenter = userRepository.findById(updatedSeminar.getPresenterId());
-                if (presenter.isEmpty() || presenter.get().getRole() != User.UserRole.PRESENTER) {
+                if (presenter.isEmpty() || !Boolean.TRUE.equals(presenter.get().getIsPresenter())) {
                     logger.error("Invalid presenter for seminar update: {}", updatedSeminar.getPresenterId());
                     throw new IllegalArgumentException("Invalid presenter: " + updatedSeminar.getPresenterId());
                 }
@@ -184,6 +190,9 @@ public class SeminarService {
      * Delete seminar
      */
     public void deleteSeminar(Long seminarId) {
+        if (seminarId == null) {
+            throw new IllegalArgumentException("seminarId must not be null");
+        }
         logger.info("Deleting seminar: {}", seminarId);
         LoggerUtil.setSeminarId(seminarId != null ? seminarId.toString() : null);
         

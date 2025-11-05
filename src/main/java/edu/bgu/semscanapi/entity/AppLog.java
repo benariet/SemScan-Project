@@ -60,7 +60,10 @@ public class AppLog {
     }
 
     public enum UserRole {
-        STUDENT, PRESENTER, ADMIN
+        PARTICIPANT,
+        PRESENTER,
+        BOTH,
+        UNKNOWN
     }
 
     public AppLog() {

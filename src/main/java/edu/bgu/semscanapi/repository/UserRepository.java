@@ -26,46 +26,31 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     
     /**
-     * Find user by student ID
-     */
-    Optional<User> findByStudentId(String studentId);
-    
-    /**
      * Find user by BGU username
      */
     Optional<User> findByBguUsername(String bguUsername);
 
     /**
-     * Find users by role
+     * Find presenters (users flagged as presenters)
      */
-    List<User> findByRole(User.UserRole role);
-    
+    List<User> findByIsPresenterTrue();
+
     /**
-     * Find presenters (users with PRESENTER role)
+     * Find participants (users flagged as participants)
      */
-    @Query("SELECT u FROM User u WHERE u.role = 'PRESENTER'")
-    List<User> findPresenters();
-    
-    /**
-     * Find students (users with STUDENT role)
-     */
-    @Query("SELECT u FROM User u WHERE u.role = 'STUDENT'")
-    List<User> findStudents();
+    List<User> findByIsParticipantTrue();
     
     /**
      * Check if email exists
      */
-    boolean existsByEmail(String email);
-    
-    /**
-     * Check if student ID exists
-     */
-    boolean existsByStudentId(String studentId);
+    boolean existsByEmailIgnoreCase(String email);
     
     /**
      * Check if BGU username exists
      */
     boolean existsByBguUsername(String bguUsername);
+
+    boolean existsByBguUsernameIgnoreCase(String bguUsername);
     
     /**
      * Find users by first name and last name

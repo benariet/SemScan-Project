@@ -56,9 +56,7 @@ public class DatabaseLoggerService {
             if (userId != null) {
                 try {
                     Optional<User> user = userRepository.findById(userId);
-                    if (user.isPresent() && user.get().getRole() != null) {
-                        appLog.setUserRole(convertUserRole(user.get().getRole()));
-                    }
+                    user.map(this::deriveUserRole).ifPresent(appLog::setUserRole);
                 } catch (Exception e) {
                     // Don't fail logging if user lookup fails
                     logger.debug("Failed to fetch user role for userId: {}", userId, e);
@@ -105,9 +103,7 @@ public class DatabaseLoggerService {
             if (userId != null) {
                 try {
                     Optional<User> user = userRepository.findById(userId);
-                    if (user.isPresent() && user.get().getRole() != null) {
-                        appLog.setUserRole(convertUserRole(user.get().getRole()));
-                    }
+                    user.map(this::deriveUserRole).ifPresent(appLog::setUserRole);
                 } catch (Exception e) {
                     // Don't fail logging if user lookup fails
                     logger.debug("Failed to fetch user role for userId: {}", userId, e);
@@ -198,18 +194,25 @@ public class DatabaseLoggerService {
     }
     
     /**
-     * Convert User.UserRole to AppLog.UserRole
+     * Derive log role from user participation flags
      */
-    private AppLog.UserRole convertUserRole(User.UserRole userRole) {
-        if (userRole == null) {
-            return null;
+    private AppLog.UserRole deriveUserRole(User user) {
+        if (user == null) {
+            return AppLog.UserRole.UNKNOWN;
         }
-        try {
-            return AppLog.UserRole.valueOf(userRole.name());
-        } catch (IllegalArgumentException e) {
-            logger.debug("Unknown user role: {}", userRole);
-            return null;
+        boolean presenter = Boolean.TRUE.equals(user.getIsPresenter());
+        boolean participant = Boolean.TRUE.equals(user.getIsParticipant());
+
+        if (presenter && participant) {
+            return AppLog.UserRole.BOTH;
         }
+        if (presenter) {
+            return AppLog.UserRole.PRESENTER;
+        }
+        if (participant) {
+            return AppLog.UserRole.PARTICIPANT;
+        }
+        return AppLog.UserRole.UNKNOWN;
     }
 }
 

@@ -12,17 +12,13 @@ CREATE TABLE users (
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     degree ENUM('MSc','PhD') NULL,
-    role ENUM('STUDENT','PRESENTER','ADMIN') NOT NULL,
-    student_id VARCHAR(50) UNIQUE,
     is_presenter BOOLEAN DEFAULT FALSE,
     is_participant BOOLEAN DEFAULT FALSE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_degree ON users(degree);
-CREATE INDEX idx_users_student_id ON users(student_id);
 CREATE INDEX idx_users_bgu_username ON users(bgu_username);
 CREATE INDEX idx_users_is_presenter ON users(is_presenter);
 CREATE INDEX idx_users_is_participant ON users(is_participant);
@@ -53,7 +49,7 @@ CREATE TABLE seminar_participants (
     participant_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     seminar_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
-    role ENUM('STUDENT','PRESENTER') NOT NULL,
+    role ENUM('PARTICIPANT','PRESENTER') NOT NULL,
     joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_seminar_participants_seminar
         FOREIGN KEY (seminar_id) REFERENCES seminars(seminar_id)
@@ -174,7 +170,7 @@ CREATE TABLE app_logs (
     source ENUM('API','MOBILE') NOT NULL DEFAULT 'API',
     correlation_id VARCHAR(50),
     user_id BIGINT,
-    user_role ENUM('STUDENT','PRESENTER','ADMIN'),
+    user_role ENUM('PARTICIPANT','PRESENTER','BOTH','UNKNOWN') DEFAULT 'UNKNOWN',
     device_info VARCHAR(255),
     app_version VARCHAR(50),
     stack_trace TEXT,

@@ -74,7 +74,7 @@ public class AuthenticationService {
         logger.debug("Finding all presenters");
         
         try {
-            List<User> presenters = userRepository.findPresenters();
+            List<User> presenters = userRepository.findByIsPresenterTrue();
             logger.info("Found {} presenters", presenters.size());
             return presenters;
         } catch (Exception e) {
@@ -91,7 +91,7 @@ public class AuthenticationService {
         logger.debug("Finding all students");
         
         try {
-            List<User> students = userRepository.findStudents();
+            List<User> students = userRepository.findByIsParticipantTrue();
             logger.info("Found {} students", students.size());
             return students;
         } catch (Exception e) {
@@ -125,7 +125,7 @@ public class AuthenticationService {
         logger.debug("Checking if email exists: {}", email);
         
         try {
-            boolean exists = userRepository.existsByEmail(email);
+            boolean exists = userRepository.existsByEmailIgnoreCase(email);
             logger.debug("Email exists: {} = {}", email, exists);
             return exists;
         } catch (Exception e) {

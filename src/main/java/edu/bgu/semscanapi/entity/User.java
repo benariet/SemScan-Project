@@ -26,13 +26,6 @@ public class User {
     @Column(name = "degree")
     private Degree degree;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role")
-    private UserRole role;
-
-    @Column(name = "student_id", unique = true)
-    private String studentId;
-
     @Column(name = "bgu_username", unique = true)
     private String bguUsername;
 
@@ -53,10 +46,6 @@ public class User {
 
     public enum Degree {
         MSc, PhD
-    }
-
-    public enum UserRole {
-        STUDENT, PRESENTER, ADMIN
     }
 
     @PrePersist
@@ -120,22 +109,6 @@ public class User {
         this.degree = degree;
     }
 
-    public UserRole getRole() {
-        return role;
-    }
-
-    public void setRole(UserRole role) {
-        this.role = role;
-    }
-
-    public String getStudentId() {
-        return studentId;
-    }
-
-    public void setStudentId(String studentId) {
-        this.studentId = studentId;
-    }
-
     public String getBguUsername() {
         return bguUsername;
     }
@@ -197,8 +170,6 @@ public class User {
                 ", lastName='" + lastName + '\'' +
                 ", email='" + email + '\'' +
                 ", degree=" + degree +
-                ", role=" + role +
-                ", studentId='" + studentId + '\'' +
                 ", bguUsername='" + bguUsername + '\'' +
                 ", isPresenter=" + isPresenter +
                 ", isParticipant=" + isParticipant +

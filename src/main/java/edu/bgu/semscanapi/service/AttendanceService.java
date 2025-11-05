@@ -69,9 +69,9 @@ public class AttendanceService {
                 throw new IllegalArgumentException("Student not found: " + attendance.getStudentId());
             }
             
-            if (student.get().getRole() != User.UserRole.STUDENT) {
-                logger.error("User is not a student: {}", attendance.getStudentId());
-                throw new IllegalArgumentException("User is not a student: " + attendance.getStudentId());
+            if (!Boolean.TRUE.equals(student.get().getIsParticipant())) {
+                logger.error("User is not marked as participant: {}", attendance.getStudentId());
+                throw new IllegalArgumentException("User is not a participant: " + attendance.getStudentId());
             }
             
             // Check if already attended

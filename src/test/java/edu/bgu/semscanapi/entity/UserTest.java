@@ -18,8 +18,8 @@ class UserTest {
         user.setEmail("test@example.com");
         user.setFirstName("John");
         user.setLastName("Doe");
-        user.setRole(User.UserRole.STUDENT);
-        user.setStudentId("student-001");
+        user.setIsPresenter(true);
+        user.setIsParticipant(false);
 
         // When & Then
         assertNotNull(user);
@@ -27,15 +27,8 @@ class UserTest {
         assertEquals("test@example.com", user.getEmail());
         assertEquals("John", user.getFirstName());
         assertEquals("Doe", user.getLastName());
-        assertEquals(User.UserRole.STUDENT, user.getRole());
-        assertEquals("student-001", user.getStudentId());
-    }
-
-    @Test
-    void testUserRoleEnum() {
-        // Test that all enum values exist
-        assertNotNull(User.UserRole.STUDENT);
-        assertNotNull(User.UserRole.PRESENTER);
+        assertTrue(user.getIsPresenter());
+        assertFalse(user.getIsParticipant());
     }
 
     @Test

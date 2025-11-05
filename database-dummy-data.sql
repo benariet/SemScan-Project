@@ -15,13 +15,13 @@ DELETE FROM users;
 --  SEMINARS
 -- =============================
 INSERT INTO seminars (seminar_name, description, presenter_id)
-VALUES ('AI and Machine Learning in Healthcare', 'Applications of AI in medicine.', (SELECT user_id FROM users WHERE email = 'dr.john.smith@university.edu'));
+VALUES ('AI and Machine Learning in Healthcare', 'Applications of AI in medicine.', (SELECT id FROM users WHERE email = 'dr.john.smith@university.edu'));
 
 INSERT INTO seminars (seminar_name, description, presenter_id)
-VALUES ('Blockchain Technology and Cryptocurrency', 'Fundamentals of blockchain and crypto markets.', (SELECT user_id FROM users WHERE email = 'prof.sarah.jones@university.edu'));
+VALUES ('Blockchain Technology and Cryptocurrency', 'Fundamentals of blockchain and crypto markets.', (SELECT id FROM users WHERE email = 'prof.sarah.jones@university.edu'));
 
 INSERT INTO seminars (seminar_name, description, presenter_id)
-VALUES ('Cybersecurity Best Practices', 'Defending against modern cyber threats.', (SELECT user_id FROM users WHERE email = 'dr.mike.wilson@university.edu'));
+VALUES ('Cybersecurity Best Practices', 'Defending against modern cyber threats.', (SELECT id FROM users WHERE email = 'dr.mike.wilson@university.edu'));
 
 -- =============================
 --  SEMINAR PARTICIPANTS (Per-Seminar Roles)
@@ -29,45 +29,45 @@ VALUES ('Cybersecurity Best Practices', 'Defending against modern cyber threats.
 -- AI Seminar: Dr. John Smith is PRESENTER, Alice is PRESENTER, others are STUDENTS
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), 
-        (SELECT user_id FROM users WHERE email = 'dr.john.smith@university.edu'), 'PRESENTER');
+        (SELECT id FROM users WHERE email = 'dr.john.smith@university.edu'), 'PRESENTER');
 
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), 
-        (SELECT user_id FROM users WHERE email = 'alice.johnson@student.edu'), 'PRESENTER');
+        (SELECT id FROM users WHERE email = 'alice.johnson@student.edu'), 'PRESENTER');
 
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), 
-        (SELECT user_id FROM users WHERE email = 'bob.brown@student.edu'), 'STUDENT');
+        (SELECT id FROM users WHERE email = 'bob.brown@student.edu'), 'PARTICIPANT');
 
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare'), 
-        (SELECT user_id FROM users WHERE email = 'charlie.davis@student.edu'), 'STUDENT');
+        (SELECT id FROM users WHERE email = 'charlie.davis@student.edu'), 'PARTICIPANT');
 
 -- Blockchain Seminar: Prof. Sarah Jones is PRESENTER, others are STUDENTS
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency'), 
-        (SELECT user_id FROM users WHERE email = 'prof.sarah.jones@university.edu'), 'PRESENTER');
+        (SELECT id FROM users WHERE email = 'prof.sarah.jones@university.edu'), 'PRESENTER');
 
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency'), 
-        (SELECT user_id FROM users WHERE email = 'diana.wilson@student.edu'), 'STUDENT');
+        (SELECT id FROM users WHERE email = 'diana.wilson@student.edu'), 'PARTICIPANT');
 
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency'), 
-        (SELECT user_id FROM users WHERE email = 'eve.garcia@student.edu'), 'STUDENT');
+        (SELECT id FROM users WHERE email = 'eve.garcia@student.edu'), 'PARTICIPANT');
 
 -- Cybersecurity Seminar: Dr. Mike Wilson is PRESENTER, Alice is STUDENT
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices'), 
-        (SELECT user_id FROM users WHERE email = 'dr.mike.wilson@university.edu'), 'PRESENTER');
+        (SELECT id FROM users WHERE email = 'dr.mike.wilson@university.edu'), 'PRESENTER');
 
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices'), 
-        (SELECT user_id FROM users WHERE email = 'alice.johnson@student.edu'), 'STUDENT');
+        (SELECT id FROM users WHERE email = 'alice.johnson@student.edu'), 'PARTICIPANT');
 
 INSERT INTO seminar_participants (seminar_id, user_id, role)
 VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices'), 
-        (SELECT user_id FROM users WHERE email = 'bob.brown@student.edu'), 'STUDENT');
+        (SELECT id FROM users WHERE email = 'bob.brown@student.edu'), 'PARTICIPANT');
 
 -- =============================
 --  SESSIONS
@@ -88,16 +88,16 @@ VALUES ((SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Bes
 --  ATTENDANCE
 -- =============================
 INSERT INTO attendance (session_id, student_id, attendance_time, method)
-VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare') AND start_time = '2025-02-10 10:00:00'), (SELECT user_id FROM users WHERE student_id = 'STU001'), '2025-02-10 10:05:00', 'QR_SCAN');
+VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare') AND start_time = '2025-02-10 10:00:00'), (SELECT id FROM users WHERE email = 'alice.johnson@student.edu'), '2025-02-10 10:05:00', 'QR_SCAN');
 
 INSERT INTO attendance (session_id, student_id, attendance_time, method)
-VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare') AND start_time = '2025-02-10 10:00:00'), (SELECT user_id FROM users WHERE student_id = 'STU002'), '2025-02-10 10:07:00', 'QR_SCAN');
+VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'AI and Machine Learning in Healthcare') AND start_time = '2025-02-10 10:00:00'), (SELECT id FROM users WHERE email = 'bob.brown@student.edu'), '2025-02-10 10:07:00', 'QR_SCAN');
 
 INSERT INTO attendance (session_id, student_id, attendance_time, method)
-VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency') AND start_time = '2025-02-12 14:00:00'), (SELECT user_id FROM users WHERE student_id = 'STU003'), '2025-02-12 14:10:00', 'MANUAL');
+VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'Blockchain Technology and Cryptocurrency') AND start_time = '2025-02-12 14:00:00'), (SELECT id FROM users WHERE email = 'diana.wilson@student.edu'), '2025-02-12 14:10:00', 'MANUAL');
 
 INSERT INTO attendance (session_id, student_id, attendance_time, method)
-VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices') AND start_time = '2025-02-15 09:00:00'), (SELECT user_id FROM users WHERE student_id = 'STU004'), '2025-02-15 09:02:00', 'QR_SCAN');
+VALUES ((SELECT session_id FROM sessions WHERE seminar_id = (SELECT seminar_id FROM seminars WHERE seminar_name = 'Cybersecurity Best Practices') AND start_time = '2025-02-15 09:00:00'), (SELECT id FROM users WHERE email = 'eve.garcia@student.edu'), '2025-02-15 09:02:00', 'QR_SCAN');
 
 -- =============================
 --  PRESENTER SEMINAR AVAILABILITY
@@ -121,26 +121,26 @@ VALUES ((SELECT user_id FROM users WHERE email = 'dr.mike.wilson@university.edu'
         'Availability for cybersecurity topics');
 
 INSERT INTO presenter_seminar_slot (presenter_seminar_id, weekday, start_hour, end_hour)
-VALUES ((SELECT presenter_seminar_id FROM presenter_seminar WHERE presenter_id = (SELECT user_id FROM users WHERE email = 'dr.john.smith@university.edu') AND instance_name = 'AI Healthcare Availability' LIMIT 1), 1, 10, 12);
+VALUES ((SELECT presenter_seminar_id FROM presenter_seminar WHERE presenter_id = (SELECT id FROM users WHERE email = 'dr.john.smith@university.edu') AND instance_name = 'AI Healthcare Availability' LIMIT 1), 1, 10, 12);
 
 INSERT INTO presenter_seminar_slot (presenter_seminar_id, weekday, start_hour, end_hour)
-VALUES ((SELECT presenter_seminar_id FROM presenter_seminar WHERE presenter_id = (SELECT user_id FROM users WHERE email = 'prof.sarah.jones@university.edu') AND instance_name = 'Blockchain Workshop Availability' LIMIT 1), 3, 14, 16);
+VALUES ((SELECT presenter_seminar_id FROM presenter_seminar WHERE presenter_id = (SELECT id FROM users WHERE email = 'prof.sarah.jones@university.edu') AND instance_name = 'Blockchain Workshop Availability' LIMIT 1), 3, 14, 16);
 
 INSERT INTO presenter_seminar_slot (presenter_seminar_id, weekday, start_hour, end_hour)
-VALUES ((SELECT presenter_seminar_id FROM presenter_seminar WHERE presenter_id = (SELECT user_id FROM users WHERE email = 'dr.mike.wilson@university.edu') AND instance_name = 'Cybersecurity Availability' LIMIT 1), 5, 9, 11);
+VALUES ((SELECT presenter_seminar_id FROM presenter_seminar WHERE presenter_id = (SELECT id FROM users WHERE email = 'dr.mike.wilson@university.edu') AND instance_name = 'Cybersecurity Availability' LIMIT 1), 5, 9, 11);
 
 -- =============================
 --  APP LOGS
 -- =============================
 INSERT INTO app_logs (log_timestamp, level, tag, message, user_id)
-VALUES ('2025-02-10 10:04:00', 'INFO', 'LOGIN', 'Alice signed in.', (SELECT user_id FROM users WHERE student_id = 'STU001'));
+VALUES ('2025-02-10 10:04:00', 'INFO', 'LOGIN', 'Alice signed in.', (SELECT id FROM users WHERE email = 'alice.johnson@student.edu'));
 
 INSERT INTO app_logs (log_timestamp, level, tag, message, user_id)
-VALUES ('2025-02-10 10:05:30', 'INFO', 'ATTENDANCE', 'Alice marked attendance via QR.', (SELECT user_id FROM users WHERE student_id = 'STU001'));
+VALUES ('2025-02-10 10:05:30', 'INFO', 'ATTENDANCE', 'Alice marked attendance via QR.', (SELECT id FROM users WHERE email = 'alice.johnson@student.edu'));
 
 INSERT INTO app_logs (log_timestamp, level, tag, message, user_id)
-VALUES ('2025-02-12 14:05:00', 'ERROR', 'NETWORK', 'Connection lost during session.', (SELECT user_id FROM users WHERE student_id = 'STU003'));
+VALUES ('2025-02-12 14:05:00', 'ERROR', 'NETWORK', 'Connection lost during session.', (SELECT id FROM users WHERE email = 'diana.wilson@student.edu'));
 
 INSERT INTO app_logs (log_timestamp, level, tag, message, user_id)
-VALUES ('2025-02-15 09:01:00', 'INFO', 'ATTENDANCE', 'Diana checked in via QR.', (SELECT user_id FROM users WHERE student_id = 'STU004'));
+VALUES ('2025-02-15 09:01:00', 'INFO', 'ATTENDANCE', 'Diana checked in via QR.', (SELECT id FROM users WHERE email = 'eve.garcia@student.edu'));
 

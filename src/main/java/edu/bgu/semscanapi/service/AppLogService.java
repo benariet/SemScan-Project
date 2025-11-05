@@ -169,32 +169,25 @@ public class AppLogService {
         
         if (bguUsername != null && !bguUsername.trim().isEmpty()) {
             try {
-                // Mobile sends BGU username, so we need to look it up by bgu_username
                 Optional<User> user = userRepository.findByBguUsername(bguUsername);
                 if (user.isPresent()) {
-                    // Found user by BGU username - use the local id for the log entry
                     userIdLong = user.get().getId();
-                } else {
-                    // User doesn't exist with this BGU username - auto-create user on first login/log
-                    logger.info("User with BGU username {} not found, creating new user record", bguUsername);
-                    User newUser = createUserFromBguUsername(bguUsername);
-                    if (newUser != null) {
-                        userIdLong = newUser.getId();
-                        logger.info("Successfully created user with BGU username {} (local id: {})", bguUsername, userIdLong);
-                    } else {
-                        logger.warn("Failed to create user with BGU username {}, setting userId to null", bguUsername);
-                        userIdLong = null;
-                    }
                 }
             } catch (Exception e) {
-                // If user lookup or creation fails, set to null to avoid constraint violation
-                logger.error("Error looking up or creating user by BGU username {} from mobile log: {}", bguUsername, e.getMessage(), e);
+                logger.error("Error looking up user by BGU username {} from mobile log: {}", bguUsername, e.getMessage(), e);
                 userIdLong = null;
             }
         }
         
         appLog.setUserId(userIdLong);
-        appLog.setUserRole(parseUserRole(logEntry.getUserRole()));
+
+        AppLog.UserRole logRole = parseUserRole(logEntry.getUserRole());
+        if ((logRole == null || logRole == AppLog.UserRole.UNKNOWN) && userIdLong != null) {
+            logRole = userRepository.findById(userIdLong)
+                    .map(this::deriveUserRole)
+                    .orElse(AppLog.UserRole.UNKNOWN);
+        }
+        appLog.setUserRole(logRole);
         appLog.setDeviceInfo(logEntry.getDeviceInfo());
         appLog.setAppVersion(logEntry.getAppVersion());
         appLog.setStackTrace(logEntry.getStackTrace());
@@ -254,7 +247,11 @@ public class AppLogService {
      * Get logs by user role
      */
     public List<AppLog> getLogsByUserRole(String userRole) {
-        return appLogRepository.findByUserRole(parseUserRole(userRole));
+        AppLog.UserRole role = parseUserRole(userRole);
+        if (role == null) {
+            return List.of();
+        }
+        return appLogRepository.findByUserRole(role);
     }
     
     /**
@@ -299,42 +296,42 @@ public class AppLogService {
      * Auto-create a user from BGU username when first encountered in mobile logs
      * This ensures users are created quickly on first login/log
      */
-    @Transactional
-    private User createUserFromBguUsername(String bguUsername) {
-        try {
-            // Check again to avoid race condition
-            Optional<User> existingUser = userRepository.findByBguUsername(bguUsername);
-            if (existingUser.isPresent()) {
-                return existingUser.get();
-            }
-            
-            // Create minimal user record with BGU username
-            // Other details can be filled in later during proper login/registration
-            User newUser = new User();
-            newUser.setBguUsername(bguUsername);
-            newUser.setRole(User.UserRole.STUDENT); // Default role, can be updated later
-            newUser.setFirstName("User"); // Placeholder, should be updated from BGU Auth
-            newUser.setLastName(bguUsername); // Placeholder, should be updated from BGU Auth
-            newUser.setEmail(bguUsername + "@bgu.ac.il"); // Placeholder email, should be updated from BGU Auth
-            
-            User savedUser = userRepository.save(newUser);
-            logger.info("Auto-created user with BGU username {} (local id: {})", bguUsername, savedUser.getId());
-            return savedUser;
-        } catch (Exception e) {
-            logger.error("Failed to auto-create user with BGU username {}: {}", bguUsername, e.getMessage(), e);
-            return null;
-        }
-    }
-
     private AppLog.UserRole parseUserRole(String role) {
         if (role == null) {
             return null;
         }
-        try {
-            return AppLog.UserRole.valueOf(role.toUpperCase());
-        } catch (IllegalArgumentException ex) {
-            logger.warn("Unknown user role received: {}", role);
+        String normalized = role.trim().toUpperCase();
+        if (normalized.isEmpty()) {
             return null;
         }
+        return switch (normalized) {
+            case "STUDENT", "PARTICIPANT" -> AppLog.UserRole.PARTICIPANT;
+            case "PRESENTER" -> AppLog.UserRole.PRESENTER;
+            case "BOTH", "BOTH_ROLES", "PRESENTER_PARTICIPANT" -> AppLog.UserRole.BOTH;
+            case "UNKNOWN" -> AppLog.UserRole.UNKNOWN;
+            default -> {
+                logger.warn("Unknown user role received: {}", role);
+                yield AppLog.UserRole.UNKNOWN;
+            }
+        };
+    }
+
+    private AppLog.UserRole deriveUserRole(User user) {
+        if (user == null) {
+            return AppLog.UserRole.UNKNOWN;
+        }
+        boolean presenter = Boolean.TRUE.equals(user.getIsPresenter());
+        boolean participant = Boolean.TRUE.equals(user.getIsParticipant());
+
+        if (presenter && participant) {
+            return AppLog.UserRole.BOTH;
+        }
+        if (presenter) {
+            return AppLog.UserRole.PRESENTER;
+        }
+        if (participant) {
+            return AppLog.UserRole.PARTICIPANT;
+        }
+        return AppLog.UserRole.UNKNOWN;
     }
 }

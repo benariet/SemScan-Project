@@ -10,7 +10,6 @@ import edu.bgu.semscanapi.repository.PresenterSeminarRepository;
 import edu.bgu.semscanapi.repository.PresenterSeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SeminarRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
-import edu.bgu.semscanapi.service.AuthenticationService;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
@@ -34,7 +33,6 @@ public class PresenterSeminarController {
 
     private static final Logger logger = LoggerUtil.getLogger(PresenterSeminarController.class);
 
-    @Autowired private AuthenticationService auth;
     @Autowired private PresenterSeminarRepository seminars;
     @Autowired private PresenterSeminarSlotRepository slots;
     @Autowired private SeminarRepository seminarRepository;
@@ -237,7 +235,7 @@ public class PresenterSeminarController {
         // create new seminar
         User presenter = userRepository.findById(presenterId)
                 .orElseThrow(() -> new IllegalArgumentException("Presenter not found: " + presenterId));
-        if (presenter.getRole() != User.UserRole.PRESENTER) {
+        if (!Boolean.TRUE.equals(presenter.getIsPresenter())) {
             throw new IllegalArgumentException("User " + presenterId + " is not a presenter");
         }
 
