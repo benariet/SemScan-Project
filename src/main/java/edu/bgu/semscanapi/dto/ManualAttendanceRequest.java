@@ -8,8 +8,8 @@ public class ManualAttendanceRequest {
     @NotNull(message = "Session ID is required")
     private Long sessionId;
     
-    @NotNull(message = "Student ID is required")
-    private Long studentId;
+    @NotBlank(message = "Student username is required")
+    private String studentUsername;
     
     @NotBlank(message = "Reason is required")
     private String reason;
@@ -19,9 +19,9 @@ public class ManualAttendanceRequest {
     public ManualAttendanceRequest() {
     }
 
-    public ManualAttendanceRequest(Long sessionId, Long studentId, String reason, String deviceId) {
+    public ManualAttendanceRequest(Long sessionId, String studentUsername, String reason, String deviceId) {
         this.sessionId = sessionId;
-        this.studentId = studentId;
+        this.studentUsername = studentUsername;
         this.reason = reason;
         this.deviceId = deviceId;
     }
@@ -35,12 +35,12 @@ public class ManualAttendanceRequest {
         this.sessionId = sessionId;
     }
 
-    public Long getStudentId() {
-        return studentId;
+    public String getStudentUsername() {
+        return studentUsername;
     }
 
-    public void setStudentId(Long studentId) {
-        this.studentId = studentId;
+    public void setStudentUsername(String studentUsername) {
+        this.studentUsername = studentUsername;
     }
 
     public String getReason() {
@@ -63,7 +63,7 @@ public class ManualAttendanceRequest {
     public String toString() {
         return "ManualAttendanceRequest{" +
                 "sessionId='" + sessionId + '\'' +
-                ", studentId='" + studentId + '\'' +
+                ", studentUsername='" + studentUsername + '\'' +
                 ", reason='" + reason + '\'' +
                 ", deviceId='" + deviceId + '\'' +
                 '}';

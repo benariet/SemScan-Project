@@ -245,22 +245,22 @@ public class AppLogController {
 
     /**
      * Get logs by user
-     * GET /api/v1/logs/user?userId=123
+     * GET /api/v1/logs/user?username=john.smith
      */
     @GetMapping("/user")
-    public ResponseEntity<Object> getLogsByUser(@RequestParam Long userId) {
+    public ResponseEntity<Object> getLogsByUser(@RequestParam String username) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving logs for user: {}", userId);
-        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/user?userId=" + userId, null);
+        logger.info("Retrieving logs for user: {}", username);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/user?username=" + username, null);
         
         try {
-            List<AppLog> userLogs = appLogService.getLogsByUser(userId);
-            logger.info("Retrieved {} logs for user: {}", userLogs.size(), userId);
+            List<AppLog> userLogs = appLogService.getLogsByUser(username);
+            logger.info("Retrieved {} logs for user: {}", userLogs.size(), username);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/user", 200,
                 "Retrieved " + userLogs.size() + " user logs");
             return ResponseEntity.ok(userLogs);
         } catch (Exception e) {
-            logger.error("Error retrieving logs for user: {}", userId, e);
+            logger.error("Error retrieving logs for user: {}", username, e);
             LoggerUtil.logError(logger, "Error retrieving logs for user", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/user", 500, "Internal Server Error");
             Map<String, String> errorResponse = new HashMap<>();

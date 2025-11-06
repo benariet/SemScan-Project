@@ -76,16 +76,11 @@ public class RequestLoggingFilter implements Filter {
             
             // Log to database
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException e) {
-                // User ID is not a valid number, skip
-            }
             String payload = String.format("url=%s,remoteAddr=%s,correlationId=%s", 
                 fullUrl, getClientIpAddress(request), LoggerUtil.getCurrentCorrelationId());
             if (databaseLoggerService != null) {
-                databaseLoggerService.logApiAction(method, uri, "API_REQUEST", userIdLong, payload);
+                databaseLoggerService.logApiAction(method, uri, "API_REQUEST",
+                        userId, payload);
             }
             
             // Log headers (excluding sensitive ones)
@@ -119,14 +114,8 @@ public class RequestLoggingFilter implements Filter {
             
             // Log to database
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException e) {
-                // User ID is not a valid number, skip
-            }
             if (databaseLoggerService != null) {
-                databaseLoggerService.logApiResponse(method, uri, statusCode, userIdLong);
+                databaseLoggerService.logApiResponse(method, uri, statusCode, userId);
             }
             
             // Log response headers
@@ -142,7 +131,8 @@ public class RequestLoggingFilter implements Filter {
                 if (databaseLoggerService != null) {
                     String slowPayload = String.format("duration=%dms,correlationId=%s", duration, LoggerUtil.getCurrentCorrelationId());
                     databaseLoggerService.logAction("WARN", "PERFORMANCE", 
-                        String.format("Slow request: %s %s took %dms", method, uri, duration), userIdLong, slowPayload);
+                        String.format("Slow request: %s %s took %dms", method, uri, duration), userId,
+                        slowPayload);
                 }
             }
             

@@ -16,8 +16,6 @@ public interface AppLogRepository extends JpaRepository<AppLog, Long> {
 
     List<AppLog> findByTag(String tag);
 
-    List<AppLog> findByUserId(Long userId);
-
     @Query("SELECT l FROM AppLog l WHERE l.logTimestamp BETWEEN :start AND :end ORDER BY l.logTimestamp DESC")
     List<AppLog> findByLogTimeRange(@Param("start") LocalDateTime start,
                                     @Param("end") LocalDateTime end);
@@ -26,8 +24,6 @@ public interface AppLogRepository extends JpaRepository<AppLog, Long> {
     List<AppLog> findErrorLogs();
 
     List<AppLog> findByLevelAndTag(String level, String tag);
-
-    List<AppLog> findByUserIdAndLevel(Long userId, String level);
 
     List<AppLog> findByUserRole(AppLog.UserRole userRole);
 
@@ -54,4 +50,8 @@ public interface AppLogRepository extends JpaRepository<AppLog, Long> {
 
     @Query("DELETE FROM AppLog l WHERE l.logTimestamp < :cutoff")
     int deleteOldLogs(@Param("cutoff") LocalDateTime cutoffDate);
+
+    List<AppLog> findByUserUsername(String userUsername);
+
+    List<AppLog> findByUserUsernameAndLevel(String userUsername, String level);
 }

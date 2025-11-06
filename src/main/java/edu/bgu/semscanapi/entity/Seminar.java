@@ -19,8 +19,8 @@ public class Seminar {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "presenter_id", nullable = false)
-    private Long presenterId;
+    @Column(name = "presenter_username", nullable = false)
+    private String presenterUsername;
 
     @Column(name = "max_enrollment_capacity")
     private Integer maxEnrollmentCapacity;
@@ -58,12 +58,12 @@ public class Seminar {
         this.description = description;
     }
 
-    public Long getPresenterId() {
-        return presenterId;
+    public String getPresenterUsername() {
+        return presenterUsername;
     }
 
-    public void setPresenterId(Long presenterId) {
-        this.presenterId = presenterId;
+    public void setPresenterUsername(String presenterUsername) {
+        this.presenterUsername = presenterUsername;
     }
 
     public Integer getMaxEnrollmentCapacity() {
@@ -109,7 +109,7 @@ public class Seminar {
                 "seminarId=" + seminarId +
                 ", seminarName='" + seminarName + '\'' +
                 ", description='" + description + '\'' +
-                ", presenterId=" + presenterId +
+                ", presenterUsername='" + presenterUsername + '\'' +
                 ", maxEnrollmentCapacity=" + maxEnrollmentCapacity +
                 '}';
     }

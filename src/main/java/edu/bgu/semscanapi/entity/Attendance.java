@@ -16,9 +16,6 @@ public class Attendance {
     @Column(name = "session_id", nullable = false)
     private Long sessionId;
 
-    @Column(name = "student_id", nullable = false)
-    private Long studentId;
-
     @Column(name = "attendance_time", nullable = false)
     private LocalDateTime attendanceTime;
 
@@ -35,9 +32,6 @@ public class Attendance {
 
     @Column(name = "requested_at")
     private LocalDateTime requestedAt;
-
-    @Column(name = "approved_by")
-    private Long approvedBy;
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
@@ -56,6 +50,12 @@ public class Attendance {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "student_username", nullable = false)
+    private String studentUsername;
+
+    @Column(name = "approved_by_username")
+    private String approvedByUsername;
 
     public Attendance() {
     }
@@ -82,14 +82,6 @@ public class Attendance {
 
     public void setSessionId(Long sessionId) {
         this.sessionId = sessionId;
-    }
-
-    public Long getStudentId() {
-        return studentId;
-    }
-
-    public void setStudentId(Long studentId) {
-        this.studentId = studentId;
     }
 
     public LocalDateTime getAttendanceTime() {
@@ -130,14 +122,6 @@ public class Attendance {
 
     public void setRequestedAt(LocalDateTime requestedAt) {
         this.requestedAt = requestedAt;
-    }
-
-    public Long getApprovedBy() {
-        return approvedBy;
-    }
-
-    public void setApprovedBy(Long approvedBy) {
-        this.approvedBy = approvedBy;
     }
 
     public LocalDateTime getApprovedAt() {
@@ -188,6 +172,22 @@ public class Attendance {
         this.updatedAt = updatedAt;
     }
 
+    public String getStudentUsername() {
+        return studentUsername;
+    }
+
+    public void setStudentUsername(String studentUsername) {
+        this.studentUsername = studentUsername;
+    }
+
+    public String getApprovedByUsername() {
+        return approvedByUsername;
+    }
+
+    public void setApprovedByUsername(String approvedByUsername) {
+        this.approvedByUsername = approvedByUsername;
+    }
+
     @PrePersist
     public void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -216,12 +216,12 @@ public class Attendance {
         return "Attendance{" +
                 "attendanceId=" + attendanceId +
                 ", sessionId=" + sessionId +
-                ", studentId=" + studentId +
                 ", attendanceTime=" + attendanceTime +
                 ", method=" + method +
                 ", requestStatus=" + requestStatus +
                 ", manualReason='" + manualReason + '\'' +
                 ", requestedAt=" + requestedAt +
+                ", studentUsername='" + studentUsername + '\'' +
                 '}';
     }
 }

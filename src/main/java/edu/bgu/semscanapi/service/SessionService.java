@@ -66,21 +66,21 @@ public class SessionService {
             logger.info("Session created successfully: {} for seminar: {}", 
                 savedSession.getSessionId(), savedSession.getSeminarId());
             
-            // Log to session-specific log file
+            String presenterUsername = seminar.get().getPresenterUsername();
+            
             SessionLoggerUtil.logSessionCreated(
                 savedSession.getSessionId(),
                 savedSession.getSeminarId(),
-                seminar.get().getPresenterId()
+                presenterUsername
             );
             
             LoggerUtil.logSessionEvent(logger, "SESSION_CREATED", 
                 savedSession.getSessionId().toString(),
                 savedSession.getSeminarId().toString(),
-                seminar.get().getPresenterId().toString());
+                presenterUsername);
             
-            // Log to database
             databaseLoggerService.logSessionEvent("SESSION_CREATED", 
-                savedSession.getSessionId(), savedSession.getSeminarId(), seminar.get().getPresenterId());
+                savedSession.getSessionId(), savedSession.getSeminarId(), presenterUsername);
             
             return savedSession;
             
@@ -211,8 +211,7 @@ public class SessionService {
             );
             
             LoggerUtil.logSessionEvent(logger, "SESSION_STATUS_UPDATED", 
-                sessionId.toString(),
-                savedSession.getSeminarId().toString(),
+                sessionId.toString(), existingSession.get().getSeminarId() != null ? existingSession.get().getSeminarId().toString() : null,
                 null);
             
             return savedSession;

@@ -19,27 +19,24 @@ public interface SeminarRepository extends JpaRepository<Seminar, Long> {
     Logger logger = LoggerUtil.getLogger(SeminarRepository.class);
     
     /**
-     * Find seminars by presenter ID
-     */
-    List<Seminar> findByPresenterId(Long presenterId);
-    
-    /**
-     * Find seminars by presenter ID and active status
-     */
-    /**
      * Find seminars by name containing (case-insensitive)
      */
     @Query("SELECT s FROM Seminar s WHERE LOWER(s.seminarName) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Seminar> findByNameContainingIgnoreCase(@Param("name") String name);
     
     /**
+     * Find seminars by presenter username
+     */
+    List<Seminar> findByPresenterUsername(String presenterUsername);
+    
+    /**
      * Count seminars by presenter
      */
-    long countByPresenterId(Long presenterId);
+    long countByPresenterUsername(String presenterUsername);
     
     /**
      * Find all seminars with presenter users
      */
-    @Query("SELECT s FROM Seminar s JOIN User u ON s.presenterId = u.id WHERE u.isPresenter = true")
+    @Query("SELECT s FROM Seminar s JOIN User u ON s.presenterUsername = u.bguUsername WHERE u.isPresenter = true")
     List<Seminar> findAllWithPresenters();
 }

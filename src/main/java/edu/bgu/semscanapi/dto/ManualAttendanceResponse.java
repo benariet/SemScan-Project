@@ -6,7 +6,7 @@ public class ManualAttendanceResponse {
     
     private Long attendanceId;
     private Long sessionId;
-    private Long studentId;
+    private String studentUsername;
     private String studentName;
     private String reason;
     private String requestStatus;
@@ -17,12 +17,12 @@ public class ManualAttendanceResponse {
     public ManualAttendanceResponse() {
     }
 
-    public ManualAttendanceResponse(Long attendanceId, Long sessionId, Long studentId, 
+    public ManualAttendanceResponse(Long attendanceId, Long sessionId, String studentUsername, 
                                   String studentName, String reason, String requestStatus, 
                                   LocalDateTime requestedAt, String autoFlags, String message) {
         this.attendanceId = attendanceId;
         this.sessionId = sessionId;
-        this.studentId = studentId;
+        this.studentUsername = studentUsername;
         this.studentName = studentName;
         this.reason = reason;
         this.requestStatus = requestStatus;
@@ -48,12 +48,12 @@ public class ManualAttendanceResponse {
         this.sessionId = sessionId;
     }
 
-    public Long getStudentId() {
-        return studentId;
+    public String getStudentUsername() {
+        return studentUsername;
     }
 
-    public void setStudentId(Long studentId) {
-        this.studentId = studentId;
+    public void setStudentUsername(String studentUsername) {
+        this.studentUsername = studentUsername;
     }
 
     public String getStudentName() {
@@ -109,7 +109,7 @@ public class ManualAttendanceResponse {
         return "ManualAttendanceResponse{" +
                 "attendanceId=" + attendanceId +
                 ", sessionId=" + sessionId +
-                ", studentId=" + studentId +
+                ", studentUsername='" + studentUsername + '\'' +
                 ", studentName='" + studentName + '\'' +
                 ", reason='" + reason + '\'' +
                 ", requestStatus='" + requestStatus + '\'' +

@@ -35,7 +35,7 @@ public class SeminarController {
      */
     @PostMapping
     public ResponseEntity<Object> createSeminar(@RequestBody Seminar seminar) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Creating seminar - Name: {}", seminar.getSeminarName());
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/seminars", seminar.toString());
         
@@ -52,12 +52,8 @@ public class SeminarController {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/seminars", 400, "Bad Request: " + e.getMessage());
             
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException ignored) {}
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("SEMINAR_VALIDATION_ERROR", e.getMessage(), e, userIdLong, payload);
+            databaseLoggerService.logError("SEMINAR_VALIDATION_ERROR", e.getMessage(), e, userId, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
@@ -73,12 +69,8 @@ public class SeminarController {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/seminars", 500, "Internal Server Error");
             
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException ignored) {}
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("SEMINAR_CREATION_ERROR", "Failed to create seminar", e, userIdLong, payload);
+            databaseLoggerService.logError("SEMINAR_CREATION_ERROR", "Failed to create seminar", e, userId, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while creating the seminar",
@@ -97,7 +89,7 @@ public class SeminarController {
      */
     @GetMapping("/{seminarId}")
     public ResponseEntity<Object> getSeminarById(@PathVariable Long seminarId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving seminar by ID: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/seminars/" + seminarId, null);
         
@@ -143,7 +135,7 @@ public class SeminarController {
      */
     @GetMapping
     public ResponseEntity<List<Seminar>> getAllSeminars() {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving all seminars");
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/seminars", null);
         
@@ -167,24 +159,24 @@ public class SeminarController {
     /**
      * Get seminars by presenter
      */
-    @GetMapping("/presenter/{presenterId}")
-    public ResponseEntity<List<Seminar>> getSeminarsByPresenter(@PathVariable Long presenterId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving seminars for presenter: {}", presenterId);
-        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/seminars/presenter/" + presenterId, null);
+    @GetMapping("/presenter/{presenterUsername}")
+    public ResponseEntity<List<Seminar>> getSeminarsByPresenter(@PathVariable String presenterUsername) {
+        LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Retrieving seminars for presenter: {}", presenterUsername);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/seminars/presenter/" + presenterUsername, null);
         
         try {
-            List<Seminar> seminars = seminarService.getSeminarsByPresenter(presenterId);
-            logger.info("Retrieved {} seminars for presenter: {}", seminars.size(), presenterId);
-            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/seminars/presenter/" + presenterId, 200, 
+            List<Seminar> seminars = seminarService.getSeminarsByPresenter(presenterUsername);
+            logger.info("Retrieved {} seminars for presenter: {}", seminars.size(), presenterUsername);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/seminars/presenter/" + presenterUsername, 200, 
                 "List of " + seminars.size() + " seminars for presenter");
-            
+        
             return ResponseEntity.ok(seminars);
-            
+        
         } catch (Exception e) {
-            logger.error("Failed to retrieve seminars for presenter: {}", presenterId, e);
+            logger.error("Failed to retrieve seminars for presenter: {}", presenterUsername, e);
             LoggerUtil.logError(logger, "Failed to retrieve seminars for presenter", e);
-            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/seminars/presenter/" + presenterId, 500, "Internal Server Error");
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/seminars/presenter/" + presenterUsername, 500, "Internal Server Error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } finally {
             LoggerUtil.clearContext();
@@ -196,7 +188,7 @@ public class SeminarController {
      */
     @PutMapping("/{seminarId}")
     public ResponseEntity<Object> updateSeminar(@PathVariable Long seminarId, @RequestBody Seminar seminar) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Updating seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/seminars/" + seminarId, seminar.toString());
         
@@ -235,7 +227,7 @@ public class SeminarController {
      */
     @DeleteMapping("/{seminarId}")
     public ResponseEntity<Object> deleteSeminar(@PathVariable Long seminarId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Deleting seminar: {}", seminarId);
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/seminars/" + seminarId, null);
         
@@ -273,7 +265,7 @@ public class SeminarController {
      */
     @GetMapping("/search")
     public ResponseEntity<List<Seminar>> searchSeminarsByName(@RequestParam String name) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Searching seminars by name: {}", name);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/seminars/search?name=" + name, null);
         

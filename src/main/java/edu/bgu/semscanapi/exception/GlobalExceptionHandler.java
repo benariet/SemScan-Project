@@ -32,27 +32,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleException(Exception ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String userId = LoggerUtil.getCurrentUserId();
-        Long userIdLong = null;
-        try {
-            userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-        } catch (NumberFormatException e) {
-            // User ID is not a valid number, skip
-        }
-        
-        // Log to file
-        logger.error("Unhandled exception - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
-        LoggerUtil.logError(logger, "Unhandled exception in " + request.getMethod() + " " + request.getRequestURI(), ex);
-        
-        // Log to database
-        String payload = String.format("method=%s,path=%s,correlationId=%s", 
-            request.getMethod(), request.getRequestURI(), correlationId);
         databaseLoggerService.logError(
-            "GLOBAL_EXCEPTION",
-            String.format("Unhandled exception in %s %s: %s", request.getMethod(), request.getRequestURI(), ex.getMessage()),
-            ex,
-            userIdLong,
-            payload
-        );
+                "GLOBAL_EXCEPTION",
+                ex.getMessage(),
+                ex,
+                userId,
+                String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId()));
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Internal Server Error",
@@ -72,27 +57,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String userId = LoggerUtil.getCurrentUserId();
-        Long userIdLong = null;
-        try {
-            userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-        } catch (NumberFormatException e) {
-            // User ID is not a valid number, skip
-        }
-        
-        // Log to file
-        logger.warn("Resource not found - Correlation ID: {}, Path: {}, Message: {}", 
-            correlationId, request.getRequestURI(), ex.getMessage());
-        
-        // Log to database
-        String payload = String.format("method=%s,path=%s,correlationId=%s", 
-            request.getMethod(), request.getRequestURI(), correlationId);
         databaseLoggerService.logError(
-            "RESOURCE_NOT_FOUND",
-            String.format("Resource not found: %s %s - %s", request.getMethod(), request.getRequestURI(), ex.getMessage()),
-            ex,
-            userIdLong,
-            payload
-        );
+                "GLOBAL_EXCEPTION",
+                ex.getMessage(),
+                ex,
+                userId,
+                String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId()));
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Resource Not Found",
@@ -111,27 +81,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String userId = LoggerUtil.getCurrentUserId();
-        Long userIdLong = null;
-        try {
-            userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-        } catch (NumberFormatException e) {
-            // User ID is not a valid number, skip
-        }
-        
-        // Log to file
-        logger.warn("Illegal argument - Correlation ID: {}, Path: {}, Message: {}", 
-            correlationId, request.getRequestURI(), ex.getMessage());
-        
-        // Log to database
-        String payload = String.format("method=%s,path=%s,correlationId=%s", 
-            request.getMethod(), request.getRequestURI(), correlationId);
         databaseLoggerService.logError(
-            "VALIDATION_ERROR",
-            String.format("Illegal argument in %s %s: %s", request.getMethod(), request.getRequestURI(), ex.getMessage()),
-            ex,
-            userIdLong,
-            payload
-        );
+                "GLOBAL_EXCEPTION",
+                ex.getMessage(),
+                ex,
+                userId,
+                String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId()));
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Bad Request",
@@ -150,26 +105,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String userId = LoggerUtil.getCurrentUserId();
-        Long userIdLong = null;
-        try {
-            userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-        } catch (NumberFormatException e) {
-            // User ID is not a valid number, skip
-        }
-        
-        // Log to file
-        logger.error("Runtime exception - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
-        
-        // Log to database
-        String payload = String.format("method=%s,path=%s,correlationId=%s", 
-            request.getMethod(), request.getRequestURI(), correlationId);
         databaseLoggerService.logError(
-            "RUNTIME_ERROR",
-            String.format("Runtime exception in %s %s: %s", request.getMethod(), request.getRequestURI(), ex.getMessage()),
-            ex,
-            userIdLong,
-            payload
-        );
+                "GLOBAL_EXCEPTION",
+                ex.getMessage(),
+                ex,
+                userId,
+                String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId()));
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Internal Server Error",

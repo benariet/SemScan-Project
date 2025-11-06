@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Locale;
 
 /**
  * Service class for Attendance business logic
@@ -44,9 +45,11 @@ public class AttendanceService {
      */
     public Attendance recordAttendance(Attendance attendance) {
         logger.info("Recording attendance for student: {} in session: {}", 
-            attendance.getStudentId(), attendance.getSessionId());
-        LoggerUtil.setStudentId(attendance.getStudentId() != null ? attendance.getStudentId().toString() : null);
+            attendance.getStudentUsername(), attendance.getSessionId());
+        LoggerUtil.setStudentId(attendance.getStudentUsername());
         LoggerUtil.setSessionId(attendance.getSessionId() != null ? attendance.getSessionId().toString() : null);
+        
+        attendance.setStudentUsername(normalizeUsername(attendance.getStudentUsername()));
         
         try {
             // Validate session exists and is open
@@ -63,22 +66,22 @@ public class AttendanceService {
             }
             
             // Validate student exists
-            Optional<User> student = userRepository.findById(attendance.getStudentId());
+            Optional<User> student = userRepository.findByBguUsername(attendance.getStudentUsername());
             if (student.isEmpty()) {
-                logger.error("Student not found: {}", attendance.getStudentId());
-                throw new IllegalArgumentException("Student not found: " + attendance.getStudentId());
+                logger.error("Student not found: {}", attendance.getStudentUsername());
+                throw new IllegalArgumentException("Student not found: " + attendance.getStudentUsername());
             }
             
             if (!Boolean.TRUE.equals(student.get().getIsParticipant())) {
-                logger.error("User is not marked as participant: {}", attendance.getStudentId());
-                throw new IllegalArgumentException("User is not a participant: " + attendance.getStudentId());
+                logger.error("User is not marked as participant: {}", attendance.getStudentUsername());
+                throw new IllegalArgumentException("User is not a participant: " + attendance.getStudentUsername());
             }
             
             // Check if already attended
-            if (attendanceRepository.existsBySessionIdAndStudentId(
-                attendance.getSessionId(), attendance.getStudentId())) {
+            if (attendanceRepository.existsBySessionIdAndStudentUsername(
+                attendance.getSessionId(), attendance.getStudentUsername())) {
                 logger.warn("Student already attended session: {} - {}", 
-                    attendance.getStudentId(), attendance.getSessionId());
+                    attendance.getStudentUsername(), attendance.getSessionId());
                 throw new IllegalArgumentException("Student already attended this session");
             }
             
@@ -99,28 +102,29 @@ public class AttendanceService {
             
             Attendance savedAttendance = attendanceRepository.save(attendance);
                     logger.info("Attendance recorded successfully: {} for student: {} in session: {}",
-                        savedAttendance.getAttendanceId(), savedAttendance.getStudentId(), savedAttendance.getSessionId());
+                        savedAttendance.getAttendanceId(), savedAttendance.getStudentUsername(), savedAttendance.getSessionId());
             
             // Log to session-specific log file
                     SessionLoggerUtil.logAttendance(savedAttendance.getSessionId(),
-                                                  savedAttendance.getStudentId(),
+                                                  savedAttendance.getStudentUsername(),
                                                   savedAttendance.getMethod().toString(),
                                                   savedAttendance.getAttendanceTime().toString());
             
-                    LoggerUtil.logAttendanceEvent(logger, "ATTENDANCE_RECORDED",
-                        savedAttendance.getStudentId(), savedAttendance.getSessionId(),
+                    LoggerUtil.logAttendanceEvent(logger, "ATTENDANCE_RECORDED", 
+                        savedAttendance.getStudentUsername(),
+                        savedAttendance.getSessionId() != null ? savedAttendance.getSessionId().toString() : null,
                         savedAttendance.getMethod().toString());
             
             // Log to database
             databaseLoggerService.logAttendance("ATTENDANCE_RECORDED", 
-                savedAttendance.getStudentId(), savedAttendance.getSessionId(), 
+                savedAttendance.getStudentUsername(), savedAttendance.getSessionId(), 
                 savedAttendance.getMethod().toString());
             
             return savedAttendance;
             
         } catch (Exception e) {
             logger.error("Failed to record attendance for student: {} in session: {}", 
-                attendance.getStudentId(), attendance.getSessionId(), e);
+                attendance.getStudentUsername(), attendance.getSessionId(), e);
             throw e;
         } finally {
             LoggerUtil.clearKey("studentId");
@@ -139,8 +143,8 @@ public class AttendanceService {
             Optional<Attendance> attendance = attendanceRepository.findById(attendanceId);
             if (attendance.isPresent()) {
                 logger.debug("Attendance found: {} for student: {} in session: {}", 
-                    attendanceId, attendance.get().getStudentId(), attendance.get().getSessionId());
-                LoggerUtil.setStudentId(attendance.get().getStudentId().toString());
+                    attendanceId, attendance.get().getStudentUsername(), attendance.get().getSessionId());
+                LoggerUtil.setStudentId(attendance.get().getStudentUsername());
                 LoggerUtil.setSessionId(attendance.get().getSessionId().toString());
                 LoggerUtil.logDatabaseOperation(logger, "SELECT", "attendance", attendanceId.toString());
             } else {
@@ -178,17 +182,17 @@ public class AttendanceService {
      * Get attendance records by student
      */
     @Transactional(readOnly = true)
-    public List<Attendance> getAttendanceByStudent(Long studentId) {
-        logger.info("Retrieving attendance records for student: {}", studentId);
-        LoggerUtil.setStudentId(studentId != null ? studentId.toString() : null);
+    public List<Attendance> getAttendanceByStudent(String studentUsername) {
+        logger.info("Retrieving attendance records for student: {}", studentUsername);
+        LoggerUtil.setStudentId(studentUsername);
         
         try {
-            List<Attendance> attendanceList = attendanceRepository.findByStudentId(studentId);
-            logger.info("Retrieved {} attendance records for student: {}", attendanceList.size(), studentId);
-            LoggerUtil.logDatabaseOperation(logger, "SELECT_BY_STUDENT", "attendance", studentId != null ? studentId.toString() : "null");
+            List<Attendance> attendanceList = attendanceRepository.findByStudentUsername(studentUsername);
+            logger.info("Retrieved {} attendance records for student: {}", attendanceList.size(), studentUsername);
+            LoggerUtil.logDatabaseOperation(logger, "SELECT_BY_STUDENT", "attendance", studentUsername != null ? studentUsername : "null");
             return attendanceList;
         } catch (Exception e) {
-            logger.error("Failed to retrieve attendance records for student: {}", studentId, e);
+            logger.error("Failed to retrieve attendance records for student: {}", studentUsername, e);
             throw e;
         } finally {
             LoggerUtil.clearKey("studentId");
@@ -199,17 +203,17 @@ public class AttendanceService {
      * Check if student attended a session
      */
     @Transactional(readOnly = true)
-    public boolean hasStudentAttended(Long sessionId, Long studentId) {
-        logger.debug("Checking if student attended session: {} - {}", studentId, sessionId);
-        LoggerUtil.setStudentId(studentId != null ? studentId.toString() : null);
+    public boolean hasStudentAttended(Long sessionId, String studentUsername) {
+        logger.debug("Checking if student attended session: {} - {}", studentUsername, sessionId);
+        LoggerUtil.setStudentId(studentUsername);
         LoggerUtil.setSessionId(sessionId != null ? sessionId.toString() : null);
         
         try {
-            boolean attended = attendanceRepository.existsBySessionIdAndStudentId(sessionId, studentId);
+            boolean attended = attendanceRepository.existsBySessionIdAndStudentUsername(sessionId, studentUsername);
             logger.debug("Student {} {} attended session {}", 
-                studentId, attended ? "has" : "has not", sessionId);
+                studentUsername, attended ? "has" : "has not", sessionId);
             LoggerUtil.logDatabaseOperation(logger, "CHECK_ATTENDANCE", "attendance", 
-                studentId + " in " + sessionId);
+                studentUsername + " in " + sessionId);
             return attended;
         } finally {
             LoggerUtil.clearKey("studentId");
@@ -324,5 +328,13 @@ public class AttendanceService {
         public long getQrScanCount() { return qrScanCount; }
         public long getManualCount() { return manualCount; }
         public long getProxyCount() { return proxyCount; }
+    }
+
+    private String normalizeUsername(String username) {
+        if (username == null) {
+            return null;
+        }
+        String trimmed = username.trim();
+        return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
     }
 }

@@ -19,11 +19,11 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     List<Attendance> findBySessionId(Long sessionId);
 
-    List<Attendance> findByStudentId(Long studentId);
+    List<Attendance> findByStudentUsername(String studentUsername);
 
-    Optional<Attendance> findBySessionIdAndStudentId(Long sessionId, Long studentId);
+    Optional<Attendance> findBySessionIdAndStudentUsername(Long sessionId, String studentUsername);
 
-    boolean existsBySessionIdAndStudentId(Long sessionId, Long studentId);
+    boolean existsBySessionIdAndStudentUsername(Long sessionId, String studentUsername);
 
     @Query("SELECT a FROM Attendance a WHERE a.sessionId = :sessionId AND a.requestStatus = edu.bgu.semscanapi.entity.Attendance$RequestStatus.PENDING_APPROVAL")
     List<Attendance> findPendingRequestsBySessionId(@Param("sessionId") Long sessionId);
@@ -42,14 +42,14 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
                                                        @Param("start") LocalDateTime start,
                                                        @Param("end") LocalDateTime end);
 
-    @Query("SELECT a FROM Attendance a WHERE a.studentId = :studentId AND a.attendanceTime BETWEEN :start AND :end")
-    List<Attendance> findStudentAttendanceBetweenDates(@Param("studentId") Long studentId,
+    @Query("SELECT a FROM Attendance a WHERE a.studentUsername = :studentUsername AND a.attendanceTime BETWEEN :start AND :end")
+    List<Attendance> findStudentAttendanceBetweenDates(@Param("studentUsername") String studentUsername,
                                                        @Param("start") LocalDateTime start,
                                                        @Param("end") LocalDateTime end);
 
     long countBySessionId(Long sessionId);
 
-    long countByStudentId(Long studentId);
+    long countByStudentUsername(String studentUsername);
 
     long countByMethod(Attendance.AttendanceMethod method);
 }

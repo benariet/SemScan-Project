@@ -182,7 +182,7 @@ public class ExportController {
         PrintWriter writer = new PrintWriter(outputStream);
 
         // CSV Header
-        writer.println("Attendance ID,Session ID,Student ID,Attendance Time,Method");
+        writer.println("Attendance ID,Session ID,Student Username,Attendance Time,Method");
 
         // CSV Data
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -190,7 +190,7 @@ public class ExportController {
             writer.printf("%s,%s,%s,%s,%s%n",
                     attendance.getAttendanceId(),
                     attendance.getSessionId(),
-                    attendance.getStudentId(),
+                    attendance.getStudentUsername(),
                     attendance.getAttendanceTime() != null ? attendance.getAttendanceTime().format(formatter) : "",
                     attendance.getMethod() != null ? attendance.getMethod().toString() : "");
         }
@@ -211,9 +211,9 @@ public class ExportController {
             // Create header row
             Row headerRow = sheet.createRow(0);
             String[] headers = {
-                    "Attendance ID", "Session ID", "Student ID", "Attendance Time",
+                    "Attendance ID", "Session ID", "Student Username", "Attendance Time",
                     "Method", "Request Status", "Manual Reason", "Requested At",
-                    "Approved By", "Approved At"
+                    "Approved By Username", "Approved At"
             };
 
             // Style for header row
@@ -239,7 +239,7 @@ public class ExportController {
 
                 dataRow.createCell(0).setCellValue(toStringOrBlank(attendance.getAttendanceId()));
                 dataRow.createCell(1).setCellValue(toStringOrBlank(attendance.getSessionId()));
-                dataRow.createCell(2).setCellValue(toStringOrBlank(attendance.getStudentId()));
+                dataRow.createCell(2).setCellValue(attendance.getStudentUsername());
                 dataRow.createCell(3).setCellValue(attendance.getAttendanceTime() != null ?
                     attendance.getAttendanceTime().format(formatter) : "");
                 dataRow.createCell(4).setCellValue(attendance.getMethod() != null ? attendance.getMethod().toString() : "");
@@ -247,7 +247,7 @@ public class ExportController {
                 dataRow.createCell(6).setCellValue(attendance.getManualReason() != null ? attendance.getManualReason() : "");
                 dataRow.createCell(7).setCellValue(attendance.getRequestedAt() != null ?
                     attendance.getRequestedAt().format(formatter) : "");
-                dataRow.createCell(8).setCellValue(toStringOrBlank(attendance.getApprovedBy()));
+                dataRow.createCell(8).setCellValue(toStringOrBlank(attendance.getApprovedByUsername()));
                 dataRow.createCell(9).setCellValue(attendance.getApprovedAt() != null ?
                     attendance.getApprovedAt().format(formatter) : "");
             }

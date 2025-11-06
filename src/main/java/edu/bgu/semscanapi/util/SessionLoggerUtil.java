@@ -56,10 +56,10 @@ public class SessionLoggerUtil {
      * @param seminarId The seminar ID
      * @param presenterId The presenter ID
      */
-    public static void logSessionCreated(Long sessionId, Long seminarId, Long presenterId) {
+    public static void logSessionCreated(Long sessionId, Long seminarId, String presenterUsername) {
         setSessionContextValue(sessionId);
         sessionLogger.info("SESSION_CREATED - Session: {}, Seminar: {}, Presenter: {}",
-                          sessionId, seminarId, presenterId);
+                          sessionId, seminarId, presenterUsername);
     }
 
     private static void setSessionContextValue(Long sessionId) {
@@ -102,10 +102,10 @@ public class SessionLoggerUtil {
      * @param method The attendance method (QR_SCAN, MANUAL, etc.)
      * @param timestamp The attendance timestamp
      */
-    public static void logAttendance(Long sessionId, Long studentId, String method, String timestamp) {
+    public static void logAttendance(Long sessionId, String studentUsername, String method, String timestamp) {
         setSessionContextValue(sessionId);
         sessionLogger.info("ATTENDANCE_RECORDED - Session: {}, Student: {}, Method: {}, Time: {}",
-                          sessionId, studentId, method, timestamp);
+                          sessionId, studentUsername, method, timestamp);
     }
 
     /**

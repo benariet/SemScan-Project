@@ -36,12 +36,12 @@ public class DatabaseLoggerService {
      * @param level Log level (INFO, WARN, ERROR, etc.)
      * @param tag Tag/category for the log
      * @param message Log message
-     * @param userId Optional user ID
+     * @param userUsername Optional user username
      * @param payload Optional payload/context
      */
     @Async
     @Transactional
-    public void logAction(String level, String tag, String message, Long userId, String payload) {
+    public void logAction(String level, String tag, String message, String userUsername, String payload) {
         try {
             AppLog appLog = new AppLog();
             appLog.setLogTimestamp(LocalDateTime.now());
@@ -50,24 +50,21 @@ public class DatabaseLoggerService {
             appLog.setMessage(message);
             appLog.setSource(AppLog.Source.API); // API source for server-side actions
             appLog.setCorrelationId(LoggerUtil.getCurrentCorrelationId());
-            appLog.setUserId(userId);
-            
-            // Set user role if user ID provided
-            if (userId != null) {
+            appLog.setUserUsername(userUsername);
+
+            if (userUsername != null && !userUsername.isBlank()) {
                 try {
-                    Optional<User> user = userRepository.findById(userId);
+                    Optional<User> user = userRepository.findByBguUsername(userUsername);
                     user.map(this::deriveUserRole).ifPresent(appLog::setUserRole);
                 } catch (Exception e) {
-                    // Don't fail logging if user lookup fails
-                    logger.debug("Failed to fetch user role for userId: {}", userId, e);
+                    logger.debug("Failed to fetch user role for username: {}", userUsername, e);
                 }
             }
-            
+
             appLog.setPayload(payload);
-            
+
             appLogRepository.save(appLog);
         } catch (Exception e) {
-            // Don't throw exception if database logging fails - just log to file
             logger.error("Failed to log action to database: {}", message, e);
         }
     }
@@ -77,12 +74,12 @@ public class DatabaseLoggerService {
      * @param tag Tag/category for the error
      * @param message Error message
      * @param throwable Exception (if any)
-     * @param userId Optional user ID
+     * @param userUsername Optional user username
      * @param payload Optional payload/context
      */
     @Async
     @Transactional
-    public void logError(String tag, String message, Throwable throwable, Long userId, String payload) {
+    public void logError(String tag, String message, Throwable throwable, String userUsername, String payload) {
         try {
             AppLog appLog = new AppLog();
             appLog.setLogTimestamp(LocalDateTime.now());
@@ -97,16 +94,15 @@ public class DatabaseLoggerService {
                 appLog.setStackTrace(getStackTrace(throwable));
             }
             
-            appLog.setUserId(userId);
+            appLog.setUserUsername(userUsername);
             
-            // Set user role if user ID provided
-            if (userId != null) {
+            if (userUsername != null && !userUsername.isBlank()) {
                 try {
-                    Optional<User> user = userRepository.findById(userId);
+                    Optional<User> user = userRepository.findByBguUsername(userUsername);
                     user.map(this::deriveUserRole).ifPresent(appLog::setUserRole);
                 } catch (Exception e) {
                     // Don't fail logging if user lookup fails
-                    logger.debug("Failed to fetch user role for userId: {}", userId, e);
+                    logger.debug("Failed to fetch user role for username: {}", userUsername, e);
                 }
             }
             
@@ -124,9 +120,9 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logApiAction(String method, String endpoint, String tag, Long userId, String payload) {
+    public void logApiAction(String method, String endpoint, String tag, String userUsername, String payload) {
         logAction("INFO", tag != null ? tag : "API_REQUEST", 
-            String.format("%s %s", method, endpoint), userId, payload);
+            String.format("%s %s", method, endpoint), userUsername, payload);
     }
     
     /**
@@ -134,10 +130,10 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logApiResponse(String method, String endpoint, int statusCode, Long userId) {
+    public void logApiResponse(String method, String endpoint, int statusCode, String userUsername) {
         String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
         logAction(level, "API_RESPONSE", 
-            String.format("%s %s - Status: %d", method, endpoint, statusCode), userId, null);
+            String.format("%s %s - Status: %d", method, endpoint, statusCode), userUsername, null);
     }
     
     /**
@@ -145,8 +141,8 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logBusinessEvent(String event, String details, Long userId) {
-        logAction("INFO", "BUSINESS_EVENT", String.format("%s: %s", event, details), userId, null);
+    public void logBusinessEvent(String event, String details, String userUsername) {
+        logAction("INFO", "BUSINESS_EVENT", String.format("%s: %s", event, details), userUsername, null);
     }
     
     /**
@@ -154,8 +150,8 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logAuthentication(String event, Long userId, String details) {
-        logAction("INFO", "AUTHENTICATION", String.format("%s - User: %s", event, userId), userId, details);
+    public void logAuthentication(String event, String userUsername, String details) {
+        logAction("INFO", "AUTHENTICATION", String.format("%s - User: %s", event, userUsername), userUsername, details);
     }
     
     /**
@@ -163,10 +159,10 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logAttendance(String event, Long studentId, Long sessionId, String method) {
+    public void logAttendance(String event, String studentUsername, Long sessionId, String method) {
         logAction("INFO", "ATTENDANCE", 
-            String.format("%s - Student: %s, Session: %s, Method: %s", event, studentId, sessionId, method),
-            studentId, String.format("sessionId=%s,method=%s", sessionId, method));
+            String.format("%s - Student: %s, Session: %s, Method: %s", event, studentUsername, sessionId, method),
+            studentUsername, String.format("sessionId=%s,method=%s", sessionId, method));
     }
     
     /**
@@ -174,10 +170,10 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logSessionEvent(String event, Long sessionId, Long seminarId, Long presenterId) {
+    public void logSessionEvent(String event, Long sessionId, Long seminarId, String presenterUsername) {
         logAction("INFO", "SESSION", 
-            String.format("%s - Session: %s, Seminar: %s, Presenter: %s", event, sessionId, seminarId, presenterId),
-            presenterId, String.format("sessionId=%s,seminarId=%s", sessionId, seminarId));
+            String.format("%s - Session: %s, Seminar: %s, Presenter: %s", event, sessionId, seminarId, presenterUsername),
+            presenterUsername, String.format("sessionId=%s,seminarId=%s", sessionId, seminarId));
     }
     
     /**

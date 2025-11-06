@@ -21,13 +21,13 @@ public class SessionLoggingTest {
         Long sessionId1 = 1L;
         System.out.println("Creating session: " + sessionId1);
         
-        SessionLoggerUtil.logSessionCreated(sessionId1, 1L, 2L);
+        SessionLoggerUtil.logSessionCreated(sessionId1, 1L, "presenter.one");
         SessionLoggerUtil.logSessionActivity(sessionId1, "SESSION_STARTED", "Session started successfully");
         
         // Simulate some attendance
-        SessionLoggerUtil.logAttendance(sessionId1, 3L, "QR_SCAN", LocalDateTime.now().toString());
-        SessionLoggerUtil.logAttendance(sessionId1, 4L, "QR_SCAN", LocalDateTime.now().toString());
-        SessionLoggerUtil.logAttendance(sessionId1, 5L, "MANUAL", LocalDateTime.now().toString());
+        SessionLoggerUtil.logAttendance(sessionId1, "student.3", "QR_SCAN", LocalDateTime.now().toString());
+        SessionLoggerUtil.logAttendance(sessionId1, "student.4", "QR_SCAN", LocalDateTime.now().toString());
+        SessionLoggerUtil.logAttendance(sessionId1, "student.5", "MANUAL", LocalDateTime.now().toString());
         
         // Log session statistics
         SessionLoggerUtil.logSessionStatistics(sessionId1, 25, 3, 12.0);
@@ -42,12 +42,12 @@ public class SessionLoggingTest {
         Long sessionId2 = 2L;
         System.out.println("Creating session: " + sessionId2);
         
-        SessionLoggerUtil.logSessionCreated(sessionId2, 2L, 3L);
+        SessionLoggerUtil.logSessionCreated(sessionId2, 2L, "presenter.two");
         SessionLoggerUtil.logSessionActivity(sessionId2, "SESSION_STARTED", "Another session started");
         
         // Simulate attendance for second session
-        SessionLoggerUtil.logAttendance(sessionId2, 6L, "QR_SCAN", LocalDateTime.now().toString());
-        SessionLoggerUtil.logAttendance(sessionId2, 7L, "QR_SCAN", LocalDateTime.now().toString());
+        SessionLoggerUtil.logAttendance(sessionId2, "student.6", "QR_SCAN", LocalDateTime.now().toString());
+        SessionLoggerUtil.logAttendance(sessionId2, "student.7", "QR_SCAN", LocalDateTime.now().toString());
         
         // Log statistics for second session
         SessionLoggerUtil.logSessionStatistics(sessionId2, 30, 2, 6.67);
@@ -59,7 +59,7 @@ public class SessionLoggingTest {
         Long sessionId3 = 3L;
         System.out.println("Creating session with error: " + sessionId3);
         
-        SessionLoggerUtil.logSessionCreated(sessionId3, 3L, 4L);
+        SessionLoggerUtil.logSessionCreated(sessionId3, 3L, "presenter.three");
         SessionLoggerUtil.logSessionError(sessionId3, "Test error occurred", new RuntimeException("This is a test error"));
         
         System.out.println("Session-specific logging test completed!");

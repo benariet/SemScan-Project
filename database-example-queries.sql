@@ -29,7 +29,7 @@ FROM   log_analytics;
 -- USER REPOSITORY QUERIES (AuthenticationService)
 SELECT *
 FROM   users
-WHERE  user_id = 'USERID-10001-20250122';
+WHERE  user_username = 'USERID-10001-20250122';
 
 SELECT *
 FROM   users
@@ -37,7 +37,7 @@ WHERE  email = 'dr.john.smith@university.edu';
 
 SELECT *
 FROM   users
-WHERE  student_id = 'STU001';
+WHERE  student_username = 'STU001';
 
 SELECT *
 FROM   users
@@ -56,7 +56,7 @@ WHERE  seminar_code = 'AI-HLTH-001';
 
 SELECT *
 FROM   seminars
-WHERE  presenter_id = 'USERID-10001-20250122';
+WHERE  presenter_username = 'USERID-10001-20250122';
 
 
 SELECT s.*,
@@ -65,7 +65,7 @@ SELECT s.*,
        u.email
 FROM   seminars s
        JOIN users u
-         ON s.presenter_id = u.user_id
+         ON s.presenter_username = u.user_username
 WHERE  u.role = 'PRESENTER';
 
 -- SESSION REPOSITORY QUERIES (SessionService)
@@ -109,17 +109,17 @@ WHERE  session_id = 'SESSIN-10001-20250122';
 
 SELECT *
 FROM   attendance
-WHERE  student_id = 'USERID-10005-20250122';
+WHERE  student_username = 'USERID-10005-20250122';
 
 SELECT *
 FROM   attendance
 WHERE  session_id = 'SESSIN-10001-20250122'
-       AND student_id = 'USERID-10005-20250122';
+       AND student_username = 'USERID-10005-20250122';
 
 SELECT Count(*) > 0
 FROM   attendance
 WHERE  session_id = 'SESSIN-10001-20250122'
-       AND student_id = 'USERID-10005-20250122';
+       AND student_username = 'USERID-10005-20250122';
 
 SELECT *
 FROM   attendance
@@ -136,7 +136,7 @@ WHERE  session_id = 'SESSIN-10001-20250122';
 
 SELECT Count(*)
 FROM   attendance
-WHERE  student_id = 'USERID-10005-20250122';
+WHERE  student_username = 'USERID-10005-20250122';
 
 SELECT Count(*)
 FROM   attendance
@@ -153,7 +153,7 @@ WHERE  tag = 'LOGIN';
 
 SELECT *
 FROM   app_logs
-WHERE  user_id = 'USERID-10005-20250122';
+WHERE  user_username = 'USERID-10005-20250122';
 
 SELECT *
 FROM   app_logs
@@ -171,7 +171,7 @@ WHERE  level = 'ERROR'
 
 SELECT *
 FROM   app_logs
-WHERE  user_id = 'USERID-10005-20250122'
+WHERE  user_username = 'USERID-10005-20250122'
        AND level = 'ERROR';
 
 SELECT level,
@@ -216,7 +216,7 @@ WHERE  created_at < '2024-09-01 00:00:00';
 -- PRESENTER SEMINAR REPOSITORY QUERIES (PresenterSeminarService)
 SELECT *
 FROM   presenter_seminar
-WHERE  presenter_id = 'USERID-10001-20250122'
+WHERE  presenter_username = 'USERID-10001-20250122'
 ORDER  BY created_at DESC;
 
 SELECT *
@@ -253,15 +253,15 @@ WHERE  attendance_id = 'ATTEND-10001-20250122';
 
 UPDATE users
 SET    first_name = 'Dr. John Updated'
-WHERE  user_id = 'USERID-10001-20250122';
+WHERE  user_username = 'USERID-10001-20250122';
 
 UPDATE users
 SET    last_name = 'Smith Updated'
-WHERE  user_id = 'USERID-10001-20250122';
+WHERE  user_username = 'USERID-10001-20250122';
 
 UPDATE users
 SET    email = 'dr.john.updated@university.edu'
-WHERE  user_id = 'USERID-10001-20250122';
+WHERE  user_username = 'USERID-10001-20250122';
 
 UPDATE seminars
 SET    seminar_name = 'AI and Machine Learning in Healthcare Updated'
@@ -300,7 +300,7 @@ DELETE FROM presenter_seminar_slot
 WHERE  presenter_seminar_slot_id = 'PRESLT-10001-20250122';
 
 DELETE FROM users
-WHERE  user_id = 'USERID-10001-20250122';
+WHERE  user_username = 'USERID-10001-20250122';
 
 DELETE FROM app_logs
 WHERE  id = 1; 
@@ -321,7 +321,7 @@ INSERT INTO seminars
              seminar_name,
              seminar_code,
              description,
-             presenter_id)
+             presenter_username)
 VALUES      ('SEMINR-10001-20250122',
              'AI Healthcare',
              'AI-HLTH-001',
@@ -331,7 +331,7 @@ VALUES      ('SEMINR-10001-20250122',
 INSERT INTO attendance
             (attendance_id,
              session_id,
-             student_id,
+             student_username,
              attendance_time,
              method,
              request_status)
@@ -344,7 +344,7 @@ VALUES      ('ATTEND-10001-20250122',
 
 INSERT INTO presenter_seminar
             (presenter_seminar_id,
-             presenter_id,
+             presenter_username,
              seminar_name,
              created_at)
 VALUES      ('PRESEM-10001-20250122',
@@ -369,7 +369,7 @@ INSERT INTO app_logs
              level,
              tag,
              message,
-             user_id,
+             user_username,
              user_role,
              device_info,
              app_version,

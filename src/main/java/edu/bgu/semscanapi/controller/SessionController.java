@@ -53,12 +53,8 @@ public class SessionController {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/sessions", 400, "Bad Request: " + e.getMessage());
             
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException ignored) {}
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("SESSION_VALIDATION_ERROR", e.getMessage(), e, userIdLong, payload);
+            databaseLoggerService.logError("SESSION_VALIDATION_ERROR", e.getMessage(), e, userId, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
@@ -74,12 +70,8 @@ public class SessionController {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/sessions", 500, "Internal Server Error");
             
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException ignored) {}
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("SESSION_CREATION_ERROR", "Failed to create session", e, userIdLong, payload);
+            databaseLoggerService.logError("SESSION_CREATION_ERROR", "Failed to create session", e, userId, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while creating the session",

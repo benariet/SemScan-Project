@@ -165,29 +165,17 @@ public class AppLogService {
         
         // Validate bguUsername from mobile log - it's the BGU username from login
         String bguUsername = logEntry.getBguUsername();
-        Long userIdLong = null;
-        
         if (bguUsername != null && !bguUsername.trim().isEmpty()) {
+            appLog.setUserUsername(bguUsername.trim().toLowerCase());
             try {
-                Optional<User> user = userRepository.findByBguUsername(bguUsername);
-                if (user.isPresent()) {
-                    userIdLong = user.get().getId();
-                }
+                userRepository.findByBguUsername(bguUsername.trim().toLowerCase())
+                    .map(this::deriveUserRole)
+                    .ifPresent(appLog::setUserRole);
             } catch (Exception e) {
                 logger.error("Error looking up user by BGU username {} from mobile log: {}", bguUsername, e.getMessage(), e);
-                userIdLong = null;
             }
         }
         
-        appLog.setUserId(userIdLong);
-
-        AppLog.UserRole logRole = parseUserRole(logEntry.getUserRole());
-        if ((logRole == null || logRole == AppLog.UserRole.UNKNOWN) && userIdLong != null) {
-            logRole = userRepository.findById(userIdLong)
-                    .map(this::deriveUserRole)
-                    .orElse(AppLog.UserRole.UNKNOWN);
-        }
-        appLog.setUserRole(logRole);
         appLog.setDeviceInfo(logEntry.getDeviceInfo());
         appLog.setAppVersion(logEntry.getAppVersion());
         appLog.setStackTrace(logEntry.getStackTrace());
@@ -216,10 +204,10 @@ public class AppLogService {
     }
     
     /**
-     * Get logs by user ID
+     * Get logs by user username
      */
-    public List<AppLog> getLogsByUser(Long userId) {
-        return appLogRepository.findByUserId(userId);
+    public List<AppLog> getLogsByUser(String userUsername) {
+        return appLogRepository.findByUserUsername(userUsername);
     }
     
     /**
@@ -333,5 +321,9 @@ public class AppLogService {
             return AppLog.UserRole.PARTICIPANT;
         }
         return AppLog.UserRole.UNKNOWN;
+    }
+
+    public List<AppLog> getLogsByUserAndLevel(String userUsername, String level) {
+        return appLogRepository.findByUserUsernameAndLevel(userUsername, level);
     }
 }

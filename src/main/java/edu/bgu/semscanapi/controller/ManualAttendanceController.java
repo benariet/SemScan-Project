@@ -3,14 +3,10 @@ package edu.bgu.semscanapi.controller;
 import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.dto.ManualAttendanceRequest;
 import edu.bgu.semscanapi.dto.ManualAttendanceResponse;
-import edu.bgu.semscanapi.entity.User;
-import edu.bgu.semscanapi.service.AuthenticationService;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.ManualAttendanceService;
 import edu.bgu.semscanapi.util.LoggerUtil;
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
-import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,25 +26,7 @@ public class ManualAttendanceController {
     private ManualAttendanceService manualAttendanceService;
     
     @Autowired
-    private AuthenticationService authenticationService;
-    
-    @Autowired
     private DatabaseLoggerService databaseLoggerService;
-    
-    /**
-     * Get the first available presenter for POC
-     * In a real application, this would be determined by the authenticated user
-     */
-    private String getDefaultPresenterId() {
-        // For POC, get the first presenter from the database
-        // In production, this would come from the authenticated user context
-        List<User> presenters = authenticationService.findPresenters();
-        if (!presenters.isEmpty()) {
-            Long userId = presenters.get(0).getId();
-            return userId != null ? userId.toString() : null;
-        }
-        throw new RuntimeException("No presenters found in the system");
-    }
     
     /**
      * Create a manual attendance request
@@ -56,8 +34,8 @@ public class ManualAttendanceController {
      */
     @PostMapping
     public ResponseEntity<Object> createManualAttendance(@RequestBody ManualAttendanceRequest request) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Creating manual attendance request: sessionId={}, studentId={}", request.getSessionId(), request.getStudentId());
+        LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Creating manual attendance request: sessionId={}, studentUsername={}", request.getSessionId(), request.getStudentUsername());
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/attendance/manual", request.toString());
         
         try {
@@ -70,12 +48,8 @@ public class ManualAttendanceController {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual", 400, "Bad Request: " + e.getMessage());
             
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException ignored) {}
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("MANUAL_ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, userIdLong, payload);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, userId, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
@@ -89,12 +63,8 @@ public class ManualAttendanceController {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual", 500, "Internal Server Error");
             
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException ignored) {}
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("MANUAL_ATTENDANCE_CREATION_ERROR", "Failed to create manual attendance request", e, userIdLong, payload);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_CREATION_ERROR", "Failed to create manual attendance request", e, userId, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while creating the manual attendance request",
@@ -114,7 +84,7 @@ public class ManualAttendanceController {
      */
     @GetMapping("/pending-requests")
     public ResponseEntity<Object> getPendingRequests(@RequestParam Long sessionId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving pending manual attendance requests for session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/manual/pending-requests?sessionId=" + sessionId, null);
         
@@ -144,8 +114,8 @@ public class ManualAttendanceController {
      */
     @PostMapping("/{attendanceId}/approve")
     public ResponseEntity<Object> approveManualAttendance(@PathVariable Long attendanceId,
-                                                         @RequestParam Long approvedBy) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+                                                         @RequestParam String approvedBy) {
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Approving manual attendance request: {} by: {}", attendanceId, approvedBy);
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/approve", "approvedBy=" + approvedBy);
         
@@ -185,8 +155,8 @@ public class ManualAttendanceController {
      */
     @PostMapping("/{attendanceId}/reject")
     public ResponseEntity<Object> rejectManualAttendance(@PathVariable Long attendanceId,
-                                                        @RequestParam Long approvedBy) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+                                                        @RequestParam String approvedBy) {
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Rejecting manual attendance request: {} by: {}", attendanceId, approvedBy);
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/attendance/manual/" + attendanceId + "/reject", "approvedBy=" + approvedBy);
         
@@ -242,14 +212,5 @@ public class ManualAttendanceController {
             );
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
-    }
-    
-    /**
-     * Extract presenter ID from API key
-     * No API key authentication for POC - return null
-     */
-    private String extractPresenterIdFromApiKey(String apiKey) {
-        // No API key authentication for POC
-        return null;
     }
 }

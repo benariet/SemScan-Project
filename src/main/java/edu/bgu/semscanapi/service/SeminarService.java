@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -41,25 +42,29 @@ public class SeminarService {
         
         try {
             // Validate presenter exists
-            Optional<User> presenter = userRepository.findById(seminar.getPresenterId());
+            String normalizedPresenterUsername = normalizeUsername(seminar.getPresenterUsername());
+            Optional<User> presenter = userRepository.findByBguUsername(normalizedPresenterUsername);
             if (presenter.isEmpty()) {
-                logger.error("Presenter not found: {}", seminar.getPresenterId());
-                throw new IllegalArgumentException("Presenter not found: " + seminar.getPresenterId());
+                logger.error("Presenter not found: {}", seminar.getPresenterUsername());
+                throw new IllegalArgumentException("Presenter not found: " + seminar.getPresenterUsername());
             }
             
             if (!Boolean.TRUE.equals(presenter.get().getIsPresenter())) {
-                logger.error("User is not a presenter: {}", seminar.getPresenterId());
-                throw new IllegalArgumentException("User is not a presenter: " + seminar.getPresenterId());
+                logger.error("User is not a presenter: {}", seminar.getPresenterUsername());
+                throw new IllegalArgumentException("User is not a presenter: " + seminar.getPresenterUsername());
             }
+            
+            seminar.setPresenterUsername(normalizedPresenterUsername);
+            LoggerUtil.setUserId(normalizedPresenterUsername);
             
             Seminar savedSeminar = seminarRepository.save(seminar);
             logger.info("Seminar created successfully: {} with ID: {}", savedSeminar.getSeminarName(), savedSeminar.getSeminarId());
             LoggerUtil.logBusinessEvent(logger, "SEMINAR_CREATED", 
-                "Seminar: " + savedSeminar.getSeminarName() + ", Presenter: " + savedSeminar.getPresenterId());
+                "Seminar: " + savedSeminar.getSeminarName() + ", Presenter: " + savedSeminar.getPresenterUsername());
             
-            // Log to database
-            String details = String.format("Seminar: %s, Presenter: %s", savedSeminar.getSeminarName(), savedSeminar.getPresenterId());
-            databaseLoggerService.logBusinessEvent("SEMINAR_CREATED", details, savedSeminar.getPresenterId());
+            String details = String.format("Seminar: %s, Presenter: %s",
+                savedSeminar.getSeminarName(), savedSeminar.getPresenterUsername());
+            databaseLoggerService.logBusinessEvent("SEMINAR_CREATED", details, savedSeminar.getPresenterUsername());
             
             return savedSeminar;
             
@@ -68,6 +73,7 @@ public class SeminarService {
             throw e;
         } finally {
             LoggerUtil.clearKey("seminarId");
+            LoggerUtil.clearKey("userId");
         }
     }
     
@@ -118,17 +124,17 @@ public class SeminarService {
      * Get seminars by presenter
      */
     @Transactional(readOnly = true)
-    public List<Seminar> getSeminarsByPresenter(Long presenterId) {
-        logger.info("Retrieving seminars for presenter: {}", presenterId);
-        LoggerUtil.setUserId(presenterId != null ? presenterId.toString() : null);
+    public List<Seminar> getSeminarsByPresenter(String presenterUsername) {
+        logger.info("Retrieving seminars for presenter: {}", presenterUsername);
+        LoggerUtil.setUserId(presenterUsername);
         
         try {
-            List<Seminar> seminars = seminarRepository.findByPresenterId(presenterId);
-            logger.info("Retrieved {} seminars for presenter: {}", seminars.size(), presenterId);
-            LoggerUtil.logDatabaseOperation(logger, "SELECT_BY_PRESENTER", "seminars", String.valueOf(presenterId));
+            List<Seminar> seminars = seminarRepository.findByPresenterUsername(presenterUsername);
+            logger.info("Retrieved {} seminars for presenter: {}", seminars.size(), presenterUsername);
+            LoggerUtil.logDatabaseOperation(logger, "SELECT_BY_PRESENTER", "seminars", presenterUsername);
             return seminars;
         } catch (Exception e) {
-            logger.error("Failed to retrieve seminars for presenter: {}", presenterId, e);
+            logger.error("Failed to retrieve seminars for presenter: {}", presenterUsername, e);
             throw e;
         } finally {
             LoggerUtil.clearKey("userId");
@@ -161,14 +167,14 @@ public class SeminarService {
             if (updatedSeminar.getDescription() != null) {
                 seminar.setDescription(updatedSeminar.getDescription());
             }
-            if (updatedSeminar.getPresenterId() != null) {
-                // Validate new presenter
-                Optional<User> presenter = userRepository.findById(updatedSeminar.getPresenterId());
+            if (updatedSeminar.getPresenterUsername() != null) {
+                String normalized = normalizeUsername(updatedSeminar.getPresenterUsername());
+                Optional<User> presenter = userRepository.findByBguUsername(normalized);
                 if (presenter.isEmpty() || !Boolean.TRUE.equals(presenter.get().getIsPresenter())) {
-                    logger.error("Invalid presenter for seminar update: {}", updatedSeminar.getPresenterId());
-                    throw new IllegalArgumentException("Invalid presenter: " + updatedSeminar.getPresenterId());
+                    logger.error("Invalid presenter for seminar update: {}", updatedSeminar.getPresenterUsername());
+                    throw new IllegalArgumentException("Invalid presenter: " + updatedSeminar.getPresenterUsername());
                 }
-                seminar.setPresenterId(updatedSeminar.getPresenterId());
+                seminar.setPresenterUsername(normalized);
             }
             
             Seminar savedSeminar = seminarRepository.save(seminar);
@@ -231,5 +237,13 @@ public class SeminarService {
             logger.error("Failed to search seminars by name: {}", name, e);
             throw e;
         }
+    }
+    
+    private String normalizeUsername(String username) {
+        if (username == null) {
+            return null;
+        }
+        String trimmed = username.trim();
+        return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
     }
 }

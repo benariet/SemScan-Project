@@ -27,7 +27,7 @@ SELECT
     sessions.start_time,
     sessions.status,
     attendance.attendance_id,
-    attendance.student_id,
+    attendance.student_username,
     users.first_name,
     users.last_name,
     users.email,
@@ -36,11 +36,11 @@ SELECT
     attendance.request_status,
     attendance.manual_reason,
     attendance.requested_at,
-    attendance.approved_by,
+    attendance.approved_by_username,
     attendance.approved_at
 FROM sessions
 LEFT JOIN attendance ON sessions.session_id = attendance.session_id
-LEFT JOIN users ON attendance.student_id = users.user_id
+LEFT JOIN users ON attendance.student_username = users.bgu_username
 WHERE sessions.status = 'OPEN'  -- Only show open sessions
 ORDER BY sessions.start_time DESC, attendance.attendance_time DESC;
 
@@ -84,7 +84,7 @@ SELECT
     sessions.start_time,
     sessions.status,
     attendance.attendance_id,
-    attendance.student_id,
+    attendance.student_username,
     users.first_name,
     users.last_name,
     users.email,
@@ -93,11 +93,11 @@ SELECT
     attendance.manual_reason,
     attendance.method,
     attendance.requested_at,
-    attendance.approved_by,
+    attendance.approved_by_username,
     attendance.approved_at
 FROM sessions
 INNER JOIN attendance ON sessions.session_id = attendance.session_id
-LEFT JOIN users ON attendance.student_id = users.user_id
+LEFT JOIN users ON attendance.student_username = users.bgu_username
 WHERE attendance.method = 'MANUAL_REQUEST'
 ORDER BY sessions.start_time DESC, attendance.attendance_time DESC;
 
@@ -141,7 +141,7 @@ SELECT
     sessions.start_time as 'Session Start Time',
     sessions.status as 'Session Status',
     attendance.attendance_id as 'Attendance ID',
-    attendance.student_id as 'Student ID',
+    attendance.student_username as 'Student Username',
     users.first_name as 'First Name',
     users.last_name as 'Last Name',
     users.email as 'Email',
@@ -150,11 +150,11 @@ SELECT
     attendance.request_status as 'Request Status',
     attendance.manual_reason as 'Manual Reason',
     attendance.requested_at as 'Requested At',
-    attendance.approved_by as 'Approved By',
+    attendance.approved_by_username as 'Approved By',
     attendance.approved_at as 'Approved At'
 FROM sessions
 LEFT JOIN attendance ON sessions.session_id = attendance.session_id
-LEFT JOIN users ON attendance.student_id = users.user_id
+LEFT JOIN users ON attendance.student_username = users.bgu_username
 ORDER BY sessions.start_time DESC, attendance.attendance_time DESC;
 
 -- Query 9: Students who attended a specific session (with student names)
@@ -165,7 +165,7 @@ SELECT
     sessions.start_time,
     sessions.status as session_status,
     attendance.attendance_id,
-    attendance.student_id,
+    attendance.student_username,
     users.first_name,
     users.last_name,
     users.email,
@@ -174,11 +174,11 @@ SELECT
     attendance.request_status,
     attendance.manual_reason,
     attendance.requested_at,
-    attendance.approved_by,
+    attendance.approved_by_username,
     attendance.approved_at
 FROM sessions
 LEFT JOIN attendance ON sessions.session_id = attendance.session_id
-LEFT JOIN users ON attendance.student_id = users.user_id
+LEFT JOIN users ON attendance.student_username = users.bgu_username
 WHERE sessions.session_id = 'session-001'  -- Replace with your session ID
 ORDER BY attendance.attendance_time ASC;
 
@@ -190,7 +190,7 @@ SELECT
     sessions.start_time,
     sessions.status as session_status,
     attendance.attendance_id,
-    attendance.student_id,
+    attendance.student_username,
     users.first_name,
     users.last_name,
     users.email,
@@ -199,10 +199,10 @@ SELECT
     attendance.request_status,
     attendance.manual_reason,
     attendance.requested_at,
-    attendance.approved_by,
+    attendance.approved_by_username,
     attendance.approved_at
 FROM sessions
 LEFT JOIN attendance ON sessions.session_id = attendance.session_id
-LEFT JOIN users ON attendance.student_id = users.user_id
+LEFT JOIN users ON attendance.student_username = users.bgu_username
 WHERE sessions.session_id = 'session-001'  -- Replace with your session ID
 ORDER BY attendance.attendance_time ASC;

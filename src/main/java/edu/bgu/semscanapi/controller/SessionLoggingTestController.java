@@ -22,7 +22,7 @@ public class SessionLoggingTestController {
     public ResponseEntity<Map<String, Object>> testSessionCreation(@RequestParam Long sessionId) {
         try {
             // Simulate session creation
-            SessionLoggerUtil.logSessionCreated(sessionId, 1L, 1L);
+            SessionLoggerUtil.logSessionCreated(sessionId, 1L, "test.presenter");
             
             return ResponseEntity.ok(Map.of(
                 "status", "success",
@@ -72,16 +72,16 @@ public class SessionLoggingTestController {
     @PostMapping("/log-attendance")
     public ResponseEntity<Map<String, Object>> testAttendanceLogging(
             @RequestParam Long sessionId,
-            @RequestParam Long studentId) {
+            @RequestParam String studentUsername) {
         try {
-            SessionLoggerUtil.logAttendance(sessionId, studentId, "QR_SCAN", 
+            SessionLoggerUtil.logAttendance(sessionId, studentUsername, "QR_SCAN", 
                 LocalDateTime.now().toString());
             
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Attendance logged to session file",
                 "sessionId", sessionId,
-                "studentId", studentId,
+                "studentUsername", studentUsername,
                 "timestamp", System.currentTimeMillis()
             ));
         } catch (Exception e) {

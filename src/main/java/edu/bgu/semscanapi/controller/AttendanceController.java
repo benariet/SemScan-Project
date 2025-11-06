@@ -3,7 +3,6 @@ package edu.bgu.semscanapi.controller;
 import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.entity.Attendance;
 import edu.bgu.semscanapi.service.AttendanceService;
-import edu.bgu.semscanapi.service.AuthenticationService;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
@@ -36,9 +35,6 @@ public class AttendanceController {
     private AttendanceService attendanceService;
     
     @Autowired
-    private AuthenticationService authenticationService;
-    
-    @Autowired
     private DatabaseLoggerService databaseLoggerService;
     
     /**
@@ -46,15 +42,15 @@ public class AttendanceController {
      */
     @PostMapping
     public ResponseEntity<Object> recordAttendance(@RequestBody Attendance attendance) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Recording attendance for student: {} in session: {}", 
-            attendance.getStudentId(), attendance.getSessionId());
+        LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Recording attendance for student: {} in session: {}, Location: {}",
+            attendance.getStudentUsername(), attendance.getSessionId(), LoggerUtil.getCurrentCorrelationId());
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/attendance", attendance.toString());
         
         try {
             Attendance recordedAttendance = attendanceService.recordAttendance(attendance);
             logger.info("Attendance recorded successfully - ID: {}, Student: {}, Session: {}", 
-                recordedAttendance.getAttendanceId(), recordedAttendance.getStudentId(), 
+                recordedAttendance.getAttendanceId(), recordedAttendance.getStudentUsername(), 
                 recordedAttendance.getSessionId());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance", 201, recordedAttendance.toString());
             
@@ -65,12 +61,8 @@ public class AttendanceController {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance", 400, "Bad Request: " + e.getMessage());
             
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException ignored) {}
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, userIdLong, payload);
+            databaseLoggerService.logError("ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, userId, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
@@ -86,12 +78,8 @@ public class AttendanceController {
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance", 500, "Internal Server Error");
             
             String userId = LoggerUtil.getCurrentUserId();
-            Long userIdLong = null;
-            try {
-                userIdLong = userId != null && !userId.isEmpty() ? Long.parseLong(userId) : null;
-            } catch (NumberFormatException ignored) {}
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("ATTENDANCE_RECORDING_ERROR", "Failed to record attendance", e, userIdLong, payload);
+            databaseLoggerService.logError("ATTENDANCE_RECORDING_ERROR", "Failed to record attendance", e, userId, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while recording attendance",
@@ -110,7 +98,7 @@ public class AttendanceController {
      */
     @GetMapping("/{attendanceId:\\d+}")
     public ResponseEntity<Object> getAttendanceById(@PathVariable Long attendanceId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving attendance by ID: {}", attendanceId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/" + attendanceId, null);
         
@@ -119,7 +107,7 @@ public class AttendanceController {
             
             if (attendance.isPresent()) {
                 logger.info("Attendance found - ID: {}, Student: {}, Session: {}", 
-                    attendanceId, attendance.get().getStudentId(), attendance.get().getSessionId());
+                    attendanceId, attendance.get().getStudentUsername(), attendance.get().getSessionId());
                 LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/" + attendanceId, 200, attendance.get().toString());
                 return ResponseEntity.ok(attendance.get());
             } else {
@@ -157,7 +145,7 @@ public class AttendanceController {
      */
     @GetMapping("/session/{sessionId}")
     public ResponseEntity<Object> getAttendanceBySession(@PathVariable Long sessionId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving attendance records for session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/session/" + sessionId, null);
         
@@ -189,30 +177,30 @@ public class AttendanceController {
     /**
      * Get attendance records by student
      */
-    @GetMapping("/student/{studentId}")
-    public ResponseEntity<Object> getAttendanceByStudent(@PathVariable Long studentId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving attendance records for student: {}", studentId);
-        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/student/" + studentId, null);
+    @GetMapping("/student/{studentUsername}")
+    public ResponseEntity<Object> getAttendanceByStudent(@PathVariable String studentUsername) {
+        LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Retrieving attendance records for student: {}", studentUsername);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/student/" + studentUsername, null);
         
         try {
-            List<Attendance> attendanceList = attendanceService.getAttendanceByStudent(studentId);
-            logger.info("Retrieved {} attendance records for student: {}", attendanceList.size(), studentId);
-            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/student/" + studentId, 200, 
+            List<Attendance> attendanceList = attendanceService.getAttendanceByStudent(studentUsername);
+            logger.info("Retrieved {} attendance records for student: {}", attendanceList.size(), studentUsername);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/student/" + studentUsername, 200, 
                 "List of " + attendanceList.size() + " attendance records");
             
             return ResponseEntity.ok(attendanceList);
             
         } catch (Exception e) {
-            logger.error("Failed to retrieve attendance records for student: {}", studentId, e);
+            logger.error("Failed to retrieve attendance records for student: {}", studentUsername, e);
             LoggerUtil.logError(logger, "Failed to retrieve attendance records for student", e);
-            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/student/" + studentId, 500, "Internal Server Error");
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/student/" + studentUsername, 500, "Internal Server Error");
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while retrieving attendance records for student",
                 "Internal Server Error",
                 500,
-                "/api/v1/attendance/student/" + studentId
+                "/api/v1/attendance/student/" + studentUsername
             );
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
@@ -225,22 +213,22 @@ public class AttendanceController {
      */
     @GetMapping("/check")
     public ResponseEntity<Object> hasStudentAttended(@RequestParam Long sessionId, 
-                                                     @RequestParam Long studentId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Checking if student attended session - Student: {}, Session: {}", studentId, sessionId);
+                                                     @RequestParam String studentUsername) {
+        LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Checking if student attended session - Student: {}, Session: {}", studentUsername, sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/check", 
-            "sessionId=" + sessionId + "&studentId=" + studentId);
+            "sessionId=" + sessionId + "&studentUsername=" + studentUsername);
         
         try {
-            boolean attended = attendanceService.hasStudentAttended(sessionId, studentId);
+            boolean attended = attendanceService.hasStudentAttended(sessionId, studentUsername);
             logger.info("Student {} {} attended session {}", 
-                studentId, attended ? "has" : "has not", sessionId);
+                studentUsername, attended ? "has" : "has not", sessionId);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/check", 200, String.valueOf(attended));
             
             return ResponseEntity.ok(attended);
             
         } catch (Exception e) {
-            logger.error("Failed to check attendance for student: {} in session: {}", studentId, sessionId, e);
+            logger.error("Failed to check attendance for student: {} in session: {}", studentUsername, sessionId, e);
             LoggerUtil.logError(logger, "Failed to check attendance", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/check", 500, "Internal Server Error");
             
@@ -261,7 +249,7 @@ public class AttendanceController {
      */
     @GetMapping("/method/{method}")
     public ResponseEntity<Object> getAttendanceByMethod(@PathVariable Attendance.AttendanceMethod method) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving attendance records by method: {}", method);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/method/" + method, null);
         
@@ -297,7 +285,7 @@ public class AttendanceController {
     public ResponseEntity<Object> getAttendanceBetweenDates(
             @RequestParam String startDate, 
             @RequestParam String endDate) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving attendance records between dates: {} and {}", startDate, endDate);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/date-range", 
             "startDate=" + startDate + "&endDate=" + endDate);
@@ -335,7 +323,7 @@ public class AttendanceController {
      */
     @GetMapping("/session/{sessionId}/stats")
     public ResponseEntity<Object> getSessionAttendanceStats(@PathVariable Long sessionId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Calculating attendance statistics for session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/session/" + sessionId + "/stats", null);
         
@@ -370,7 +358,7 @@ public class AttendanceController {
      */
     @DeleteMapping("/{attendanceId:\\d+}")
     public ResponseEntity<Object> deleteAttendance(@PathVariable Long attendanceId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Deleting attendance record: {}", attendanceId);
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/attendance/" + attendanceId, null);
         
@@ -416,7 +404,7 @@ public class AttendanceController {
     @GetMapping
     public ResponseEntity<Object> getAttendanceBySessionQuery(
             @RequestParam Long sessionId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving attendance records for session: {} with API key authentication", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance?sessionId=" + sessionId, null);
         
@@ -455,7 +443,7 @@ public class AttendanceController {
      */
     @GetMapping("/pending-requests")
     public ResponseEntity<Object> getPendingRequests(@RequestParam Long sessionId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Retrieving pending manual attendance requests for session: {}", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/pending-requests?sessionId=" + sessionId, null);
         
@@ -497,7 +485,7 @@ public class AttendanceController {
     @GetMapping("/export/csv")
     public ResponseEntity<Object> exportCsv(
             @RequestParam Long sessionId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Exporting CSV for session: {} with API key authentication", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/export/csv?sessionId=" + sessionId, null);
         
@@ -546,7 +534,7 @@ public class AttendanceController {
     @GetMapping("/export/xlsx")
     public ResponseEntity<Object> exportXlsx(
             @RequestParam Long sessionId) {
-        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        LoggerUtil.generateAndSetCorrelationId();
         logger.info("Exporting XLSX for session: {} with API key authentication", sessionId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/export/xlsx?sessionId=" + sessionId, null);
         
@@ -605,7 +593,7 @@ public class AttendanceController {
             writer.printf("%s,%s,%s,%s,%s%n",
                 attendance.getAttendanceId(),
                 attendance.getSessionId(),
-                attendance.getStudentId(),
+                attendance.getStudentUsername(),
                 attendance.getAttendanceTime() != null ? attendance.getAttendanceTime().format(formatter) : "",
                 attendance.getMethod() != null ? attendance.getMethod().toString() : ""
             );
