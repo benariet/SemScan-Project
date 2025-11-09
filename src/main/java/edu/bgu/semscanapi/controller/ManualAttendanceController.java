@@ -47,9 +47,9 @@ public class ManualAttendanceController {
             logger.error("Invalid manual attendance request: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual", 400, "Bad Request: " + e.getMessage());
             
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("MANUAL_ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, userId, payload);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, bguUsername, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
@@ -62,9 +62,9 @@ public class ManualAttendanceController {
             logger.error("Failed to create manual attendance request", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance/manual", 500, "Internal Server Error");
             
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("MANUAL_ATTENDANCE_CREATION_ERROR", "Failed to create manual attendance request", e, userId, payload);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_CREATION_ERROR", "Failed to create manual attendance request", e, bguUsername, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while creating the manual attendance request",

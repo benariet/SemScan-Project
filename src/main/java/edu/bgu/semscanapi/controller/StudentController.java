@@ -82,11 +82,11 @@ public class StudentController {
     /**
      * Get sessions by student ID (if student enrollment is tracked)
      */
-    @GetMapping("/sessions/student/{studentId}")
-    public ResponseEntity<Object> getSessionsForStudent(@PathVariable String studentId) {
+    @GetMapping("/sessions/student/{studentUsername}")
+    public ResponseEntity<Object> getSessionsForStudent(@PathVariable String studentUsername) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving sessions for student: {} - Correlation ID: {}", studentId, correlationId);
-        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/student/sessions/student/" + studentId, null);
+        logger.info("Retrieving sessions for student: {} - Correlation ID: {}", studentUsername, correlationId);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/student/sessions/student/" + studentUsername, null);
 
         try {
             // For now, return open sessions (in the future, this could filter by student enrollment)
@@ -98,27 +98,27 @@ public class StudentController {
                 .toList();
             
             logger.info("Retrieved {} sessions for student: {} - Correlation ID: {}", 
-                limitedSessions.size(), studentId, correlationId);
-            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/student/sessions/student/" + studentId, 200, 
+                limitedSessions.size(), studentUsername, correlationId);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/student/sessions/student/" + studentUsername, 200, 
                 "List of " + limitedSessions.size() + " sessions");
             
             Map<String, Object> response = new HashMap<>();
             response.put("sessions", limitedSessions);
-            response.put("studentId", studentId);
+            response.put("studentUsername", studentUsername);
             response.put("totalCount", limitedSessions.size());
             response.put("correlationId", correlationId);
             
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            logger.error("Failed to retrieve sessions for student: {} - Correlation ID: {}", studentId, correlationId, e);
+            logger.error("Failed to retrieve sessions for student: {} - Correlation ID: {}", studentUsername, correlationId, e);
             LoggerUtil.logError(logger, "Failed to retrieve sessions for student", e);
-            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/student/sessions/student/" + studentId, 500, "Internal Server Error");
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/student/sessions/student/" + studentUsername, 500, "Internal Server Error");
             
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Failed to retrieve sessions for student");
             errorResponse.put("message", "An error occurred while retrieving sessions");
-            errorResponse.put("studentId", studentId);
+            errorResponse.put("studentUsername", studentUsername);
             errorResponse.put("correlationId", correlationId);
             
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);

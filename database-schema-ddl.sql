@@ -48,20 +48,20 @@ CREATE INDEX idx_seminars_name ON seminars(seminar_name);
 CREATE TABLE seminar_participants (
     participant_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     seminar_id BIGINT NOT NULL,
-    user_username VARCHAR(50) NOT NULL,
+    participant_username VARCHAR(50) NOT NULL,
     role ENUM('PARTICIPANT','PRESENTER') NOT NULL,
     joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_seminar_participants_seminar
         FOREIGN KEY (seminar_id) REFERENCES seminars(seminar_id)
         ON DELETE CASCADE,
     CONSTRAINT fk_seminar_participants_user
-        FOREIGN KEY (user_username) REFERENCES users(bgu_username)
+        FOREIGN KEY (participant_username) REFERENCES users(bgu_username)
         ON DELETE CASCADE,
-    UNIQUE KEY unique_seminar_user (seminar_id, user_username)
+    UNIQUE KEY unique_seminar_user (seminar_id, participant_username)
 );
 
 CREATE INDEX idx_seminar_participants_seminar ON seminar_participants(seminar_id);
-CREATE INDEX idx_seminar_participants_user ON seminar_participants(user_username);
+CREATE INDEX idx_seminar_participants_user ON seminar_participants(participant_username);
 CREATE INDEX idx_seminar_participants_role ON seminar_participants(role);
 
 -- =====================================================================
@@ -84,6 +84,53 @@ CREATE TABLE sessions (
 CREATE INDEX idx_sessions_seminar ON sessions(seminar_id);
 CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_time ON sessions(start_time);
+
+-- =====================================================================
+--  SLOTS
+-- =====================================================================
+CREATE TABLE slots (
+    slot_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    semester_label VARCHAR(50),
+    slot_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    building VARCHAR(50),
+    room VARCHAR(50),
+    capacity INT NOT NULL,
+    status ENUM('FREE','SEMI','FULL') NOT NULL DEFAULT 'FREE',
+    attendance_opened_at DATETIME,
+    attendance_closes_at DATETIME,
+    attendance_opened_by VARCHAR(50),
+    legacy_seminar_id BIGINT,
+    legacy_session_id BIGINT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_slots_date ON slots(slot_date);
+CREATE INDEX idx_slots_status ON slots(status);
+
+-- =====================================================================
+--  SLOT REGISTRATION
+-- =====================================================================
+CREATE TABLE slot_registration (
+    slot_id BIGINT NOT NULL,
+    presenter_username VARCHAR(50) NOT NULL,
+    degree ENUM('MSc','PhD') NOT NULL,
+    topic VARCHAR(255),
+    supervisor_name VARCHAR(255),
+    supervisor_email VARCHAR(255),
+    registered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (slot_id, presenter_username),
+    CONSTRAINT fk_slot_registration_slot
+        FOREIGN KEY (slot_id) REFERENCES slots(slot_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_slot_registration_presenter
+        FOREIGN KEY (presenter_username) REFERENCES users(bgu_username)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_slot_registration_presenter ON slot_registration(presenter_username);
 
 -- =====================================================================
 --  ATTENDANCE
@@ -131,7 +178,7 @@ CREATE TABLE app_logs (
     message TEXT NOT NULL,
     source ENUM('API','MOBILE') NOT NULL DEFAULT 'API',
     correlation_id VARCHAR(50),
-    user_username VARCHAR(50),
+    bgu_username VARCHAR(50),
     user_role ENUM('PARTICIPANT','PRESENTER','BOTH','UNKNOWN') DEFAULT 'UNKNOWN',
     device_info VARCHAR(255),
     app_version VARCHAR(50),
@@ -140,7 +187,7 @@ CREATE TABLE app_logs (
     payload TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_logs_user
-        FOREIGN KEY (user_username) REFERENCES users(bgu_username)
+        FOREIGN KEY (bgu_username) REFERENCES users(bgu_username)
         ON DELETE SET NULL
 );
 
@@ -148,6 +195,6 @@ CREATE INDEX idx_logs_timestamp ON app_logs(log_timestamp);
 CREATE INDEX idx_logs_level ON app_logs(level);
 CREATE INDEX idx_logs_source ON app_logs(source);
 CREATE INDEX idx_logs_correlation_id ON app_logs(correlation_id);
-CREATE INDEX idx_logs_user ON app_logs(user_username);
+CREATE INDEX idx_logs_user ON app_logs(bgu_username);
 
 SELECT 'Schema deployed with username-based relationships.' AS status;

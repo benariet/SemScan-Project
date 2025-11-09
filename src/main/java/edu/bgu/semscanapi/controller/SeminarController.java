@@ -51,9 +51,9 @@ public class SeminarController {
             logger.error("Invalid seminar data: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/seminars", 400, "Bad Request: " + e.getMessage());
             
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("SEMINAR_VALIDATION_ERROR", e.getMessage(), e, userId, payload);
+            databaseLoggerService.logError("SEMINAR_VALIDATION_ERROR", e.getMessage(), e, bguUsername, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
@@ -68,9 +68,9 @@ public class SeminarController {
             LoggerUtil.logError(logger, "Failed to create seminar", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/seminars", 500, "Internal Server Error");
             
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("SEMINAR_CREATION_ERROR", "Failed to create seminar", e, userId, payload);
+            databaseLoggerService.logError("SEMINAR_CREATION_ERROR", "Failed to create seminar", e, bguUsername, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while creating the seminar",

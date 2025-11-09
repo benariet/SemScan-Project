@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -25,26 +26,34 @@ public class AuthenticationService {
     private UserRepository userRepository;
     
     /**
-     * Find user by ID
+     * Find user by username
      */
     @Transactional(readOnly = true)
-    public Optional<User> findUserById(Long userId) {
-        logger.debug("Finding user by ID: {}", userId);
-        
+    public Optional<User> findUserByUsername(String username) {
+        String normalized = normalizeUsername(username);
+        logger.debug("Finding user by username: {}", normalized);
+
         try {
-            Optional<User> user = userRepository.findById(userId);
+            Optional<User> user = userRepository.findByBguUsername(normalized);
             if (user.isPresent()) {
-                logger.info("User found: {}", userId);
-            } else {
-                logger.warn("User not found: {}", userId);
+                logger.info("User found by username: {}", normalized);
+                return user;
             }
-            return user;
+
+            Optional<User> caseInsensitive = userRepository.findByBguUsernameIgnoreCase(normalized);
+            caseInsensitive.ifPresent(value -> logger.info("User found by case-insensitive username match: {}", normalized));
+            if (caseInsensitive.isPresent()) {
+                return caseInsensitive;
+            }
+
+            logger.warn("User not found by username: {}", normalized);
+            return Optional.empty();
         } catch (Exception e) {
-            logger.error("Error finding user: {}", userId, e);
+            logger.error("Error finding user by username: {}", normalized, e);
             return Optional.empty();
         }
     }
-    
+
     /**
      * Find user by email
      */
@@ -104,17 +113,22 @@ public class AuthenticationService {
      * Check if user exists
      */
     @Transactional(readOnly = true)
-    public boolean userExists(Long userId) {
-        logger.debug("Checking if user exists: {}", userId);
-        
+    public boolean userExists(String username) {
+        String normalized = normalizeUsername(username);
+        logger.debug("Checking if user exists by username: {}", normalized);
+
         try {
-            boolean exists = userRepository.existsById(userId);
-            logger.debug("User exists: {} = {}", userId, exists);
+            boolean exists = userRepository.existsByBguUsernameIgnoreCase(normalized);
+            logger.debug("User exists: {} = {}", normalized, exists);
             return exists;
         } catch (Exception e) {
-            logger.error("Error checking if user exists: {}", userId, e);
+            logger.error("Error checking if user exists by username: {}", normalized, e);
             return false;
         }
+    }
+
+    private String normalizeUsername(String username) {
+        return username == null ? "" : username.trim().toLowerCase(Locale.ROOT);
     }
     
     /**

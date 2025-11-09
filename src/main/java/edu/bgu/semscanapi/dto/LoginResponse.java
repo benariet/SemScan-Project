@@ -7,15 +7,13 @@ public class LoginResponse {
 
     private boolean ok;
     private String message;
-    private Long userId;
     private String bguUsername;
     private String email;
     private boolean isFirstTime;
     private boolean isPresenter;
     private boolean isParticipant;
 
-    public static LoginResponse success(Long userId,
-                                        String bguUsername,
+    public static LoginResponse success(String bguUsername,
                                         String email,
                                         boolean isFirstTime,
                                         boolean isPresenter,
@@ -23,7 +21,6 @@ public class LoginResponse {
         LoginResponse response = new LoginResponse();
         response.ok = true;
         response.message = "Login successful";
-        response.userId = userId;
         response.bguUsername = bguUsername;
         response.email = email;
         response.isFirstTime = isFirstTime;
@@ -53,14 +50,6 @@ public class LoginResponse {
 
     public void setMessage(String message) {
         this.message = message;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
     }
 
     public String getBguUsername() {

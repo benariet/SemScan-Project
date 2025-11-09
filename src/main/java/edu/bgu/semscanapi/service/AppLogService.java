@@ -164,15 +164,24 @@ public class AppLogService {
         appLog.setCorrelationId(correlationId);
         
         // Validate bguUsername from mobile log - it's the BGU username from login
+        // Only set bgu_username if the user exists in the database (foreign key constraint)
         String bguUsername = logEntry.getBguUsername();
         if (bguUsername != null && !bguUsername.trim().isEmpty()) {
-            appLog.setUserUsername(bguUsername.trim().toLowerCase());
+            String normalizedUsername = bguUsername.trim().toLowerCase();
             try {
-                userRepository.findByBguUsername(bguUsername.trim().toLowerCase())
-                    .map(this::deriveUserRole)
-                    .ifPresent(appLog::setUserRole);
+                Optional<User> user = userRepository.findByBguUsername(normalizedUsername);
+                if (user.isPresent()) {
+                    // User exists - safe to set bgu_username
+                    appLog.setBguUsername(normalizedUsername);
+                    appLog.setUserRole(deriveUserRole(user.get()));
+                    logger.debug("Set bgu_username={} for log entry (user exists)", normalizedUsername);
+                } else {
+                    // User doesn't exist - don't set bgu_username to avoid foreign key violation
+                    logger.warn("BGU username '{}' from mobile log does not exist in users table - skipping bgu_username for this log entry", normalizedUsername);
+                }
             } catch (Exception e) {
-                logger.error("Error looking up user by BGU username {} from mobile log: {}", bguUsername, e.getMessage(), e);
+                logger.error("Error looking up user by BGU username '{}' from mobile log: {}", normalizedUsername, e.getMessage(), e);
+                // Don't set bgu_username if lookup fails
             }
         }
         
@@ -206,8 +215,8 @@ public class AppLogService {
     /**
      * Get logs by user username
      */
-    public List<AppLog> getLogsByUser(String userUsername) {
-        return appLogRepository.findByUserUsername(userUsername);
+    public List<AppLog> getLogsByUser(String bguUsername) {
+        return appLogRepository.findByBguUsername(bguUsername);
     }
     
     /**
@@ -323,7 +332,7 @@ public class AppLogService {
         return AppLog.UserRole.UNKNOWN;
     }
 
-    public List<AppLog> getLogsByUserAndLevel(String userUsername, String level) {
-        return appLogRepository.findByUserUsernameAndLevel(userUsername, level);
+    public List<AppLog> getLogsByUserAndLevel(String bguUsername, String level) {
+        return appLogRepository.findByBguUsernameAndLevel(bguUsername, level);
     }
 }

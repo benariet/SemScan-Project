@@ -58,10 +58,9 @@ public class AuthController {
             logger.debug("Resolved local user: id={}, bguUsername={}, email={}, isPresenter={}, isParticipant={}",
                     user.getId(), user.getBguUsername(), user.getEmail(), user.getIsPresenter(), user.getIsParticipant());
 
-            LoggerUtil.setUserId(String.valueOf(user.getId()));
+            LoggerUtil.setBguUsername(user.getBguUsername());
 
             LoginResponse response = LoginResponse.success(
-                    user.getId(),
                     user.getBguUsername(),
                     user.getEmail(),
                     false,

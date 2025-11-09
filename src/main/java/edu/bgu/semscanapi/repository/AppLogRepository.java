@@ -51,7 +51,7 @@ public interface AppLogRepository extends JpaRepository<AppLog, Long> {
     @Query("DELETE FROM AppLog l WHERE l.logTimestamp < :cutoff")
     int deleteOldLogs(@Param("cutoff") LocalDateTime cutoffDate);
 
-    List<AppLog> findByUserUsername(String userUsername);
+    List<AppLog> findByBguUsername(String bguUsername);
 
-    List<AppLog> findByUserUsernameAndLevel(String userUsername, String level);
+    List<AppLog> findByBguUsernameAndLevel(String bguUsername, String level);
 }

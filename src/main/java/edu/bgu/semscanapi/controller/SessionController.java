@@ -37,7 +37,7 @@ public class SessionController {
     @PostMapping
     public ResponseEntity<Object> createSession(@RequestBody Session session) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Creating session for seminar: {}", session.getSeminarId());
+        logger.info("Creating session for seminar: {} - Correlation ID: {}", session.getSeminarId(), correlationId);
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/sessions", session.toString());
         
         try {
@@ -52,9 +52,9 @@ public class SessionController {
             logger.error("Invalid session data: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/sessions", 400, "Bad Request: " + e.getMessage());
             
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("SESSION_VALIDATION_ERROR", e.getMessage(), e, userId, payload);
+            databaseLoggerService.logError("SESSION_VALIDATION_ERROR", e.getMessage(), e, bguUsername, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
@@ -69,9 +69,9 @@ public class SessionController {
             LoggerUtil.logError(logger, "Failed to create session", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/sessions", 500, "Internal Server Error");
             
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("SESSION_CREATION_ERROR", "Failed to create session", e, userId, payload);
+            databaseLoggerService.logError("SESSION_CREATION_ERROR", "Failed to create session", e, bguUsername, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while creating the session",
@@ -91,7 +91,7 @@ public class SessionController {
     @GetMapping("/{sessionId}")
     public ResponseEntity<Object> getSessionById(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving session by ID: {}", sessionId);
+        logger.info("Retrieving session by ID: {} - Correlation ID: {}", sessionId, correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/" + sessionId, null);
         
         try {
@@ -138,7 +138,7 @@ public class SessionController {
     @GetMapping("/seminar/{seminarId}")
     public ResponseEntity<Object> getSessionsBySeminar(@PathVariable Long seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving sessions for seminar: {}", seminarId);
+        logger.info("Retrieving sessions for seminar: {} - Correlation ID: {}", seminarId, correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/seminar/" + seminarId, null);
         
         try {
@@ -172,7 +172,7 @@ public class SessionController {
     @GetMapping("/open")
     public ResponseEntity<Object> getOpenSessions() {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving all open sessions");
+        logger.info("Retrieving all open sessions - Correlation ID: {}", correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/open", null);
         
         try {
@@ -206,7 +206,7 @@ public class SessionController {
     @GetMapping("/closed")
     public ResponseEntity<Object> getClosedSessions() {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving all closed sessions");
+        logger.info("Retrieving all closed sessions - Correlation ID: {}", correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/closed", null);
         
         try {
@@ -241,7 +241,7 @@ public class SessionController {
     public ResponseEntity<Object> updateSessionStatus(@PathVariable Long sessionId, 
                                                      @RequestParam Session.SessionStatus status) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Updating session status - ID: {}, Status: {}", sessionId, status);
+        logger.info("Updating session status - ID: {}, Status: {}, Correlation ID: {}", sessionId, status, correlationId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/sessions/" + sessionId + "/status", "status=" + status);
         
         try {
@@ -287,7 +287,7 @@ public class SessionController {
     @PatchMapping("/{sessionId}/close")
     public ResponseEntity<Object> closeSessionPatch(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Closing session (PATCH): {}", sessionId);
+        logger.info("Closing session (PATCH): {} - Correlation ID: {}", sessionId, correlationId);
         LoggerUtil.logApiRequest(logger, "PATCH", "/api/v1/sessions/" + sessionId + "/close", null);
         
         try {
@@ -332,7 +332,7 @@ public class SessionController {
     @PutMapping("/{sessionId}/close")
     public ResponseEntity<Object> closeSession(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Closing session: {}", sessionId);
+        logger.info("Closing session: {} - Correlation ID: {}", sessionId, correlationId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/sessions/" + sessionId + "/close", null);
         
         try {
@@ -377,7 +377,7 @@ public class SessionController {
     @PutMapping("/{sessionId}/open")
     public ResponseEntity<Object> openSession(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Opening session: {}", sessionId);
+        logger.info("Opening session: {} - Correlation ID: {}", sessionId, correlationId);
         LoggerUtil.logApiRequest(logger, "PUT", "/api/v1/sessions/" + sessionId + "/open", null);
         
         try {
@@ -422,7 +422,7 @@ public class SessionController {
     @DeleteMapping("/{sessionId}")
     public ResponseEntity<Object> deleteSession(@PathVariable Long sessionId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Deleting session: {}", sessionId);
+        logger.info("Deleting session: {} - Correlation ID: {}", sessionId, correlationId);
         LoggerUtil.logApiRequest(logger, "DELETE", "/api/v1/sessions/" + sessionId, null);
         
         try {
@@ -469,7 +469,7 @@ public class SessionController {
             @RequestParam String startDate, 
             @RequestParam String endDate) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving sessions between dates: {} and {}", startDate, endDate);
+        logger.info("Retrieving sessions between dates: {} and {} - Correlation ID: {}", startDate, endDate, correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/date-range", 
             "startDate=" + startDate + "&endDate=" + endDate);
         
@@ -507,7 +507,7 @@ public class SessionController {
     @GetMapping("/seminar/{seminarId}/active")
     public ResponseEntity<Object> getActiveSessionsBySeminar(@PathVariable Long seminarId) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving active sessions for seminar: {}", seminarId);
+        logger.info("Retrieving active sessions for seminar: {} - Correlation ID: {}", seminarId, correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/seminar/" + seminarId + "/active", null);
         
         try {

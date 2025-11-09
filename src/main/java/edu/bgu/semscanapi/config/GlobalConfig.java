@@ -88,6 +88,9 @@ public class GlobalConfig {
     
     @Value("${app.export.allowed-formats:csv,xlsx}")
     private String allowedExportFormats;
+
+    @Value("${app.export.email-recipients:attendance@example.com,admin@example.com}")
+    private String emailRecipients;
     
     // =============================================
     // APPLICATION INFO
@@ -191,6 +194,10 @@ public class GlobalConfig {
     
     public String[] getAllowedExportFormats() {
         return allowedExportFormats.split(",");
+    }
+
+    public String getEmailRecipients() {
+        return emailRecipients;
     }
     
     // Application Info

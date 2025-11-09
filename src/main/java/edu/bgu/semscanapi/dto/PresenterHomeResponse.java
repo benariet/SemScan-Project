@@ -227,6 +227,10 @@ public class PresenterHomeResponse {
         private boolean canRegister;
         private String disableReason;
         private List<RegisteredPresenter> registered = new ArrayList<>();
+        // Session status fields for client-side filtering
+        private String attendanceOpenedAt;
+        private String attendanceClosesAt;
+        private Boolean hasClosedSession;
 
         public Long getSlotId() {
             return slotId;
@@ -338,6 +342,30 @@ public class PresenterHomeResponse {
 
         public void setRegistered(List<RegisteredPresenter> registered) {
             this.registered = registered;
+        }
+
+        public String getAttendanceOpenedAt() {
+            return attendanceOpenedAt;
+        }
+
+        public void setAttendanceOpenedAt(String attendanceOpenedAt) {
+            this.attendanceOpenedAt = attendanceOpenedAt;
+        }
+
+        public String getAttendanceClosesAt() {
+            return attendanceClosesAt;
+        }
+
+        public void setAttendanceClosesAt(String attendanceClosesAt) {
+            this.attendanceClosesAt = attendanceClosesAt;
+        }
+
+        public Boolean getHasClosedSession() {
+            return hasClosedSession;
+        }
+
+        public void setHasClosedSession(Boolean hasClosedSession) {
+            this.hasClosedSession = hasClosedSession;
         }
     }
 

@@ -75,12 +75,12 @@ public class RequestLoggingFilter implements Filter {
                        method, fullUrl, getClientIpAddress(request));
             
             // Log to database
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             String payload = String.format("url=%s,remoteAddr=%s,correlationId=%s", 
                 fullUrl, getClientIpAddress(request), LoggerUtil.getCurrentCorrelationId());
             if (databaseLoggerService != null) {
                 databaseLoggerService.logApiAction(method, uri, "API_REQUEST",
-                        userId, payload);
+                        bguUsername, payload);
             }
             
             // Log headers (excluding sensitive ones)
@@ -113,9 +113,9 @@ public class RequestLoggingFilter implements Filter {
                        method, uri, statusCode, duration);
             
             // Log to database
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             if (databaseLoggerService != null) {
-                databaseLoggerService.logApiResponse(method, uri, statusCode, userId);
+                databaseLoggerService.logApiResponse(method, uri, statusCode, bguUsername);
             }
             
             // Log response headers
@@ -131,7 +131,7 @@ public class RequestLoggingFilter implements Filter {
                 if (databaseLoggerService != null) {
                     String slowPayload = String.format("duration=%dms,correlationId=%s", duration, LoggerUtil.getCurrentCorrelationId());
                     databaseLoggerService.logAction("WARN", "PERFORMANCE", 
-                        String.format("Slow request: %s %s took %dms", method, uri, duration), userId,
+                        String.format("Slow request: %s %s took %dms", method, uri, duration), bguUsername,
                         slowPayload);
                 }
             }

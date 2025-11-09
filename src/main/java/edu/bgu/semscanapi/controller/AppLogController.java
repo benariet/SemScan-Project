@@ -48,7 +48,6 @@ public class AppLogController {
         // Enhanced debug logging
         System.out.println("=== LOG REQUEST DEBUG ===");
         System.out.println("Correlation ID: " + correlationId);
-        System.out.println("API Key: Not required for POC");
         System.out.println("Remote Address: " + httpRequest.getRemoteAddr());
         System.out.println("Content-Type: " + httpRequest.getContentType());
         System.out.println("Request Body: " + (request != null ? request.toString() : "null"));
@@ -245,22 +244,22 @@ public class AppLogController {
 
     /**
      * Get logs by user
-     * GET /api/v1/logs/user?username=john.smith
+     * GET /api/v1/logs/user?bguUsername=benariet
      */
     @GetMapping("/user")
-    public ResponseEntity<Object> getLogsByUser(@RequestParam String username) {
+    public ResponseEntity<Object> getLogsByUser(@RequestParam String bguUsername) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving logs for user: {}", username);
-        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/user?username=" + username, null);
+        logger.info("Retrieving logs for user: {}", bguUsername);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/user?bguUsername=" + bguUsername, null);
         
         try {
-            List<AppLog> userLogs = appLogService.getLogsByUser(username);
-            logger.info("Retrieved {} logs for user: {}", userLogs.size(), username);
+            List<AppLog> userLogs = appLogService.getLogsByUser(bguUsername);
+            logger.info("Retrieved {} logs for user: {}", userLogs.size(), bguUsername);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/user", 200,
                 "Retrieved " + userLogs.size() + " user logs");
             return ResponseEntity.ok(userLogs);
         } catch (Exception e) {
-            logger.error("Error retrieving logs for user: {}", username, e);
+            logger.error("Error retrieving logs for user: {}", bguUsername, e);
             LoggerUtil.logError(logger, "Error retrieving logs for user", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/logs/user", 500, "Internal Server Error");
             Map<String, String> errorResponse = new HashMap<>();

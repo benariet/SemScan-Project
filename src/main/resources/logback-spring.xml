@@ -8,6 +8,8 @@
     
     <!-- Console Appender -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- Filter out only Hibernate app_logs inserts -->
+        <filter class="edu.bgu.semscanapi.logging.AppLogInsertFilter"/>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
             <charset>UTF-8</charset>
@@ -17,6 +19,8 @@
     <!-- Daily File Appender - Creates new file each day -->
     <appender name="DAILY_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}.log</file>
+        <!-- Filter out only Hibernate app_logs inserts -->
+        <filter class="edu.bgu.semscanapi.logging.AppLogInsertFilter"/>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
             <charset>UTF-8</charset>
@@ -90,6 +94,7 @@
         <appender-ref ref="DAILY_FILE"/>
     </logger>
     
+    <!-- Hibernate SQL logging - keep DEBUG but filter out app_logs inserts -->
     <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="DAILY_FILE"/>

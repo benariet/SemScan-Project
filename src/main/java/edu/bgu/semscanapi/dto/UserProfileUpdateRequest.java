@@ -1,6 +1,7 @@
 package edu.bgu.semscanapi.dto;
 
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 /**
@@ -8,8 +9,8 @@ import jakarta.validation.constraints.NotNull;
  */
 public class UserProfileUpdateRequest {
 
-    @NotNull(message = "userId is required")
-    private Long userId;
+    @NotBlank(message = "bguUsername is required")
+    private String bguUsername;
 
     @Email(message = "email must be a valid address")
     @jakarta.validation.constraints.NotBlank(message = "email is required")
@@ -27,12 +28,12 @@ public class UserProfileUpdateRequest {
     @NotNull(message = "participationPreference is required")
     private ParticipationPreference participationPreference;
 
-    public Long getUserId() {
-        return userId;
+    public String getBguUsername() {
+        return bguUsername;
     }
 
-    public void setUserId(Long userId) {
-        this.userId = userId;
+    public void setBguUsername(String bguUsername) {
+        this.bguUsername = bguUsername;
     }
 
     public String getEmail() {

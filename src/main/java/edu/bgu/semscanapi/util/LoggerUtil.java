@@ -14,7 +14,8 @@ import java.time.format.DateTimeFormatter;
 public class LoggerUtil {
     
     private static final String CORRELATION_ID_KEY = "correlationId";
-    private static final String USER_ID_KEY = "userId";
+    private static final String BGU_USERNAME_KEY = "bguUsername";
+    private static final String STUDENT_USERNAME_KEY = "studentUsername";
     private static final String SESSION_ID_KEY = "sessionId";
     private static final String SEMINAR_ID_KEY = "seminarId";
     private static final String REQUEST_ID_KEY = "requestId";
@@ -47,29 +48,20 @@ public class LoggerUtil {
     }
     
     /**
-     * Set user ID for context
+     * Set user username for context
      */
-    public static void setUserId(String userId) {
-        if (userId != null && !userId.isEmpty()) {
-            MDC.put(USER_ID_KEY, userId);
+    public static void setBguUsername(String bguUsername) {
+        if (bguUsername != null && !bguUsername.isEmpty()) {
+            MDC.put(BGU_USERNAME_KEY, bguUsername);
         }
     }
-    
+
     /**
-     * Set student ID for context (accepts Long ID)
+     * Set student username for context
      */
-    public static void setStudentId(Long studentId) {
-        if (studentId != null) {
-            MDC.put(USER_ID_KEY, studentId.toString());
-        }
-    }
-    
-    /**
-     * Set student ID for context (accepts String ID)
-     */
-    public static void setStudentId(String studentId) {
-        if (studentId != null && !studentId.isEmpty()) {
-            MDC.put(USER_ID_KEY, studentId);
+    public static void setStudentUsername(String studentUsername) {
+        if (studentUsername != null && !studentUsername.isEmpty()) {
+            MDC.put(STUDENT_USERNAME_KEY, studentUsername);
         }
     }
     
@@ -156,15 +148,15 @@ public class LoggerUtil {
     /**
      * Log authentication event
      */
-    public static void logAuthentication(Logger logger, String event, String userId, String authToken) {
-        logger.info("Authentication - Event: {}, User: {}, Token: {}", event, userId, authToken != null ? "***" + authToken.substring(Math.max(0, authToken.length() - 4)) : "null");
+    public static void logAuthentication(Logger logger, String event, String bguUsername, String authToken) {
+        logger.info("Authentication - Event: {}, User: {}, Token: {}", event, bguUsername, authToken != null ? "***" + authToken.substring(Math.max(0, authToken.length() - 4)) : "null");
     }
     
     /**
      * Log attendance event
      */
-    public static void logAttendanceEvent(Logger logger, String event, String studentId, String sessionId, String method) {
-        logger.info("Attendance Event - Event: {}, Student: {}, Session: {}, Method: {}", event, studentId, sessionId, method);
+    public static void logAttendanceEvent(Logger logger, String event, String studentUsername, String sessionId, String method) {
+        logger.info("Attendance Event - Event: {}, Student: {}, Session: {}, Method: {}", event, studentUsername, sessionId, method);
     }
 
     public static void logAttendanceEvent(Logger logger, String event, Long studentId, Long sessionId, String method) {
@@ -177,8 +169,8 @@ public class LoggerUtil {
     /**
      * Log session event
      */
-    public static void logSessionEvent(Logger logger, String event, String sessionId, String seminarId, String presenterId) {
-        logger.info("Session Event - Event: {}, Session: {}, Seminar: {}, Presenter: {}", event, sessionId, seminarId, presenterId);
+    public static void logSessionEvent(Logger logger, String event, String sessionId, String seminarId, String presenterUsername) {
+        logger.info("Session Event - Event: {}, Session: {}, Seminar: {}, Presenter: {}", event, sessionId, seminarId, presenterUsername);
     }
 
     public static void logSessionEvent(Logger logger, String event, Long sessionId, Long seminarId, Long presenterId) {
@@ -226,8 +218,16 @@ public class LoggerUtil {
     /**
      * Get current user ID
      */
-    public static String getCurrentUserId() {
-        return MDC.get(USER_ID_KEY);
+    public static String getCurrentBguUsername() {
+        return MDC.get(BGU_USERNAME_KEY);
+    }
+
+    public static void clearBguUsername() {
+        MDC.remove(BGU_USERNAME_KEY);
+    }
+
+    public static void clearStudentUsername() {
+        MDC.remove(STUDENT_USERNAME_KEY);
     }
     
     /**

@@ -30,8 +30,8 @@ public class AppLog {
     @Column(name = "correlation_id", length = 50)
     private String correlationId;
 
-    @Column(name = "user_username")
-    private String userUsername;
+    @Column(name = "bgu_username")
+    private String bguUsername;
 
     @Column(name = "user_role")
     @Enumerated(EnumType.STRING)
@@ -125,12 +125,12 @@ public class AppLog {
         this.correlationId = correlationId;
     }
 
-    public String getUserUsername() {
-        return userUsername;
+    public String getBguUsername() {
+        return bguUsername;
     }
 
-    public void setUserUsername(String userUsername) {
-        this.userUsername = userUsername;
+    public void setBguUsername(String bguUsername) {
+        this.bguUsername = bguUsername;
     }
 
     public UserRole getUserRole() {

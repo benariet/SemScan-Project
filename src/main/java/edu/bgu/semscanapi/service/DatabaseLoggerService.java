@@ -36,12 +36,12 @@ public class DatabaseLoggerService {
      * @param level Log level (INFO, WARN, ERROR, etc.)
      * @param tag Tag/category for the log
      * @param message Log message
-     * @param userUsername Optional user username
+     * @param bguUsername Optional user BGU username
      * @param payload Optional payload/context
      */
     @Async
     @Transactional
-    public void logAction(String level, String tag, String message, String userUsername, String payload) {
+    public void logAction(String level, String tag, String message, String bguUsername, String payload) {
         try {
             AppLog appLog = new AppLog();
             appLog.setLogTimestamp(LocalDateTime.now());
@@ -50,14 +50,24 @@ public class DatabaseLoggerService {
             appLog.setMessage(message);
             appLog.setSource(AppLog.Source.API); // API source for server-side actions
             appLog.setCorrelationId(LoggerUtil.getCurrentCorrelationId());
-            appLog.setUserUsername(userUsername);
 
-            if (userUsername != null && !userUsername.isBlank()) {
+            // Only set bgu_username if the user exists in the database (foreign key constraint)
+            if (bguUsername != null && !bguUsername.isBlank()) {
+                String normalizedUsername = bguUsername.trim().toLowerCase();
                 try {
-                    Optional<User> user = userRepository.findByBguUsername(userUsername);
-                    user.map(this::deriveUserRole).ifPresent(appLog::setUserRole);
+                    Optional<User> user = userRepository.findByBguUsername(normalizedUsername);
+                    if (user.isPresent()) {
+                        // User exists - safe to set bgu_username
+                        appLog.setBguUsername(normalizedUsername);
+                        appLog.setUserRole(deriveUserRole(user.get()));
+                        logger.debug("Set bgu_username={} for log action (user exists)", normalizedUsername);
+                    } else {
+                        // User doesn't exist - don't set bgu_username to avoid foreign key violation
+                        logger.warn("BGU username '{}' does not exist in users table - skipping bgu_username for this log entry", normalizedUsername);
+                    }
                 } catch (Exception e) {
-                    logger.debug("Failed to fetch user role for username: {}", userUsername, e);
+                    logger.error("Error looking up user by BGU username '{}': {}", normalizedUsername, e.getMessage(), e);
+                    // Don't set bgu_username if lookup fails
                 }
             }
 
@@ -74,12 +84,12 @@ public class DatabaseLoggerService {
      * @param tag Tag/category for the error
      * @param message Error message
      * @param throwable Exception (if any)
-     * @param userUsername Optional user username
+     * @param bguUsername Optional user BGU username
      * @param payload Optional payload/context
      */
     @Async
     @Transactional
-    public void logError(String tag, String message, Throwable throwable, String userUsername, String payload) {
+    public void logError(String tag, String message, Throwable throwable, String bguUsername, String payload) {
         try {
             AppLog appLog = new AppLog();
             appLog.setLogTimestamp(LocalDateTime.now());
@@ -94,15 +104,23 @@ public class DatabaseLoggerService {
                 appLog.setStackTrace(getStackTrace(throwable));
             }
             
-            appLog.setUserUsername(userUsername);
-            
-            if (userUsername != null && !userUsername.isBlank()) {
+            // Only set bgu_username if the user exists in the database (foreign key constraint)
+            if (bguUsername != null && !bguUsername.isBlank()) {
+                String normalizedUsername = bguUsername.trim().toLowerCase();
                 try {
-                    Optional<User> user = userRepository.findByBguUsername(userUsername);
-                    user.map(this::deriveUserRole).ifPresent(appLog::setUserRole);
+                    Optional<User> user = userRepository.findByBguUsername(normalizedUsername);
+                    if (user.isPresent()) {
+                        // User exists - safe to set bgu_username
+                        appLog.setBguUsername(normalizedUsername);
+                        appLog.setUserRole(deriveUserRole(user.get()));
+                        logger.debug("Set bgu_username={} for log error (user exists)", normalizedUsername);
+                    } else {
+                        // User doesn't exist - don't set bgu_username to avoid foreign key violation
+                        logger.warn("BGU username '{}' does not exist in users table - skipping bgu_username for this log entry", normalizedUsername);
+                    }
                 } catch (Exception e) {
-                    // Don't fail logging if user lookup fails
-                    logger.debug("Failed to fetch user role for username: {}", userUsername, e);
+                    logger.error("Error looking up user by BGU username '{}': {}", normalizedUsername, e.getMessage(), e);
+                    // Don't set bgu_username if lookup fails
                 }
             }
             
@@ -120,9 +138,9 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logApiAction(String method, String endpoint, String tag, String userUsername, String payload) {
+    public void logApiAction(String method, String endpoint, String tag, String bguUsername, String payload) {
         logAction("INFO", tag != null ? tag : "API_REQUEST", 
-            String.format("%s %s", method, endpoint), userUsername, payload);
+            String.format("%s %s", method, endpoint), bguUsername, payload);
     }
     
     /**
@@ -130,10 +148,10 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logApiResponse(String method, String endpoint, int statusCode, String userUsername) {
+    public void logApiResponse(String method, String endpoint, int statusCode, String bguUsername) {
         String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
         logAction(level, "API_RESPONSE", 
-            String.format("%s %s - Status: %d", method, endpoint, statusCode), userUsername, null);
+            String.format("%s %s - Status: %d", method, endpoint, statusCode), bguUsername, null);
     }
     
     /**
@@ -141,8 +159,8 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logBusinessEvent(String event, String details, String userUsername) {
-        logAction("INFO", "BUSINESS_EVENT", String.format("%s: %s", event, details), userUsername, null);
+    public void logBusinessEvent(String event, String details, String bguUsername) {
+        logAction("INFO", "BUSINESS_EVENT", String.format("%s: %s", event, details), bguUsername, null);
     }
     
     /**
@@ -150,8 +168,8 @@ public class DatabaseLoggerService {
      */
     @Async
     @Transactional
-    public void logAuthentication(String event, String userUsername, String details) {
-        logAction("INFO", "AUTHENTICATION", String.format("%s - User: %s", event, userUsername), userUsername, details);
+    public void logAuthentication(String event, String bguUsername, String details) {
+        logAction("INFO", "AUTHENTICATION", String.format("%s - User: %s", event, bguUsername), bguUsername, details);
     }
     
     /**

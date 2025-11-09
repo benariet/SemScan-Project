@@ -60,9 +60,9 @@ public class AttendanceController {
             logger.error("Invalid attendance data: {}", e.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance", 400, "Bad Request: " + e.getMessage());
             
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, userId, payload);
+            databaseLoggerService.logError("ATTENDANCE_VALIDATION_ERROR", e.getMessage(), e, bguUsername, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 e.getMessage(),
@@ -77,9 +77,9 @@ public class AttendanceController {
             LoggerUtil.logError(logger, "Failed to record attendance", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/attendance", 500, "Internal Server Error");
             
-            String userId = LoggerUtil.getCurrentUserId();
+            String bguUsername = LoggerUtil.getCurrentBguUsername();
             String payload = String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId());
-            databaseLoggerService.logError("ATTENDANCE_RECORDING_ERROR", "Failed to record attendance", e, userId, payload);
+            databaseLoggerService.logError("ATTENDANCE_RECORDING_ERROR", "Failed to record attendance", e, bguUsername, payload);
             
             ErrorResponse errorResponse = new ErrorResponse(
                 "An unexpected error occurred while recording attendance",

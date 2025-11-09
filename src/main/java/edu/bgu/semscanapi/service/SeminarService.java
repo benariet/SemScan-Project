@@ -55,7 +55,7 @@ public class SeminarService {
             }
             
             seminar.setPresenterUsername(normalizedPresenterUsername);
-            LoggerUtil.setUserId(normalizedPresenterUsername);
+            LoggerUtil.setBguUsername(normalizedPresenterUsername);
             
             Seminar savedSeminar = seminarRepository.save(seminar);
             logger.info("Seminar created successfully: {} with ID: {}", savedSeminar.getSeminarName(), savedSeminar.getSeminarId());
@@ -73,7 +73,7 @@ public class SeminarService {
             throw e;
         } finally {
             LoggerUtil.clearKey("seminarId");
-            LoggerUtil.clearKey("userId");
+            LoggerUtil.clearBguUsername();
         }
     }
     
@@ -126,7 +126,7 @@ public class SeminarService {
     @Transactional(readOnly = true)
     public List<Seminar> getSeminarsByPresenter(String presenterUsername) {
         logger.info("Retrieving seminars for presenter: {}", presenterUsername);
-        LoggerUtil.setUserId(presenterUsername);
+        LoggerUtil.setBguUsername(presenterUsername);
         
         try {
             List<Seminar> seminars = seminarRepository.findByPresenterUsername(presenterUsername);
@@ -137,7 +137,7 @@ public class SeminarService {
             logger.error("Failed to retrieve seminars for presenter: {}", presenterUsername, e);
             throw e;
         } finally {
-            LoggerUtil.clearKey("userId");
+            LoggerUtil.clearBguUsername();
         }
     }
     

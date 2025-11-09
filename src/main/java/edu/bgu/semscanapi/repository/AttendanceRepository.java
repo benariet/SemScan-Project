@@ -24,6 +24,12 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     Optional<Attendance> findBySessionIdAndStudentUsername(Long sessionId, String studentUsername);
 
     boolean existsBySessionIdAndStudentUsername(Long sessionId, String studentUsername);
+    
+    @Query("SELECT a FROM Attendance a WHERE a.sessionId = :sessionId AND LOWER(a.studentUsername) = LOWER(:studentUsername)")
+    Optional<Attendance> findBySessionIdAndStudentUsernameIgnoreCase(@Param("sessionId") Long sessionId, @Param("studentUsername") String studentUsername);
+    
+    @Query("SELECT COUNT(a) > 0 FROM Attendance a WHERE a.sessionId = :sessionId AND LOWER(a.studentUsername) = LOWER(:studentUsername)")
+    boolean existsBySessionIdAndStudentUsernameIgnoreCase(@Param("sessionId") Long sessionId, @Param("studentUsername") String studentUsername);
 
     @Query("SELECT a FROM Attendance a WHERE a.sessionId = :sessionId AND a.requestStatus = edu.bgu.semscanapi.entity.Attendance$RequestStatus.PENDING_APPROVAL")
     List<Attendance> findPendingRequestsBySessionId(@Param("sessionId") Long sessionId);
@@ -37,19 +43,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     List<Attendance> findAttendanceBetweenDates(@Param("start") LocalDateTime start,
                                                @Param("end") LocalDateTime end);
 
-    @Query("SELECT a FROM Attendance a WHERE a.sessionId = :sessionId AND a.attendanceTime BETWEEN :start AND :end")
-    List<Attendance> findSessionAttendanceBetweenDates(@Param("sessionId") Long sessionId,
-                                                       @Param("start") LocalDateTime start,
-                                                       @Param("end") LocalDateTime end);
-
-    @Query("SELECT a FROM Attendance a WHERE a.studentUsername = :studentUsername AND a.attendanceTime BETWEEN :start AND :end")
-    List<Attendance> findStudentAttendanceBetweenDates(@Param("studentUsername") String studentUsername,
-                                                       @Param("start") LocalDateTime start,
-                                                       @Param("end") LocalDateTime end);
-
     long countBySessionId(Long sessionId);
 
-    long countByStudentUsername(String studentUsername);
 
     long countByMethod(Attendance.AttendanceMethod method);
 }

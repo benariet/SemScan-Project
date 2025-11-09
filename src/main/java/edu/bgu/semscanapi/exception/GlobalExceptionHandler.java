@@ -31,13 +31,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
-        String userId = LoggerUtil.getCurrentUserId();
+        String bguUsername = LoggerUtil.getCurrentBguUsername();
+        logger.error("Unhandled exception - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "GLOBAL_EXCEPTION",
                 ex.getMessage(),
                 ex,
-                userId,
-                String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId()));
+                bguUsername,
+                String.format("correlationId=%s", correlationId));
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Internal Server Error",
@@ -56,13 +57,14 @@ public class GlobalExceptionHandler {
     @Order(1) // Higher priority than general Exception handler
     public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
-        String userId = LoggerUtil.getCurrentUserId();
+        String bguUsername = LoggerUtil.getCurrentBguUsername();
+        logger.warn("Resource not found - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "GLOBAL_EXCEPTION",
                 ex.getMessage(),
                 ex,
-                userId,
-                String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId()));
+                bguUsername,
+                String.format("correlationId=%s", correlationId));
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Resource Not Found",
@@ -80,13 +82,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
-        String userId = LoggerUtil.getCurrentUserId();
+        String bguUsername = LoggerUtil.getCurrentBguUsername();
+        logger.warn("Illegal argument - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "GLOBAL_EXCEPTION",
                 ex.getMessage(),
                 ex,
-                userId,
-                String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId()));
+                bguUsername,
+                String.format("correlationId=%s", correlationId));
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Bad Request",
@@ -104,13 +107,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
-        String userId = LoggerUtil.getCurrentUserId();
+        String bguUsername = LoggerUtil.getCurrentBguUsername();
+        logger.error("Runtime exception - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "GLOBAL_EXCEPTION",
                 ex.getMessage(),
                 ex,
-                userId,
-                String.format("correlationId=%s", LoggerUtil.getCurrentCorrelationId()));
+                bguUsername,
+                String.format("correlationId=%s", correlationId));
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Internal Server Error",

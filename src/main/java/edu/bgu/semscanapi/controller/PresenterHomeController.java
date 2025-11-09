@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.util.Map;
 
 /**
  * Exposes the presenter home summary consumed by the mobile application.
@@ -127,6 +128,52 @@ public class PresenterHomeController {
             LoggerUtil.logError(logger, "Unexpected error during open attendance", ex);
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
             throw ex;
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+
+    @GetMapping("/slots/{slotId}/attendance/qr")
+    public ResponseEntity<Object> getSlotQRCode(@PathVariable("username") String presenterUsername,
+                                                 @PathVariable Long slotId) {
+        LoggerUtil.generateAndSetCorrelationId();
+        String endpoint = String.format("/api/v1/presenters/%s/home/slots/%d/attendance/qr", presenterUsername, slotId);
+        LoggerUtil.logApiRequest(logger, "GET", endpoint, null);
+
+        try {
+            Map<String, Object> qrData = presenterHomeService.getSlotQRCode(presenterUsername, slotId);
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, 200, "QR code data");
+            return ResponseEntity.ok(qrData);
+        } catch (IllegalArgumentException ex) {
+            LoggerUtil.logError(logger, "Get QR code failed", ex);
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.NOT_FOUND.value(), ex.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", ex.getMessage(), "code", "NOT_FOUND"));
+        } catch (IllegalStateException ex) {
+            LoggerUtil.logError(logger, "Get QR code failed - attendance not open", ex);
+            // Check if it's a "closed" error vs "not open" error
+            String errorMessage = ex.getMessage();
+            String errorCode;
+            HttpStatus status;
+            
+            if (errorMessage != null && errorMessage.contains("closed")) {
+                // Attendance window has closed
+                status = HttpStatus.GONE; // 410 Gone - resource was available but is no longer
+                errorCode = "ATTENDANCE_CLOSED";
+            } else {
+                // Attendance was never opened
+                status = HttpStatus.BAD_REQUEST; // 400 Bad Request
+                errorCode = "ATTENDANCE_NOT_OPEN";
+            }
+            
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, status.value(), errorMessage);
+            return ResponseEntity.status(status)
+                    .body(Map.of("error", errorMessage, "code", errorCode));
+        } catch (Exception ex) {
+            LoggerUtil.logError(logger, "Unexpected error during get QR code", ex);
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal Server Error", "code", "INTERNAL_ERROR"));
         } finally {
             LoggerUtil.clearContext();
         }

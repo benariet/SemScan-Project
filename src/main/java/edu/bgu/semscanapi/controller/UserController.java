@@ -36,29 +36,55 @@ public class UserController {
     public ResponseEntity<UserProfileResponse> upsertUser(@Valid @RequestBody UserProfileUpdateRequest request) {
         LoggerUtil.generateAndSetCorrelationId();
         String endpoint = "/api/v1/users";
-        LoggerUtil.logApiRequest(logger, "POST", endpoint, "{\"userId\": " + request.getUserId() + "}");
+
+        String rawUsername = request.getBguUsername();
+        String sanitizedUsername = rawUsername != null ? rawUsername.trim() : "";
+        LoggerUtil.logApiRequest(logger, "POST", endpoint, "{\"bguUsername\": \"" + sanitizedUsername + "\"}");
 
         try {
-            Optional<User> userOptional = userRepository.findById(request.getUserId());
+            if (!StringUtils.hasText(sanitizedUsername)) {
+                logger.warn("Missing bguUsername in profile update request");
+                UserProfileResponse response = UserProfileResponse.failure("bguUsername is required");
+                LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), response.getMessage());
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+
+            String normalizedUsername = sanitizedUsername.toLowerCase(Locale.ROOT);
+            Optional<User> userOptional = userRepository.findByBguUsername(normalizedUsername);
+            if (userOptional.isEmpty()) {
+                userOptional = userRepository.findByBguUsernameIgnoreCase(sanitizedUsername);
+            }
 
             if (userOptional.isEmpty()) {
-                logger.warn("User not found for profile update request: {}", request.getUserId());
+                logger.warn("User not found for profile update request: {}", sanitizedUsername);
                 UserProfileResponse response = UserProfileResponse.failure("User not found");
                 LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.NOT_FOUND.value(), response.getMessage());
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
             }
 
             User user = userOptional.get();
+            if (!normalizedUsername.equals(user.getBguUsername())) {
+                user.setBguUsername(normalizedUsername);
+            }
+
             boolean updated = applyUpdates(user, request);
 
             if (updated) {
                 userRepository.save(user);
-                logger.info("Updated user profile for ID {}", user.getId());
+                logger.info("Updated user profile for username {}", user.getBguUsername());
             } else {
-                logger.info("No profile changes detected for user ID {}", user.getId());
+                logger.info("No profile changes detected for user username {}", user.getBguUsername());
             }
 
-            UserProfileResponse response = UserProfileResponse.success(user.getId(), updated ? "Profile updated" : "No changes");
+            UserProfileResponse response = UserProfileResponse.success(
+                    user.getBguUsername(),
+                    updated ? "Profile updated" : "No changes",
+                    user.getEmail(),
+                    user.getFirstName(),
+                    user.getLastName(),
+                    user.getDegree() != null ? user.getDegree().name() : null,
+                    deriveParticipationPreference(user));
+
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), response.getMessage());
             return ResponseEntity.ok(response);
         } catch (Exception ex) {
@@ -185,9 +211,8 @@ public class UserController {
 
             User user = userOpt.get();
             UserProfileResponse response = UserProfileResponse.success(
-                    user.getId(),
-                    "Profile fetched",
                     user.getBguUsername(),
+                    "Profile fetched",
                     user.getEmail(),
                     user.getFirstName(),
                     user.getLastName(),

@@ -1,5 +1,6 @@
 package edu.bgu.semscanapi.service;
 
+import edu.bgu.semscanapi.config.GlobalConfig;
 import edu.bgu.semscanapi.dto.PresenterHomeResponse;
 import edu.bgu.semscanapi.dto.PresenterHomeResponse.AttendancePanel;
 import edu.bgu.semscanapi.dto.PresenterHomeResponse.MySlotSummary;
@@ -47,17 +48,20 @@ public class PresenterHomeService {
     private final SeminarSlotRegistrationRepository registrationRepository;
     private final SeminarRepository seminarRepository;
     private final SessionRepository sessionRepository;
+    private final GlobalConfig globalConfig;
 
     public PresenterHomeService(UserRepository userRepository,
                                 SeminarSlotRepository seminarSlotRepository,
                                 SeminarSlotRegistrationRepository registrationRepository,
                                 SeminarRepository seminarRepository,
-                                SessionRepository sessionRepository) {
+                                SessionRepository sessionRepository,
+                                GlobalConfig globalConfig) {
         this.userRepository = userRepository;
         this.seminarSlotRepository = seminarSlotRepository;
         this.registrationRepository = registrationRepository;
         this.seminarRepository = seminarRepository;
         this.sessionRepository = sessionRepository;
+        this.globalConfig = globalConfig;
     }
 
     @Transactional(readOnly = true)
@@ -237,7 +241,7 @@ public class PresenterHomeService {
         updateSlotStatus(slot, newState);
 
         String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
-        if (presenterUsername.equals(openedBy) || remaining == 0 || remainingPhd) {
+        if (Objects.equals(presenterUsername, openedBy) || remaining == 0 || remainingPhd) {
             slot.setAttendanceOpenedAt(null);
             slot.setAttendanceClosesAt(null);
             slot.setAttendanceOpenedBy(null);
@@ -277,17 +281,37 @@ public class PresenterHomeService {
             return new PresenterOpenAttendanceResponse(false, "Slot start time not configured", "NO_SCHEDULE", null, null, null, null, null);
         }
 
+        LocalDateTime end = toSlotEnd(slot);
         LocalDateTime openWindow = start.minusMinutes(10);
+        
+        // Check if too early (before 10 minutes before start)
+        // Allow opening during the slot time (from 10 minutes before start until slot ends, or indefinitely if no end time)
         if (now.isBefore(openWindow)) {
+            String openWindowStr = DATE_TIME_FORMAT.format(openWindow);
             return new PresenterOpenAttendanceResponse(false,
-                    "Attendance can be opened 10 minutes before the start time",
+                    String.format("Cannot start session. Attendance can only be opened 10 minutes before the slot start time (at %s)", openWindowStr),
                     "TOO_EARLY",
                     null,
+                    openWindowStr,
                     null,
-                    DATE_TIME_FORMAT.format(openWindow),
                     null,
                     null);
         }
+        
+        // Check if too late (after slot ends) - only if slot has an end time
+        if (end != null && now.isAfter(end)) {
+            return new PresenterOpenAttendanceResponse(false,
+                    String.format("Too late: Slot has ended at %s", DATE_TIME_FORMAT.format(end)),
+                    "TOO_LATE",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+        
+        // Allow opening if: now >= openWindow (10 minutes before start) AND (end is null OR now <= end)
+        // This covers both: 10 minutes before start AND during the slot time
 
         LocalDateTime openedAt = slot.getAttendanceOpenedAt();
         LocalDateTime closesAt = slot.getAttendanceClosesAt();
@@ -313,7 +337,7 @@ public class PresenterHomeService {
         if (openedAt != null && closesAt != null && now.isBefore(closesAt) && slot.getLegacySessionId() != null) {
             String qrUrl = buildQrUrl(slot.getLegacySessionId());
             String payload = buildQrPayload(slot.getLegacySessionId());
-            if (presenterUsername.equals(openedBy)) {
+            if (Objects.equals(presenterUsername, openedBy)) {
                 return new PresenterOpenAttendanceResponse(true,
                         "Attendance already open",
                         "ALREADY_OPEN",
@@ -359,10 +383,15 @@ public class PresenterHomeService {
 
     private List<SeminarSlot> loadUpcomingSlots() {
         LocalDate today = LocalDate.now();
+        logger.debug("Loading upcoming slots - today is: {}", today);
         List<SeminarSlot> upcoming = seminarSlotRepository.findBySlotDateGreaterThanEqualOrderBySlotDateAscStartTimeAsc(today);
+        logger.debug("Found {} slots with date >= {}", upcoming.size(), today);
         if (upcoming.isEmpty()) {
-            return seminarSlotRepository.findAllByOrderBySlotDateAscStartTimeAsc();
+            List<SeminarSlot> all = seminarSlotRepository.findAllByOrderBySlotDateAscStartTimeAsc();
+            logger.debug("No upcoming slots found, returning all {} slots", all.size());
+            return all;
         }
+        logger.debug("Returning {} upcoming slots", upcoming.size());
         return upcoming;
     }
 
@@ -439,8 +468,12 @@ public class PresenterHomeService {
     private SeminarSlot findNextSlotForPresenter(List<SeminarSlotRegistration> registrations,
                                                  Map<Long, SeminarSlot> slotsById) {
         return registrations.stream()
-                .map(reg -> Map.entry(reg, slotsById.get(reg.getSlotId())))
-                .filter(entry -> entry.getValue() != null)
+                .filter(reg -> reg != null && reg.getSlotId() != null)
+                .map(reg -> {
+                    SeminarSlot slot = slotsById.get(reg.getSlotId());
+                    return slot != null ? Map.entry(reg, slot) : null;
+                })
+                .filter(Objects::nonNull)
                 .sorted(Comparator.comparing((Map.Entry<SeminarSlotRegistration, SeminarSlot> e) -> e.getValue().getSlotDate())
                         .thenComparing(e -> e.getValue().getStartTime()))
                 .map(Map.Entry::getValue)
@@ -463,7 +496,26 @@ public class PresenterHomeService {
                 .map(SeminarSlotRegistration::getSlotId)
                 .collect(Collectors.toSet());
 
+        LocalDateTime now = LocalDateTime.now();
+        
         return slots.stream()
+                .filter(slot -> {
+                    // Filter out slots where attendance was closed
+                    // Check if session is CLOSED
+                    if (slot.getLegacySessionId() != null) {
+                        Optional<Session> session = sessionRepository.findById(slot.getLegacySessionId());
+                        if (session.isPresent() && session.get().getStatus() == Session.SessionStatus.CLOSED) {
+                            logger.debug("Filtering out slot {} - session {} is CLOSED", slot.getSlotId(), slot.getLegacySessionId());
+                            return false; // Don't show closed slots
+                        }
+                    }
+                    // Check if attendance window has passed
+                    if (slot.getAttendanceClosesAt() != null && now.isAfter(slot.getAttendanceClosesAt())) {
+                        logger.debug("Filtering out slot {} - attendance closed at {}", slot.getSlotId(), slot.getAttendanceClosesAt());
+                        return false; // Don't show slots with closed attendance
+                    }
+                    return true; // Show all other slots
+                })
                 .map(slot -> buildSlotCard(slot,
                         registrationsBySlot.getOrDefault(slot.getSlotId(), List.of()),
                         registeredUsers,
@@ -489,10 +541,32 @@ public class PresenterHomeService {
         boolean slotHasMsc = registrations.stream()
                 .anyMatch(reg -> reg.getDegree() == null || User.Degree.MSc == reg.getDegree());
 
+        // Check if attendance was closed - if session exists and is CLOSED, slot is no longer available
+        boolean attendanceClosed = false;
+        if (slot.getLegacySessionId() != null) {
+            Optional<Session> session = sessionRepository.findById(slot.getLegacySessionId());
+            if (session.isPresent() && session.get().getStatus() == Session.SessionStatus.CLOSED) {
+                attendanceClosed = true;
+                logger.debug("Slot {} has closed session {}, marking as unavailable", slot.getSlotId(), slot.getLegacySessionId());
+            }
+        }
+        // Also check if attendance window has passed (even if session wasn't explicitly closed)
+        LocalDateTime now = LocalDateTime.now();
+        if (slot.getAttendanceClosesAt() != null && now.isAfter(slot.getAttendanceClosesAt())) {
+            attendanceClosed = true;
+            logger.debug("Slot {} attendance window has closed at {}, marking as unavailable", slot.getSlotId(), slot.getAttendanceClosesAt());
+        }
+
         int available = Math.max(capacity - enrolledCount, 0);
         SlotState state = slotLockedByPhd ? SlotState.FULL : determineState(capacity, enrolledCount);
         if (slotLockedByPhd) {
             available = 0;
+        }
+        
+        // If attendance was closed, mark slot as unavailable
+        if (attendanceClosed) {
+            available = 0;
+            state = SlotState.FULL; // Mark as FULL to prevent registration
         }
 
         SlotCard card = new SlotCard();
@@ -507,17 +581,26 @@ public class PresenterHomeService {
         card.setCapacity(capacity);
         card.setEnrolledCount(enrolledCount);
         card.setAvailableCount(available);
+        
+        // Set session status fields for client-side filtering
+        card.setAttendanceOpenedAt(slot.getAttendanceOpenedAt() != null ? DATE_TIME_FORMAT.format(slot.getAttendanceOpenedAt()) : null);
+        card.setAttendanceClosesAt(slot.getAttendanceClosesAt() != null ? DATE_TIME_FORMAT.format(slot.getAttendanceClosesAt()) : null);
+        card.setHasClosedSession(attendanceClosed);
 
         boolean canRegister = presenterUsername != null
                 && !presenterInThisSlot
                 && !presenterRegisteredElsewhere
-                && available > 0;
+                && available > 0
+                && !attendanceClosed; // Cannot register if attendance was closed
 
         card.setDisableReason(null);
 
         User.Degree effectiveDegree = presenterDegree != null ? presenterDegree : User.Degree.MSc;
 
-        if (slotLockedByPhd) {
+        if (attendanceClosed) {
+            canRegister = false;
+            card.setDisableReason("Slot attendance has closed");
+        } else if (slotLockedByPhd) {
             canRegister = false;
             if (!presenterInThisSlot) {
                 card.setDisableReason("Slot locked by PhD presenter");
@@ -586,7 +669,7 @@ public class PresenterHomeService {
         String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
 
         if (openedAt != null && closesAt != null && now.isBefore(closesAt) && slot.getLegacySessionId() != null) {
-            boolean openedByPresenter = presenterUsername != null && presenterUsername.equals(openedBy);
+            boolean openedByPresenter = Objects.equals(presenterUsername, openedBy);
             panel.setCanOpen(false);
             panel.setAlreadyOpen(true);
             panel.setStatus(openedByPresenter ? "Attendance already open" : "Attendance currently open");
@@ -703,6 +786,93 @@ public class PresenterHomeService {
 
     private String buildQrPayload(Long sessionId) {
         return sessionId != null ? String.format("{\"sessionId\":%d}", sessionId) : null;
+    }
+
+    /**
+     * Get QR code data for a slot
+     * Returns QR code information if attendance is open for the slot
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getSlotQRCode(String presenterUsernameParam, Long slotId) {
+        String normalizedUsername = normalizeUsername(presenterUsernameParam);
+        logger.info("Getting QR code for presenter {} and slot {}", normalizedUsername, slotId);
+
+        // Verify presenter exists
+        findPresenterByUsername(normalizedUsername);
+
+        // Get slot
+        SeminarSlot slot = seminarSlotRepository.findById(slotId)
+                .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
+
+        // Check if presenter is registered for this slot
+        if (!registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, normalizedUsername)) {
+            throw new IllegalArgumentException("Presenter is not registered for this slot");
+        }
+
+        // Check if attendance is open (has a session)
+        if (slot.getLegacySessionId() == null) {
+            throw new IllegalStateException("Attendance is not open for this slot");
+        }
+
+        // Check if attendance window is still open
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime openedAt = slot.getAttendanceOpenedAt();
+        LocalDateTime closesAt = slot.getAttendanceClosesAt();
+        
+        if (openedAt == null) {
+            throw new IllegalStateException("Attendance was never opened for this slot");
+        }
+        
+        if (closesAt != null && now.isAfter(closesAt)) {
+            String closesAtStr = DATE_TIME_FORMAT.format(closesAt);
+            throw new IllegalStateException(String.format("Attendance window has closed at %s", closesAtStr));
+        }
+
+        // Get the session
+        Session session = sessionRepository.findById(slot.getLegacySessionId())
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + slot.getLegacySessionId()));
+
+        // Generate QR code data similar to QRCodeController
+        Map<String, Object> qrData = new HashMap<>();
+        
+        String sessionIdString = String.valueOf(session.getSessionId());
+        String fullUrl = globalConfig.getSessionsEndpoint() + "/" + sessionIdString;
+        String relativePath = "/api/v1/sessions/" + sessionIdString;
+        String sessionIdOnly = sessionIdString;
+        
+        qrData.put("sessionId", session.getSessionId());
+        qrData.put("seminarId", session.getSeminarId());
+        qrData.put("status", session.getStatus().toString());
+        qrData.put("startTime", session.getStartTime());
+        
+        // QR code content options
+        Map<String, String> qrContent = new HashMap<>();
+        qrContent.put("fullUrl", fullUrl);
+        qrContent.put("relativePath", relativePath);
+        qrContent.put("sessionIdOnly", sessionIdOnly);
+        qrContent.put("recommended", fullUrl);
+        
+        qrData.put("qrContent", qrContent);
+        
+        // Server information
+        Map<String, String> serverInfo = new HashMap<>();
+        serverInfo.put("serverUrl", globalConfig.getServerUrl());
+        serverInfo.put("apiBaseUrl", globalConfig.getApiBaseUrl());
+        serverInfo.put("environment", globalConfig.getEnvironment());
+        
+        qrData.put("serverInfo", serverInfo);
+        
+        // QR code metadata
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("generatedAt", LocalDateTime.now());
+        metadata.put("version", "1.0");
+        metadata.put("format", "URL");
+        metadata.put("description", "Session QR code for attendance scanning");
+        
+        qrData.put("metadata", metadata);
+        
+        logger.info("QR code data generated successfully for slot {} and session {}", slotId, session.getSessionId());
+        return qrData;
     }
 
     private Seminar ensureLegacySeminar(SeminarSlot slot, User presenter) {

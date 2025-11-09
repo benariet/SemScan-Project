@@ -26,10 +26,7 @@ FROM   app_logs;
 SELECT *
 FROM   log_analytics;
 
--- USER REPOSITORY QUERIES (AuthenticationService)
-SELECT *
-FROM   users
-WHERE  user_username = 'USERID-10001-20250122';
+
 
 SELECT *
 FROM   users
@@ -65,7 +62,7 @@ SELECT s.*,
        u.email
 FROM   seminars s
        JOIN users u
-         ON s.presenter_username = u.user_username
+         ON s.presenter_username = u.bgu_username
 WHERE  u.role = 'PRESENTER';
 
 -- SESSION REPOSITORY QUERIES (SessionService)
@@ -153,7 +150,7 @@ WHERE  tag = 'LOGIN';
 
 SELECT *
 FROM   app_logs
-WHERE  user_username = 'USERID-10005-20250122';
+WHERE  participant_username = 'USERID-10005-20250122';
 
 SELECT *
 FROM   app_logs
@@ -171,7 +168,7 @@ WHERE  level = 'ERROR'
 
 SELECT *
 FROM   app_logs
-WHERE  user_username = 'USERID-10005-20250122'
+WHERE  participant_username = 'USERID-10005-20250122'
        AND level = 'ERROR';
 
 SELECT level,
@@ -253,15 +250,15 @@ WHERE  attendance_id = 'ATTEND-10001-20250122';
 
 UPDATE users
 SET    first_name = 'Dr. John Updated'
-WHERE  user_username = 'USERID-10001-20250122';
+WHERE  participant_username = 'USERID-10001-20250122';
 
 UPDATE users
 SET    last_name = 'Smith Updated'
-WHERE  user_username = 'USERID-10001-20250122';
+WHERE  participant_username = 'USERID-10001-20250122';
 
 UPDATE users
 SET    email = 'dr.john.updated@university.edu'
-WHERE  user_username = 'USERID-10001-20250122';
+WHERE  participant_username = 'USERID-10001-20250122';
 
 UPDATE seminars
 SET    seminar_name = 'AI and Machine Learning in Healthcare Updated'
@@ -300,7 +297,7 @@ DELETE FROM presenter_seminar_slot
 WHERE  presenter_seminar_slot_id = 'PRESLT-10001-20250122';
 
 DELETE FROM users
-WHERE  user_username = 'USERID-10001-20250122';
+WHERE  participant_username = 'USERID-10001-20250122';
 
 DELETE FROM app_logs
 WHERE  id = 1; 
@@ -369,7 +366,7 @@ INSERT INTO app_logs
              level,
              tag,
              message,
-             user_username,
+             participant_username,
              user_role,
              device_info,
              app_version,

@@ -7,7 +7,6 @@ public class UserProfileResponse {
 
     private boolean success;
     private String message;
-    private Long userId;
     private String bguUsername;
     private String email;
     private String firstName;
@@ -15,24 +14,22 @@ public class UserProfileResponse {
     private String degree;
     private UserProfileUpdateRequest.ParticipationPreference participationPreference;
 
-    public static UserProfileResponse success(Long userId, String message) {
+    public static UserProfileResponse success(String bguUsername, String message) {
         UserProfileResponse response = new UserProfileResponse();
         response.success = true;
-        response.userId = userId;
+        response.bguUsername = bguUsername;
         response.message = message;
         return response;
     }
 
-    public static UserProfileResponse success(Long userId,
+    public static UserProfileResponse success(String bguUsername,
                                               String message,
-                                              String bguUsername,
                                               String email,
                                               String firstName,
                                               String lastName,
                                               String degree,
                                               UserProfileUpdateRequest.ParticipationPreference participationPreference) {
-        UserProfileResponse response = success(userId, message);
-        response.setBguUsername(bguUsername);
+        UserProfileResponse response = success(bguUsername, message);
         response.setEmail(email);
         response.setFirstName(firstName);
         response.setLastName(lastName);
@@ -62,14 +59,6 @@ public class UserProfileResponse {
 
     public void setMessage(String message) {
         this.message = message;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
     }
 
     public String getBguUsername() {
