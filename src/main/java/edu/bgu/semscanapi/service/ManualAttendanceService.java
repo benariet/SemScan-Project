@@ -10,6 +10,7 @@ import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.AttendanceRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,9 @@ public class ManualAttendanceService {
     @Autowired
     private UserRepository userRepository;
     
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+    
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     // Business rules
@@ -60,10 +64,33 @@ public class ManualAttendanceService {
             String studentUsername = normalizeUsername(request.getStudentUsername());
 
             Session session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+                .orElseThrow(() -> {
+                    String errorMsg = "Session not found: " + sessionId;
+                    databaseLoggerService.logError("MANUAL_ATTENDANCE_SESSION_NOT_FOUND", errorMsg, null, 
+                        studentUsername, String.format("sessionId=%s", sessionId));
+                    return new IllegalArgumentException(errorMsg);
+                });
+            
+            // CRITICAL: Validate that THIS specific session is OPEN
+            // This allows multiple presenters to have separate sessions for the same slot
+            if (session.getStatus() != Session.SessionStatus.OPEN) {
+                String errorMsg = "Session is not open: " + sessionId + " (status: " + session.getStatus() + "). Please ensure the session is open before requesting attendance.";
+                logger.error("Session is not open for manual attendance request: {} (status: {}). Student: {}", 
+                    sessionId, session.getStatus(), studentUsername);
+                databaseLoggerService.logError("MANUAL_ATTENDANCE_SESSION_NOT_OPEN", errorMsg, null, 
+                    studentUsername, String.format("sessionId=%s,status=%s", sessionId, session.getStatus()));
+                throw new IllegalArgumentException(errorMsg);
+            }
+            
+            logger.info("Session validation passed for manual attendance - SessionID: {} is OPEN", sessionId);
             
             User student = userRepository.findByBguUsername(studentUsername)
-                .orElseThrow(() -> new IllegalArgumentException("Student not found: " + studentUsername));
+                .orElseThrow(() -> {
+                    String errorMsg = "Student not found: " + studentUsername;
+                    databaseLoggerService.logError("MANUAL_ATTENDANCE_STUDENT_NOT_FOUND", errorMsg, null, 
+                        studentUsername, String.format("sessionId=%s", sessionId));
+                    return new IllegalArgumentException(errorMsg);
+                });
             
             Optional<Attendance> existingAttendance = attendanceRepository
                 .findBySessionIdAndStudentUsername(sessionId, studentUsername);
@@ -71,7 +98,10 @@ public class ManualAttendanceService {
             if (existingAttendance.isPresent()) {
                 Attendance existing = existingAttendance.get();
                 if (existing.getRequestStatus() == Attendance.RequestStatus.CONFIRMED) {
-                    throw new IllegalArgumentException("Student already marked as present for this session");
+                    String errorMsg = "Student already marked as present for this session";
+                    databaseLoggerService.logError("MANUAL_ATTENDANCE_ALREADY_CONFIRMED", errorMsg, null, 
+                        studentUsername, String.format("sessionId=%s,attendanceId=%s", sessionId, existing.getAttendanceId()));
+                    throw new IllegalArgumentException(errorMsg);
                 }
                 if (existing.getRequestStatus() == Attendance.RequestStatus.PENDING_APPROVAL) {
                     return updateExistingRequest(existing, request);
@@ -108,6 +138,10 @@ public class ManualAttendanceService {
             logger.info("Manual attendance request created successfully - ID: {}, Student: {}, Session: {}", 
                        attendance.getAttendanceId(), studentUsername, sessionId);
             
+            // Log to database
+            databaseLoggerService.logAttendance("MANUAL_ATTENDANCE_REQUEST_CREATED", 
+                studentUsername, sessionId, "MANUAL_REQUEST");
+            
             return new ManualAttendanceResponse(
                 attendance.getAttendanceId(),
                 attendance.getSessionId(),
@@ -120,11 +154,21 @@ public class ManualAttendanceService {
                 "Request submitted successfully. Waiting for approval."
             );
             
+        } catch (IllegalArgumentException e) {
+            // Already logged above, just re-throw
+            throw e;
         } catch (JsonProcessingException e) {
-            logger.error("Error serializing auto flags: {}", e.getMessage());
+            String errorMsg = "Error serializing auto flags: " + e.getMessage();
+            logger.error(errorMsg);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_JSON_ERROR", errorMsg, e, 
+                request.getStudentUsername(), String.format("sessionId=%s", request.getSessionId()));
             throw new RuntimeException("Error processing request", e);
         } catch (Exception e) {
-            logger.error("Error creating manual attendance request: {}", e.getMessage());
+            String errorMsg = "Error creating manual attendance request: " + e.getMessage();
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_CREATE_ERROR", errorMsg, e, 
+                request.getStudentUsername(), String.format("sessionId=%s,exceptionType=%s", 
+                    request.getSessionId(), e.getClass().getName()));
             throw e;
         }
     }
@@ -162,7 +206,10 @@ public class ManualAttendanceService {
             }).filter(Objects::nonNull).collect(Collectors.toList());
             
         } catch (Exception e) {
-            logger.error("Error retrieving pending requests: {}", e.getMessage());
+            String errorMsg = "Error retrieving pending requests: " + e.getMessage();
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_RETRIEVAL_ERROR", errorMsg, e, null, 
+                String.format("sessionId=%s,exceptionType=%s", sessionId, e.getClass().getName()));
             throw new RuntimeException("Error retrieving pending requests", e);
         }
     }
@@ -176,10 +223,19 @@ public class ManualAttendanceService {
         try {
             String normalizedApprover = normalizeUsername(approvedByUsername);
             Attendance attendance = attendanceRepository.findById(attendanceId)
-                .orElseThrow(() -> new IllegalArgumentException("Attendance request not found: " + attendanceId));
+                .orElseThrow(() -> {
+                    String errorMsg = "Attendance request not found: " + attendanceId;
+                    databaseLoggerService.logError("MANUAL_ATTENDANCE_APPROVE_NOT_FOUND", errorMsg, null, 
+                        approvedByUsername, String.format("attendanceId=%s", attendanceId));
+                    return new IllegalArgumentException(errorMsg);
+                });
             
             if (attendance.getRequestStatus() != Attendance.RequestStatus.PENDING_APPROVAL) {
-                throw new IllegalArgumentException("Request is not pending approval");
+                String errorMsg = "Request is not pending approval";
+                databaseLoggerService.logError("MANUAL_ATTENDANCE_APPROVE_INVALID_STATUS", errorMsg, null, 
+                    approvedByUsername, String.format("attendanceId=%s,currentStatus=%s", 
+                        attendanceId, attendance.getRequestStatus()));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             attendance.setRequestStatus(Attendance.RequestStatus.CONFIRMED);
@@ -196,6 +252,10 @@ public class ManualAttendanceService {
             logger.info("Manual attendance request approved successfully - ID: {}, Student: {}", 
                        attendanceId, studentName);
             
+            // Log to database
+            databaseLoggerService.logAttendance("MANUAL_ATTENDANCE_APPROVED", 
+                attendance.getStudentUsername(), attendance.getSessionId(), "MANUAL");
+            
             return new ManualAttendanceResponse(
                 attendance.getAttendanceId(),
                 attendance.getSessionId(),
@@ -208,8 +268,15 @@ public class ManualAttendanceService {
                 "Request approved successfully"
             );
             
+        } catch (IllegalArgumentException e) {
+            // Already logged above, just re-throw
+            throw e;
         } catch (Exception e) {
-            logger.error("Error approving manual attendance request: {}", e.getMessage());
+            String errorMsg = "Error approving manual attendance request: " + e.getMessage();
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_APPROVE_ERROR", errorMsg, e, 
+                approvedByUsername, String.format("attendanceId=%s,exceptionType=%s", 
+                    attendanceId, e.getClass().getName()));
             throw e;
         }
     }
@@ -223,10 +290,19 @@ public class ManualAttendanceService {
         try {
             String normalizedApprover = normalizeUsername(approvedByUsername);
             Attendance attendance = attendanceRepository.findById(attendanceId)
-                .orElseThrow(() -> new IllegalArgumentException("Attendance request not found: " + attendanceId));
+                .orElseThrow(() -> {
+                    String errorMsg = "Attendance request not found: " + attendanceId;
+                    databaseLoggerService.logError("MANUAL_ATTENDANCE_REJECT_NOT_FOUND", errorMsg, null, 
+                        approvedByUsername, String.format("attendanceId=%s", attendanceId));
+                    return new IllegalArgumentException(errorMsg);
+                });
             
             if (attendance.getRequestStatus() != Attendance.RequestStatus.PENDING_APPROVAL) {
-                throw new IllegalArgumentException("Request is not pending approval");
+                String errorMsg = "Request is not pending approval";
+                databaseLoggerService.logError("MANUAL_ATTENDANCE_REJECT_INVALID_STATUS", errorMsg, null, 
+                    approvedByUsername, String.format("attendanceId=%s,currentStatus=%s", 
+                        attendanceId, attendance.getRequestStatus()));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             attendance.setRequestStatus(Attendance.RequestStatus.REJECTED);
@@ -242,6 +318,10 @@ public class ManualAttendanceService {
             logger.info("Manual attendance request rejected - ID: {}, Student: {}", 
                        attendanceId, studentName);
             
+            // Log to database
+            databaseLoggerService.logAttendance("MANUAL_ATTENDANCE_REJECTED", 
+                attendance.getStudentUsername(), attendance.getSessionId(), "MANUAL_REQUEST");
+            
             return new ManualAttendanceResponse(
                 attendance.getAttendanceId(),
                 attendance.getSessionId(),
@@ -254,8 +334,15 @@ public class ManualAttendanceService {
                 "Request rejected"
             );
             
+        } catch (IllegalArgumentException e) {
+            // Already logged above, just re-throw
+            throw e;
         } catch (Exception e) {
-            logger.error("Error rejecting manual attendance request: {}", e.getMessage());
+            String errorMsg = "Error rejecting manual attendance request: " + e.getMessage();
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_REJECT_ERROR", errorMsg, e, 
+                approvedByUsername, String.format("attendanceId=%s,exceptionType=%s", 
+                    attendanceId, e.getClass().getName()));
             throw e;
         }
     }
@@ -345,7 +432,10 @@ public class ManualAttendanceService {
             );
             
         } catch (JsonProcessingException e) {
-            logger.error("Error updating existing request: {}", e.getMessage());
+            String errorMsg = "Error updating existing request: " + e.getMessage();
+            logger.error(errorMsg);
+            databaseLoggerService.logError("MANUAL_ATTENDANCE_UPDATE_JSON_ERROR", errorMsg, e, 
+                request.getStudentUsername(), String.format("sessionId=%s", request.getSessionId()));
             throw new RuntimeException("Error updating request", e);
         }
     }

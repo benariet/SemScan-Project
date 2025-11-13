@@ -8,8 +8,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.ContentCachingRequestWrapper;
+import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,8 +40,12 @@ public class RequestLoggingFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         
+        // Wrap request and response to capture bodies
+        ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(httpRequest);
+        ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(httpResponse);
+        
         // Generate correlation ID if not present
-        String correlationId = httpRequest.getHeader("X-Correlation-ID");
+        String correlationId = wrappedRequest.getHeader("X-Correlation-ID");
         if (!StringUtils.hasText(correlationId)) {
             correlationId = LoggerUtil.generateAndSetCorrelationId();
         } else {
@@ -46,41 +53,58 @@ public class RequestLoggingFilter implements Filter {
         }
         
         // Add correlation ID to response headers
-        httpResponse.setHeader("X-Correlation-ID", correlationId);
-        
-        // Log request
-        logRequest(httpRequest);
+        wrappedResponse.setHeader("X-Correlation-ID", correlationId);
         
         // Measure request duration
         long startTime = System.currentTimeMillis();
         
         try {
-            chain.doFilter(request, response);
+            chain.doFilter(wrappedRequest, wrappedResponse);
         } finally {
             long duration = System.currentTimeMillis() - startTime;
-            logResponse(httpRequest, httpResponse, duration);
+            
+            // Extract request body
+            String requestBody = getRequestBody(wrappedRequest);
+            
+            // Extract response body
+            String responseBody = getResponseBody(wrappedResponse);
+            
+            // Log request with body
+            logRequest(wrappedRequest, requestBody);
+            
+            // Log response with body
+            logResponse(wrappedRequest, wrappedResponse, duration, responseBody);
+            
+            // Copy response body back to original response
+            wrappedResponse.copyBodyToResponse();
+            
             LoggerUtil.clearContext();
         }
     }
     
-    private void logRequest(HttpServletRequest request) {
+    private void logRequest(HttpServletRequest request, String requestBody) {
         try {
             String method = request.getMethod();
             String uri = request.getRequestURI();
             String queryString = request.getQueryString();
             String fullUrl = queryString != null ? uri + "?" + queryString : uri;
             
-            // Log to file
-            logger.info("Incoming Request - Method: {}, URL: {}, Remote Address: {}", 
-                       method, fullUrl, getClientIpAddress(request));
+            // Truncate body for logging if too long (max 2000 characters)
+            String truncatedBody = truncateBody(requestBody, 2000);
             
-            // Log to database
+            // Log to file with body
+            if (truncatedBody != null && !truncatedBody.isEmpty()) {
+                logger.info("Incoming Request - Method: {}, URL: {}, Remote Address: {}, Body: {}", 
+                           method, fullUrl, getClientIpAddress(request), truncatedBody);
+            } else {
+                logger.info("Incoming Request - Method: {}, URL: {}, Remote Address: {}", 
+                           method, fullUrl, getClientIpAddress(request));
+            }
+            
+            // Log to database with body (full body, but will be truncated in database if needed)
             String bguUsername = LoggerUtil.getCurrentBguUsername();
-            String payload = String.format("url=%s,remoteAddr=%s,correlationId=%s", 
-                fullUrl, getClientIpAddress(request), LoggerUtil.getCurrentCorrelationId());
             if (databaseLoggerService != null) {
-                databaseLoggerService.logApiAction(method, uri, "API_REQUEST",
-                        bguUsername, payload);
+                databaseLoggerService.logApiRequest(method, uri, bguUsername, requestBody);
             }
             
             // Log headers (excluding sensitive ones)
@@ -89,33 +113,33 @@ public class RequestLoggingFilter implements Filter {
                 logger.debug("Request Headers - {}", headers);
             }
             
-            // Log request body for POST/PUT requests
-            if ("POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method)) {
-                String contentType = request.getContentType();
-                if (contentType != null && contentType.contains("application/json")) {
-                    logger.debug("Request Content-Type: {}", contentType);
-                }
-            }
-            
         } catch (Exception e) {
             logger.error("Error logging request", e);
         }
     }
     
-    private void logResponse(HttpServletRequest request, HttpServletResponse response, long duration) {
+    private void logResponse(HttpServletRequest request, HttpServletResponse response, long duration, String responseBody) {
         try {
             String method = request.getMethod();
             String uri = request.getRequestURI();
             int statusCode = response.getStatus();
             
-            // Log to file
-            logger.info("Outgoing Response - Method: {}, URL: {}, Status: {}, Duration: {}ms", 
-                       method, uri, statusCode, duration);
+            // Truncate body for logging if too long (max 2000 characters)
+            String truncatedBody = truncateBody(responseBody, 2000);
             
-            // Log to database
+            // Log to file with body
+            if (truncatedBody != null && !truncatedBody.isEmpty()) {
+                logger.info("Outgoing Response - Method: {}, URL: {}, Status: {}, Duration: {}ms, Body: {}", 
+                           method, uri, statusCode, duration, truncatedBody);
+            } else {
+                logger.info("Outgoing Response - Method: {}, URL: {}, Status: {}, Duration: {}ms", 
+                           method, uri, statusCode, duration);
+            }
+            
+            // Log to database with body (full body, but will be truncated in database if needed)
             String bguUsername = LoggerUtil.getCurrentBguUsername();
             if (databaseLoggerService != null) {
-                databaseLoggerService.logApiResponse(method, uri, statusCode, bguUsername);
+                databaseLoggerService.logApiResponse(method, uri, statusCode, bguUsername, responseBody);
             }
             
             // Log response headers
@@ -139,6 +163,72 @@ public class RequestLoggingFilter implements Filter {
         } catch (Exception e) {
             logger.error("Error logging response", e);
         }
+    }
+    
+    private String getRequestBody(ContentCachingRequestWrapper request) {
+        try {
+            byte[] contentAsByteArray = request.getContentAsByteArray();
+            if (contentAsByteArray != null && contentAsByteArray.length > 0) {
+                String contentType = request.getContentType();
+                if (contentType != null && contentType.contains("application/json")) {
+                    return new String(contentAsByteArray, StandardCharsets.UTF_8);
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Could not read request body: {}", e.getMessage());
+        }
+        return null;
+    }
+    
+    private String getResponseBody(ContentCachingResponseWrapper response) {
+        try {
+            byte[] contentAsByteArray = response.getContentAsByteArray();
+            if (contentAsByteArray != null && contentAsByteArray.length > 0) {
+                String contentType = response.getContentType();
+                
+                // Try to read as text for JSON and text content types
+                if (contentType != null && (contentType.contains("application/json") 
+                        || contentType.contains("text/") 
+                        || contentType.contains("application/xml")
+                        || contentType.contains("application/x-www-form-urlencoded"))) {
+                    try {
+                        String body = new String(contentAsByteArray, StandardCharsets.UTF_8);
+                        // Limit body size to prevent huge logs (max 10000 characters for database)
+                        if (body.length() > 10000) {
+                            return body.substring(0, 10000) + "... (truncated)";
+                        }
+                        return body;
+                    } catch (Exception e) {
+                        logger.debug("Could not decode response body as text: {}", e.getMessage());
+                    }
+                }
+                
+                // For binary content, log content type and size
+                if (contentType != null) {
+                    return String.format("[Binary Content: %s, Size: %d bytes]", contentType, contentAsByteArray.length);
+                } else {
+                    return String.format("[Binary Content: Size: %d bytes]", contentAsByteArray.length);
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Could not read response body: {}", e.getMessage());
+        }
+        return null;
+    }
+    
+    /**
+     * Truncate body string to prevent huge logs and escape issues
+     */
+    private String truncateBody(String body, int maxLength) {
+        if (body == null || body.isEmpty()) {
+            return body;
+        }
+        
+        if (body.length() <= maxLength) {
+            return body;
+        }
+        
+        return body.substring(0, maxLength) + "... (truncated, original length: " + body.length() + ")";
     }
     
     private Map<String, String> getFilteredHeaders(HttpServletRequest request) {

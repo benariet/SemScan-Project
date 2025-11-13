@@ -127,6 +127,16 @@ public class UserController {
             changed = true;
         }
 
+        if (StringUtils.hasText(request.getNationalIdNumber())) {
+            String trimmed = request.getNationalIdNumber().trim();
+            if (!trimmed.equals(user.getNationalIdNumber())) {
+                logger.info("Updating national ID number for user {}: {} -> {}", 
+                    user.getBguUsername(), user.getNationalIdNumber(), trimmed);
+                user.setNationalIdNumber(trimmed);
+                changed = true;
+            }
+        }
+
         UserProfileUpdateRequest.ParticipationPreference preference = request.getParticipationPreference();
         if (preference != null) {
             boolean desiredPresenter = preference == UserProfileUpdateRequest.ParticipationPreference.BOTH

@@ -39,14 +39,15 @@ public class StudentController {
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/student/sessions/open", null);
 
         try {
-            // Get all open sessions
+            // Get all open sessions (already filtered and ordered by repository query)
             List<Session> allOpenSessions = sessionService.getOpenSessions();
             
             // Filter to only show sessions that are currently active and relevant
+            // Note: Status is already filtered by repository, but double-check for safety
             List<Session> relevantSessions = allOpenSessions.stream()
                 .filter(session -> session.getStatus() == Session.SessionStatus.OPEN)
                 .filter(session -> session.getStartTime() != null)
-                .limit(10) // Limit to 10 most recent sessions to avoid UI issues
+                // No limit - return all open sessions so participants can see newly opened sessions
                 .toList();
             
             logger.info("Retrieved {} relevant open sessions for student - Correlation ID: {}", 
@@ -92,9 +93,10 @@ public class StudentController {
             // For now, return open sessions (in the future, this could filter by student enrollment)
             List<Session> sessions = sessionService.getOpenSessions();
             
-            // Limit results to avoid UI issues
+            // Return all open sessions (ordered by most recent first)
+            // No limit to ensure participants can see all newly opened sessions
             List<Session> limitedSessions = sessions.stream()
-                .limit(5)
+                .filter(session -> session.getStatus() == Session.SessionStatus.OPEN)
                 .toList();
             
             logger.info("Retrieved {} sessions for student: {} - Correlation ID: {}", 

@@ -28,6 +28,8 @@ public class UserProfileUpdateRequest {
     @NotNull(message = "participationPreference is required")
     private ParticipationPreference participationPreference;
 
+    private String nationalIdNumber;
+
     public String getBguUsername() {
         return bguUsername;
     }
@@ -74,6 +76,14 @@ public class UserProfileUpdateRequest {
 
     public void setParticipationPreference(ParticipationPreference participationPreference) {
         this.participationPreference = participationPreference;
+    }
+
+    public String getNationalIdNumber() {
+        return nationalIdNumber;
+    }
+
+    public void setNationalIdNumber(String nationalIdNumber) {
+        this.nationalIdNumber = nationalIdNumber;
     }
 
     public enum ParticipationPreference {

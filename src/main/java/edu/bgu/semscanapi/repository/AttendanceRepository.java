@@ -17,7 +17,14 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     Logger logger = LoggerUtil.getLogger(AttendanceRepository.class);
 
-    List<Attendance> findBySessionId(Long sessionId);
+    /**
+     * Find all attendance records for a specific session ID
+     * CRITICAL: This must query by session_id directly, not by slot_id
+     * This ensures that when multiple sessions exist for the same slot,
+     * each session's attendance records are returned independently
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.sessionId = :sessionId ORDER BY a.attendanceTime ASC")
+    List<Attendance> findBySessionId(@Param("sessionId") Long sessionId);
 
     List<Attendance> findByStudentUsername(String studentUsername);
 

@@ -14,6 +14,7 @@ CREATE TABLE users (
     degree ENUM('MSc','PhD') NULL,
     is_presenter BOOLEAN DEFAULT FALSE,
     is_participant BOOLEAN DEFAULT FALSE,
+    national_id_number VARCHAR(50),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
 );

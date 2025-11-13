@@ -22,9 +22,11 @@ import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -50,6 +52,7 @@ public class PresenterHomeService {
     private final SessionRepository sessionRepository;
     private final GlobalConfig globalConfig;
     private final EmailService emailService;
+    private final DatabaseLoggerService databaseLoggerService;
 
     public PresenterHomeService(UserRepository userRepository,
                                 SeminarSlotRepository seminarSlotRepository,
@@ -57,7 +60,8 @@ public class PresenterHomeService {
                                 SeminarRepository seminarRepository,
                                 SessionRepository sessionRepository,
                                 GlobalConfig globalConfig,
-                                EmailService emailService) {
+                                EmailService emailService,
+                                DatabaseLoggerService databaseLoggerService) {
         this.userRepository = userRepository;
         this.seminarSlotRepository = seminarSlotRepository;
         this.registrationRepository = registrationRepository;
@@ -65,6 +69,7 @@ public class PresenterHomeService {
         this.sessionRepository = sessionRepository;
         this.globalConfig = globalConfig;
         this.emailService = emailService;
+        this.databaseLoggerService = databaseLoggerService;
     }
 
     @Transactional(readOnly = true)
@@ -114,88 +119,157 @@ public class PresenterHomeService {
         return response;
     }
 
-    @Transactional
+    @Transactional(timeout = 10, isolation = Isolation.READ_COMMITTED) 
+    // READ_COMMITTED reduces lock contention vs REPEATABLE_READ
+    // Timeout prevents long-running transactions that hold locks
     public PresenterSlotRegistrationResponse registerForSlot(String presenterUsernameParam,
                                                              Long slotId,
                                                              PresenterSlotRegistrationRequest request) {
         String normalizedUsername = normalizeUsername(presenterUsernameParam);
         logger.info("Registering presenter {} to slot {}", normalizedUsername, slotId);
+        
+        String presenterUsername = null;
+        User presenter = null;
+        User.Degree presenterDegree = null;
+        SeminarSlot slot = null;
+        SeminarSlotRegistration registration = null;
+        
+        try {
+            presenter = findPresenterByUsername(normalizedUsername);
 
-        User presenter = findPresenterByUsername(normalizedUsername);
-
-        String presenterUsername = normalizeUsername(presenter.getBguUsername());
-        if (presenterUsername == null) {
-            return new PresenterSlotRegistrationResponse(false, "Presenter is missing BGU username", "MISSING_USERNAME");
-        }
-
-        SeminarSlot slot = seminarSlotRepository.findById(slotId)
-                .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
-        List<SeminarSlotRegistration> existingRegistrations = registrationRepository.findByIdSlotId(slotId);
-        boolean existingPhd = existingRegistrations.stream()
-                .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
-
-        if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, presenterUsername)) {
-            logger.info("Presenter {} already registered to slot {}", presenterUsername, slotId);
-            return new PresenterSlotRegistrationResponse(true, "Already registered for this slot", "ALREADY_IN_SLOT");
-        }
-
-        if (registrationRepository.existsByIdPresenterUsername(presenterUsername)) {
-            return new PresenterSlotRegistrationResponse(false, "Presenter already registered in another slot", "ALREADY_REGISTERED");
-        }
-
-        if (existingPhd) {
-            return new PresenterSlotRegistrationResponse(false, "Slot locked by PhD presenter", "SLOT_LOCKED");
-        }
-
-        User.Degree presenterDegree = presenter.getDegree() != null ? presenter.getDegree() : User.Degree.MSc;
-
-        if (presenterDegree == User.Degree.PhD) {
-            if (!existingRegistrations.isEmpty()) {
-                return new PresenterSlotRegistrationResponse(false, "Slot already has an MSc presenter", "PHD_BLOCKED");
+            presenterUsername = normalizeUsername(presenter.getBguUsername());
+            if (presenterUsername == null) {
+                String errorMsg = "Presenter is missing BGU username";
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, normalizedUsername, 
+                    String.format("slotId=%s,reason=MISSING_USERNAME", slotId));
+                return new PresenterSlotRegistrationResponse(false, errorMsg, "MISSING_USERNAME");
             }
-        } else {
-            int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
-            if (existingRegistrations.size() >= capacity) {
-                updateSlotStatus(slot, SlotState.FULL);
-                return new PresenterSlotRegistrationResponse(false, "Slot is already full", "SLOT_FULL");
+
+            // CRITICAL: Check if presenter already registered FIRST (before any slot reads)
+            // This avoids unnecessary slot locks if already registered
+            if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, presenterUsername)) {
+                logger.info("Presenter {} already registered to slot {}", presenterUsername, slotId);
+                databaseLoggerService.logBusinessEvent("SLOT_REGISTRATION_ALREADY", 
+                    String.format("Presenter %s already registered to slot %s", presenterUsername, slotId), presenterUsername);
+                return new PresenterSlotRegistrationResponse(true, "Already registered for this slot", "ALREADY_IN_SLOT");
             }
+
+            // Check if presenter registered in another slot
+            if (registrationRepository.existsByIdPresenterUsername(presenterUsername)) {
+                String errorMsg = "Presenter already registered in another slot";
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                    String.format("slotId=%s,reason=ALREADY_REGISTERED", slotId));
+                return new PresenterSlotRegistrationResponse(false, errorMsg, "ALREADY_REGISTERED");
+            }
+            
+            // Load existing registrations for this slot (needed for capacity/PhD checks)
+            // Do this BEFORE reading slot to minimize lock time
+            List<SeminarSlotRegistration> existingRegistrations = registrationRepository.findByIdSlotId(slotId);
+            boolean existingPhd = existingRegistrations.stream()
+                    .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
+
+            if (existingPhd) {
+                String errorMsg = "Slot already has a PhD presenter";
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                    String.format("slotId=%s,reason=PHD_BLOCKED", slotId));
+                return new PresenterSlotRegistrationResponse(false, "Slot locked by PhD presenter", "SLOT_LOCKED");
+            }
+
+            presenterDegree = presenter.getDegree() != null ? presenter.getDegree() : User.Degree.MSc;
+
+            if (presenterDegree == User.Degree.PhD) {
+                if (!existingRegistrations.isEmpty()) {
+                    String errorMsg = "Slot already has an MSc presenter";
+                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                        String.format("slotId=%s,reason=PHD_BLOCKED_MSC_EXISTS", slotId));
+                    return new PresenterSlotRegistrationResponse(false, errorMsg, "PHD_BLOCKED");
+                }
+            }
+            
+            // Read slot ONLY when we need it (for capacity check and update)
+            // This minimizes the time we hold a lock on the slot row
+            slot = seminarSlotRepository.findById(slotId)
+                    .orElseThrow(() -> {
+                        String errorMsg = "Slot not found: " + slotId;
+                        databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, normalizedUsername, 
+                            String.format("slotId=%s,reason=SLOT_NOT_FOUND", slotId));
+                        return new IllegalArgumentException(errorMsg);
+                    });
+            
+            if (presenterDegree != User.Degree.PhD) {
+                int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
+                if (existingRegistrations.size() >= capacity) {
+                    updateSlotStatus(slot, SlotState.FULL);
+                    String errorMsg = "Slot is already full";
+                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                        String.format("slotId=%s,reason=SLOT_FULL,capacity=%d,existing=%d", slotId, capacity, existingRegistrations.size()));
+                    return new PresenterSlotRegistrationResponse(false, errorMsg, "SLOT_FULL");
+                }
+            }
+
+            registration = new SeminarSlotRegistration();
+            registration.setId(new SeminarSlotRegistrationId(slotId, presenterUsername));
+            registration.setDegree(presenter.getDegree());
+            registration.setTopic(normalizeTopic(request.getTopic()));
+            registration.setSupervisorName(normalizeSupervisorName(request.getSupervisorName()));
+            registration.setSupervisorEmail(request.getSupervisorEmail());
+            registration.setRegisteredAt(LocalDateTime.now());
+
+            registrationRepository.save(registration);
+
+            boolean slotNowHasPhd = presenterDegree == User.Degree.PhD;
+            long newEnrolled = existingRegistrations.size() + 1;
+            SlotState updatedState = slotNowHasPhd
+                    ? SlotState.FULL
+                    : determineState(slot.getCapacity(), (int) newEnrolled);
+
+            if (slotNowHasPhd) {
+                slot.setAttendanceOpenedAt(null);
+                slot.setAttendanceClosesAt(null);
+                slot.setAttendanceOpenedBy(null);
+                closeLegacySessionIfExists(slot);
+                slot.setLegacySessionId(null);
+            }
+
+            updateSlotStatus(slot, updatedState);
+            seminarSlotRepository.save(slot);
+            
+            // Transaction commits here - all database operations complete
+            // This releases locks immediately, preventing lock contention
+
+            logger.info("Presenter {} successfully registered to slot {}", presenterUsername, slotId);
+            
+            // Log successful registration to database
+            databaseLoggerService.logBusinessEvent("SLOT_REGISTRATION_SUCCESS", 
+                String.format("Presenter %s registered to slot %s (degree: %s)", presenterUsername, slotId, presenterDegree), 
+                presenterUsername);
+            
+        } catch (org.springframework.dao.DataAccessException e) {
+            // Database errors (locks, timeouts, etc.)
+            String errorMsg = String.format("Database error during slot registration: %s", e.getMessage());
+            logger.error("Database error registering presenter {} to slot {}", presenterUsername, slotId, e);
+            databaseLoggerService.logError("SLOT_REGISTRATION_DB_ERROR", errorMsg, e, 
+                presenterUsername != null ? presenterUsername : normalizedUsername, 
+                String.format("slotId=%s,exceptionType=%s", slotId, e.getClass().getName()));
+            throw e; // Re-throw to trigger transaction rollback
+        } catch (Exception e) {
+            // Any other unexpected errors
+            String errorMsg = String.format("Unexpected error during slot registration: %s", e.getMessage());
+            logger.error("Unexpected error registering presenter {} to slot {}", presenterUsername, slotId, e);
+            databaseLoggerService.logError("SLOT_REGISTRATION_ERROR", errorMsg, e, 
+                presenterUsername != null ? presenterUsername : normalizedUsername, 
+                String.format("slotId=%s,exceptionType=%s", slotId, e.getClass().getName()));
+            throw e;
         }
-
-        SeminarSlotRegistration registration = new SeminarSlotRegistration();
-        registration.setId(new SeminarSlotRegistrationId(slotId, presenterUsername));
-        registration.setDegree(presenter.getDegree());
-        registration.setTopic(normalizeTopic(request.getTopic()));
-        registration.setSupervisorName(normalizeSupervisorName(request.getSupervisorName()));
-        registration.setSupervisorEmail(request.getSupervisorEmail());
-        registration.setRegisteredAt(LocalDateTime.now());
-
-        registrationRepository.save(registration);
-
-        boolean slotNowHasPhd = presenterDegree == User.Degree.PhD;
-        long newEnrolled = existingRegistrations.size() + 1;
-        SlotState updatedState = slotNowHasPhd
-                ? SlotState.FULL
-                : determineState(slot.getCapacity(), (int) newEnrolled);
-
-        if (slotNowHasPhd) {
-            slot.setAttendanceOpenedAt(null);
-            slot.setAttendanceClosesAt(null);
-            slot.setAttendanceOpenedBy(null);
-            closeLegacySessionIfExists(slot);
-            slot.setLegacySessionId(null);
-        }
-
-        updateSlotStatus(slot, updatedState);
-        seminarSlotRepository.save(slot);
-
-        // Send supervisor notification email if supervisor email is provided
+        
+        // Send supervisor notification email OUTSIDE the transaction
+        // This prevents holding database locks during slow email operations
         boolean emailSent = false;
         String supervisorEmail = request.getSupervisorEmail();
         if (supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
             try {
-                String presenterName = (presenter.getFirstName() != null ? presenter.getFirstName() : "") +
-                        (presenter.getLastName() != null ? " " + presenter.getLastName() : "").trim();
-                if (presenterName.isEmpty()) {
+                String presenterName = formatName(presenter);
+                if (presenterName == null || presenterName.trim().isEmpty()) {
                     presenterName = presenterUsername;
                 }
                 String presenterDegreeStr = presenterDegree.name();
@@ -204,7 +278,7 @@ public class PresenterHomeService {
                 String slotEndTimeStr = slot.getEndTime() != null ? TIME_FORMAT.format(slot.getEndTime()) : "N/A";
                 String topic = registration.getTopic();
 
-                emailSent = emailService.sendSupervisorNotificationEmail(
+                EmailService.EmailResult emailResult = emailService.sendSupervisorNotificationEmail(
                         supervisorEmail,
                         request.getSupervisorName(),
                         presenterName,
@@ -218,10 +292,12 @@ public class PresenterHomeService {
                         topic
                 );
 
+                emailSent = emailResult.isSuccess();
                 if (emailSent) {
                     logger.info("Supervisor email sent successfully for presenter {} and slot {}", presenterUsername, slotId);
                 } else {
-                    logger.warn("Failed to send supervisor email for presenter {} and slot {} - email service not configured", presenterUsername, slotId);
+                    logger.warn("Failed to send supervisor email for presenter {} and slot {}: {} (Code: {})", 
+                        presenterUsername, slotId, emailResult.getErrorMessage(), emailResult.getErrorCode());
                 }
             } catch (Exception e) {
                 logger.error("Failed to send supervisor email for presenter {} and slot {}", presenterUsername, slotId, e);
@@ -229,7 +305,6 @@ public class PresenterHomeService {
             }
         }
 
-        logger.info("Presenter {} successfully registered to slot {}", presenterUsername, slotId);
         return new PresenterSlotRegistrationResponse(true, "Registered successfully", "REGISTERED", emailSent);
     }
 
@@ -334,9 +409,8 @@ public class PresenterHomeService {
                 .orElseThrow(() -> new IllegalArgumentException("Registration not found for presenter " + presenterUsername + " and slot " + slotId));
 
         try {
-            String presenterName = (presenter.getFirstName() != null ? presenter.getFirstName() : "") +
-                    (presenter.getLastName() != null ? " " + presenter.getLastName() : "").trim();
-            if (presenterName.isEmpty()) {
+            String presenterName = formatName(presenter);
+            if (presenterName == null || presenterName.trim().isEmpty()) {
                 presenterName = presenterUsername;
             }
             User.Degree presenterDegree = presenter.getDegree() != null ? presenter.getDegree() : User.Degree.MSc;
@@ -346,7 +420,7 @@ public class PresenterHomeService {
             String slotEndTimeStr = slot.getEndTime() != null ? TIME_FORMAT.format(slot.getEndTime()) : "N/A";
             String topic = registration.getTopic();
 
-            boolean emailSent = emailService.sendSupervisorNotificationEmail(
+            EmailService.EmailResult emailResult = emailService.sendSupervisorNotificationEmail(
                     supervisorEmail,
                     supervisorName,
                     presenterName,
@@ -360,7 +434,7 @@ public class PresenterHomeService {
                     topic
             );
 
-            if (emailSent) {
+            if (emailResult.isSuccess()) {
                 // Optionally save supervisor details to registration for future reference
                 registration.setSupervisorEmail(supervisorEmail);
                 registration.setSupervisorName(normalizeSupervisorName(supervisorName));
@@ -369,12 +443,28 @@ public class PresenterHomeService {
                 logger.info("Supervisor email sent successfully for presenter {} and slot {}", presenterUsername, slotId);
                 return new PresenterSlotRegistrationResponse(true, "Supervisor email sent successfully", "EMAIL_SENT", true);
             } else {
-                logger.warn("Failed to send supervisor email for presenter {} and slot {} - email service not configured", presenterUsername, slotId);
-                return new PresenterSlotRegistrationResponse(false, "Email service is not configured", "EMAIL_NOT_CONFIGURED", true);
+                // Return specific error message from EmailResult
+                String errorCode = emailResult.getErrorCode();
+                String errorMessage = emailResult.getErrorMessage();
+                logger.warn("Failed to send supervisor email for presenter {} and slot {}: {} (Code: {})", 
+                    presenterUsername, slotId, errorMessage, errorCode);
+                
+                // Map error codes to response codes
+                String responseCode = "EMAIL_ERROR";
+                if ("EMAIL_AUTH_FAILED".equals(errorCode)) {
+                    responseCode = "EMAIL_AUTH_FAILED";
+                } else if ("EMAIL_NOT_CONFIGURED".equals(errorCode)) {
+                    responseCode = "EMAIL_NOT_CONFIGURED";
+                } else if ("EMAIL_SEND_FAILED".equals(errorCode)) {
+                    responseCode = "EMAIL_SEND_FAILED";
+                }
+                
+                return new PresenterSlotRegistrationResponse(false, errorMessage, responseCode, true);
             }
         } catch (Exception e) {
-            logger.error("Failed to send supervisor email for presenter {} and slot {}", presenterUsername, slotId, e);
-            return new PresenterSlotRegistrationResponse(false, "Failed to send supervisor email: " + e.getMessage(), "EMAIL_ERROR", true);
+            String errorMsg = "Unexpected error sending supervisor email: " + e.getMessage();
+            logger.error("Unexpected error sending supervisor email for presenter {} and slot {}", presenterUsername, slotId, e);
+            return new PresenterSlotRegistrationResponse(false, errorMsg, "EMAIL_ERROR", true);
         }
     }
 
@@ -386,20 +476,34 @@ public class PresenterHomeService {
         User presenter = findPresenterByUsername(normalizedUsername);
         String presenterUsername = normalizeUsername(presenter.getBguUsername());
         if (presenterUsername == null) {
-            return new PresenterOpenAttendanceResponse(false, "Presenter is missing BGU username", "MISSING_USERNAME", null, null, null, null, null);
+            String errorMsg = "Presenter is missing BGU username";
+            databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, normalizedUsername, 
+                String.format("slotId=%s,reason=MISSING_USERNAME", slotId));
+            return new PresenterOpenAttendanceResponse(false, errorMsg, "MISSING_USERNAME", null, null, null, null, null);
         }
 
         SeminarSlot slot = seminarSlotRepository.findById(slotId)
-                .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
+                .orElseThrow(() -> {
+                    String errorMsg = "Slot not found: " + slotId;
+                    databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
+                        String.format("slotId=%s,reason=SLOT_NOT_FOUND", slotId));
+                    return new IllegalArgumentException(errorMsg);
+                });
 
         if (!registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, presenterUsername)) {
-            return new PresenterOpenAttendanceResponse(false, "Presenter is not registered for this slot", "NOT_REGISTERED", null, null, null, null, null);
+            String errorMsg = "Presenter is not registered for this slot";
+            databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
+                String.format("slotId=%s,reason=NOT_REGISTERED", slotId));
+            return new PresenterOpenAttendanceResponse(false, errorMsg, "NOT_REGISTERED", null, null, null, null, null);
         }
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime start = toSlotStart(slot);
         if (start == null) {
-            return new PresenterOpenAttendanceResponse(false, "Slot start time not configured", "NO_SCHEDULE", null, null, null, null, null);
+            String errorMsg = "Slot start time not configured";
+            databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
+                String.format("slotId=%s,reason=NO_SCHEDULE", slotId));
+            return new PresenterOpenAttendanceResponse(false, errorMsg, "NO_SCHEDULE", null, null, null, null, null);
         }
 
         LocalDateTime end = toSlotEnd(slot);
@@ -409,97 +513,174 @@ public class PresenterHomeService {
         // Allow opening during the slot time (from 10 minutes before start until slot ends, or indefinitely if no end time)
         if (now.isBefore(openWindow)) {
             String openWindowStr = DATE_TIME_FORMAT.format(openWindow);
-            return new PresenterOpenAttendanceResponse(false,
-                    String.format("Cannot start session. Attendance can only be opened 10 minutes before the slot start time (at %s)", openWindowStr),
-                    "TOO_EARLY",
-                    null,
-                    openWindowStr,
-                    null,
-                    null,
-                    null);
+            String errorMsg = String.format("Cannot start session. Attendance can only be opened 10 minutes before the slot start time (at %s)", openWindowStr);
+            databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
+                String.format("slotId=%s,reason=TOO_EARLY,now=%s,openWindow=%s", slotId, DATE_TIME_FORMAT.format(now), openWindowStr));
+            return new PresenterOpenAttendanceResponse(false, errorMsg, "TOO_EARLY", null, openWindowStr, null, null, null);
         }
         
         // Check if too late (after slot ends) - only if slot has an end time
         if (end != null && now.isAfter(end)) {
-            return new PresenterOpenAttendanceResponse(false,
-                    String.format("Too late: Slot has ended at %s", DATE_TIME_FORMAT.format(end)),
-                    "TOO_LATE",
-                    null,
-                    null,
-                    null,
-                    null,
-                    null);
+            String errorMsg = String.format("Too late: Slot has ended at %s", DATE_TIME_FORMAT.format(end));
+            databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
+                String.format("slotId=%s,reason=TOO_LATE,now=%s,end=%s", slotId, DATE_TIME_FORMAT.format(now), DATE_TIME_FORMAT.format(end)));
+            return new PresenterOpenAttendanceResponse(false, errorMsg, "TOO_LATE", null, null, null, null, null);
         }
         
         // Allow opening if: now >= openWindow (10 minutes before start) AND (end is null OR now <= end)
         // This covers both: 10 minutes before start AND during the slot time
 
-        LocalDateTime openedAt = slot.getAttendanceOpenedAt();
-        LocalDateTime closesAt = slot.getAttendanceClosesAt();
-        String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
-
-        Session activeLegacySession = null;
-        if (slot.getLegacySessionId() != null) {
-            activeLegacySession = sessionRepository.findById(slot.getLegacySessionId()).orElse(null);
-            if (activeLegacySession == null) {
-                slot.setLegacySessionId(null);
-            } else if (closesAt != null && now.isAfter(closesAt)) {
-                closeLegacySession(activeLegacySession);
-                activeLegacySession = null;
-                slot.setLegacySessionId(null);
-                slot.setAttendanceOpenedAt(null);
-                slot.setAttendanceClosesAt(null);
-                slot.setAttendanceOpenedBy(null);
-                openedAt = null;
-                closesAt = null;
+        List<Session> allOpenSessions = sessionRepository.findOpenSessions();
+        
+        // CRITICAL FIX: Allow multiple presenters to have separate sessions for the same time slot
+        // Each presenter can open their own session independently
+        // Do NOT block a presenter from opening a session just because another presenter has one open
+        
+        // Find THIS presenter's open session for THIS slot (if any)
+        // CRITICAL: Check by seminar's presenterUsername, NOT by slot's attendanceOpenedBy
+        // This is because when multiple presenters open sessions for the same slot,
+        // the slot's attendanceOpenedBy might still point to the first presenter
+        Session thisPresenterOpenSession = allOpenSessions.stream()
+            .filter(session -> {
+                // First check if this session belongs to THIS slot
+                Optional<SeminarSlot> sessionSlot = seminarSlotRepository.findByLegacySessionId(session.getSessionId());
+                if (!sessionSlot.isPresent() || !Objects.equals(sessionSlot.get().getSlotId(), slotId)) {
+                    return false;
+                }
+                
+                // Then check if this session's seminar belongs to THIS presenter
+                // This is the reliable way to identify the presenter's session
+                Optional<Seminar> seminar = seminarRepository.findById(session.getSeminarId());
+                if (seminar.isPresent()) {
+                    String seminarPresenter = normalizeUsername(seminar.get().getPresenterUsername());
+                    boolean matches = Objects.equals(seminarPresenter, presenterUsername);
+                    if (matches) {
+                        logger.debug("Found existing session {} for presenter {} on slot {} (via seminar presenter check)", 
+                            session.getSessionId(), presenterUsername, slotId);
+                    }
+                    return matches;
+                }
+                return false;
+            })
+            .findFirst()
+            .orElse(null);
+        
+        // Check if THIS presenter already has an OPEN session for THIS slot
+        // If yes, return the existing session (don't create a duplicate)
+        if (thisPresenterOpenSession != null) {
+            // Get session details for response
+            Optional<SeminarSlot> sessionSlot = seminarSlotRepository.findByLegacySessionId(thisPresenterOpenSession.getSessionId());
+            String qrUrl = buildQrUrl(thisPresenterOpenSession.getSessionId());
+            String payload = buildQrPayload(thisPresenterOpenSession.getSessionId());
+            
+            // Try to get timing info from slot, but if not available, calculate from session
+            LocalDateTime sessionOpenedAt = null;
+            LocalDateTime sessionClosesAt = null;
+            if (sessionSlot.isPresent()) {
+                sessionOpenedAt = sessionSlot.get().getAttendanceOpenedAt();
+                sessionClosesAt = sessionSlot.get().getAttendanceClosesAt();
             }
-        }
-
-        if (openedAt != null && closesAt != null && now.isBefore(closesAt) && slot.getLegacySessionId() != null) {
-            String qrUrl = buildQrUrl(slot.getLegacySessionId());
-            String payload = buildQrPayload(slot.getLegacySessionId());
-            if (Objects.equals(presenterUsername, openedBy)) {
-                return new PresenterOpenAttendanceResponse(true,
-                        "Attendance already open",
-                        "ALREADY_OPEN",
-                        qrUrl,
-                        DATE_TIME_FORMAT.format(openedAt),
-                        DATE_TIME_FORMAT.format(closesAt),
-                        slot.getLegacySessionId(),
-                        payload);
+            // If slot doesn't have timing info, use session start time + 15 minutes
+            if (sessionClosesAt == null && thisPresenterOpenSession.getStartTime() != null) {
+                sessionClosesAt = thisPresenterOpenSession.getStartTime().plusMinutes(15);
             }
-            return new PresenterOpenAttendanceResponse(false,
-                    "Attendance currently open",
-                    "IN_PROGRESS",
+            if (sessionOpenedAt == null && thisPresenterOpenSession.getStartTime() != null) {
+                sessionOpenedAt = thisPresenterOpenSession.getStartTime();
+            }
+            
+            logger.info("Presenter {} already has an OPEN session {} for slot {}, returning existing session", 
+                presenterUsername, thisPresenterOpenSession.getSessionId(), slotId);
+            databaseLoggerService.logBusinessEvent("ATTENDANCE_ALREADY_OPEN", 
+                String.format("Presenter %s already has open session %s for slot %s", presenterUsername, 
+                    thisPresenterOpenSession.getSessionId(), slotId), presenterUsername);
+            return new PresenterOpenAttendanceResponse(true,
+                    "Attendance already open",
+                    "ALREADY_OPEN",
                     qrUrl,
-                    DATE_TIME_FORMAT.format(openedAt),
-                    DATE_TIME_FORMAT.format(closesAt),
-                    slot.getLegacySessionId(),
+                    sessionOpenedAt != null ? DATE_TIME_FORMAT.format(sessionOpenedAt) : null,
+                    sessionClosesAt != null ? DATE_TIME_FORMAT.format(sessionClosesAt) : null,
+                    thisPresenterOpenSession.getSessionId(),
                     payload);
         }
-
-        if (activeLegacySession == null) {
-            Seminar legacySeminar = ensureLegacySeminar(slot, presenter);
-            activeLegacySession = createLegacySession(slot, legacySeminar);
-            slot.setLegacySeminarId(legacySeminar.getSeminarId());
-            slot.setLegacySessionId(activeLegacySession.getSessionId());
+        
+        
+        // Check if slot already has an active session from ANY presenter
+        boolean slotHasActiveSession = false;
+        if (slot.getLegacySessionId() != null) {
+            Session slotReferencedSession = sessionRepository.findById(slot.getLegacySessionId()).orElse(null);
+            if (slotReferencedSession != null) {
+                if (slotReferencedSession.getStatus() == Session.SessionStatus.OPEN) {
+                    slotHasActiveSession = true;
+                    logger.info("Slot {} already has an active session {} from another presenter, but allowing new session for presenter {}", 
+                        slotId, slotReferencedSession.getSessionId(), presenterUsername);
+                } else if (slotReferencedSession.getStatus() == Session.SessionStatus.CLOSED) {
+                    // Clean up closed session reference
+                    logger.info("Slot references CLOSED session {}, clearing slot attendance fields", slotReferencedSession.getSessionId());
+                    slot.setLegacySessionId(null);
+                    slot.setAttendanceOpenedAt(null);
+                    slot.setAttendanceClosesAt(null);
+                    slot.setAttendanceOpenedBy(null);
+                    seminarSlotRepository.save(slot);
+                }
+            }
         }
 
-        slot.setAttendanceOpenedAt(now);
-        slot.setAttendanceClosesAt(now.plusMinutes(15));
-        slot.setAttendanceOpenedBy(presenterUsername);
-        seminarSlotRepository.save(slot);
+        // Create a new session for this presenter
+        Seminar legacySeminar = ensureLegacySeminar(slot, presenter);
+        Session newSession = createLegacySession(slot, legacySeminar, presenterUsername);
+        
+        // CRITICAL: Verify session was created and saved
+        if (newSession.getSessionId() == null) {
+            String errorMsg = "Failed to create session - sessionId is null for presenter " + presenterUsername + " on slot " + slotId;
+            logger.error(errorMsg);
+            databaseLoggerService.logError("SESSION_CREATION_FAILED", errorMsg, null, presenterUsername, 
+                String.format("slotId=%s,presenterUsername=%s", slotId, presenterUsername));
+            throw new IllegalStateException("Failed to create session - session was not saved to database");
+        }
+        
+        logger.info("Created new session {} with status {} for presenter {} on slot {}", 
+            newSession.getSessionId(), newSession.getStatus(), presenterUsername, slotId);
+        
+        // Log session creation to database
+        databaseLoggerService.logSessionEvent("SESSION_CREATED", newSession.getSessionId(), 
+            legacySeminar.getSeminarId(), presenterUsername);
+        
+        slot.setLegacySeminarId(legacySeminar.getSeminarId());
+        
+        // CRITICAL: Only update slot's session tracking fields if slot doesn't already have an active session
+        // This allows multiple sessions to coexist - each session is tracked independently
+        // The slot's legacySessionId will point to the most recent session, but all sessions remain valid
+        if (!slotHasActiveSession) {
+            slot.setLegacySessionId(newSession.getSessionId());
+            slot.setAttendanceOpenedAt(now);
+            slot.setAttendanceClosesAt(now.plusMinutes(15));
+            slot.setAttendanceOpenedBy(presenterUsername);
+            seminarSlotRepository.save(slot);
+            logger.info("Updated slot {} to track session {}", slotId, newSession.getSessionId());
+            databaseLoggerService.logBusinessEvent("SLOT_SESSION_LINKED", 
+                String.format("Slot %s now tracks session %s", slotId, newSession.getSessionId()), presenterUsername);
+        } else {
+            // Slot already has a session from another presenter - don't overwrite it
+            // The new session is still created and valid, just not tracked in slot fields
+            logger.info("Created new session {} for presenter {} on slot {} (slot already has active session from another presenter). Session is saved and will appear in /api/v1/sessions/open", 
+                newSession.getSessionId(), presenterUsername, slotId);
+            databaseLoggerService.logBusinessEvent("MULTIPLE_SESSIONS_SLOT", 
+                String.format("Created session %s for slot %s (slot already has active session from another presenter)", 
+                    newSession.getSessionId(), slotId), presenterUsername);
+        }
 
-        String qrUrl = buildQrUrl(slot.getLegacySessionId());
-        LocalDateTime newClosesAt = slot.getAttendanceClosesAt();
+        // Use the new session's ID for QR code, not the slot's legacySessionId
+        // (which might point to another presenter's session)
+        String qrUrl = buildQrUrl(newSession.getSessionId());
+        LocalDateTime newClosesAt = slotHasActiveSession ? now.plusMinutes(15) : slot.getAttendanceClosesAt();
         return new PresenterOpenAttendanceResponse(true,
                 "Attendance opened",
                 "OPENED",
                 qrUrl,
                 DATE_TIME_FORMAT.format(now),
                 newClosesAt != null ? DATE_TIME_FORMAT.format(newClosesAt) : null,
-                slot.getLegacySessionId(),
-                buildQrPayload(slot.getLegacySessionId()));
+                newSession.getSessionId(),
+                buildQrPayload(newSession.getSessionId()));
     }
 
     private List<SeminarSlot> loadUpcomingSlots() {
@@ -935,6 +1116,19 @@ public class PresenterHomeService {
             throw new IllegalStateException("Attendance is not open for this slot");
         }
 
+        // Get the session and validate it's actually OPEN
+        Session session = sessionRepository.findById(slot.getLegacySessionId())
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + slot.getLegacySessionId()));
+        
+        // CRITICAL: Check if the session is actually OPEN (not CLOSED)
+        // This ensures participants can attend newly opened sessions even if the slot
+        // previously had a closed session
+        if (session.getStatus() != Session.SessionStatus.OPEN) {
+            logger.warn("Session {} for slot {} is not OPEN (status: {}). This may indicate a stale session reference.", 
+                session.getSessionId(), slotId, session.getStatus());
+            throw new IllegalStateException("Session is not open for this slot (status: " + session.getStatus() + "). Please ask the presenter to open attendance.");
+        }
+
         // Check if attendance window is still open
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime openedAt = slot.getAttendanceOpenedAt();
@@ -948,10 +1142,6 @@ public class PresenterHomeService {
             String closesAtStr = DATE_TIME_FORMAT.format(closesAt);
             throw new IllegalStateException(String.format("Attendance window has closed at %s", closesAtStr));
         }
-
-        // Get the session
-        Session session = sessionRepository.findById(slot.getLegacySessionId())
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + slot.getLegacySessionId()));
 
         // Generate QR code data similar to QRCodeController
         Map<String, Object> qrData = new HashMap<>();
@@ -996,32 +1186,121 @@ public class PresenterHomeService {
         return qrData;
     }
 
+    /**
+     * Ensure a seminar exists for THIS presenter for THIS slot
+     * CRITICAL: Each presenter must have their own seminar, even if they share the same slot
+     * This ensures that when multiple presenters open sessions in the same slot,
+     * each session's seminar has the correct presenter_username
+     */
     private Seminar ensureLegacySeminar(SeminarSlot slot, User presenter) {
-        if (slot.getLegacySeminarId() != null) {
-            Optional<Seminar> existing = seminarRepository.findById(slot.getLegacySeminarId());
-            if (existing.isPresent()) {
-                return existing.get();
-            }
+        String presenterUsername = normalizeUsername(presenter.getBguUsername());
+        if (presenterUsername == null) {
+            throw new IllegalArgumentException("Presenter username is required");
         }
-
+        
+        // CRITICAL FIX: Find or create a seminar for THIS specific presenter
+        // Do NOT reuse the slot's legacySeminarId, as it might belong to another presenter
+        // Check if this presenter already has a seminar for this slot
+        String seminarName = buildSeminarName(slot);
+        
+        // Try to find an existing seminar for this presenter with this name
+        // This allows the same presenter to reuse their seminar if they reopen a session
+        List<Seminar> existingSeminars = seminarRepository.findByPresenterUsername(presenterUsername);
+        Optional<Seminar> existingSeminar = existingSeminars.stream()
+            .filter(sem -> sem.getSeminarName() != null && sem.getSeminarName().equals(seminarName))
+            .findFirst();
+        
+        if (existingSeminar.isPresent()) {
+            Seminar found = existingSeminar.get();
+            logger.info("Found existing seminar {} for presenter {} on slot {} (seminarName: {})", 
+                found.getSeminarId(), presenterUsername, slot.getSlotId(), seminarName);
+            return found;
+        }
+        
+        // Create a new seminar for THIS presenter
         Seminar seminar = new Seminar();
-        seminar.setPresenterUsername(presenter.getBguUsername());
-        seminar.setSeminarName(buildSeminarName(slot));
-        seminar.setDescription("Auto-generated seminar for slot " + buildSeminarName(slot));
+        seminar.setPresenterUsername(presenterUsername);
+        seminar.setSeminarName(seminarName);
+        seminar.setDescription("Auto-generated seminar for slot " + seminarName + " (Presenter: " + presenterUsername + ")");
         seminar.setMaxEnrollmentCapacity(slot.getCapacity() != null ? slot.getCapacity() : 0);
         Seminar saved = seminarRepository.save(seminar);
-        slot.setLegacySeminarId(saved.getSeminarId());
+        
+        logger.info("Created new seminar {} for presenter {} on slot {} (seminarName: {})", 
+            saved.getSeminarId(), presenterUsername, slot.getSlotId(), seminarName);
+        
+        // CRITICAL: Do NOT update slot.setLegacySeminarId here
+        // The slot's legacySeminarId should only be updated if this is the first session for the slot
+        // Multiple presenters can have different seminars for the same slot
+        
         return saved;
     }
 
-    private Session createLegacySession(SeminarSlot slot, Seminar seminar) {
+    private Session createLegacySession(SeminarSlot slot, Seminar seminar, String presenterUsername) {
         Session session = new Session();
         session.setSeminarId(seminar.getSeminarId());
         session.setStartTime(toSlotStart(slot));
         session.setEndTime(toSlotEnd(slot));
-        session.setStatus(Session.SessionStatus.OPEN);
+        session.setStatus(Session.SessionStatus.OPEN); // CRITICAL: Must be OPEN status
         session.setLocation(buildLocation(slot));
-        return sessionRepository.save(session);
+        
+        logger.info("Creating new session for slot {} with OPEN status (seminarId: {})", 
+            slot.getSlotId(), seminar.getSeminarId());
+        
+        // CRITICAL: Save session to database - this MUST create a new row in sessions table
+        Session savedSession = sessionRepository.save(session);
+        
+        // CRITICAL: Verify session was saved with OPEN status and has an ID
+        if (savedSession.getSessionId() == null) {
+            String errorMsg = "CRITICAL ERROR: Session was saved but sessionId is null! Session not persisted to database!";
+            logger.error(errorMsg);
+            databaseLoggerService.logError("SESSION_SAVE_FAILED", errorMsg, null, presenterUsername, 
+                String.format("slotId=%s,seminarId=%s", slot.getSlotId(), seminar.getSeminarId()));
+            throw new IllegalStateException("Session was not saved to database - sessionId is null");
+        }
+        
+        if (savedSession.getStatus() != Session.SessionStatus.OPEN) {
+            String errorMsg = String.format("CRITICAL ERROR: Session %s was saved with status %s instead of OPEN!", 
+                savedSession.getSessionId(), savedSession.getStatus());
+            logger.error(errorMsg);
+            databaseLoggerService.logError("SESSION_WRONG_STATUS", errorMsg, null, presenterUsername, 
+                String.format("sessionId=%s,status=%s", savedSession.getSessionId(), savedSession.getStatus()));
+            throw new IllegalStateException("Session was not saved with OPEN status: " + savedSession.getStatus());
+        }
+        
+        logger.info("Successfully created and saved session {} with OPEN status for slot {} (seminarId: {})", 
+            savedSession.getSessionId(), slot.getSlotId(), savedSession.getSeminarId());
+        
+        // Log to database
+        databaseLoggerService.logAction("INFO", "SESSION_CREATED", 
+            String.format("Session %s created with OPEN status for slot %s", savedSession.getSessionId(), slot.getSlotId()),
+            presenterUsername, String.format("sessionId=%s,slotId=%s,seminarId=%s,status=OPEN", 
+                savedSession.getSessionId(), slot.getSlotId(), savedSession.getSeminarId()));
+        
+        // Verify session can be retrieved from database immediately
+        Optional<Session> verifySession = sessionRepository.findById(savedSession.getSessionId());
+        if (verifySession.isEmpty()) {
+            String errorMsg = String.format("CRITICAL ERROR: Session %s was saved but cannot be retrieved from database!", 
+                savedSession.getSessionId());
+            logger.error(errorMsg);
+            databaseLoggerService.logError("SESSION_RETRIEVAL_FAILED", errorMsg, null, presenterUsername, 
+                String.format("sessionId=%s", savedSession.getSessionId()));
+            throw new IllegalStateException("Session was saved but cannot be retrieved - transaction may have rolled back");
+        }
+        
+        Session verifiedSession = verifySession.get();
+        if (verifiedSession.getStatus() != Session.SessionStatus.OPEN) {
+            String errorMsg = String.format("CRITICAL ERROR: Retrieved session %s has status %s instead of OPEN!", 
+                verifiedSession.getSessionId(), verifiedSession.getStatus());
+            logger.error(errorMsg);
+            databaseLoggerService.logError("SESSION_STATUS_MISMATCH", errorMsg, null, presenterUsername, 
+                String.format("sessionId=%s,retrievedStatus=%s", verifiedSession.getSessionId(), verifiedSession.getStatus()));
+            throw new IllegalStateException("Retrieved session has wrong status: " + verifiedSession.getStatus());
+        }
+        
+        logger.info("Verified session {} exists in database with OPEN status - will appear in GET /api/v1/sessions/open", 
+            verifiedSession.getSessionId());
+        
+        return savedSession;
     }
 
     private void closeLegacySessionIfExists(SeminarSlot slot) {

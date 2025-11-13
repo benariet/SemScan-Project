@@ -144,6 +144,19 @@ public class DatabaseLoggerService {
     }
     
     /**
+     * Log API request with body
+     */
+    @Async
+    @Transactional
+    public void logApiRequest(String method, String endpoint, String bguUsername, String requestBody) {
+        // Truncate body to prevent huge database entries (max 10000 characters)
+        String truncatedBody = truncateString(requestBody, 10000);
+        String payload = truncatedBody != null ? String.format("requestBody=%s", truncatedBody) : null;
+        logAction("INFO", "API_REQUEST", 
+            String.format("%s %s", method, endpoint), bguUsername, payload);
+    }
+    
+    /**
      * Log API response
      */
     @Async
@@ -152,6 +165,20 @@ public class DatabaseLoggerService {
         String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
         logAction(level, "API_RESPONSE", 
             String.format("%s %s - Status: %d", method, endpoint, statusCode), bguUsername, null);
+    }
+    
+    /**
+     * Log API response with body
+     */
+    @Async
+    @Transactional
+    public void logApiResponse(String method, String endpoint, int statusCode, String bguUsername, String responseBody) {
+        String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
+        // Truncate body to prevent huge database entries (max 10000 characters)
+        String truncatedBody = truncateString(responseBody, 10000);
+        String payload = truncatedBody != null ? String.format("responseBody=%s", truncatedBody) : null;
+        logAction(level, "API_RESPONSE", 
+            String.format("%s %s - Status: %d", method, endpoint, statusCode), bguUsername, payload);
     }
     
     /**
@@ -227,6 +254,21 @@ public class DatabaseLoggerService {
             return AppLog.UserRole.PARTICIPANT;
         }
         return AppLog.UserRole.UNKNOWN;
+    }
+    
+    /**
+     * Truncate string to prevent huge database entries
+     */
+    private String truncateString(String str, int maxLength) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+        
+        if (str.length() <= maxLength) {
+            return str;
+        }
+        
+        return str.substring(0, maxLength) + "... (truncated, original length: " + str.length() + ")";
     }
 }
 

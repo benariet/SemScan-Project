@@ -5,6 +5,7 @@ public class PresenterSlotRegistrationResponse {
     private boolean success;
     private String message;
     private String code;
+    private Boolean hasSupervisorEmail; // Indicates if supervisor email is available to send
 
     public PresenterSlotRegistrationResponse() {
     }
@@ -18,6 +19,13 @@ public class PresenterSlotRegistrationResponse {
         this.success = success;
         this.message = message;
         this.code = code;
+    }
+
+    public PresenterSlotRegistrationResponse(boolean success, String message, String code, Boolean hasSupervisorEmail) {
+        this.success = success;
+        this.message = message;
+        this.code = code;
+        this.hasSupervisorEmail = hasSupervisorEmail;
     }
 
     public boolean isSuccess() {
@@ -42,6 +50,14 @@ public class PresenterSlotRegistrationResponse {
 
     public void setCode(String code) {
         this.code = code;
+    }
+
+    public Boolean getHasSupervisorEmail() {
+        return hasSupervisorEmail;
+    }
+
+    public void setHasSupervisorEmail(Boolean hasSupervisorEmail) {
+        this.hasSupervisorEmail = hasSupervisorEmail;
     }
 }
 

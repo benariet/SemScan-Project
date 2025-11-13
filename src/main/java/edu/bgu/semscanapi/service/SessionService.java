@@ -46,8 +46,11 @@ public class SessionService {
             // Validate seminar exists
             Optional<Seminar> seminar = seminarRepository.findById(session.getSeminarId());
             if (seminar.isEmpty()) {
-                logger.error("Seminar not found: {}", session.getSeminarId());
-                throw new IllegalArgumentException("Seminar not found: " + session.getSeminarId());
+                String errorMsg = "Seminar not found: " + session.getSeminarId();
+                logger.error(errorMsg);
+                databaseLoggerService.logError("SESSION_SEMINAR_NOT_FOUND", errorMsg, null, null, 
+                    String.format("seminarId=%s", session.getSeminarId()));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             // Set default status if not provided
@@ -84,8 +87,14 @@ public class SessionService {
             
             return savedSession;
             
+        } catch (IllegalArgumentException e) {
+            // Already logged above, just re-throw
+            throw e;
         } catch (Exception e) {
-            logger.error("Failed to create session for seminar: {}", session.getSeminarId(), e);
+            String errorMsg = String.format("Failed to create session for seminar: %s", session.getSeminarId());
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("SESSION_CREATION_ERROR", errorMsg, e, null, 
+                String.format("seminarId=%s,exceptionType=%s", session.getSeminarId(), e.getClass().getName()));
             if (session.getSessionId() != null) {
                 SessionLoggerUtil.logSessionError(session.getSessionId(), 
                     "Failed to create session: " + e.getMessage(), e);
@@ -135,7 +144,10 @@ public class SessionService {
             LoggerUtil.logDatabaseOperation(logger, "SELECT_BY_SEMINAR", "sessions", seminarId != null ? seminarId.toString() : "null");
             return sessions;
         } catch (Exception e) {
-            logger.error("Failed to retrieve sessions for seminar: {}", seminarId, e);
+            String errorMsg = String.format("Failed to retrieve sessions for seminar: %s", seminarId);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("SESSION_RETRIEVAL_ERROR", errorMsg, e, null, 
+                String.format("seminarId=%s,exceptionType=%s", seminarId, e.getClass().getName()));
             throw e;
         } finally {
             LoggerUtil.clearKey("seminarId");
@@ -144,6 +156,9 @@ public class SessionService {
     
     /**
      * Get open sessions
+     * Returns ALL open sessions ordered by most recent first (startTime DESC, createdAt DESC)
+     * This ensures participants can see newly opened sessions even when multiple presenters
+     * use the same time slot.
      */
     @Transactional(readOnly = true)
     public List<Session> getOpenSessions() {
@@ -151,11 +166,35 @@ public class SessionService {
         
         try {
             List<Session> sessions = sessionRepository.findOpenSessions();
-            logger.info("Retrieved {} open sessions", sessions.size());
+            
+            // CRITICAL: Double-check that all returned sessions are actually OPEN
+            // This is a safety measure in case the database query has issues
+            List<Session> openSessions = sessions.stream()
+                .filter(session -> session.getStatus() == Session.SessionStatus.OPEN)
+                .toList();
+            
+            if (openSessions.size() != sessions.size()) {
+                logger.warn("Query returned {} sessions but only {} are actually OPEN. Filtering out CLOSED sessions.", 
+                    sessions.size(), openSessions.size());
+                sessions.stream()
+                    .filter(session -> session.getStatus() != Session.SessionStatus.OPEN)
+                    .forEach(session -> logger.warn("Filtered out CLOSED session: ID={}, Status={}", 
+                        session.getSessionId(), session.getStatus()));
+            }
+            
+            logger.info("Retrieved {} open sessions (ordered by most recent first)", openSessions.size());
+            if (logger.isDebugEnabled()) {
+                openSessions.forEach(session -> logger.debug("Open session: ID={}, SeminarID={}, Status={}, StartTime={}, CreatedAt={}", 
+                    session.getSessionId(), session.getSeminarId(), session.getStatus(), 
+                    session.getStartTime(), session.getCreatedAt()));
+            }
             LoggerUtil.logDatabaseOperation(logger, "SELECT_OPEN", "sessions", "all");
-            return sessions;
+            return openSessions;
         } catch (Exception e) {
-            logger.error("Failed to retrieve open sessions", e);
+            String errorMsg = "Failed to retrieve open sessions";
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("SESSION_RETRIEVAL_ERROR", errorMsg, e, null, 
+                String.format("exceptionType=%s", e.getClass().getName()));
             throw e;
         }
     }
@@ -173,7 +212,10 @@ public class SessionService {
             LoggerUtil.logDatabaseOperation(logger, "SELECT_CLOSED", "sessions", "all");
             return sessions;
         } catch (Exception e) {
-            logger.error("Failed to retrieve closed sessions", e);
+            String errorMsg = "Failed to retrieve closed sessions";
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("SESSION_RETRIEVAL_ERROR", errorMsg, e, null, 
+                String.format("exceptionType=%s", e.getClass().getName()));
             throw e;
         }
     }
@@ -188,8 +230,11 @@ public class SessionService {
         try {
             Optional<Session> existingSession = sessionRepository.findById(sessionId);
             if (existingSession.isEmpty()) {
+                String errorMsg = "Session not found: " + sessionId;
                 logger.error("Session not found for status update: {}", sessionId);
-                throw new IllegalArgumentException("Session not found: " + sessionId);
+                databaseLoggerService.logError("SESSION_NOT_FOUND", errorMsg, null, null, 
+                    String.format("sessionId=%s", sessionId));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             Session session = existingSession.get();
@@ -214,9 +259,19 @@ public class SessionService {
                 sessionId.toString(), existingSession.get().getSeminarId() != null ? existingSession.get().getSeminarId().toString() : null,
                 null);
             
+            // Log status update to database
+            databaseLoggerService.logSessionEvent("SESSION_STATUS_UPDATED", sessionId, 
+                existingSession.get().getSeminarId(), null);
+            
             return savedSession;
+        } catch (IllegalArgumentException e) {
+            // Already logged above, just re-throw
+            throw e;
         } catch (Exception e) {
-            logger.error("Failed to update session status: {}", sessionId, e);
+            String errorMsg = String.format("Failed to update session status: %s", sessionId);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("SESSION_UPDATE_ERROR", errorMsg, e, null, 
+                String.format("sessionId=%s,exceptionType=%s", sessionId, e.getClass().getName()));
             throw e;
         } finally {
             LoggerUtil.clearKey("sessionId");
@@ -248,15 +303,25 @@ public class SessionService {
         
         try {
             if (!sessionRepository.existsById(sessionId)) {
+                String errorMsg = "Session not found: " + sessionId;
                 logger.error("Session not found for deletion: {}", sessionId);
-                throw new IllegalArgumentException("Session not found: " + sessionId);
+                databaseLoggerService.logError("SESSION_DELETE_NOT_FOUND", errorMsg, null, null, 
+                    String.format("sessionId=%s", sessionId));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             sessionRepository.deleteById(sessionId);
             logger.info("Session deleted successfully: {}", sessionId);
             LoggerUtil.logSessionEvent(logger, "SESSION_DELETED", sessionId.toString(), null, null);
+            databaseLoggerService.logSessionEvent("SESSION_DELETED", sessionId, null, null);
+        } catch (IllegalArgumentException e) {
+            // Already logged above, just re-throw
+            throw e;
         } catch (Exception e) {
-            logger.error("Failed to delete session: {}", sessionId, e);
+            String errorMsg = String.format("Failed to delete session: %s", sessionId);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("SESSION_DELETE_ERROR", errorMsg, e, null, 
+                String.format("sessionId=%s,exceptionType=%s", sessionId, e.getClass().getName()));
             throw e;
         } finally {
             LoggerUtil.clearKey("sessionId");
@@ -277,7 +342,10 @@ public class SessionService {
                 startDate + " to " + endDate);
             return sessions;
         } catch (Exception e) {
-            logger.error("Failed to retrieve sessions between dates", e);
+            String errorMsg = "Failed to retrieve sessions between dates";
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("SESSION_RETRIEVAL_ERROR", errorMsg, e, null, 
+                String.format("startDate=%s,endDate=%s,exceptionType=%s", startDate, endDate, e.getClass().getName()));
             throw e;
         }
     }
@@ -296,7 +364,10 @@ public class SessionService {
             LoggerUtil.logDatabaseOperation(logger, "SELECT_ACTIVE_BY_SEMINAR", "sessions", seminarId != null ? seminarId.toString() : "null");
             return sessions;
         } catch (Exception e) {
-            logger.error("Failed to retrieve active sessions for seminar: {}", seminarId, e);
+            String errorMsg = String.format("Failed to retrieve active sessions for seminar: %s", seminarId);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("SESSION_RETRIEVAL_ERROR", errorMsg, e, null, 
+                String.format("seminarId=%s,exceptionType=%s", seminarId, e.getClass().getName()));
             throw e;
         } finally {
             LoggerUtil.clearKey("seminarId");

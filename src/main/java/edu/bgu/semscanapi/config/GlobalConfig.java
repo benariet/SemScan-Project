@@ -93,6 +93,22 @@ public class GlobalConfig {
     private String emailRecipients;
     
     // =============================================
+    // EMAIL CONFIGURATION
+    // =============================================
+    
+    @Value("${spring.mail.host:smtp.gmail.com}")
+    private String mailHost;
+    
+    @Value("${spring.mail.port:587}")
+    private int mailPort;
+    
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+    
+    @Value("${spring.mail.from:SemScan Attendance System <noreply@semscan.com>}")
+    private String mailFrom;
+    
+    // =============================================
     // APPLICATION INFO
     // =============================================
     
@@ -198,6 +214,28 @@ public class GlobalConfig {
 
     public String getEmailRecipients() {
         return emailRecipients;
+    }
+    
+    // Email Configuration
+    public String getMailHost() {
+        return mailHost;
+    }
+    
+    public int getMailPort() {
+        return mailPort;
+    }
+    
+    public String getMailUsername() {
+        return mailUsername;
+    }
+    
+    public String getMailFrom() {
+        return mailFrom;
+    }
+    
+    public boolean isEmailConfigured() {
+        return mailUsername != null && !mailUsername.trim().isEmpty() 
+            && !mailUsername.equals("your-email@gmail.com");
     }
     
     // Application Info

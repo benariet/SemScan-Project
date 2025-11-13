@@ -20,7 +20,7 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
 
     List<Session> findByStatus(Session.SessionStatus status);
 
-    @Query("SELECT s FROM Session s WHERE s.status = 'OPEN'")
+    @Query("SELECT s FROM Session s WHERE s.status = 'OPEN' ORDER BY s.startTime DESC, s.createdAt DESC")
     List<Session> findOpenSessions();
 
     @Query("SELECT s FROM Session s WHERE s.status = 'CLOSED'")

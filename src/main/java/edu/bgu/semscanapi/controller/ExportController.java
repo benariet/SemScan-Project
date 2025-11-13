@@ -12,6 +12,7 @@ import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.service.AttendanceService;
 import edu.bgu.semscanapi.service.AuthenticationService;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.EmailService;
 import edu.bgu.semscanapi.service.ManualAttendanceService;
 import edu.bgu.semscanapi.service.SessionService;
@@ -77,6 +78,9 @@ public class ExportController {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+
     /**
      * Export attendance data as CSV
      */
@@ -93,10 +97,15 @@ public class ExportController {
             // Check for pending manual attendance requests
             if (manualAttendanceService.hasPendingRequests(sessionId)) {
                 long pendingCount = manualAttendanceService.getPendingRequestCount(sessionId);
-                logger.warn("Cannot export CSV for session: {} - {} pending manual attendance requests",
-                        sessionId, pendingCount);
+                String errorMsg = String.format("Cannot export CSV for session: %s - %d pending manual attendance requests", 
+                    sessionId, pendingCount);
+                logger.warn(errorMsg);
                 LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/csv", 409,
                         "Conflict - " + pendingCount + " pending requests");
+                
+                // Log to database
+                databaseLoggerService.logError("EXPORT_BLOCKED_PENDING_REQUESTS", errorMsg, null, null, 
+                    String.format("sessionId=%s,pendingCount=%d,format=CSV", sessionId, pendingCount));
 
                 ErrorResponse errorResponse = new ErrorResponse(
                         "Cannot export while " + pendingCount
@@ -127,15 +136,25 @@ public class ExportController {
                     sessionId, attendanceList.size());
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/csv", 200,
                     "CSV file with " + attendanceList.size() + " records");
+            
+            // Log successful export to database
+            databaseLoggerService.logBusinessEvent("EXPORT_CSV_SUCCESS", 
+                String.format("CSV export successful for session %s - %d records", sessionId, attendanceList.size()), 
+                null);
 
             return ResponseEntity.ok()
                     .headers(headers)
                     .body(csvData);
 
         } catch (Exception e) {
-            logger.error("Failed to export CSV for session: {}", sessionId, e);
+            String errorMsg = String.format("Failed to export CSV for session: %s", sessionId);
+            logger.error(errorMsg, e);
             LoggerUtil.logError(logger, "Failed to export CSV for session", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/csv", 500, "Internal Server Error");
+            
+            // Log error to database
+            databaseLoggerService.logError("EXPORT_CSV_ERROR", errorMsg, e, null, 
+                String.format("sessionId=%s,exceptionType=%s", sessionId, e.getClass().getName()));
 
             ErrorResponse errorResponse = new ErrorResponse(
                     "An unexpected error occurred while exporting CSV",
@@ -164,10 +183,15 @@ public class ExportController {
             // Check for pending manual attendance requests
             if (manualAttendanceService.hasPendingRequests(sessionId)) {
                 long pendingCount = manualAttendanceService.getPendingRequestCount(sessionId);
-                logger.warn("Cannot export XLSX for session: {} - {} pending manual attendance requests",
-                        sessionId, pendingCount);
+                String errorMsg = String.format("Cannot export XLSX for session: %s - %d pending manual attendance requests", 
+                    sessionId, pendingCount);
+                logger.warn(errorMsg);
                 LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/xlsx", 409,
                         "Conflict - " + pendingCount + " pending requests");
+                
+                // Log to database
+                databaseLoggerService.logError("EXPORT_BLOCKED_PENDING_REQUESTS", errorMsg, null, null, 
+                    String.format("sessionId=%s,pendingCount=%d,format=XLSX", sessionId, pendingCount));
 
                 ErrorResponse errorResponse = new ErrorResponse(
                         "Cannot export while " + pendingCount
@@ -202,15 +226,25 @@ public class ExportController {
                     sessionId, attendanceList.size());
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/xlsx", 200,
                     "XLSX file with " + attendanceList.size() + " records");
+            
+            // Log successful export to database
+            databaseLoggerService.logBusinessEvent("EXPORT_XLSX_SUCCESS", 
+                String.format("XLSX export successful for session %s - %d records", sessionId, attendanceList.size()), 
+                null);
 
             return ResponseEntity.ok()
                     .headers(headers)
                     .body(excelData);
 
         } catch (Exception e) {
-            logger.error("Failed to export XLSX for session: {}", sessionId, e);
+            String errorMsg = String.format("Failed to export XLSX for session: %s", sessionId);
+            logger.error(errorMsg, e);
             LoggerUtil.logError(logger, "Failed to export XLSX for session", e);
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/export/xlsx", 500, "Internal Server Error");
+            
+            // Log error to database
+            databaseLoggerService.logError("EXPORT_XLSX_ERROR", errorMsg, e, null, 
+                String.format("sessionId=%s,exceptionType=%s", sessionId, e.getClass().getName()));
 
             ErrorResponse errorResponse = new ErrorResponse(
                     "An unexpected error occurred while exporting XLSX",
@@ -250,10 +284,15 @@ public class ExportController {
             // Check for pending manual attendance requests
             if (manualAttendanceService.hasPendingRequests(sessionId)) {
                 long pendingCount = manualAttendanceService.getPendingRequestCount(sessionId);
-                logger.warn("Cannot send export email for session: {} - {} pending manual attendance requests",
-                        sessionId, pendingCount);
+                String errorMsg = String.format("Cannot send export email for session: %s - %d pending manual attendance requests", 
+                    sessionId, pendingCount);
+                logger.warn(errorMsg);
                 LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/send-email", 409,
                         "Conflict - " + pendingCount + " pending requests");
+                
+                // Log to database
+                databaseLoggerService.logError("EXPORT_EMAIL_BLOCKED_PENDING_REQUESTS", errorMsg, null, null, 
+                    String.format("sessionId=%s,pendingCount=%d,format=%s", sessionId, pendingCount, format));
 
                 ErrorResponse errorResponse = new ErrorResponse(
                         "Cannot export while " + pendingCount
@@ -266,12 +305,18 @@ public class ExportController {
 
             // Check if email service is configured
             if (!emailService.isEmailConfigured()) {
+                String errorMsg = "Email service is not configured. Please configure SMTP settings in application properties.";
+                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/send-email", 503, "Email service not configured");
+                
+                // Log to database
+                databaseLoggerService.logError("EXPORT_EMAIL_NOT_CONFIGURED", errorMsg, null, null, 
+                    String.format("sessionId=%s,format=%s", sessionId, format));
+                
                 ErrorResponse errorResponse = new ErrorResponse(
-                        "Email service is not configured. Please configure SMTP settings in application properties.",
+                        errorMsg,
                         "Service Unavailable",
                         503,
                         "/api/v1/export/send-email");
-                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/send-email", 503, "Email service not configured");
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
             }
 
@@ -300,19 +345,29 @@ public class ExportController {
             // Send email
             boolean emailSent = emailService.sendExportEmail(sessionId, filename, exportData, format);
             if (!emailSent) {
+                String errorMsg = "Failed to send export email. Please check email configuration and try again.";
+                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/send-email", 500, "Failed to send email");
+                
+                // Log email send failure to database
+                databaseLoggerService.logError("EXPORT_EMAIL_SEND_FAILED", errorMsg, null, null, 
+                    String.format("sessionId=%s,format=%s,recordCount=%d", sessionId, format, attendanceList.size()));
+                
                 ErrorResponse errorResponse = new ErrorResponse(
-                        "Failed to send export email. Please check email configuration and try again.",
+                        errorMsg,
                         "Internal Server Error",
                         500,
                         "/api/v1/export/send-email");
-                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/send-email", 500, "Failed to send email");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             }
 
-            logger.info("Export email sent successfully for session: {} - {} records, format: {}",
-                    sessionId, attendanceList.size(), format);
+            String successMsg = String.format("Export email sent successfully for session: %s - %d records, format: %s", 
+                sessionId, attendanceList.size(), format);
+            logger.info(successMsg);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/send-email", 200,
                     "Email sent with " + attendanceList.size() + " records");
+            
+            // Log successful email send to database
+            databaseLoggerService.logBusinessEvent("EXPORT_EMAIL_SENT", successMsg, null);
 
             Map<String, Object> response = Map.of(
                     "success", true,
@@ -327,9 +382,14 @@ public class ExportController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            logger.error("Failed to send export email for session: {}", sessionId, e);
+            String errorMsg = String.format("Failed to send export email for session: %s", sessionId);
+            logger.error(errorMsg, e);
             LoggerUtil.logError(logger, "Failed to send export email for session", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/send-email", 500, "Internal Server Error");
+            
+            // Log error to database
+            databaseLoggerService.logError("EXPORT_EMAIL_ERROR", errorMsg, e, null, 
+                String.format("sessionId=%s,format=%s,exceptionType=%s", sessionId, format, e.getClass().getName()));
 
             ErrorResponse errorResponse = new ErrorResponse(
                     "An unexpected error occurred while sending export email",
@@ -452,8 +512,8 @@ public class ExportController {
         // Get presenter info
         String presenterName = getPresenterNameForSession(sessionId, sessionOpt.orElse(null));
 
-        // CSV Header: Method, Attendance Time, Username, First Name, Last Name, Time Slot, Presenter
-        writer.println("Method,Attendance Time,Username,First Name,Last Name,Time Slot,Presenter");
+        // CSV Header: Method, Attendance Time, Username, First Name, Last Name, National ID, Time Slot, Presenter
+        writer.println("Method,Attendance Time,Username,First Name,Last Name,National ID,Time Slot,Presenter");
 
         // CSV Data
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -463,16 +523,18 @@ public class ExportController {
             
             String firstName = user != null && user.getFirstName() != null ? user.getFirstName() : "";
             String lastName = user != null && user.getLastName() != null ? user.getLastName() : "";
+            String nationalId = user != null && user.getNationalIdNumber() != null ? user.getNationalIdNumber() : "";
             String method = attendance.getMethod() != null ? attendance.getMethod().toString() : "";
             String attendanceTime = attendance.getAttendanceTime() != null ? attendance.getAttendanceTime().format(formatter) : "";
             String studentUsername = username != null ? username : "";
 
-            writer.printf("%s,%s,%s,%s,%s,%s,%s%n",
+            writer.printf("%s,%s,%s,%s,%s,%s,%s,%s%n",
                     escapeCsv(method),
                     escapeCsv(attendanceTime),
                     escapeCsv(studentUsername),
                     escapeCsv(firstName),
                     escapeCsv(lastName),
+                    escapeCsv(nationalId),
                     escapeCsv(timeSlot),
                     escapeCsv(presenterName));
         }
@@ -523,32 +585,60 @@ public class ExportController {
         return start.format(timeFormatter) + "-" + end.format(timeFormatter);
     }
 
-    /**
-     * Get presenter name for a session
-     */
+
     private String getPresenterNameForSession(Long sessionId, Session session) {
         if (session == null) {
+            logger.warn("Cannot get presenter name - session is null for sessionId: {}", sessionId);
             return "";
         }
 
         try {
+            // CRITICAL: Get seminar associated with THIS session
+            // sessions.seminar_id → seminars.presenter_username → users (presenter info)
             Optional<Seminar> seminarOpt = seminarRepository.findById(session.getSeminarId());
             if (seminarOpt.isEmpty()) {
+                logger.warn("Seminar not found for session {} (seminarId: {})", sessionId, session.getSeminarId());
+                databaseLoggerService.logError("EXPORT_SEMINAR_NOT_FOUND", 
+                    String.format("Seminar not found for session %s (seminarId: %s)", sessionId, session.getSeminarId()),
+                    null, null, String.format("sessionId=%s,seminarId=%s", sessionId, session.getSeminarId()));
                 return "";
             }
             Seminar seminar = seminarOpt.get();
 
+            logger.debug("Found seminar {} for session {} - presenter_username: {}", 
+                seminar.getSeminarId(), sessionId, seminar.getPresenterUsername());
+
             Optional<User> presenterOpt = userRepository.findByBguUsernameIgnoreCase(seminar.getPresenterUsername());
             if (presenterOpt.isEmpty()) {
+                logger.warn("Presenter user not found for session {} (presenter_username: {})", 
+                    sessionId, seminar.getPresenterUsername());
+                databaseLoggerService.logError("EXPORT_PRESENTER_NOT_FOUND", 
+                    String.format("Presenter user not found for session %s (presenter_username: %s)", 
+                        sessionId, seminar.getPresenterUsername()),
+                    null, null, String.format("sessionId=%s,presenterUsername=%s", sessionId, seminar.getPresenterUsername()));
                 return "";
             }
             User presenter = presenterOpt.get();
 
             String firstName = presenter.getFirstName() != null ? presenter.getFirstName() : "";
             String lastName = presenter.getLastName() != null ? presenter.getLastName() : "";
-            return (firstName + " " + lastName).trim();
+            String presenterName = (firstName + " " + lastName).trim();
+            
+            logger.info("Presenter name for session {}: {} (seminarId: {}, presenter_username: {})", 
+                sessionId, presenterName, seminar.getSeminarId(), seminar.getPresenterUsername());
+            
+            // Log to database for verification
+            databaseLoggerService.logAction("INFO", "EXPORT_PRESENTER_RESOLVED", 
+                String.format("Resolved presenter for session %s: %s", sessionId, presenterName),
+                null, String.format("sessionId=%s,seminarId=%s,presenterUsername=%s,presenterName=%s", 
+                    sessionId, seminar.getSeminarId(), seminar.getPresenterUsername(), presenterName));
+            
+            return presenterName;
         } catch (Exception e) {
             logger.error("Error getting presenter name for session: {}", sessionId, e);
+            databaseLoggerService.logError("EXPORT_PRESENTER_ERROR", 
+                String.format("Error getting presenter name for session %s", sessionId), e, null,
+                String.format("sessionId=%s,exceptionType=%s", sessionId, e.getClass().getName()));
             return "";
         }
     }
@@ -596,7 +686,7 @@ public class ExportController {
             // Create header row
             Row headerRow = sheet.createRow(0);
             String[] headers = {
-                    "Method", "Attendance Time", "Username", "First Name", "Last Name", "Time Slot", "Presenter"
+                    "Method", "Attendance Time", "Username", "First Name", "Last Name", "National ID", "Time Slot", "Presenter"
             };
 
             // Style for header row
@@ -625,6 +715,7 @@ public class ExportController {
                 
                 String firstName = user != null && user.getFirstName() != null ? user.getFirstName() : "";
                 String lastName = user != null && user.getLastName() != null ? user.getLastName() : "";
+                String nationalId = user != null && user.getNationalIdNumber() != null ? user.getNationalIdNumber() : "";
                 String method = attendance.getMethod() != null ? attendance.getMethod().toString() : "";
                 String attendanceTime = attendance.getAttendanceTime() != null ? attendance.getAttendanceTime().format(formatter) : "";
                 String studentUsername = username != null ? username : "";
@@ -634,8 +725,9 @@ public class ExportController {
                 dataRow.createCell(2).setCellValue(studentUsername);
                 dataRow.createCell(3).setCellValue(firstName);
                 dataRow.createCell(4).setCellValue(lastName);
-                dataRow.createCell(5).setCellValue(timeSlot);
-                dataRow.createCell(6).setCellValue(presenterName);
+                dataRow.createCell(5).setCellValue(nationalId);
+                dataRow.createCell(6).setCellValue(timeSlot);
+                dataRow.createCell(7).setCellValue(presenterName);
             }
 
             // Auto-size columns

@@ -15,8 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Service class for Attendance business logic
@@ -52,37 +53,58 @@ public class AttendanceService {
         attendance.setStudentUsername(normalizeUsername(attendance.getStudentUsername()));
         
         try {
-            // Validate session exists and is open
+            // CRITICAL FIX: Query session by sessionId (NOT by slotId)
+            // This ensures we validate the exact session provided in the request,
+            // allowing multiple presenters to have separate sessions for the same time slot
             Optional<Session> session = sessionRepository.findById(attendance.getSessionId());
             if (session.isEmpty()) {
-                logger.error("Session not found: {}", attendance.getSessionId());
-                throw new IllegalArgumentException("Session not found: " + attendance.getSessionId());
+                String errorMsg = "Session not found: " + attendance.getSessionId();
+                logger.error(errorMsg);
+                databaseLoggerService.logError("ATTENDANCE_SESSION_NOT_FOUND", errorMsg, null, 
+                    attendance.getStudentUsername(), String.format("sessionId=%s", attendance.getSessionId()));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             Session sessionEntity = session.get();
-            logger.debug("Session found: {} - Status: {}, StartTime: {}, EndTime: {}", 
+            logger.info("Validating session for attendance - SessionID: {}, Status: {}, StartTime: {}, EndTime: {}", 
                 sessionEntity.getSessionId(), sessionEntity.getStatus(), 
                 sessionEntity.getStartTime(), sessionEntity.getEndTime());
             
+            // CRITICAL: Validate that THIS specific session is OPEN
+            // Do NOT check other sessions in the slot - only validate the exact sessionId provided
+            // This allows multiple presenters to have separate sessions for the same slot
             if (sessionEntity.getStatus() != Session.SessionStatus.OPEN) {
-                logger.error("Session is not open: {} (status: {})", 
-                    attendance.getSessionId(), sessionEntity.getStatus());
-                throw new IllegalArgumentException("Session is not open: " + attendance.getSessionId() + " (status: " + sessionEntity.getStatus() + ")");
+                String errorMessage = "Session is not open: " + attendance.getSessionId() + " (status: " + sessionEntity.getStatus() + ")";
+                logger.error("Session is not open: {} (status: {}). Student: {} cannot attend.", 
+                    attendance.getSessionId(), sessionEntity.getStatus(), attendance.getStudentUsername());
+                databaseLoggerService.logError("ATTENDANCE_SESSION_NOT_OPEN", errorMessage, null, 
+                    attendance.getStudentUsername(), String.format("sessionId=%s,status=%s", 
+                        attendance.getSessionId(), sessionEntity.getStatus()));
+                throw new IllegalArgumentException(errorMessage);
             }
+            
+            logger.info("Session validation passed - SessionID: {} is OPEN, allowing attendance submission", 
+                sessionEntity.getSessionId());
             
             // Validate student exists (use case-insensitive lookup)
             Optional<User> student = userRepository.findByBguUsernameIgnoreCase(attendance.getStudentUsername());
             if (student.isEmpty()) {
-                logger.error("Student not found: {}", attendance.getStudentUsername());
-                throw new IllegalArgumentException("Student not found: " + attendance.getStudentUsername());
+                String errorMsg = "Student not found: " + attendance.getStudentUsername();
+                logger.error(errorMsg);
+                databaseLoggerService.logError("ATTENDANCE_STUDENT_NOT_FOUND", errorMsg, null, 
+                    attendance.getStudentUsername(), String.format("sessionId=%s", attendance.getSessionId()));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             logger.debug("Student found: {} - isParticipant: {}", 
                 student.get().getBguUsername(), student.get().getIsParticipant());
             
             if (!Boolean.TRUE.equals(student.get().getIsParticipant())) {
+                String errorMsg = "User is not a participant: " + attendance.getStudentUsername();
                 logger.error("User is not marked as participant: {}", attendance.getStudentUsername());
-                throw new IllegalArgumentException("User is not a participant: " + attendance.getStudentUsername());
+                databaseLoggerService.logError("ATTENDANCE_NOT_PARTICIPANT", errorMsg, null, 
+                    attendance.getStudentUsername(), String.format("sessionId=%s", attendance.getSessionId()));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             // Check if already attended (use case-insensitive check)
@@ -98,11 +120,15 @@ public class AttendanceService {
                 Optional<Attendance> existingAttendance = attendanceRepository.findBySessionIdAndStudentUsernameIgnoreCase(
                     attendance.getSessionId(), normalizedUsername);
                 if (existingAttendance.isPresent()) {
+                    String errorMsg = "Student already attended this session";
                     logger.warn("Student already attended session: {} - {} (Attendance ID: {}, Username in DB: {})", 
                         normalizedUsername, attendance.getSessionId(), 
                         existingAttendance.get().getAttendanceId(),
                         existingAttendance.get().getStudentUsername());
-                    throw new IllegalArgumentException("Student already attended this session");
+                    databaseLoggerService.logError("ATTENDANCE_DUPLICATE", errorMsg, null, 
+                        normalizedUsername, String.format("sessionId=%s,existingAttendanceId=%s", 
+                            attendance.getSessionId(), existingAttendance.get().getAttendanceId()));
+                    throw new IllegalArgumentException(errorMsg);
                 }
             }
             
@@ -118,11 +144,51 @@ public class AttendanceService {
                 logger.debug("Set default attendance method: QR_SCAN");
             }
             
+            // CRITICAL: Ensure sessionId is set correctly before saving
+            // The attendance object should already have sessionId from the request, but verify it
+            Long requestedSessionId = attendance.getSessionId();
+            if (requestedSessionId == null) {
+                String errorMsg = "Attendance request missing sessionId";
+                logger.error(errorMsg);
+                databaseLoggerService.logError("ATTENDANCE_MISSING_SESSION_ID", errorMsg, null, 
+                    attendance.getStudentUsername(), "attendance object missing sessionId");
+                throw new IllegalArgumentException(errorMsg);
+            }
+            
+            // Verify the sessionId matches the validated session
+            if (!Objects.equals(requestedSessionId, sessionEntity.getSessionId())) {
+                String errorMsg = String.format("SessionId mismatch! Request: %s, Validated: %s", 
+                    requestedSessionId, sessionEntity.getSessionId());
+                logger.error(errorMsg);
+                databaseLoggerService.logError("ATTENDANCE_SESSION_ID_MISMATCH", errorMsg, null, 
+                    attendance.getStudentUsername(), String.format("requestedSessionId=%s,validatedSessionId=%s", 
+                        requestedSessionId, sessionEntity.getSessionId()));
+                throw new IllegalStateException(errorMsg);
+            }
+            
+            // Explicitly set sessionId to ensure it's correct (defensive programming)
+            attendance.setSessionId(requestedSessionId);
+            
+            logger.info("Saving attendance record - Student: {}, SessionId: {} (verified)", 
+                attendance.getStudentUsername(), attendance.getSessionId());
+            
             // Keep string IDs for API consistency - database will handle conversion
             // The database triggers will generate the string IDs automatically
             
             Attendance savedAttendance = attendanceRepository.save(attendance);
-                    logger.info("Attendance recorded successfully: {} for student: {} in session: {}",
+            
+            // CRITICAL: Verify the saved attendance record has the correct sessionId
+            if (!Objects.equals(savedAttendance.getSessionId(), requestedSessionId)) {
+                String errorMsg = String.format("CRITICAL ERROR: Saved attendance record has wrong sessionId! Expected: %s, Got: %s", 
+                    requestedSessionId, savedAttendance.getSessionId());
+                logger.error(errorMsg);
+                databaseLoggerService.logError("ATTENDANCE_SAVED_WRONG_SESSION_ID", errorMsg, null, 
+                    attendance.getStudentUsername(), String.format("expectedSessionId=%s,actualSessionId=%s,attendanceId=%s", 
+                        requestedSessionId, savedAttendance.getSessionId(), savedAttendance.getAttendanceId()));
+                throw new IllegalStateException(errorMsg);
+            }
+            
+            logger.info("Attendance recorded successfully: {} for student: {} in session: {} (verified sessionId matches)",
                         savedAttendance.getAttendanceId(), savedAttendance.getStudentUsername(), savedAttendance.getSessionId());
             
             // Log to session-specific log file
@@ -143,9 +209,16 @@ public class AttendanceService {
             
             return savedAttendance;
             
+        } catch (IllegalArgumentException e) {
+            // Already logged above, just re-throw
+            throw e;
         } catch (Exception e) {
-            logger.error("Failed to record attendance for student: {} in session: {}", 
-                attendance.getStudentUsername(), attendance.getSessionId(), e);
+            String errorMsg = String.format("Failed to record attendance for student: %s in session: %s", 
+                attendance.getStudentUsername(), attendance.getSessionId());
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("ATTENDANCE_RECORDING_ERROR", errorMsg, e, 
+                attendance.getStudentUsername(), String.format("sessionId=%s,exceptionType=%s", 
+                    attendance.getSessionId(), e.getClass().getName()));
             throw e;
         } finally {
             LoggerUtil.clearStudentUsername();
@@ -187,12 +260,78 @@ public class AttendanceService {
         LoggerUtil.setSessionId(sessionId != null ? sessionId.toString() : null);
         
         try {
+            // CRITICAL: Query attendance records by THIS specific sessionId
+            // This ensures that when multiple sessions exist for the same slot,
+            // each session's attendance records are returned independently
+            // Do NOT query by slot_id or join in a way that returns wrong data
             List<Attendance> attendanceList = attendanceRepository.findBySessionId(sessionId);
-            logger.info("Retrieved {} attendance records for session: {}", attendanceList.size(), sessionId);
+            
+            // Verify all returned records belong to the requested session
+            List<Attendance> invalidRecords = attendanceList.stream()
+                .filter(attendance -> !Objects.equals(attendance.getSessionId(), sessionId))
+                .toList();
+            
+            if (!invalidRecords.isEmpty()) {
+                String errorMsg = String.format("CRITICAL ERROR: Repository returned %d attendance records with wrong sessionId! Expected: %s, Found: %s", 
+                    invalidRecords.size(), sessionId, 
+                    invalidRecords.stream().map(Attendance::getSessionId).distinct().toList());
+                logger.error(errorMsg);
+                
+                // Log to database
+                databaseLoggerService.logError("ATTENDANCE_WRONG_SESSION_ID", errorMsg, null, null, 
+                    String.format("requestedSessionId=%s,invalidSessionIds=%s,invalidRecordIds=%s", 
+                        sessionId,
+                        invalidRecords.stream().map(Attendance::getSessionId).distinct().toList(),
+                        invalidRecords.stream().map(Attendance::getAttendanceId).toList()));
+                
+                // Filter out invalid records
+                attendanceList = attendanceList.stream()
+                    .filter(attendance -> Objects.equals(attendance.getSessionId(), sessionId))
+                    .toList();
+                
+                logger.warn("Filtered out {} invalid attendance records. Returning {} valid records for session {}", 
+                    invalidRecords.size(), attendanceList.size(), sessionId);
+            }
+            
+            logger.info("Retrieved {} attendance records for session: {} (verified all records belong to this session)", 
+                attendanceList.size(), sessionId);
+            
+            // CRITICAL: Always log detailed info for export debugging
+            // This helps diagnose if records have wrong sessionIds
+            if (attendanceList.size() > 0) {
+                logger.info("=== EXPORT DEBUG - SessionId: {}, Record Count: {} ===", sessionId, attendanceList.size());
+                attendanceList.forEach(attendance -> {
+                    logger.info("  Record {}: Student={}, SessionId={}, Method={}, Time={}", 
+                        attendance.getAttendanceId(), 
+                        attendance.getStudentUsername(), 
+                        attendance.getSessionId(), 
+                        attendance.getMethod(), 
+                        attendance.getAttendanceTime());
+                });
+                logger.info("=== END EXPORT DEBUG ===");
+                
+                // Log to database with detailed record info
+                String recordSummary = attendanceList.stream()
+                    .limit(10) // Limit to first 10 to avoid huge payloads
+                    .map(a -> String.format("id=%s,student=%s,sessionId=%s", 
+                        a.getAttendanceId(), a.getStudentUsername(), a.getSessionId()))
+                    .collect(java.util.stream.Collectors.joining(";"));
+                databaseLoggerService.logAction("INFO", "ATTENDANCE_EXPORT_QUERY", 
+                    String.format("Export query for session %s returned %d records", sessionId, attendanceList.size()),
+                    null, String.format("sessionId=%s,recordCount=%d,records=%s", sessionId, attendanceList.size(), recordSummary));
+            } else {
+                logger.info("No attendance records found for session: {}", sessionId);
+                databaseLoggerService.logBusinessEvent("ATTENDANCE_EXPORT_EMPTY", 
+                    String.format("No attendance records found for session %s", sessionId), null);
+            }
+            
             LoggerUtil.logDatabaseOperation(logger, "SELECT_BY_SESSION", "attendance", sessionId != null ? sessionId.toString() : "null");
             return attendanceList;
         } catch (Exception e) {
-            logger.error("Failed to retrieve attendance records for session: {}", sessionId, e);
+            String errorMsg = String.format("Failed to retrieve attendance records for session: %s", sessionId);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("ATTENDANCE_RETRIEVAL_ERROR", errorMsg, e, null, 
+                String.format("sessionId=%s,exceptionType=%s", sessionId, e.getClass().getName()));
             throw e;
         } finally {
             LoggerUtil.clearKey("sessionId");
@@ -213,7 +352,10 @@ public class AttendanceService {
             LoggerUtil.logDatabaseOperation(logger, "SELECT_BY_STUDENT", "attendance", studentUsername != null ? studentUsername : "null");
             return attendanceList;
         } catch (Exception e) {
-            logger.error("Failed to retrieve attendance records for student: {}", studentUsername, e);
+            String errorMsg = String.format("Failed to retrieve attendance records for student: %s", studentUsername);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("ATTENDANCE_RETRIEVAL_ERROR", errorMsg, e, studentUsername, 
+                String.format("exceptionType=%s", e.getClass().getName()));
             throw e;
         } finally {
             LoggerUtil.clearStudentUsername();
@@ -255,7 +397,10 @@ public class AttendanceService {
             LoggerUtil.logDatabaseOperation(logger, "SELECT_BY_METHOD", "attendance", method.toString());
             return attendanceList;
         } catch (Exception e) {
-            logger.error("Failed to retrieve attendance records by method: {}", method, e);
+            String errorMsg = String.format("Failed to retrieve attendance records by method: %s", method);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("ATTENDANCE_RETRIEVAL_ERROR", errorMsg, e, null, 
+                String.format("method=%s,exceptionType=%s", method, e.getClass().getName()));
             throw e;
         }
     }
@@ -274,7 +419,10 @@ public class AttendanceService {
                 startDate + " to " + endDate);
             return attendanceList;
         } catch (Exception e) {
-            logger.error("Failed to retrieve attendance records between dates", e);
+            String errorMsg = "Failed to retrieve attendance records between dates";
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("ATTENDANCE_RETRIEVAL_ERROR", errorMsg, e, null, 
+                String.format("startDate=%s,endDate=%s,exceptionType=%s", startDate, endDate, e.getClass().getName()));
             throw e;
         }
     }
@@ -299,7 +447,10 @@ public class AttendanceService {
             
             return stats;
         } catch (Exception e) {
-            logger.error("Failed to calculate attendance statistics for session: {}", sessionId, e);
+            String errorMsg = String.format("Failed to calculate attendance statistics for session: %s", sessionId);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("ATTENDANCE_STATS_ERROR", errorMsg, e, null, 
+                String.format("sessionId=%s,exceptionType=%s", sessionId, e.getClass().getName()));
             throw e;
         } finally {
             LoggerUtil.clearKey("sessionId");
@@ -314,16 +465,26 @@ public class AttendanceService {
         
         try {
             if (!attendanceRepository.existsById(attendanceId)) {
+                String errorMsg = "Attendance record not found: " + attendanceId;
                 logger.error("Attendance record not found for deletion: {}", attendanceId);
-                throw new IllegalArgumentException("Attendance record not found: " + attendanceId);
+                databaseLoggerService.logError("ATTENDANCE_DELETE_NOT_FOUND", errorMsg, null, null, 
+                    String.format("attendanceId=%s", attendanceId));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             attendanceRepository.deleteById(attendanceId);
             logger.info("Attendance record deleted successfully: {}", attendanceId);
             LoggerUtil.logAttendanceEvent(logger, "ATTENDANCE_DELETED", (String) null, (String) null, null);
+            databaseLoggerService.logAttendance("ATTENDANCE_DELETED", null, null, null);
             
+        } catch (IllegalArgumentException e) {
+            // Already logged above, just re-throw
+            throw e;
         } catch (Exception e) {
-            logger.error("Failed to delete attendance record: {}", attendanceId, e);
+            String errorMsg = String.format("Failed to delete attendance record: %s", attendanceId);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("ATTENDANCE_DELETE_ERROR", errorMsg, e, null, 
+                String.format("attendanceId=%s,exceptionType=%s", attendanceId, e.getClass().getName()));
             throw e;
         }
     }

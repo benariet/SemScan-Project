@@ -43,12 +43,31 @@ public class AttendanceController {
     @PostMapping
     public ResponseEntity<Object> recordAttendance(@RequestBody Attendance attendance) {
         LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Recording attendance for student: {} in session: {}, Location: {}",
-            attendance.getStudentUsername(), attendance.getSessionId(), LoggerUtil.getCurrentCorrelationId());
+        
+        // CRITICAL: Log the exact sessionId received in the request
+        logger.info("=== ATTENDANCE RECORDING REQUEST ===");
+        logger.info("Received attendance request - Student: {}, SessionId: {}, Method: {}, CorrelationId: {}",
+            attendance.getStudentUsername(), attendance.getSessionId(), attendance.getMethod(), LoggerUtil.getCurrentCorrelationId());
+        logger.info("=== END ATTENDANCE RECORDING REQUEST ===");
+        
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/attendance", attendance.toString());
+        
+        // Log to database with request details
+        databaseLoggerService.logAction("INFO", "ATTENDANCE_RECORDING_REQUEST", 
+            String.format("Attendance recording request - Student: %s, SessionId: %s", 
+                attendance.getStudentUsername(), attendance.getSessionId()),
+            attendance.getStudentUsername(), 
+            String.format("sessionId=%s,method=%s,correlationId=%s", 
+                attendance.getSessionId(), attendance.getMethod(), LoggerUtil.getCurrentCorrelationId()));
         
         try {
             Attendance recordedAttendance = attendanceService.recordAttendance(attendance);
+            
+            // CRITICAL: Log the exact sessionId that was saved
+            logger.info("=== ATTENDANCE RECORDING SUCCESS ===");
+            logger.info("Saved attendance record - ID: {}, Student: {}, SessionId: {} (VERIFY THIS MATCHES REQUEST)",
+                recordedAttendance.getAttendanceId(), recordedAttendance.getStudentUsername(), recordedAttendance.getSessionId());
+            logger.info("=== END ATTENDANCE RECORDING SUCCESS ===");
             logger.info("Attendance recorded successfully - ID: {}, Student: {}, Session: {}", 
                 recordedAttendance.getAttendanceId(), recordedAttendance.getStudentUsername(), 
                 recordedAttendance.getSessionId());

@@ -4,6 +4,7 @@ import edu.bgu.semscanapi.dto.PresenterHomeResponse;
 import edu.bgu.semscanapi.dto.PresenterOpenAttendanceResponse;
 import edu.bgu.semscanapi.dto.PresenterSlotRegistrationRequest;
 import edu.bgu.semscanapi.dto.PresenterSlotRegistrationResponse;
+import edu.bgu.semscanapi.dto.SupervisorEmailRequest;
 import edu.bgu.semscanapi.service.PresenterHomeService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
@@ -71,7 +72,7 @@ public class PresenterHomeController {
             LoggerUtil.logError(logger, "Presenter slot registration failed", ex);
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.NOT_FOUND.value(), ex.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new PresenterSlotRegistrationResponse(false, ex.getMessage(), "NOT_FOUND"));
+                    .body(new PresenterSlotRegistrationResponse(false, ex.getMessage(), "NOT_FOUND", false));
         } catch (Exception ex) {
             LoggerUtil.logError(logger, "Unexpected error during slot registration", ex);
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
@@ -97,7 +98,7 @@ public class PresenterHomeController {
             LoggerUtil.logError(logger, "Presenter slot unregister failed", ex);
             LoggerUtil.logApiResponse(logger, "DELETE", endpoint, HttpStatus.NOT_FOUND.value(), ex.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new PresenterSlotRegistrationResponse(false, ex.getMessage(), "NOT_FOUND"));
+                    .body(new PresenterSlotRegistrationResponse(false, ex.getMessage(), "NOT_FOUND", false));
         } catch (Exception ex) {
             LoggerUtil.logError(logger, "Unexpected error during slot unregister", ex);
             LoggerUtil.logApiResponse(logger, "DELETE", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
@@ -126,6 +127,38 @@ public class PresenterHomeController {
                     .body(new PresenterOpenAttendanceResponse(false, ex.getMessage(), "NOT_FOUND", null, null, null, null, null));
         } catch (Exception ex) {
             LoggerUtil.logError(logger, "Unexpected error during open attendance", ex);
+            LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
+            throw ex;
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+
+    @PostMapping("/slots/{slotId}/supervisor/email")
+    public ResponseEntity<PresenterSlotRegistrationResponse> sendSupervisorEmail(@PathVariable("username") String presenterUsername,
+                                                                                 @PathVariable Long slotId,
+                                                                                 @Valid @RequestBody SupervisorEmailRequest request) {
+        LoggerUtil.generateAndSetCorrelationId();
+        String endpoint = String.format("/api/v1/presenters/%s/home/slots/%d/supervisor/email", presenterUsername, slotId);
+        LoggerUtil.logApiRequest(logger, "POST", endpoint, String.format("supervisorEmail=%s", request.getSupervisorEmail()));
+
+        try {
+            PresenterSlotRegistrationResponse response = presenterHomeService.sendSupervisorEmail(
+                    presenterUsername, 
+                    slotId, 
+                    request.getSupervisorEmail(), 
+                    request.getSupervisorName()
+            );
+            HttpStatus status = deriveStatus(response);
+            LoggerUtil.logApiResponse(logger, "POST", endpoint, status.value(), response.getMessage());
+            return ResponseEntity.status(status).body(response);
+        } catch (IllegalArgumentException ex) {
+            LoggerUtil.logError(logger, "Send supervisor email failed", ex);
+            LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.NOT_FOUND.value(), ex.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new PresenterSlotRegistrationResponse(false, ex.getMessage(), "NOT_FOUND", false));
+        } catch (Exception ex) {
+            LoggerUtil.logError(logger, "Unexpected error during send supervisor email", ex);
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
             throw ex;
         } finally {
@@ -184,15 +217,39 @@ public class PresenterHomeController {
             return HttpStatus.OK;
         }
 
-        if ("MISSING_USERNAME".equals(response.getCode())) {
+        String code = response.getCode();
+        
+        // Email-related status codes
+        if ("EMAIL_SENT".equals(code)) {
+            return HttpStatus.OK;
+        }
+        if ("EMAIL_NOT_CONFIGURED".equals(code)) {
+            return HttpStatus.SERVICE_UNAVAILABLE;
+        }
+        if ("EMAIL_AUTH_FAILED".equals(code)) {
+            return HttpStatus.UNAUTHORIZED; // 401 - Authentication failed
+        }
+        if ("EMAIL_SEND_FAILED".equals(code)) {
+            return HttpStatus.INTERNAL_SERVER_ERROR; // 500 - Server error
+        }
+        if ("EMAIL_ERROR".equals(code)) {
+            return HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        if ("NO_SUPERVISOR_EMAIL".equals(code)) {
             return HttpStatus.BAD_REQUEST;
         }
-        if ("NOT_REGISTERED".equals(response.getCode())) {
+        
+        // Registration-related status codes
+        if ("MISSING_USERNAME".equals(code)) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        if ("NOT_REGISTERED".equals(code)) {
             return HttpStatus.NOT_FOUND;
         }
-        if ("SLOT_FULL".equals(response.getCode()) || "ALREADY_REGISTERED".equals(response.getCode())) {
+        if ("SLOT_FULL".equals(code) || "ALREADY_REGISTERED".equals(code)) {
             return HttpStatus.CONFLICT;
         }
+        
         return HttpStatus.BAD_REQUEST;
     }
 
@@ -213,5 +270,3 @@ public class PresenterHomeController {
         return HttpStatus.BAD_REQUEST;
     }
 }
-
-

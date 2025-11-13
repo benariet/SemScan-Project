@@ -35,6 +35,9 @@ public class User {
     @Column(name = "is_participant")
     private Boolean isParticipant = false;
 
+    @Column(name = "national_id_number")
+    private String nationalIdNumber;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -131,6 +134,14 @@ public class User {
 
     public void setIsParticipant(Boolean isParticipant) {
         this.isParticipant = isParticipant;
+    }
+
+    public String getNationalIdNumber() {
+        return nationalIdNumber;
+    }
+
+    public void setNationalIdNumber(String nationalIdNumber) {
+        this.nationalIdNumber = nationalIdNumber;
     }
 
     public LocalDateTime getCreatedAt() {
