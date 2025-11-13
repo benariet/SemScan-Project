@@ -49,19 +49,22 @@ public class PresenterHomeService {
     private final SeminarRepository seminarRepository;
     private final SessionRepository sessionRepository;
     private final GlobalConfig globalConfig;
+    private final EmailService emailService;
 
     public PresenterHomeService(UserRepository userRepository,
                                 SeminarSlotRepository seminarSlotRepository,
                                 SeminarSlotRegistrationRepository registrationRepository,
                                 SeminarRepository seminarRepository,
                                 SessionRepository sessionRepository,
-                                GlobalConfig globalConfig) {
+                                GlobalConfig globalConfig,
+                                EmailService emailService) {
         this.userRepository = userRepository;
         this.seminarSlotRepository = seminarSlotRepository;
         this.registrationRepository = registrationRepository;
         this.seminarRepository = seminarRepository;
         this.sessionRepository = sessionRepository;
         this.globalConfig = globalConfig;
+        this.emailService = emailService;
     }
 
     @Transactional(readOnly = true)
@@ -185,8 +188,49 @@ public class PresenterHomeService {
         updateSlotStatus(slot, updatedState);
         seminarSlotRepository.save(slot);
 
+        // Send supervisor notification email if supervisor email is provided
+        boolean emailSent = false;
+        String supervisorEmail = request.getSupervisorEmail();
+        if (supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
+            try {
+                String presenterName = (presenter.getFirstName() != null ? presenter.getFirstName() : "") +
+                        (presenter.getLastName() != null ? " " + presenter.getLastName() : "").trim();
+                if (presenterName.isEmpty()) {
+                    presenterName = presenterUsername;
+                }
+                String presenterDegreeStr = presenterDegree.name();
+                String slotDateStr = slot.getSlotDate() != null ? DATE_FORMAT.format(slot.getSlotDate()) : "N/A";
+                String slotStartTimeStr = slot.getStartTime() != null ? TIME_FORMAT.format(slot.getStartTime()) : "N/A";
+                String slotEndTimeStr = slot.getEndTime() != null ? TIME_FORMAT.format(slot.getEndTime()) : "N/A";
+                String topic = registration.getTopic();
+
+                emailSent = emailService.sendSupervisorNotificationEmail(
+                        supervisorEmail,
+                        request.getSupervisorName(),
+                        presenterName,
+                        presenterUsername,
+                        presenterDegreeStr,
+                        slotDateStr,
+                        slotStartTimeStr,
+                        slotEndTimeStr,
+                        slot.getBuilding(),
+                        slot.getRoom(),
+                        topic
+                );
+
+                if (emailSent) {
+                    logger.info("Supervisor email sent successfully for presenter {} and slot {}", presenterUsername, slotId);
+                } else {
+                    logger.warn("Failed to send supervisor email for presenter {} and slot {} - email service not configured", presenterUsername, slotId);
+                }
+            } catch (Exception e) {
+                logger.error("Failed to send supervisor email for presenter {} and slot {}", presenterUsername, slotId, e);
+                // Don't fail registration if email fails
+            }
+        }
+
         logger.info("Presenter {} successfully registered to slot {}", presenterUsername, slotId);
-        return new PresenterSlotRegistrationResponse(true, "Registered successfully", "REGISTERED");
+        return new PresenterSlotRegistrationResponse(true, "Registered successfully", "REGISTERED", emailSent);
     }
 
     @Transactional(readOnly = true)
@@ -254,7 +298,84 @@ public class PresenterHomeService {
         seminarSlotRepository.save(slot);
 
         logger.info("Presenter {} removed from slot {}. Remaining presenters: {}", presenterUsername, slotId, remaining);
-        return new PresenterSlotRegistrationResponse(true, "Registration cancelled", "UNREGISTERED");
+        return new PresenterSlotRegistrationResponse(true, "Registration cancelled", "UNREGISTERED", false);
+    }
+
+    /**
+     * Send supervisor notification email for an existing registration
+     *
+     * @param presenterUsernameParam The presenter's username
+     * @param slotId The slot ID
+     * @param supervisorEmail The supervisor's email address (from request)
+     * @param supervisorName The supervisor's name (from request, optional)
+     * @return Response indicating success or failure
+     */
+    @Transactional
+    public PresenterSlotRegistrationResponse sendSupervisorEmail(String presenterUsernameParam, Long slotId, 
+                                                                 String supervisorEmail, String supervisorName) {
+        String normalizedUsername = normalizeUsername(presenterUsernameParam);
+        logger.info("Sending supervisor email for presenter {} and slot {} to supervisor {}", normalizedUsername, slotId, supervisorEmail);
+
+        User presenter = findPresenterByUsername(normalizedUsername);
+        String presenterUsername = normalizeUsername(presenter.getBguUsername());
+        if (presenterUsername == null) {
+            return new PresenterSlotRegistrationResponse(false, "Presenter is missing BGU username", "MISSING_USERNAME", false);
+        }
+
+        if (supervisorEmail == null || supervisorEmail.trim().isEmpty()) {
+            return new PresenterSlotRegistrationResponse(false, "Supervisor email is required", "NO_SUPERVISOR_EMAIL", false);
+        }
+
+        SeminarSlot slot = seminarSlotRepository.findById(slotId)
+                .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
+
+        SeminarSlotRegistrationId id = new SeminarSlotRegistrationId(slotId, presenterUsername);
+        SeminarSlotRegistration registration = registrationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Registration not found for presenter " + presenterUsername + " and slot " + slotId));
+
+        try {
+            String presenterName = (presenter.getFirstName() != null ? presenter.getFirstName() : "") +
+                    (presenter.getLastName() != null ? " " + presenter.getLastName() : "").trim();
+            if (presenterName.isEmpty()) {
+                presenterName = presenterUsername;
+            }
+            User.Degree presenterDegree = presenter.getDegree() != null ? presenter.getDegree() : User.Degree.MSc;
+            String presenterDegreeStr = presenterDegree.name();
+            String slotDateStr = slot.getSlotDate() != null ? DATE_FORMAT.format(slot.getSlotDate()) : "N/A";
+            String slotStartTimeStr = slot.getStartTime() != null ? TIME_FORMAT.format(slot.getStartTime()) : "N/A";
+            String slotEndTimeStr = slot.getEndTime() != null ? TIME_FORMAT.format(slot.getEndTime()) : "N/A";
+            String topic = registration.getTopic();
+
+            boolean emailSent = emailService.sendSupervisorNotificationEmail(
+                    supervisorEmail,
+                    supervisorName,
+                    presenterName,
+                    presenterUsername,
+                    presenterDegreeStr,
+                    slotDateStr,
+                    slotStartTimeStr,
+                    slotEndTimeStr,
+                    slot.getBuilding(),
+                    slot.getRoom(),
+                    topic
+            );
+
+            if (emailSent) {
+                // Optionally save supervisor details to registration for future reference
+                registration.setSupervisorEmail(supervisorEmail);
+                registration.setSupervisorName(normalizeSupervisorName(supervisorName));
+                registrationRepository.save(registration);
+                
+                logger.info("Supervisor email sent successfully for presenter {} and slot {}", presenterUsername, slotId);
+                return new PresenterSlotRegistrationResponse(true, "Supervisor email sent successfully", "EMAIL_SENT", true);
+            } else {
+                logger.warn("Failed to send supervisor email for presenter {} and slot {} - email service not configured", presenterUsername, slotId);
+                return new PresenterSlotRegistrationResponse(false, "Email service is not configured", "EMAIL_NOT_CONFIGURED", true);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to send supervisor email for presenter {} and slot {}", presenterUsername, slotId, e);
+            return new PresenterSlotRegistrationResponse(false, "Failed to send supervisor email: " + e.getMessage(), "EMAIL_ERROR", true);
+        }
     }
 
     @Transactional
