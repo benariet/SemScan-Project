@@ -2,15 +2,14 @@ package edu.bgu.semscanapi;
 
 import edu.bgu.semscanapi.util.SessionLoggerUtil;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDateTime;
 
 /**
  * Test class to demonstrate session-specific logging functionality.
  * This test creates session log files with different session IDs.
+ * Note: This test doesn't need Spring context - SessionLoggerUtil is a static utility.
  */
-@SpringBootTest
 public class SessionLoggingTest {
 
     @Test

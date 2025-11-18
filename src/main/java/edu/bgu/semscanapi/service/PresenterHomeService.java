@@ -530,40 +530,18 @@ public class PresenterHomeService {
         // Allow opening if: now >= openWindow (10 minutes before start) AND (end is null OR now <= end)
         // This covers both: 10 minutes before start AND during the slot time
 
+        // CRITICAL: Get fresh list of open sessions to ensure we see all current sessions
+        // This is important to catch sessions that were just opened by other presenters
         List<Session> allOpenSessions = sessionRepository.findOpenSessions();
-        
-        // CRITICAL FIX: Allow multiple presenters to have separate sessions for the same time slot
-        // Each presenter can open their own session independently
-        // Do NOT block a presenter from opening a session just because another presenter has one open
+        logger.info("Found {} open sessions total when presenter {} tries to open slot {}", 
+            allOpenSessions.size(), presenterUsername, slotId);
+        if (logger.isDebugEnabled()) {
+            allOpenSessions.forEach(s -> logger.debug("Open session: ID={}, SeminarID={}, StartTime={}, Location={}", 
+                s.getSessionId(), s.getSeminarId(), s.getStartTime(), s.getLocation()));
+        }
         
         // Find THIS presenter's open session for THIS slot (if any)
-        // CRITICAL: Check by seminar's presenterUsername, NOT by slot's attendanceOpenedBy
-        // This is because when multiple presenters open sessions for the same slot,
-        // the slot's attendanceOpenedBy might still point to the first presenter
-        Session thisPresenterOpenSession = allOpenSessions.stream()
-            .filter(session -> {
-                // First check if this session belongs to THIS slot
-                Optional<SeminarSlot> sessionSlot = seminarSlotRepository.findByLegacySessionId(session.getSessionId());
-                if (!sessionSlot.isPresent() || !Objects.equals(sessionSlot.get().getSlotId(), slotId)) {
-                    return false;
-                }
-                
-                // Then check if this session's seminar belongs to THIS presenter
-                // This is the reliable way to identify the presenter's session
-                Optional<Seminar> seminar = seminarRepository.findById(session.getSeminarId());
-                if (seminar.isPresent()) {
-                    String seminarPresenter = normalizeUsername(seminar.get().getPresenterUsername());
-                    boolean matches = Objects.equals(seminarPresenter, presenterUsername);
-                    if (matches) {
-                        logger.debug("Found existing session {} for presenter {} on slot {} (via seminar presenter check)", 
-                            session.getSessionId(), presenterUsername, slotId);
-                    }
-                    return matches;
-                }
-                return false;
-            })
-            .findFirst()
-            .orElse(null);
+        Session thisPresenterOpenSession = findPresenterOpenSessionForSlot(presenterUsername, slotId, slot);
         
         // Check if THIS presenter already has an OPEN session for THIS slot
         // If yes, return the existing session (don't create a duplicate)
@@ -603,28 +581,49 @@ public class PresenterHomeService {
                     payload);
         }
         
+        // CRITICAL FIX: Check if ANY OTHER presenter has an OPEN session for this slot
+        // If yes, return IN_PROGRESS error to block this presenter from opening a new session
+        logger.info("Checking for other presenter's open sessions for slot {} (presenter: {})", slotId, presenterUsername);
+        Session otherPresenterOpenSession = findOtherPresenterOpenSessionForSlot(presenterUsername, slotId, slot, allOpenSessions);
+        if (otherPresenterOpenSession != null) {
+            logger.warn("BLOCKING: Presenter {} cannot open session for slot {} - found other presenter's open session {}", 
+                presenterUsername, slotId, otherPresenterOpenSession.getSessionId());
+            // Get the other presenter's name for the error message
+            String otherPresenterName = "another presenter";
+            Optional<Seminar> otherSeminar = seminarRepository.findById(otherPresenterOpenSession.getSeminarId());
+            if (otherSeminar.isPresent() && otherSeminar.get().getPresenterUsername() != null) {
+                Optional<User> otherPresenter = userRepository.findByBguUsernameIgnoreCase(otherSeminar.get().getPresenterUsername());
+                if (otherPresenter.isPresent()) {
+                    otherPresenterName = otherPresenter.get().getFirstName() + " " + otherPresenter.get().getLastName();
+                } else {
+                    otherPresenterName = otherSeminar.get().getPresenterUsername();
+                }
+            }
+            
+            String errorMsg = String.format("Another presenter (%s) has an active session for this time slot. Please wait for that session to end before opening a new one.", otherPresenterName);
+            logger.warn("Presenter {} cannot open session for slot {} - another presenter has an open session {}", 
+                presenterUsername, slotId, otherPresenterOpenSession.getSessionId());
+            databaseLoggerService.logError("ATTENDANCE_OPEN_BLOCKED", errorMsg, null, presenterUsername,
+                String.format("slotId=%s,otherSessionId=%s,otherPresenter=%s", slotId, 
+                    otherPresenterOpenSession.getSessionId(), otherSeminar.map(Seminar::getPresenterUsername).orElse("unknown")));
+            return new PresenterOpenAttendanceResponse(false, errorMsg, "IN_PROGRESS", null, null, null, null, null);
+        }
         
-        // Check if slot already has an active session from ANY presenter
-        boolean slotHasActiveSession = false;
+        // Clean up any closed session references in the slot
         if (slot.getLegacySessionId() != null) {
             Session slotReferencedSession = sessionRepository.findById(slot.getLegacySessionId()).orElse(null);
-            if (slotReferencedSession != null) {
-                if (slotReferencedSession.getStatus() == Session.SessionStatus.OPEN) {
-                    slotHasActiveSession = true;
-                    logger.info("Slot {} already has an active session {} from another presenter, but allowing new session for presenter {}", 
-                        slotId, slotReferencedSession.getSessionId(), presenterUsername);
-                } else if (slotReferencedSession.getStatus() == Session.SessionStatus.CLOSED) {
-                    // Clean up closed session reference
-                    logger.info("Slot references CLOSED session {}, clearing slot attendance fields", slotReferencedSession.getSessionId());
-                    slot.setLegacySessionId(null);
-                    slot.setAttendanceOpenedAt(null);
-                    slot.setAttendanceClosesAt(null);
-                    slot.setAttendanceOpenedBy(null);
-                    seminarSlotRepository.save(slot);
-                }
+            if (slotReferencedSession != null && slotReferencedSession.getStatus() == Session.SessionStatus.CLOSED) {
+                logger.info("Slot references CLOSED session {}, clearing slot attendance fields", slotReferencedSession.getSessionId());
+                slot.setLegacySessionId(null);
+                slot.setAttendanceOpenedAt(null);
+                slot.setAttendanceClosesAt(null);
+                slot.setAttendanceOpenedBy(null);
+                seminarSlotRepository.save(slot);
             }
         }
 
+        logger.info("No blocking sessions found. Proceeding to create new session for presenter {} on slot {}", presenterUsername, slotId);
+        
         // Create a new session for this presenter
         Seminar legacySeminar = ensureLegacySeminar(slot, presenter);
         Session newSession = createLegacySession(slot, legacySeminar, presenterUsername);
@@ -647,32 +646,21 @@ public class PresenterHomeService {
         
         slot.setLegacySeminarId(legacySeminar.getSeminarId());
         
-        // CRITICAL: Only update slot's session tracking fields if slot doesn't already have an active session
-        // This allows multiple sessions to coexist - each session is tracked independently
-        // The slot's legacySessionId will point to the most recent session, but all sessions remain valid
-        if (!slotHasActiveSession) {
-            slot.setLegacySessionId(newSession.getSessionId());
-            slot.setAttendanceOpenedAt(now);
-            slot.setAttendanceClosesAt(now.plusMinutes(15));
-            slot.setAttendanceOpenedBy(presenterUsername);
-            seminarSlotRepository.save(slot);
-            logger.info("Updated slot {} to track session {}", slotId, newSession.getSessionId());
-            databaseLoggerService.logBusinessEvent("SLOT_SESSION_LINKED", 
-                String.format("Slot %s now tracks session %s", slotId, newSession.getSessionId()), presenterUsername);
-        } else {
-            // Slot already has a session from another presenter - don't overwrite it
-            // The new session is still created and valid, just not tracked in slot fields
-            logger.info("Created new session {} for presenter {} on slot {} (slot already has active session from another presenter). Session is saved and will appear in /api/v1/sessions/open", 
-                newSession.getSessionId(), presenterUsername, slotId);
-            databaseLoggerService.logBusinessEvent("MULTIPLE_SESSIONS_SLOT", 
-                String.format("Created session %s for slot %s (slot already has active session from another presenter)", 
-                    newSession.getSessionId(), slotId), presenterUsername);
-        }
+        // CRITICAL: Update slot's session tracking fields
+        // Since we already checked that no other presenter has an open session (and returned IN_PROGRESS if they did),
+        // we can safely update the slot to track this new session
+        slot.setLegacySessionId(newSession.getSessionId());
+        slot.setAttendanceOpenedAt(now);
+        slot.setAttendanceClosesAt(now.plusMinutes(15));
+        slot.setAttendanceOpenedBy(presenterUsername);
+        seminarSlotRepository.save(slot);
+        logger.info("Updated slot {} to track session {}", slotId, newSession.getSessionId());
+        databaseLoggerService.logBusinessEvent("SLOT_SESSION_LINKED", 
+            String.format("Slot %s now tracks session %s", slotId, newSession.getSessionId()), presenterUsername);
 
-        // Use the new session's ID for QR code, not the slot's legacySessionId
-        // (which might point to another presenter's session)
+        // Use the new session's ID for QR code
         String qrUrl = buildQrUrl(newSession.getSessionId());
-        LocalDateTime newClosesAt = slotHasActiveSession ? now.plusMinutes(15) : slot.getAttendanceClosesAt();
+        LocalDateTime newClosesAt = slot.getAttendanceClosesAt();
         return new PresenterOpenAttendanceResponse(true,
                 "Attendance opened",
                 "OPENED",
@@ -1091,8 +1079,138 @@ public class PresenterHomeService {
     }
 
     /**
+     * Find THIS presenter's OPEN session for a specific slot
+     * Uses seminar's presenterUsername to reliably identify the presenter's session
+     * CRITICAL: Checks if session matches slot by time AND location, and belongs to THIS presenter
+     */
+    private Session findPresenterOpenSessionForSlot(String presenterUsername, Long slotId, SeminarSlot slot) {
+        List<Session> allOpenSessions = sessionRepository.findOpenSessions();
+        LocalDateTime slotStart = toSlotStart(slot);
+        String slotLocation = buildLocation(slot);
+        
+        return allOpenSessions.stream()
+            .filter(session -> {
+                // Check if this session belongs to THIS slot
+                boolean belongsToSlot = false;
+                
+                // Method 1: Check if slot references this session
+                if (slot.getLegacySessionId() != null && Objects.equals(slot.getLegacySessionId(), session.getSessionId())) {
+                    belongsToSlot = true;
+                }
+                
+                // Method 2: Check if session time AND location match slot time (for cases where slot doesn't reference the session)
+                if (!belongsToSlot && slotStart != null && session.getStartTime() != null) {
+                    // Check if session start time matches slot start time (within 1 minute tolerance)
+                    boolean timeMatches = Math.abs(java.time.Duration.between(slotStart, session.getStartTime()).toMinutes()) <= 1;
+                    
+                    // Check if session location matches slot location
+                    boolean locationMatches = false;
+                    if (slotLocation != null && session.getLocation() != null) {
+                        locationMatches = slotLocation.equals(session.getLocation());
+                    } else if (slotLocation == null && session.getLocation() == null) {
+                        locationMatches = true; // Both null = match
+                    }
+                    
+                    if (timeMatches && locationMatches) {
+                        belongsToSlot = true;
+                    }
+                }
+                
+                if (!belongsToSlot) {
+                    return false;
+                }
+                
+                // Verify the session's seminar belongs to THIS presenter
+                Optional<Seminar> seminar = seminarRepository.findById(session.getSeminarId());
+                if (seminar.isPresent()) {
+                    String seminarPresenter = normalizeUsername(seminar.get().getPresenterUsername());
+                    return Objects.equals(seminarPresenter, presenterUsername);
+                }
+                
+                return false;
+            })
+            .findFirst()
+            .orElse(null);
+    }
+
+    /**
+     * Find ANY OTHER presenter's OPEN session for a specific slot
+     * Returns null if no other presenter has an open session
+     * CRITICAL: Checks if session matches slot by time AND location, and belongs to a different presenter
+     */
+    private Session findOtherPresenterOpenSessionForSlot(String presenterUsername, Long slotId, SeminarSlot slot, List<Session> allOpenSessions) {
+        LocalDateTime slotStart = toSlotStart(slot);
+        LocalDateTime slotEnd = toSlotEnd(slot);
+        String slotLocation = buildLocation(slot);
+        
+        logger.debug("Checking for other presenter's sessions for slot {} (time: {} to {}, location: {})", 
+            slotId, slotStart, slotEnd, slotLocation);
+        
+        return allOpenSessions.stream()
+            .filter(session -> {
+                // Check if this session belongs to THIS slot by matching time AND location
+                boolean belongsToSlot = false;
+                
+                // Method 1: Check if slot directly references this session
+                if (slot.getLegacySessionId() != null && Objects.equals(slot.getLegacySessionId(), session.getSessionId())) {
+                    belongsToSlot = true;
+                    logger.debug("Session {} belongs to slot {} (slot.legacySessionId matches)", session.getSessionId(), slotId);
+                }
+                
+                // Method 2: Check if session time AND location match slot
+                if (!belongsToSlot && slotStart != null && session.getStartTime() != null) {
+                    // Check if session start time matches slot start time (within 1 minute tolerance)
+                    boolean timeMatches = Math.abs(java.time.Duration.between(slotStart, session.getStartTime()).toMinutes()) <= 1;
+                    
+                    // Check if session location matches slot location
+                    boolean locationMatches = false;
+                    if (slotLocation != null && session.getLocation() != null) {
+                        locationMatches = slotLocation.equals(session.getLocation());
+                    } else if (slotLocation == null && session.getLocation() == null) {
+                        locationMatches = true; // Both null = match
+                    }
+                    
+                    if (timeMatches && locationMatches) {
+                        belongsToSlot = true;
+                        logger.debug("Session {} belongs to slot {} (time and location match)", session.getSessionId(), slotId);
+                    }
+                }
+                
+                if (!belongsToSlot) {
+                    return false;
+                }
+                
+                // Check if this session belongs to a DIFFERENT presenter
+                Optional<Seminar> seminar = seminarRepository.findById(session.getSeminarId());
+                if (seminar.isPresent()) {
+                    String seminarPresenter = normalizeUsername(seminar.get().getPresenterUsername());
+                    boolean isDifferentPresenter = !Objects.equals(seminarPresenter, presenterUsername);
+                    
+                    if (isDifferentPresenter) {
+                        // CRITICAL: Also verify that the other presenter is registered for THIS slot
+                        // This ensures we only block if the other presenter's session is for the same slot
+                        boolean otherPresenterRegistered = registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, seminarPresenter);
+                        if (otherPresenterRegistered) {
+                            logger.warn("Found other presenter's session {} for slot {} (presenter: {} vs current: {}) - BLOCKING", 
+                                session.getSessionId(), slotId, seminarPresenter, presenterUsername);
+                            return true;
+                        } else {
+                            logger.debug("Session {} belongs to different presenter {} but they're not registered for slot {} - not blocking", 
+                                session.getSessionId(), seminarPresenter, slotId);
+                        }
+                    }
+                }
+                
+                return false;
+            })
+            .findFirst()
+            .orElse(null);
+    }
+
+    /**
      * Get QR code data for a slot
      * Returns QR code information if attendance is open for the slot
+     * CRITICAL FIX: Finds THIS presenter's OPEN session, not just any session in the slot
      */
     @Transactional(readOnly = true)
     public Map<String, Object> getSlotQRCode(String presenterUsernameParam, Long slotId) {
@@ -1108,26 +1226,26 @@ public class PresenterHomeService {
 
         // Check if presenter is registered for this slot
         if (!registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, normalizedUsername)) {
-            throw new IllegalArgumentException("Presenter is not registered for this slot");
+            String errorMsg = "Presenter is not registered for this slot";
+            databaseLoggerService.logError("QR_CODE_NOT_REGISTERED", errorMsg, null, normalizedUsername,
+                String.format("slotId=%s", slotId));
+            throw new IllegalArgumentException(errorMsg);
         }
 
-        // Check if attendance is open (has a session)
-        if (slot.getLegacySessionId() == null) {
-            throw new IllegalStateException("Attendance is not open for this slot");
-        }
-
-        // Get the session and validate it's actually OPEN
-        Session session = sessionRepository.findById(slot.getLegacySessionId())
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + slot.getLegacySessionId()));
+        // CRITICAL FIX: Find THIS presenter's OPEN session for THIS slot
+        // Do NOT use slot.getLegacySessionId() as it might point to another presenter's session
+        // Use the same logic as openAttendance to find the correct session
+        Session session = findPresenterOpenSessionForSlot(normalizedUsername, slotId, slot);
         
-        // CRITICAL: Check if the session is actually OPEN (not CLOSED)
-        // This ensures participants can attend newly opened sessions even if the slot
-        // previously had a closed session
-        if (session.getStatus() != Session.SessionStatus.OPEN) {
-            logger.warn("Session {} for slot {} is not OPEN (status: {}). This may indicate a stale session reference.", 
-                session.getSessionId(), slotId, session.getStatus());
-            throw new IllegalStateException("Session is not open for this slot (status: " + session.getStatus() + "). Please ask the presenter to open attendance.");
+        if (session == null) {
+            String errorMsg = "No open session found for this presenter and slot. Please open attendance first.";
+            logger.warn("Presenter {} requested QR code for slot {} but has no open session", normalizedUsername, slotId);
+            databaseLoggerService.logError("QR_CODE_NO_SESSION", errorMsg, null, normalizedUsername,
+                String.format("slotId=%s", slotId));
+            throw new IllegalStateException(errorMsg);
         }
+        
+        logger.info("Found open session {} for presenter {} on slot {}", session.getSessionId(), normalizedUsername, slotId);
 
         // Check if attendance window is still open
         LocalDateTime now = LocalDateTime.now();
