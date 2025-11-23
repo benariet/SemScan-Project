@@ -10,10 +10,12 @@ import edu.bgu.semscanapi.repository.SeminarRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import edu.bgu.semscanapi.service.AttendanceService;
 import edu.bgu.semscanapi.service.AuthenticationService;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.EmailService;
+import edu.bgu.semscanapi.service.FileUploadService;
 import edu.bgu.semscanapi.service.ManualAttendanceService;
 import edu.bgu.semscanapi.service.SessionService;
 import edu.bgu.semscanapi.util.LoggerUtil;
@@ -80,6 +82,12 @@ public class ExportController {
 
     @Autowired
     private DatabaseLoggerService databaseLoggerService;
+
+    @Autowired
+    private FileUploadService fileUploadService;
+
+    @Autowired
+    private GlobalConfig globalConfig;
 
     /**
      * Export attendance data as CSV
@@ -396,6 +404,162 @@ public class ExportController {
                     "Internal Server Error",
                     500,
                     "/api/v1/export/send-email");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+
+    /**
+     * Upload export file to server
+     * POST /api/v1/export/upload?sessionId=123&format=csv
+     */
+    @PostMapping("/upload")
+    public ResponseEntity<Object> uploadExport(
+            @RequestParam Long sessionId,
+            @RequestParam(defaultValue = "csv") String format) {
+        String correlationId = LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Uploading export file for session: {} in format: {}", sessionId, format);
+        LoggerUtil.logApiRequest(logger, "POST", "/api/v1/export/upload?sessionId=" + sessionId + "&format=" + format, null);
+
+        try {
+            // Validate format
+            if (!format.equalsIgnoreCase("csv") && !format.equalsIgnoreCase("xlsx")) {
+                ErrorResponse errorResponse = new ErrorResponse(
+                        "Invalid format. Supported formats: csv, xlsx",
+                        "Bad Request",
+                        400,
+                        "/api/v1/export/upload");
+                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", 400, "Invalid format");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            // Check for pending manual attendance requests
+            if (manualAttendanceService.hasPendingRequests(sessionId)) {
+                long pendingCount = manualAttendanceService.getPendingRequestCount(sessionId);
+                String errorMsg = String.format("Cannot upload export for session: %s - %d pending manual attendance requests", 
+                    sessionId, pendingCount);
+                logger.warn(errorMsg);
+                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", 409,
+                        "Conflict - " + pendingCount + " pending requests");
+                
+                // Log to database
+                databaseLoggerService.logError("EXPORT_UPLOAD_BLOCKED_PENDING_REQUESTS", errorMsg, null, null, 
+                    String.format("sessionId=%s,pendingCount=%d,format=%s", sessionId, pendingCount, format));
+
+                ErrorResponse errorResponse = new ErrorResponse(
+                        "Cannot upload export while " + pendingCount
+                                + " manual attendance requests are pending approval. Please review and resolve all pending requests before uploading.",
+                        "Conflict",
+                        409,
+                        "/api/v1/export/upload");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+            }
+
+            // Get attendance records for the session
+            List<Attendance> attendanceList = attendanceService.getAttendanceBySession(sessionId);
+
+            // Generate export data
+            byte[] exportData;
+            String filename;
+            String contentType;
+            if (format.equalsIgnoreCase("xlsx")) {
+                exportData = generateExcelForSession(sessionId, attendanceList);
+                filename = generateExportFilename(sessionId);
+                if (filename == null) {
+                    filename = "attendance_" + sessionId + ".xlsx";
+                } else {
+                    filename = filename.replace(".csv", ".xlsx");
+                }
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            } else {
+                exportData = generateCsvForSession(sessionId, attendanceList);
+                filename = generateExportFilename(sessionId);
+                if (filename == null) {
+                    filename = "attendance_" + sessionId + ".csv";
+                }
+                contentType = "text/csv";
+            }
+
+            // Upload file to server
+            FileUploadService.UploadResult uploadResult = fileUploadService.uploadFile(
+                exportData, filename, contentType, sessionId);
+
+            if (!uploadResult.isSuccess()) {
+                String errorMsg = String.format("Failed to upload export file for session: %s - %s", 
+                    sessionId, uploadResult.getMessage());
+                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", uploadResult.getStatusCode(), 
+                    "Upload failed: " + uploadResult.getMessage());
+                
+                // Log upload failure to database
+                databaseLoggerService.logError("EXPORT_UPLOAD_FAILED", errorMsg, uploadResult.getException(), null, 
+                    String.format("sessionId=%s,format=%s,statusCode=%d,filename=%s", 
+                        sessionId, format, uploadResult.getStatusCode(), filename));
+                
+                ErrorResponse errorResponse = new ErrorResponse(
+                        errorMsg,
+                        "Upload Failed",
+                        uploadResult.getStatusCode() > 0 ? uploadResult.getStatusCode() : 500,
+                        "/api/v1/export/upload");
+                return ResponseEntity.status(
+                    uploadResult.getStatusCode() > 0 ? HttpStatus.valueOf(uploadResult.getStatusCode()) : HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(errorResponse);
+            }
+
+            // Verify file was uploaded successfully
+            boolean fileExists = fileUploadService.verifyFileExists(filename, sessionId);
+            if (!fileExists) {
+                logger.warn("File upload reported success but verification failed - filename: {}, sessionId: {}", 
+                    filename, sessionId);
+                databaseLoggerService.logError("EXPORT_UPLOAD_VERIFICATION_FAILED", 
+                    String.format("File upload reported success but verification failed - filename: %s, sessionId: %s", 
+                        filename, sessionId), null, null,
+                    String.format("sessionId=%s,format=%s,filename=%s", sessionId, format, filename));
+            }
+
+            String successMsg = String.format("Export file uploaded successfully for session: %s - %d records, format: %s, filename: %s, verified: %s", 
+                sessionId, attendanceList.size(), format, filename, fileExists);
+            logger.info(successMsg);
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", 200,
+                    "File uploaded successfully - " + attendanceList.size() + " records");
+            
+            // Log successful upload to database
+            databaseLoggerService.logBusinessEvent("EXPORT_UPLOAD_SUCCESS", successMsg, 
+                String.format("sessionId=%s,format=%s,filename=%s,fileSize=%d,verified=%s,uploadResponse=%s", 
+                    sessionId, format, filename, exportData.length, fileExists, uploadResult.getResponseBody()));
+
+            // Build response with upload details
+            Map<String, Object> responseMap = new java.util.HashMap<>();
+            responseMap.put("success", true);
+            responseMap.put("message", "Export file uploaded successfully");
+            responseMap.put("sessionId", sessionId);
+            responseMap.put("format", format);
+            responseMap.put("filename", filename);
+            responseMap.put("records", attendanceList.size());
+            responseMap.put("fileSize", exportData.length);
+            responseMap.put("verified", fileExists);
+            responseMap.put("uploadUrl", globalConfig.getUploadServerUrl());
+            if (uploadResult.getResponseBody() != null) {
+                responseMap.put("uploadResponse", uploadResult.getResponseBody());
+            }
+
+            return ResponseEntity.ok(responseMap);
+
+        } catch (Exception e) {
+            String errorMsg = String.format("Failed to upload export file for session: %s", sessionId);
+            logger.error(errorMsg, e);
+            LoggerUtil.logError(logger, "Failed to upload export file for session", e);
+            LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", 500, "Internal Server Error");
+            
+            // Log error to database
+            databaseLoggerService.logError("EXPORT_UPLOAD_ERROR", errorMsg, e, null, 
+                String.format("sessionId=%s,format=%s,exceptionType=%s", sessionId, format, e.getClass().getName()));
+
+            ErrorResponse errorResponse = new ErrorResponse(
+                    "An unexpected error occurred while uploading export file",
+                    "Internal Server Error",
+                    500,
+                    "/api/v1/export/upload");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         } finally {
             LoggerUtil.clearContext();

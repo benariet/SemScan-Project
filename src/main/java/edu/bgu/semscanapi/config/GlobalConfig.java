@@ -93,6 +93,14 @@ public class GlobalConfig {
     private String emailRecipients;
     
     // =============================================
+    // FILE UPLOAD CONFIGURATION
+    // =============================================
+    
+    // TODO: Make this configurable via properties file later
+    // Hardcoded for testing - will be replaced with configurable property
+    private static final String UPLOAD_SERVER_URL = "http://132.73.167.231:8080/api/v1/upload";
+    
+    // =============================================
     // EMAIL CONFIGURATION
     // =============================================
     
@@ -216,6 +224,11 @@ public class GlobalConfig {
         return emailRecipients;
     }
     
+    // File Upload Configuration
+    public String getUploadServerUrl() {
+        return UPLOAD_SERVER_URL;
+    }
+    
     // Email Configuration
     public String getMailHost() {
         return mailHost;
@@ -294,7 +307,11 @@ public class GlobalConfig {
     public String getExportXlsxEndpoint() {
         return getApiBaseUrl() + "/export/xlsx";
     }
-    
+
+    public String getExportUploadEndpoint() {
+        return getApiBaseUrl() + "/export/upload";
+    }
+
     // =============================================
     // UTILITY METHODS
     // =============================================
