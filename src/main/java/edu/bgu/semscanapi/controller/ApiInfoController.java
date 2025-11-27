@@ -43,6 +43,7 @@ public class ApiInfoController {
             apiEndpoints.put("pendingRequests", globalConfig.getPendingRequestsEndpoint());
             apiEndpoints.put("exportCsv", globalConfig.getExportCsvEndpoint());
             apiEndpoints.put("exportXlsx", globalConfig.getExportXlsxEndpoint());
+            apiEndpoints.put("exportUpload", globalConfig.getExportUploadEndpoint());
             
             endpoints.put("endpoints", apiEndpoints);
             
