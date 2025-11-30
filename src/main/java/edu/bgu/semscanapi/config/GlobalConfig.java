@@ -99,7 +99,7 @@ public class GlobalConfig {
     // TODO: Make this configurable via properties file later
     // Hardcoded for testing - will be replaced with configurable property
     private static final String UPLOAD_SERVER_URL = "http://132.72.50.53:8080/api/v1/upload";
-    
+
     // =============================================
     // EMAIL CONFIGURATION
     // =============================================
