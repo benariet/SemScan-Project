@@ -230,7 +230,8 @@ public class AppLogService {
      * Get recent logs
      */
     public List<AppLog> getRecentLogs(int limit) {
-        return appLogRepository.findRecentLogs(limit);
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, limit);
+        return appLogRepository.findRecentLogs(pageable);
     }
     
     /**

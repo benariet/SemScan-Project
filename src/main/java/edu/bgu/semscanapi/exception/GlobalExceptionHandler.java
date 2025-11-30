@@ -17,8 +17,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.hibernate.exception.ConstraintViolationException;
 
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 
 /**
  * Global Exception Handler
@@ -87,12 +89,13 @@ public class GlobalExceptionHandler {
      * Handle IllegalArgumentException
      */
     @ExceptionHandler(IllegalArgumentException.class)
+    @Order(2)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String bguUsername = LoggerUtil.getCurrentBguUsername();
         logger.warn("Illegal argument - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
-                "GLOBAL_EXCEPTION",
+                "VALIDATION_ERROR",
                 ex.getMessage(),
                 ex,
                 bguUsername,
@@ -106,6 +109,57 @@ public class GlobalExceptionHandler {
         );
         
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+    
+    /**
+     * Handle Constraint Violation Exceptions (duplicate email, username, etc.)
+     */
+    @ExceptionHandler({ConstraintViolationException.class, org.hibernate.exception.DataException.class})
+    @Order(2)
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(Exception ex, HttpServletRequest request) {
+        String correlationId = LoggerUtil.getCurrentCorrelationId();
+        String bguUsername = LoggerUtil.getCurrentBguUsername();
+        
+        String errorMessage = "Data validation failed";
+        String userMessage = "The provided data conflicts with existing records. Please check your input and try again.";
+        HttpStatus status = HttpStatus.CONFLICT;
+        
+        // Extract constraint violation details
+        Throwable rootCause = ex.getCause();
+        if (rootCause instanceof SQLIntegrityConstraintViolationException) {
+            SQLIntegrityConstraintViolationException sqlEx = (SQLIntegrityConstraintViolationException) rootCause;
+            String sqlMessage = sqlEx.getMessage();
+            
+            if (sqlMessage != null) {
+                if (sqlMessage.contains("users.email")) {
+                    errorMessage = "Email already exists";
+                    userMessage = "This email address is already registered to another user. Please use a different email address.";
+                } else if (sqlMessage.contains("users.bgu_username")) {
+                    errorMessage = "Username already exists";
+                    userMessage = "This username is already taken. Please choose a different username.";
+                } else if (sqlMessage.contains("Duplicate entry")) {
+                    errorMessage = "Duplicate entry";
+                    userMessage = "This information already exists in the system. Please check your input.";
+                }
+            }
+        }
+        
+        logger.warn("Constraint violation - Correlation ID: {}, Path: {}, Error: {}", correlationId, request.getRequestURI(), errorMessage, ex);
+        databaseLoggerService.logError(
+                "CONSTRAINT_VIOLATION",
+                errorMessage + ": " + ex.getMessage(),
+                ex,
+                bguUsername,
+                String.format("correlationId=%s,path=%s", correlationId, request.getRequestURI()));
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+            errorMessage,
+            userMessage,
+            status.value(),
+            request.getRequestURI()
+        );
+        
+        return ResponseEntity.status(status).body(errorResponse);
     }
     
     /**

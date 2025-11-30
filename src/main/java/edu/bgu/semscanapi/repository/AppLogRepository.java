@@ -1,6 +1,7 @@
 package edu.bgu.semscanapi.repository;
 
 import edu.bgu.semscanapi.entity.AppLog;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -33,8 +34,8 @@ public interface AppLogRepository extends JpaRepository<AppLog, Long> {
     @Query("SELECT l.tag, COUNT(l) FROM AppLog l GROUP BY l.tag ORDER BY COUNT(l) DESC")
     List<Object[]> countLogsByTag();
 
-    @Query(value = "SELECT * FROM app_logs ORDER BY log_timestamp DESC LIMIT :limit", nativeQuery = true)
-    List<AppLog> findRecentLogs(@Param("limit") int limit);
+    @Query("SELECT l FROM AppLog l ORDER BY l.logTimestamp DESC")
+    List<AppLog> findRecentLogs(Pageable pageable);
 
     List<AppLog> findByLogTimestampAfter(LocalDateTime dateTime);
 

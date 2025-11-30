@@ -87,9 +87,12 @@ public class UserController {
 
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), response.getMessage());
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException ex) {
+            // Re-throw to be handled by GlobalExceptionHandler with proper error message
+            throw ex;
         } catch (Exception ex) {
             LoggerUtil.logError(logger, "Failed to update user profile", ex);
-            UserProfileResponse response = UserProfileResponse.failure("Failed to update profile");
+            UserProfileResponse response = UserProfileResponse.failure("Failed to update profile: " + ex.getMessage());
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), response.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         } finally {
@@ -118,6 +121,14 @@ public class UserController {
 
         String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
         if (!normalizedEmail.equalsIgnoreCase(user.getEmail())) {
+            // Check if email already exists for another user
+            Optional<User> existingUserWithEmail = userRepository.findByEmail(normalizedEmail);
+            if (existingUserWithEmail.isPresent() && !existingUserWithEmail.get().getId().equals(user.getId())) {
+                logger.warn("Cannot update email to {} for user {} (id={}) - email already exists for user {} (id={})",
+                        normalizedEmail, user.getBguUsername(), user.getId(),
+                        existingUserWithEmail.get().getBguUsername(), existingUserWithEmail.get().getId());
+                throw new IllegalArgumentException("Email " + normalizedEmail + " is already registered to another user");
+            }
             user.setEmail(normalizedEmail);
             changed = true;
         }

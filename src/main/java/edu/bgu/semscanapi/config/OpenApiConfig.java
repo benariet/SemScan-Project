@@ -38,7 +38,7 @@ public class OpenApiConfig {
                                 .url("http://localhost:8080")
                                 .description("Development server"),
                         new Server()
-                                .url("http://132.73.167.231:8080")
+                                .url("http://132.72.50.53:8080")
                                 .description("Production server")))
                 .addSecurityItem(new SecurityRequirement().addList("NoAuth"))
                 .components(new io.swagger.v3.oas.models.Components()

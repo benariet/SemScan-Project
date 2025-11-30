@@ -107,15 +107,35 @@ public class AuthController {
             boolean changed = false;
 
             if (!baseUsername.equals(user.getBguUsername())) {
-                logger.debug("Updating bguUsername for user {} from {} to {}", user.getId(), user.getBguUsername(), baseUsername);
-                user.setBguUsername(baseUsername);
-                changed = true;
+                // Check if baseUsername already exists for another user before updating
+                Optional<User> userWithBguUsername = userRepository.findByBguUsername(baseUsername);
+                if (userWithBguUsername.isPresent() && !userWithBguUsername.get().getId().equals(user.getId())) {
+                    // Another user already has this bguUsername - don't update
+                    logger.warn("Cannot update bguUsername to {} for user {} (id={}) - username already exists for user {} (id={}). Keeping existing bguUsername.",
+                            baseUsername, user.getEmail(), user.getId(),
+                            userWithBguUsername.get().getEmail(), userWithBguUsername.get().getId());
+                } else {
+                    // Safe to update bguUsername
+                    logger.debug("Updating bguUsername for user {} from {} to {}", user.getId(), user.getBguUsername(), baseUsername);
+                    user.setBguUsername(baseUsername);
+                    changed = true;
+                }
             }
             if (user.getEmail() == null || user.getEmail().isBlank()) {
                 String derivedEmail = deriveEmailFromUsername(normalizedUsername);
-                logger.debug("Setting missing email for user {} to {}", user.getId(), derivedEmail);
-                user.setEmail(derivedEmail);
-                changed = true;
+                // Check if derived email already exists for another user
+                if (derivedEmail != null) {
+                    Optional<User> userWithEmail = userRepository.findByEmail(derivedEmail);
+                    if (userWithEmail.isPresent() && !userWithEmail.get().getId().equals(user.getId())) {
+                        logger.warn("Cannot set email to {} for user {} (id={}) - email already exists for user {} (id={}). Keeping null email.",
+                                derivedEmail, user.getBguUsername(), user.getId(),
+                                userWithEmail.get().getBguUsername(), userWithEmail.get().getId());
+                    } else {
+                        logger.debug("Setting missing email for user {} to {}", user.getId(), derivedEmail);
+                        user.setEmail(derivedEmail);
+                        changed = true;
+                    }
+                }
             }
 
             if (changed) {
@@ -127,11 +147,49 @@ public class AuthController {
             return user;
         }
 
+        // Before creating a new user, check if the derived email already exists
+        String derivedEmail = deriveEmailFromUsername(normalizedUsername);
+        if (derivedEmail != null) {
+            Optional<User> existingUserByEmail = userRepository.findByEmail(derivedEmail);
+            if (existingUserByEmail.isPresent()) {
+                User userWithEmail = existingUserByEmail.get();
+                logger.info("User with email {} already exists (id={}, bguUsername={}). Checking if bguUsername update is needed.",
+                        derivedEmail, userWithEmail.getId(), userWithEmail.getBguUsername());
+                
+                // Only update bguUsername if it's different AND the new bguUsername doesn't already exist
+                if (!baseUsername.equals(userWithEmail.getBguUsername())) {
+                    // Check if baseUsername already exists for another user
+                    Optional<User> userWithBguUsername = userRepository.findByBguUsername(baseUsername);
+                    if (userWithBguUsername.isPresent() && !userWithBguUsername.get().getId().equals(userWithEmail.getId())) {
+                        // Another user already has this bguUsername - don't update, just return existing user
+                        logger.warn("Cannot update bguUsername to {} for user {} (id={}) - username already exists for user {} (id={}). Returning existing user.",
+                                baseUsername, userWithEmail.getEmail(), userWithEmail.getId(),
+                                userWithBguUsername.get().getEmail(), userWithBguUsername.get().getId());
+                        return userWithEmail;
+                    }
+                    
+                    // Safe to update bguUsername
+                    userWithEmail.setBguUsername(baseUsername);
+                    userWithEmail = userRepository.save(userWithEmail);
+                    logger.debug("Updated bguUsername for existing user {} to {}", userWithEmail.getId(), baseUsername);
+                }
+                return userWithEmail;
+            }
+        }
+
+        // Before creating, double-check that bguUsername doesn't already exist
+        Optional<User> checkBguUsername = userRepository.findByBguUsername(baseUsername);
+        if (checkBguUsername.isPresent()) {
+            logger.warn("User with bguUsername {} already exists (id={}, email={}). Returning existing user instead of creating duplicate.",
+                    baseUsername, checkBguUsername.get().getId(), checkBguUsername.get().getEmail());
+            return checkBguUsername.get();
+        }
+
         User newUser = new User();
         newUser.setBguUsername(baseUsername);
         newUser.setFirstName("User");
         newUser.setLastName(baseUsername);
-        newUser.setEmail(deriveEmailFromUsername(normalizedUsername));
+        newUser.setEmail(derivedEmail);
         newUser.setIsPresenter(false);
         newUser.setIsParticipant(false);
 
