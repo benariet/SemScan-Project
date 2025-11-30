@@ -89,8 +89,11 @@ public class RequestLoggingFilter implements Filter {
             String queryString = request.getQueryString();
             String fullUrl = queryString != null ? uri + "?" + queryString : uri;
             
+            // Sanitize request body to remove passwords before logging
+            String sanitizedBody = sanitizePasswordFromBody(requestBody);
+            
             // Truncate body for logging if too long (max 2000 characters)
-            String truncatedBody = truncateBody(requestBody, 2000);
+            String truncatedBody = truncateBody(sanitizedBody, 2000);
             
             // Log to file with body
             if (truncatedBody != null && !truncatedBody.isEmpty()) {
@@ -101,10 +104,10 @@ public class RequestLoggingFilter implements Filter {
                            method, fullUrl, getClientIpAddress(request));
             }
             
-            // Log to database with body (full body, but will be truncated in database if needed)
+            // Log to database with sanitized body (full body, but will be truncated in database if needed)
             String bguUsername = LoggerUtil.getCurrentBguUsername();
             if (databaseLoggerService != null) {
-                databaseLoggerService.logApiRequest(method, uri, bguUsername, requestBody);
+                databaseLoggerService.logApiRequest(method, uri, bguUsername, sanitizedBody);
             }
             
             // Log headers (excluding sensitive ones)
@@ -286,5 +289,42 @@ public class RequestLoggingFilter implements Filter {
         }
         
         return request.getRemoteAddr();
+    }
+    
+    /**
+     * Sanitize password fields from request body to prevent logging sensitive data
+     * Handles JSON format: {"password":"secret"} -> {"password":"***"}
+     */
+    private String sanitizePasswordFromBody(String body) {
+        if (body == null || body.isEmpty()) {
+            return body;
+        }
+        
+        // Only process JSON bodies
+        if (!body.trim().startsWith("{") && !body.trim().startsWith("[")) {
+            return body;
+        }
+        
+        try {
+            // Replace password field values in JSON
+            // Pattern: "password":"value" or "password": "value" or "password":"value", or "password": "value",
+            // Also handles: "Password", "PASSWORD", etc. (case-insensitive)
+            String sanitized = body.replaceAll(
+                "(?i)(\"password\"\\s*:\\s*\")([^\"]+)(\")",
+                "$1***$3"
+            );
+            
+            // Also handle password in form-encoded format: password=value
+            sanitized = sanitized.replaceAll(
+                "(?i)(password=)([^&\\s]+)",
+                "$1***"
+            );
+            
+            return sanitized;
+        } catch (Exception e) {
+            // If sanitization fails, return original body but log warning
+            logger.warn("Failed to sanitize password from request body: {}", e.getMessage());
+            return body;
+        }
     }
 }
