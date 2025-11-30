@@ -1423,15 +1423,39 @@ public class PresenterHomeService {
 
     private void closeLegacySessionIfExists(SeminarSlot slot) {
         if (slot.getLegacySessionId() != null) {
-            sessionRepository.findById(slot.getLegacySessionId()).ifPresent(this::closeLegacySession);
+            sessionRepository.findById(slot.getLegacySessionId()).ifPresent(session -> {
+                // CRITICAL: Don't close active sessions that are still within their attendance window
+                // This prevents premature closing when PhD students register or other events occur
+                if (session.getStatus() == Session.SessionStatus.OPEN) {
+                    LocalDateTime now = LocalDateTime.now();
+                    LocalDateTime closesAt = slot.getAttendanceClosesAt();
+                    // If attendance window is still open, preserve the active session
+                    if (closesAt != null && now.isBefore(closesAt)) {
+                        logger.warn("Preventing automatic close of active session {} - attendance window still open until {} (current time: {})", 
+                            session.getSessionId(), closesAt, now);
+                        databaseLoggerService.logSessionEvent("SESSION_CLOSE_PREVENTED", session.getSessionId(), 
+                            session.getSeminarId(), null);
+                        return;
+                    }
+                    // If attendance window has passed, it's safe to close
+                    if (closesAt != null && now.isAfter(closesAt)) {
+                        logger.info("Closing session {} - attendance window has passed (closed at: {}, current: {})", 
+                            session.getSessionId(), closesAt, now);
+                    }
+                }
+                closeLegacySession(session);
+            });
         }
     }
 
     private void closeLegacySession(Session session) {
         if (session.getStatus() != Session.SessionStatus.CLOSED) {
+            logger.info("Closing legacy session {} (status: {})", session.getSessionId(), session.getStatus());
             session.setStatus(Session.SessionStatus.CLOSED);
             session.setEndTime(LocalDateTime.now());
             sessionRepository.save(session);
+            databaseLoggerService.logSessionEvent("SESSION_AUTO_CLOSED", session.getSessionId(), 
+                session.getSeminarId(), null);
         }
     }
 

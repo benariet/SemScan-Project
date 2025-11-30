@@ -17,6 +17,9 @@ public class GlobalConfig {
     @Value("${server.port:8080}")
     private int serverPort;
     
+    @Value("${server.address:0.0.0.0}")
+    private String serverAddress;
+    
     @Value("${server.servlet.context-path:/}")
     private String contextPath;
     
@@ -95,9 +98,7 @@ public class GlobalConfig {
     // =============================================
     // FILE UPLOAD CONFIGURATION
     // =============================================
-    
-    // TODO: Make this configurable via properties file later
-    // Hardcoded for testing - will be replaced with configurable property
+
     private static final String UPLOAD_SERVER_URL = "http://132.72.50.53:8080/api/v1/upload";
 
     // =============================================
@@ -143,6 +144,11 @@ public class GlobalConfig {
     }
     
     public String getServerUrl() {
+        // Use HTTPS on standard port 443 (via nginx) for production
+        // This eliminates browser warnings about non-standard ports
+        if (isProductionMode()) {
+            return "https://132.72.50.53" + contextPath;
+        }
         return "http://132.72.50.53:" + serverPort + contextPath;
     }
     
@@ -317,7 +323,15 @@ public class GlobalConfig {
     // =============================================
     
     public boolean isDevelopmentMode() {
-        return getServerUrl().contains("localhost") || getServerUrl().contains("127.0.0.1");
+        // Check server address to determine environment (avoids circular dependency with getServerUrl)
+        // Development typically binds to localhost/127.0.0.1, production binds to 0.0.0.0 (all interfaces)
+        // Also check if server address is explicitly set to localhost
+        if (serverAddress != null) {
+            String addr = serverAddress.toLowerCase();
+            return addr.equals("localhost") || addr.equals("127.0.0.1") || addr.startsWith("127.");
+        }
+        // Default: if not explicitly set to localhost, assume production
+        return false;
     }
     
     public boolean isProductionMode() {

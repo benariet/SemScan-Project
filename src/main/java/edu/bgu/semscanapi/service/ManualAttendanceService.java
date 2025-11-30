@@ -10,6 +10,7 @@ import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.AttendanceRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
@@ -44,11 +45,12 @@ public class ManualAttendanceService {
     @Autowired
     private DatabaseLoggerService databaseLoggerService;
     
+    @Autowired
+    private GlobalConfig globalConfig;
+    
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     // Business rules
-    private static final int WINDOW_START_MINUTES = -10; // 10 minutes before session start
-    private static final int WINDOW_END_MINUTES = 15;    // 15 minutes after session start
     private static final int SAFE_AUTO_APPROVE_CAP = 5;  // Base cap for auto-approval
     private static final double AUTO_APPROVE_PERCENTAGE = 0.05; // 5% of roster size
     
@@ -71,18 +73,51 @@ public class ManualAttendanceService {
                     return new IllegalArgumentException(errorMsg);
                 });
             
-            // CRITICAL: Validate that THIS specific session is OPEN
-            // This allows multiple presenters to have separate sessions for the same slot
-            if (session.getStatus() != Session.SessionStatus.OPEN) {
-                String errorMsg = "Session is not open: " + sessionId + " (status: " + session.getStatus() + "). Please ensure the session is open before requesting attendance.";
-                logger.error("Session is not open for manual attendance request: {} (status: {}). Student: {}", 
-                    sessionId, session.getStatus(), studentUsername);
-                databaseLoggerService.logError("MANUAL_ATTENDANCE_SESSION_NOT_OPEN", errorMsg, null, 
-                    studentUsername, String.format("sessionId=%s,status=%s", sessionId, session.getStatus()));
+            // Check time window first - allow requests even if session is CLOSED, as long as we're within the window
+            // This allows students to request attendance after the presenter closes the session, within the configured window
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime sessionStart = session.getStartTime();
+            if (sessionStart == null) {
+                String errorMsg = "Session start time is not set: " + sessionId;
+                logger.error(errorMsg);
+                databaseLoggerService.logError("MANUAL_ATTENDANCE_NO_START_TIME", errorMsg, null, 
+                    studentUsername, String.format("sessionId=%s", sessionId));
                 throw new IllegalArgumentException(errorMsg);
             }
             
-            logger.info("Session validation passed for manual attendance - SessionID: {} is OPEN", sessionId);
+            // Use configurable window values from GlobalConfig
+            int windowBeforeMinutes = globalConfig.getManualAttendanceWindowBeforeMinutes();
+            int windowAfterMinutes = globalConfig.getManualAttendanceWindowAfterMinutes();
+            
+            LocalDateTime windowStart = sessionStart.minusMinutes(windowBeforeMinutes);
+            LocalDateTime windowEnd = sessionStart.plusMinutes(windowAfterMinutes);
+            
+            boolean inWindow = now.isAfter(windowStart) && now.isBefore(windowEnd);
+            
+            // Allow requests if we're within the window, even if session is CLOSED
+            // This enables students to request attendance after the presenter closes the session
+            if (!inWindow) {
+                String errorMsg = String.format("Manual attendance request is outside the allowed time window. " +
+                    "Window: %d minutes before to %d minutes after session start. " +
+                    "Session started at: %s, current time: %s", 
+                    windowBeforeMinutes, windowAfterMinutes, sessionStart, now);
+                logger.error("Manual attendance request outside window - Session: {}, Student: {}, Window: {} to {}", 
+                    sessionId, studentUsername, windowStart, windowEnd);
+                databaseLoggerService.logError("MANUAL_ATTENDANCE_OUTSIDE_WINDOW", errorMsg, null, 
+                    studentUsername, String.format("sessionId=%s,windowStart=%s,windowEnd=%s,currentTime=%s", 
+                        sessionId, windowStart, windowEnd, now));
+                throw new IllegalArgumentException(errorMsg);
+            }
+            
+            // Log if session is closed but request is allowed (within window)
+            if (session.getStatus() != Session.SessionStatus.OPEN) {
+                logger.info("Allowing manual attendance request for CLOSED session {} (status: {}) - within time window. Student: {}", 
+                    sessionId, session.getStatus(), studentUsername);
+                databaseLoggerService.logAttendance("MANUAL_ATTENDANCE_CLOSED_SESSION_ALLOWED", 
+                    studentUsername, sessionId, "MANUAL_REQUEST");
+            } else {
+                logger.info("Session validation passed for manual attendance - SessionID: {} is OPEN", sessionId);
+            }
             
             User student = userRepository.findByBguUsername(studentUsername)
                 .orElseThrow(() -> {
@@ -108,12 +143,7 @@ public class ManualAttendanceService {
                 }
             }
             
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime sessionStart = session.getStartTime();
-            LocalDateTime windowStart = sessionStart.plusMinutes(WINDOW_START_MINUTES);
-            LocalDateTime windowEnd = sessionStart.plusMinutes(WINDOW_END_MINUTES);
-            
-            boolean inWindow = now.isAfter(windowStart) && now.isBefore(windowEnd);
+            // Window validation already done above, reuse the calculated values
             
             Map<String, Object> autoFlags = generateAutoFlags(session, studentUsername, inWindow);
             
@@ -402,11 +432,16 @@ public class ManualAttendanceService {
             existing.setMethod(Attendance.AttendanceMethod.MANUAL_REQUEST);
             
             Session session = sessionRepository.findById(request.getSessionId()).orElse(null);
-            if (session != null) {
+            if (session != null && session.getStartTime() != null) {
                 LocalDateTime now = LocalDateTime.now();
                 LocalDateTime sessionStart = session.getStartTime();
-                LocalDateTime windowStart = sessionStart.plusMinutes(WINDOW_START_MINUTES);
-                LocalDateTime windowEnd = sessionStart.plusMinutes(WINDOW_END_MINUTES);
+                
+                // Use configurable window values from GlobalConfig
+                int windowBeforeMinutes = globalConfig.getManualAttendanceWindowBeforeMinutes();
+                int windowAfterMinutes = globalConfig.getManualAttendanceWindowAfterMinutes();
+                
+                LocalDateTime windowStart = sessionStart.minusMinutes(windowBeforeMinutes);
+                LocalDateTime windowEnd = sessionStart.plusMinutes(windowAfterMinutes);
                 boolean inWindow = now.isAfter(windowStart) && now.isBefore(windowEnd);
                 
                 Map<String, Object> autoFlags = generateAutoFlags(session, normalizedUsername, inWindow);

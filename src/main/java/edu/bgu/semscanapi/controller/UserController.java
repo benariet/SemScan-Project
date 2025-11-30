@@ -119,17 +119,24 @@ public class UserController {
             }
         }
 
-        String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
-        if (!normalizedEmail.equalsIgnoreCase(user.getEmail())) {
-            // Check if email already exists for another user
-            Optional<User> existingUserWithEmail = userRepository.findByEmail(normalizedEmail);
-            if (existingUserWithEmail.isPresent() && !existingUserWithEmail.get().getId().equals(user.getId())) {
-                logger.warn("Cannot update email to {} for user {} (id={}) - email already exists for user {} (id={})",
-                        normalizedEmail, user.getBguUsername(), user.getId(),
-                        existingUserWithEmail.get().getBguUsername(), existingUserWithEmail.get().getId());
-                throw new IllegalArgumentException("Email " + normalizedEmail + " is already registered to another user");
+        // Handle email update - check for null before processing
+        if (request.getEmail() != null) {
+            String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
+            if (!normalizedEmail.equalsIgnoreCase(user.getEmail())) {
+                // Check if email already exists for another user
+                Optional<User> existingUserWithEmail = userRepository.findByEmail(normalizedEmail);
+                if (existingUserWithEmail.isPresent() && !existingUserWithEmail.get().getId().equals(user.getId())) {
+                    logger.warn("Cannot update email to {} for user {} (id={}) - email already exists for user {} (id={})",
+                            normalizedEmail, user.getBguUsername(), user.getId(),
+                            existingUserWithEmail.get().getBguUsername(), existingUserWithEmail.get().getId());
+                    throw new IllegalArgumentException("Email " + normalizedEmail + " is already registered to another user");
+                }
+                user.setEmail(normalizedEmail);
+                changed = true;
             }
-            user.setEmail(normalizedEmail);
+        } else if (user.getEmail() != null) {
+            // If request email is null but user has an email, clear it
+            user.setEmail(null);
             changed = true;
         }
 
