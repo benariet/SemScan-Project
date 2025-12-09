@@ -156,21 +156,24 @@ public class UserController {
         }
 
         UserProfileUpdateRequest.ParticipationPreference preference = request.getParticipationPreference();
-        if (preference != null) {
-            boolean desiredPresenter = preference == UserProfileUpdateRequest.ParticipationPreference.BOTH
-                    || preference == UserProfileUpdateRequest.ParticipationPreference.PRESENTER_ONLY;
-            boolean desiredParticipant = preference == UserProfileUpdateRequest.ParticipationPreference.BOTH
-                    || preference == UserProfileUpdateRequest.ParticipationPreference.PARTICIPANT_ONLY;
+        // Default to BOTH if not provided - users can be both presenter and participant
+        if (preference == null) {
+            preference = UserProfileUpdateRequest.ParticipationPreference.BOTH;
+        }
+        
+        boolean desiredPresenter = preference == UserProfileUpdateRequest.ParticipationPreference.BOTH
+                || preference == UserProfileUpdateRequest.ParticipationPreference.PRESENTER_ONLY;
+        boolean desiredParticipant = preference == UserProfileUpdateRequest.ParticipationPreference.BOTH
+                || preference == UserProfileUpdateRequest.ParticipationPreference.PARTICIPANT_ONLY;
 
-            if (!Boolean.valueOf(desiredPresenter).equals(user.getIsPresenter())) {
-                user.setIsPresenter(desiredPresenter);
-                changed = true;
-            }
+        if (!Boolean.valueOf(desiredPresenter).equals(user.getIsPresenter())) {
+            user.setIsPresenter(desiredPresenter);
+            changed = true;
+        }
 
-            if (!Boolean.valueOf(desiredParticipant).equals(user.getIsParticipant())) {
-                user.setIsParticipant(desiredParticipant);
-                changed = true;
-            }
+        if (!Boolean.valueOf(desiredParticipant).equals(user.getIsParticipant())) {
+            user.setIsParticipant(desiredParticipant);
+            changed = true;
         }
 
         return changed;

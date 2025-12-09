@@ -1,5 +1,6 @@
 package edu.bgu.semscanapi.service;
 
+import edu.bgu.semscanapi.config.GlobalConfig;
 import edu.bgu.semscanapi.dto.ManualAttendanceRequest;
 import edu.bgu.semscanapi.dto.ManualAttendanceResponse;
 import edu.bgu.semscanapi.entity.Attendance;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 /**
  * Comprehensive unit tests for ManualAttendanceService
@@ -42,6 +44,9 @@ class ManualAttendanceServiceTest {
     @Mock
     private DatabaseLoggerService databaseLoggerService;
 
+    @Mock
+    private GlobalConfig globalConfig;
+
     @InjectMocks
     private ManualAttendanceService manualAttendanceService;
 
@@ -52,6 +57,11 @@ class ManualAttendanceServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Mock GlobalConfig - use lenient() to avoid UnnecessaryStubbingException
+        // when not all tests use these methods
+        lenient().when(globalConfig.getManualAttendanceWindowBeforeMinutes()).thenReturn(10);
+        lenient().when(globalConfig.getManualAttendanceWindowAfterMinutes()).thenReturn(20);
+        
         // Setup test request
         testRequest = new ManualAttendanceRequest();
         testRequest.setSessionId(1L);
@@ -123,15 +133,17 @@ class ManualAttendanceServiceTest {
 
     @Test
     void createManualRequest_WithClosedSession_ThrowsException() {
-        // Given
+        // Given - Closed session that's outside the time window (more than 20 minutes after start)
         testSession.setStatus(Session.SessionStatus.CLOSED);
+        testSession.setStartTime(LocalDateTime.now().minusHours(1)); // Session started 1 hour ago (outside window)
         when(sessionRepository.findById(1L)).thenReturn(Optional.of(testSession));
 
         // When & Then
         assertThrows(IllegalArgumentException.class, () -> {
             manualAttendanceService.createManualRequest(testRequest);
         });
-        verify(databaseLoggerService).logError(eq("MANUAL_ATTENDANCE_SESSION_NOT_OPEN"), anyString(), 
+        // The code checks time window first, so outside window triggers MANUAL_ATTENDANCE_OUTSIDE_WINDOW
+        verify(databaseLoggerService).logError(eq("MANUAL_ATTENDANCE_OUTSIDE_WINDOW"), anyString(), 
             isNull(), eq("student1"), anyString());
     }
 
