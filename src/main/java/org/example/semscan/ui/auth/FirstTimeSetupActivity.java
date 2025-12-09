@@ -275,10 +275,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
     }
 
     private void openParticipationSelector() {
-        if (DEGREE_PHD.equals(selectedDegree)) {
-            Toast.makeText(this, R.string.setup_participation_presenter_locked, Toast.LENGTH_SHORT).show();
-            return;
-        }
+        // PhD students can now select participation (both presenter and participant roles)
         if (DEGREE_MSC.equals(selectedDegree)) {
             mscLauncher.launch(new Intent(this, MScRoleSelectionActivity.class));
         } else {
@@ -287,23 +284,17 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
     }
 
     private void applyDegreeConstraints() {
-        if (DEGREE_PHD.equals(selectedDegree)) {
-            selectedParticipation = PARTICIPATION_PRESENTER_ONLY;
-            selectedParticipationLabel = getString(R.string.setup_participation_presenter);
-            updateParticipationLabel();
-            updateParticipationCardState();
-        } else {
-            updateParticipationCardState();
-            if (TextUtils.isEmpty(selectedParticipation)) {
-                textSelectedParticipation.setText(R.string.setup_participation_placeholder);
-            }
+        // PhD students can now choose their participation role (presenter or participant)
+        updateParticipationCardState();
+        if (TextUtils.isEmpty(selectedParticipation)) {
+            textSelectedParticipation.setText(R.string.setup_participation_placeholder);
         }
     }
 
     private void updateParticipationCardState() {
-        boolean phd = DEGREE_PHD.equals(selectedDegree);
-        cardParticipation.setEnabled(!phd);
-        cardParticipation.setAlpha(phd ? 0.6f : 1f);
+        // PhD students can now access participation selection
+        cardParticipation.setEnabled(true);
+        cardParticipation.setAlpha(1f);
     }
 
     private void updateParticipationLabel() {
