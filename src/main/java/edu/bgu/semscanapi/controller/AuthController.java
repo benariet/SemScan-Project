@@ -190,8 +190,9 @@ public class AuthController {
         newUser.setFirstName("User");
         newUser.setLastName(baseUsername);
         newUser.setEmail(derivedEmail);
-        newUser.setIsPresenter(false);
-        newUser.setIsParticipant(false);
+        // Default to both presenter and participant - users can be both
+        newUser.setIsPresenter(true);
+        newUser.setIsParticipant(true);
 
         User savedUser = userRepository.save(newUser);
         logger.info("Provisioned new local user for username={}, stored as base={} (id={})", username, baseUsername, savedUser.getId());

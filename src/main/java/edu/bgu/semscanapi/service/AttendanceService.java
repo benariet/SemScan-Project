@@ -96,16 +96,7 @@ public class AttendanceService {
                 throw new IllegalArgumentException(errorMsg);
             }
             
-            logger.debug("Student found: {} - isParticipant: {}", 
-                student.get().getBguUsername(), student.get().getIsParticipant());
-            
-            if (!Boolean.TRUE.equals(student.get().getIsParticipant())) {
-                String errorMsg = "User is not a participant: " + attendance.getStudentUsername();
-                logger.error("User is not marked as participant: {}", attendance.getStudentUsername());
-                databaseLoggerService.logError("ATTENDANCE_NOT_PARTICIPANT", errorMsg, null, 
-                    attendance.getStudentUsername(), String.format("sessionId=%s", attendance.getSessionId()));
-                throw new IllegalArgumentException(errorMsg);
-            }
+            logger.debug("Student found: {}", student.get().getBguUsername());
             
             // Check if already attended (use case-insensitive check)
             String normalizedUsername = attendance.getStudentUsername();

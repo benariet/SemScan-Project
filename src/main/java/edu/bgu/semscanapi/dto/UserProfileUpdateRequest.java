@@ -25,7 +25,7 @@ public class UserProfileUpdateRequest {
     @NotNull(message = "degree is required")
     private edu.bgu.semscanapi.entity.User.Degree degree;
 
-    @NotNull(message = "participationPreference is required")
+    // Optional - defaults to BOTH if not provided (users can be both presenter and participant)
     private ParticipationPreference participationPreference;
 
     private String nationalIdNumber;

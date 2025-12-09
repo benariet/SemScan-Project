@@ -172,22 +172,14 @@ public class PresenterHomeService {
             boolean existingPhd = existingRegistrations.stream()
                     .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
 
+            presenterDegree = presenter.getDegree() != null ? presenter.getDegree() : User.Degree.MSc;
+            
+            // If slot already has a PhD, no one else can register
             if (existingPhd) {
                 String errorMsg = "Slot already has a PhD presenter";
                 databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
                     String.format("slotId=%s,reason=PHD_BLOCKED", slotId));
                 return new PresenterSlotRegistrationResponse(false, "Slot locked by PhD presenter", "SLOT_LOCKED");
-            }
-
-            presenterDegree = presenter.getDegree() != null ? presenter.getDegree() : User.Degree.MSc;
-
-            if (presenterDegree == User.Degree.PhD) {
-                if (!existingRegistrations.isEmpty()) {
-                    String errorMsg = "Slot already has an MSc presenter";
-                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                        String.format("slotId=%s,reason=PHD_BLOCKED_MSC_EXISTS", slotId));
-                    return new PresenterSlotRegistrationResponse(false, errorMsg, "PHD_BLOCKED");
-                }
             }
             
             // Read slot ONLY when we need it (for capacity check and update)
@@ -200,15 +192,15 @@ public class PresenterHomeService {
                         return new IllegalArgumentException(errorMsg);
                     });
             
-            if (presenterDegree != User.Degree.PhD) {
-                int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
-                if (existingRegistrations.size() >= capacity) {
-                    updateSlotStatus(slot, SlotState.FULL);
-                    String errorMsg = "Slot is already full";
-                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                        String.format("slotId=%s,reason=SLOT_FULL,capacity=%d,existing=%d", slotId, capacity, existingRegistrations.size()));
-                    return new PresenterSlotRegistrationResponse(false, errorMsg, "SLOT_FULL");
-                }
+            // Check capacity for non-PhD students
+            // PhD students take the whole slot (handled separately below)
+            int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
+            if (presenterDegree != User.Degree.PhD && existingRegistrations.size() >= capacity) {
+                updateSlotStatus(slot, SlotState.FULL);
+                String errorMsg = "Slot is already full";
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                    String.format("slotId=%s,reason=SLOT_FULL,capacity=%d,existing=%d", slotId, capacity, existingRegistrations.size()));
+                return new PresenterSlotRegistrationResponse(false, errorMsg, "SLOT_FULL");
             }
 
             registration = new SeminarSlotRegistration();
@@ -221,6 +213,8 @@ public class PresenterHomeService {
 
             registrationRepository.save(registration);
 
+            // If PhD registered, slot becomes FULL immediately (PhD takes the whole slot)
+            // Otherwise, update based on capacity
             boolean slotNowHasPhd = presenterDegree == User.Degree.PhD;
             long newEnrolled = existingRegistrations.size() + 1;
             SlotState updatedState = slotNowHasPhd
@@ -228,6 +222,7 @@ public class PresenterHomeService {
                     : determineState(slot.getCapacity(), (int) newEnrolled);
 
             if (slotNowHasPhd) {
+                // Close attendance if PhD registered (PhD takes the whole slot)
                 slot.setAttendanceOpenedAt(null);
                 slot.setAttendanceClosesAt(null);
                 slot.setAttendanceOpenedBy(null);
@@ -358,13 +353,14 @@ public class PresenterHomeService {
                 .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
         long remaining = remainingRegistrations.size();
 
+        // If PhD remains, slot stays FULL; otherwise update based on capacity
         SlotState newState = remainingPhd
                 ? SlotState.FULL
                 : determineState(slot.getCapacity(), (int) remaining);
         updateSlotStatus(slot, newState);
 
         String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
-        if (Objects.equals(presenterUsername, openedBy) || remaining == 0 || remainingPhd) {
+        if (Objects.equals(presenterUsername, openedBy) || remaining == 0) {
             slot.setAttendanceOpenedAt(null);
             slot.setAttendanceClosesAt(null);
             slot.setAttendanceOpenedBy(null);
@@ -881,8 +877,6 @@ public class PresenterHomeService {
         int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
         boolean slotLockedByPhd = registrations.stream()
                 .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
-        boolean slotHasMsc = registrations.stream()
-                .anyMatch(reg -> reg.getDegree() == null || User.Degree.MSc == reg.getDegree());
 
         // Check if attendance was closed - if session exists and is CLOSED, slot is no longer available
         boolean attendanceClosed = false;
@@ -936,8 +930,6 @@ public class PresenterHomeService {
 
         card.setDisableReason(null);
 
-        User.Degree effectiveDegree = presenterDegree != null ? presenterDegree : User.Degree.MSc;
-
         if (attendanceClosed) {
             canRegister = false;
             card.setDisableReason("Slot attendance has closed");
@@ -946,9 +938,6 @@ public class PresenterHomeService {
             if (!presenterInThisSlot) {
                 card.setDisableReason("Slot locked by PhD presenter");
             }
-        } else if (effectiveDegree == User.Degree.PhD && slotHasMsc && !presenterInThisSlot) {
-            canRegister = false;
-            card.setDisableReason("Slot already has an MSc presenter");
         } else if (state == SlotState.FULL) {
             canRegister = false;
             card.setDisableReason("Slot is full");
