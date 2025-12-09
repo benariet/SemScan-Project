@@ -29,9 +29,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
@@ -44,6 +47,7 @@ public class PresenterHomeService {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final ZoneId ISRAEL_TIMEZONE = ZoneId.of("Asia/Jerusalem");
 
     private final UserRepository userRepository;
     private final SeminarSlotRepository seminarSlotRepository;
@@ -497,7 +501,9 @@ public class PresenterHomeService {
             return new PresenterOpenAttendanceResponse(false, errorMsg, "NOT_REGISTERED", null, null, null, null, null);
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        // CRITICAL: Get current time in Israel timezone to match slot times
+        // Slot times are stored as DATE + TIME (no timezone) and interpreted as Israel time
+        LocalDateTime now = nowIsrael();
         LocalDateTime start = toSlotStart(slot);
         if (start == null) {
             String errorMsg = "Slot start time not configured";
@@ -509,15 +515,28 @@ public class PresenterHomeService {
         LocalDateTime end = toSlotEnd(slot);
         LocalDateTime openWindow = start.minusMinutes(10);
         
+        // Log time comparison for debugging - CRITICAL for diagnosing timezone issues
+        long minutesUntilOpen = Duration.between(now, openWindow).toMinutes();
+        String systemTimezone = java.util.TimeZone.getDefault().getID();
+        LocalDateTime nowUtc = LocalDateTime.now(); // For logging comparison
+        logger.info("⏰⏰⏰ CRITICAL TIME CHECK - Slot: {}, System Timezone: {}, Now (UTC): {}, Now (Israel): {}, Slot Start: {}, Open Window: {}, Minutes until open: {}, Can open: {}", 
+            slotId, systemTimezone, nowUtc, now, start, openWindow, minutesUntilOpen, !now.isBefore(openWindow));
+        
         // Check if too early (before 10 minutes before start)
         // Allow opening during the slot time (from 10 minutes before start until slot ends, or indefinitely if no end time)
         if (now.isBefore(openWindow)) {
             String openWindowStr = DATE_TIME_FORMAT.format(openWindow);
+            long minutesDiff = Duration.between(now, openWindow).toMinutes();
             String errorMsg = String.format("Cannot start session. Attendance can only be opened 10 minutes before the slot start time (at %s)", openWindowStr);
+            logger.error("❌ TOO_EARLY - Slot: {}, Now: {}, OpenWindow: {}, Start: {}, Minutes difference: {} (negative = too early)", 
+                slotId, now, openWindow, start, minutesDiff);
             databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
-                String.format("slotId=%s,reason=TOO_EARLY,now=%s,openWindow=%s", slotId, DATE_TIME_FORMAT.format(now), openWindowStr));
+                String.format("slotId=%s,reason=TOO_EARLY,now=%s,openWindow=%s,start=%s,minutesDiff=%d", 
+                    slotId, DATE_TIME_FORMAT.format(now), openWindowStr, DATE_TIME_FORMAT.format(start), minutesDiff));
             return new PresenterOpenAttendanceResponse(false, errorMsg, "TOO_EARLY", null, openWindowStr, null, null, null);
         }
+        
+        logger.info("✅ Time check passed - Slot: {} can be opened (Now: {} >= OpenWindow: {})", slotId, now, openWindow);
         
         // Check if too late (after slot ends) - only if slot has an end time
         if (end != null && now.isAfter(end)) {
@@ -649,6 +668,7 @@ public class PresenterHomeService {
         // CRITICAL: Update slot's session tracking fields
         // Since we already checked that no other presenter has an open session (and returned IN_PROGRESS if they did),
         // we can safely update the slot to track this new session
+        // Use the 'now' variable already defined at the start of the method
         slot.setLegacySessionId(newSession.getSessionId());
         slot.setAttendanceOpenedAt(now);
         slot.setAttendanceClosesAt(now.plusMinutes(15));
@@ -672,16 +692,34 @@ public class PresenterHomeService {
     }
 
     private List<SeminarSlot> loadUpcomingSlots() {
-        LocalDate today = LocalDate.now();
-        logger.debug("Loading upcoming slots - today is: {}", today);
-        List<SeminarSlot> upcoming = seminarSlotRepository.findBySlotDateGreaterThanEqualOrderBySlotDateAscStartTimeAsc(today);
-        logger.debug("Found {} slots with date >= {}", upcoming.size(), today);
+        // CRITICAL: Use Israel timezone consistently with buildSlotCatalog()
+        LocalDate today = ZonedDateTime.now(ISRAEL_TIMEZONE).toLocalDate();
+        LocalDate yesterday = today.minusDays(1); // Include yesterday in case of timezone edge cases
+        
+        logger.info("Loading upcoming slots - today is: {} (Israel timezone), checking from yesterday: {}", today, yesterday);
+        
+        // Query for slots from yesterday onwards (to catch today's slots even with timezone issues)
+        List<SeminarSlot> upcoming = seminarSlotRepository.findBySlotDateGreaterThanEqualOrderBySlotDateAscStartTimeAsc(yesterday);
+        logger.info("Found {} slots with date >= {} (yesterday)", upcoming.size(), yesterday);
+        
+        // Log slot dates for debugging
+        if (logger.isDebugEnabled() && !upcoming.isEmpty()) {
+            upcoming.forEach(slot -> logger.debug("Slot {} - date: {}, start: {}, end: {}", 
+                slot.getSlotId(), slot.getSlotDate(), slot.getStartTime(), slot.getEndTime()));
+        }
+        
         if (upcoming.isEmpty()) {
+            // If no slots found, try loading all slots to see what's in the database
             List<SeminarSlot> all = seminarSlotRepository.findAllByOrderBySlotDateAscStartTimeAsc();
-            logger.debug("No upcoming slots found, returning all {} slots", all.size());
+            logger.warn("No upcoming slots found for date >= {}, but found {} total slots in database", yesterday, all.size());
+            if (!all.isEmpty() && logger.isDebugEnabled()) {
+                all.forEach(slot -> logger.debug("All slots - Slot {} - date: {}, start: {}, end: {}", 
+                    slot.getSlotId(), slot.getSlotDate(), slot.getStartTime(), slot.getEndTime()));
+            }
+            // Return all slots - the filter in buildSlotCatalog will handle showing today's slots
             return all;
         }
-        logger.debug("Returning {} upcoming slots", upcoming.size());
+        logger.info("Returning {} upcoming slots (including yesterday and today)", upcoming.size());
         return upcoming;
     }
 
@@ -786,23 +824,38 @@ public class PresenterHomeService {
                 .map(SeminarSlotRegistration::getSlotId)
                 .collect(Collectors.toSet());
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = nowIsrael();
+        LocalDate today = ZonedDateTime.now(ISRAEL_TIMEZONE).toLocalDate();
+        
+        logger.info("Building slot catalog - today is: {}, total slots to filter: {}", today, slots.size());
         
         return slots.stream()
                 .filter(slot -> {
-                    // Filter out slots where attendance was closed
+                    // Always show today's slots, regardless of status
+                    LocalDate slotDate = slot.getSlotDate();
+                    boolean isToday = slotDate != null && slotDate.equals(today);
+                    
+                    if (isToday) {
+                        logger.info("Slot {} is for today ({}), always showing it (slotDate={}, today={})", 
+                            slot.getSlotId(), slotDate, slotDate, today);
+                        return true; // Always show today's slots
+                    }
+                    
+                    logger.debug("Slot {} is NOT for today (slotDate={}, today={})", slot.getSlotId(), slotDate, today);
+                    
+                    // For future slots, filter out closed ones
                     // Check if session is CLOSED
                     if (slot.getLegacySessionId() != null) {
                         Optional<Session> session = sessionRepository.findById(slot.getLegacySessionId());
                         if (session.isPresent() && session.get().getStatus() == Session.SessionStatus.CLOSED) {
-                            logger.debug("Filtering out slot {} - session {} is CLOSED", slot.getSlotId(), slot.getLegacySessionId());
-                            return false; // Don't show closed slots
+                            logger.debug("Filtering out future slot {} - session {} is CLOSED", slot.getSlotId(), slot.getLegacySessionId());
+                            return false; // Don't show closed future slots
                         }
                     }
                     // Check if attendance window has passed
                     if (slot.getAttendanceClosesAt() != null && now.isAfter(slot.getAttendanceClosesAt())) {
-                        logger.debug("Filtering out slot {} - attendance closed at {}", slot.getSlotId(), slot.getAttendanceClosesAt());
-                        return false; // Don't show slots with closed attendance
+                        logger.debug("Filtering out future slot {} - attendance closed at {}", slot.getSlotId(), slot.getAttendanceClosesAt());
+                        return false; // Don't show future slots with closed attendance
                     }
                     return true; // Show all other slots
                 })
@@ -841,7 +894,7 @@ public class PresenterHomeService {
             }
         }
         // Also check if attendance window has passed (even if session wasn't explicitly closed)
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = nowIsrael();
         if (slot.getAttendanceClosesAt() != null && now.isAfter(slot.getAttendanceClosesAt())) {
             attendanceClosed = true;
             logger.debug("Slot {} attendance window has closed at {}, marking as unavailable", slot.getSlotId(), slot.getAttendanceClosesAt());
@@ -853,11 +906,9 @@ public class PresenterHomeService {
             available = 0;
         }
         
-        // If attendance was closed, mark slot as unavailable
-        if (attendanceClosed) {
-            available = 0;
-            state = SlotState.FULL; // Mark as FULL to prevent registration
-        }
+        // NOTE: Do NOT change available count or state when attendance is closed
+        // The slot should still show correct availability (e.g., 1/2 available = SEMI state)
+        // Registration will be prevented by the canRegister check below (line 918)
 
         SlotCard card = new SlotCard();
         card.setSlotId(slot.getSlotId());
@@ -945,7 +996,7 @@ public class PresenterHomeService {
             return panel;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = nowIsrael();
         LocalDateTime start = toSlotStart(slot);
         if (start == null) {
             panel.setCanOpen(false);
@@ -1026,11 +1077,26 @@ public class PresenterHomeService {
         return username.trim().toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Get current time in Israel timezone to match slot times
+     * Slot times are stored as DATE + TIME (no timezone) and interpreted as Israel time
+     */
+    private LocalDateTime nowIsrael() {
+        ZonedDateTime nowZoned = ZonedDateTime.now(ISRAEL_TIMEZONE);
+        LocalDateTime nowLocal = nowZoned.toLocalDateTime();
+        logger.debug("nowIsrael() - ZonedDateTime: {}, LocalDateTime: {}, Timezone: {}", 
+            nowZoned, nowLocal, ISRAEL_TIMEZONE);
+        return nowLocal;
+    }
+
     private LocalDateTime toSlotStart(SeminarSlot slot) {
         if (slot.getSlotDate() == null || slot.getStartTime() == null) {
             return null;
         }
-        return LocalDateTime.of(slot.getSlotDate(), slot.getStartTime());
+        LocalDateTime slotStart = LocalDateTime.of(slot.getSlotDate(), slot.getStartTime());
+        logger.info("🔍 toSlotStart - Slot: {}, Date: {}, Time: {}, Combined LocalDateTime: {} (interpreted as Israel time)", 
+            slot.getSlotId(), slot.getSlotDate(), slot.getStartTime(), slotStart);
+        return slotStart;
     }
 
     private String buildQrUrl(Long sessionId) {
@@ -1101,7 +1167,7 @@ public class PresenterHomeService {
                 // Method 2: Check if session time AND location match slot time (for cases where slot doesn't reference the session)
                 if (!belongsToSlot && slotStart != null && session.getStartTime() != null) {
                     // Check if session start time matches slot start time (within 1 minute tolerance)
-                    boolean timeMatches = Math.abs(java.time.Duration.between(slotStart, session.getStartTime()).toMinutes()) <= 1;
+                    boolean timeMatches = Math.abs(Duration.between(slotStart, session.getStartTime()).toMinutes()) <= 1;
                     
                     // Check if session location matches slot location
                     boolean locationMatches = false;
@@ -1160,7 +1226,7 @@ public class PresenterHomeService {
                 // Method 2: Check if session time AND location match slot
                 if (!belongsToSlot && slotStart != null && session.getStartTime() != null) {
                     // Check if session start time matches slot start time (within 1 minute tolerance)
-                    boolean timeMatches = Math.abs(java.time.Duration.between(slotStart, session.getStartTime()).toMinutes()) <= 1;
+                    boolean timeMatches = Math.abs(Duration.between(slotStart, session.getStartTime()).toMinutes()) <= 1;
                     
                     // Check if session location matches slot location
                     boolean locationMatches = false;
@@ -1248,7 +1314,7 @@ public class PresenterHomeService {
         logger.info("Found open session {} for presenter {} on slot {}", session.getSessionId(), normalizedUsername, slotId);
 
         // Check if attendance window is still open
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = nowIsrael();
         LocalDateTime openedAt = slot.getAttendanceOpenedAt();
         LocalDateTime closesAt = slot.getAttendanceClosesAt();
         
@@ -1427,7 +1493,7 @@ public class PresenterHomeService {
                 // CRITICAL: Don't close active sessions that are still within their attendance window
                 // This prevents premature closing when PhD students register or other events occur
                 if (session.getStatus() == Session.SessionStatus.OPEN) {
-                    LocalDateTime now = LocalDateTime.now();
+                    LocalDateTime now = nowIsrael();
                     LocalDateTime closesAt = slot.getAttendanceClosesAt();
                     // If attendance window is still open, preserve the active session
                     if (closesAt != null && now.isBefore(closesAt)) {
@@ -1452,7 +1518,8 @@ public class PresenterHomeService {
         if (session.getStatus() != Session.SessionStatus.CLOSED) {
             logger.info("Closing legacy session {} (status: {})", session.getSessionId(), session.getStatus());
             session.setStatus(Session.SessionStatus.CLOSED);
-            session.setEndTime(LocalDateTime.now());
+            // CRITICAL: Use Israel timezone to match session times
+            session.setEndTime(nowIsrael());
             sessionRepository.save(session);
             databaseLoggerService.logSessionEvent("SESSION_AUTO_CLOSED", session.getSessionId(), 
                 session.getSeminarId(), null);

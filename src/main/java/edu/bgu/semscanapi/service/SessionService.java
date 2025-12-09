@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +26,14 @@ import java.util.Optional;
 public class SessionService {
     
     private static final Logger logger = LoggerUtil.getLogger(SessionService.class);
+    private static final ZoneId ISRAEL_TIMEZONE = ZoneId.of("Asia/Jerusalem");
+    
+    /**
+     * Get current time in Israel timezone to match session times
+     */
+    private LocalDateTime nowIsrael() {
+        return ZonedDateTime.now(ISRAEL_TIMEZONE).toLocalDateTime();
+    }
     
     @Autowired
     private SessionRepository sessionRepository;
@@ -61,8 +71,9 @@ public class SessionService {
             
             // Validate start time
             if (session.getStartTime() == null) {
-                session.setStartTime(LocalDateTime.now());
-                logger.debug("Set session start time to current time");
+                // CRITICAL: Use Israel timezone to match slot times
+                session.setStartTime(nowIsrael());
+                logger.debug("Set session start time to current time (Israel timezone)");
             }
             
             Session savedSession = sessionRepository.save(session);
@@ -242,8 +253,9 @@ public class SessionService {
             session.setStatus(status);
             
             if (status == Session.SessionStatus.CLOSED && session.getEndTime() == null) {
-                session.setEndTime(LocalDateTime.now());
-                logger.debug("Set session end time to current time");
+                // CRITICAL: Use Israel timezone to match session times
+                session.setEndTime(nowIsrael());
+                logger.debug("Set session end time to current time (Israel timezone)");
             }
             
             Session savedSession = sessionRepository.save(session);

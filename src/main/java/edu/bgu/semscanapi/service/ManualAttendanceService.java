@@ -19,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 public class ManualAttendanceService {
     
     private static final Logger logger = LoggerUtil.getLogger(ManualAttendanceService.class);
+    private static final ZoneId ISRAEL_TIMEZONE = ZoneId.of("Asia/Jerusalem");
     
     @Autowired
     private AttendanceRepository attendanceRepository;
@@ -55,6 +58,14 @@ public class ManualAttendanceService {
     private static final double AUTO_APPROVE_PERCENTAGE = 0.05; // 5% of roster size
     
     /**
+     * Get current time in Israel timezone to match session times
+     * Session times are stored as LocalDateTime (no timezone) and interpreted as Israel time
+     */
+    private LocalDateTime nowIsrael() {
+        return ZonedDateTime.now(ISRAEL_TIMEZONE).toLocalDateTime();
+    }
+    
+    /**
      * Create a manual attendance request
      */
     public ManualAttendanceResponse createManualRequest(ManualAttendanceRequest request) {
@@ -75,7 +86,8 @@ public class ManualAttendanceService {
             
             // Check time window first - allow requests even if session is CLOSED, as long as we're within the window
             // This allows students to request attendance after the presenter closes the session, within the configured window
-            LocalDateTime now = LocalDateTime.now();
+            // CRITICAL: Use Israel timezone to match session times
+            LocalDateTime now = nowIsrael();
             LocalDateTime sessionStart = session.getStartTime();
             if (sessionStart == null) {
                 String errorMsg = "Session start time is not set: " + sessionId;
@@ -90,19 +102,45 @@ public class ManualAttendanceService {
             int windowAfterMinutes = globalConfig.getManualAttendanceWindowAfterMinutes();
             
             LocalDateTime windowStart = sessionStart.minusMinutes(windowBeforeMinutes);
-            LocalDateTime windowEnd = sessionStart.plusMinutes(windowAfterMinutes);
             
-            boolean inWindow = now.isAfter(windowStart) && now.isBefore(windowEnd);
+            // Window end should be: session end time (if exists), otherwise session start + windowAfterMinutes
+            LocalDateTime windowEnd;
+            LocalDateTime sessionEnd = session.getEndTime();
+            if (sessionEnd != null) {
+                // Use session end time as the window end - allows requests until session actually ends
+                windowEnd = sessionEnd;
+                logger.debug("Using session end time {} as window end for manual attendance", sessionEnd);
+            } else {
+                // No session end time - use configured window after start
+                windowEnd = sessionStart.plusMinutes(windowAfterMinutes);
+                logger.debug("No session end time, using {} minutes after start ({}) as window end", windowAfterMinutes, windowEnd);
+            }
+            
+            // Use inclusive boundaries: !now.isBefore(start) && !now.isAfter(end)
+            // This handles edge cases where windowStart == windowEnd (when both windowBeforeMinutes and windowAfterMinutes are 0)
+            // Equivalent to: now >= windowStart && now <= windowEnd
+            boolean inWindow = !now.isBefore(windowStart) && !now.isAfter(windowEnd);
+            
+            // Log time comparison for debugging
+            LocalDateTime nowUtc = LocalDateTime.now(); // For logging comparison
+            logger.info("⏰ Manual attendance time check - Session: {}, Now (UTC): {}, Now (Israel): {}, Window: {} to {}, In window: {}", 
+                sessionId, nowUtc, now, windowStart, windowEnd, inWindow);
             
             // Allow requests if we're within the window, even if session is CLOSED
             // This enables students to request attendance after the presenter closes the session
             if (!inWindow) {
+                String windowDescription = sessionEnd != null 
+                    ? String.format("%d minutes before session start until session end", windowBeforeMinutes)
+                    : String.format("%d minutes before to %d minutes after session start", windowBeforeMinutes, windowAfterMinutes);
+                
                 String errorMsg = String.format("Manual attendance request is outside the allowed time window. " +
-                    "Window: %d minutes before to %d minutes after session start. " +
-                    "Session started at: %s, current time: %s", 
-                    windowBeforeMinutes, windowAfterMinutes, sessionStart, now);
-                logger.error("Manual attendance request outside window - Session: {}, Student: {}, Window: {} to {}", 
-                    sessionId, studentUsername, windowStart, windowEnd);
+                    "Window: %s. " +
+                    "Session started at: %s%s, current time: %s", 
+                    windowDescription, sessionStart, 
+                    sessionEnd != null ? String.format(", session ends at: %s", sessionEnd) : "",
+                    now);
+                logger.error("❌ Manual attendance request outside window - Session: {}, Student: {}, Now (Israel): {}, Window: {} to {}", 
+                    sessionId, studentUsername, now, windowStart, windowEnd);
                 databaseLoggerService.logError("MANUAL_ATTENDANCE_OUTSIDE_WINDOW", errorMsg, null, 
                     studentUsername, String.format("sessionId=%s,windowStart=%s,windowEnd=%s,currentTime=%s", 
                         sessionId, windowStart, windowEnd, now));
@@ -433,7 +471,8 @@ public class ManualAttendanceService {
             
             Session session = sessionRepository.findById(request.getSessionId()).orElse(null);
             if (session != null && session.getStartTime() != null) {
-                LocalDateTime now = LocalDateTime.now();
+                // CRITICAL: Use Israel timezone to match session times
+                LocalDateTime now = nowIsrael();
                 LocalDateTime sessionStart = session.getStartTime();
                 
                 // Use configurable window values from GlobalConfig
@@ -441,8 +480,20 @@ public class ManualAttendanceService {
                 int windowAfterMinutes = globalConfig.getManualAttendanceWindowAfterMinutes();
                 
                 LocalDateTime windowStart = sessionStart.minusMinutes(windowBeforeMinutes);
-                LocalDateTime windowEnd = sessionStart.plusMinutes(windowAfterMinutes);
-                boolean inWindow = now.isAfter(windowStart) && now.isBefore(windowEnd);
+                
+                // Window end should be: session end time (if exists), otherwise session start + windowAfterMinutes
+                LocalDateTime windowEnd;
+                LocalDateTime sessionEnd = session.getEndTime();
+                if (sessionEnd != null) {
+                    windowEnd = sessionEnd;
+                } else {
+                    windowEnd = sessionStart.plusMinutes(windowAfterMinutes);
+                }
+                
+                // Use inclusive boundaries: !now.isBefore(start) && !now.isAfter(end)
+                // This handles edge cases where windowStart == windowEnd (when both windowBeforeMinutes and windowAfterMinutes are 0)
+                // Equivalent to: now >= windowStart && now <= windowEnd
+                boolean inWindow = !now.isBefore(windowStart) && !now.isAfter(windowEnd);
                 
                 Map<String, Object> autoFlags = generateAutoFlags(session, normalizedUsername, inWindow);
                 existing.setAutoFlags(objectMapper.writeValueAsString(autoFlags));
