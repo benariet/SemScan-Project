@@ -231,6 +231,11 @@ public class PresenterHomeResponse {
         private String attendanceOpenedAt;
         private String attendanceClosesAt;
         private Boolean hasClosedSession;
+        // New fields for mobile compatibility
+        private int approvedCount; // Number of approved registrations
+        private int pendingCount; // Number of pending approvals
+        private String approvalStatus; // Current user's approval status: "PENDING_APPROVAL", "APPROVED", "DECLINED", "EXPIRED", or null
+        private boolean onWaitingList; // Is current user on waiting list
 
         public Long getSlotId() {
             return slotId;
@@ -366,6 +371,38 @@ public class PresenterHomeResponse {
 
         public void setHasClosedSession(Boolean hasClosedSession) {
             this.hasClosedSession = hasClosedSession;
+        }
+
+        public int getApprovedCount() {
+            return approvedCount;
+        }
+
+        public void setApprovedCount(int approvedCount) {
+            this.approvedCount = approvedCount;
+        }
+
+        public int getPendingCount() {
+            return pendingCount;
+        }
+
+        public void setPendingCount(int pendingCount) {
+            this.pendingCount = pendingCount;
+        }
+
+        public String getApprovalStatus() {
+            return approvalStatus;
+        }
+
+        public void setApprovalStatus(String approvalStatus) {
+            this.approvalStatus = approvalStatus;
+        }
+
+        public boolean isOnWaitingList() {
+            return onWaitingList;
+        }
+
+        public void setOnWaitingList(boolean onWaitingList) {
+            this.onWaitingList = onWaitingList;
         }
     }
 

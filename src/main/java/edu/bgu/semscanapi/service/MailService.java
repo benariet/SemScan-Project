@@ -1,5 +1,6 @@
 package edu.bgu.semscanapi.service;
 
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,6 +9,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.util.Base64;
@@ -25,8 +27,20 @@ public class MailService {
     @Autowired(required = false)
     private JavaMailSender mailSender;
 
+    @Autowired(required = false)
+    private DatabaseLoggerService databaseLoggerService;
+
     @Value("${spring.mail.from:SemScan Attendance System <noreply@semscan.com>}")
     private String fromEmail;
+
+    @Value("${app.email.monitoring-cc:benariet@bgu.ac.il}")
+    private String monitoringEmail;
+
+    @PostConstruct
+    public void init() {
+        logger.info("MailService initialized - Monitoring BCC email: {}", 
+                monitoringEmail != null && !monitoringEmail.trim().isEmpty() ? monitoringEmail : "NOT CONFIGURED");
+    }
 
     /**
      * Send HTML email to a single recipient
@@ -70,6 +84,19 @@ public class MailService {
             // Set recipients
             helper.setTo(to.toArray(new String[0]));
 
+            // Add monitoring BCC if configured
+            if (monitoringEmail != null && !monitoringEmail.trim().isEmpty()) {
+                try {
+                    helper.setBcc(monitoringEmail);
+                    logger.info("Added monitoring BCC: {} (email to: {})", monitoringEmail, to);
+                } catch (MessagingException e) {
+                    logger.error("Failed to set BCC to {}: {}", monitoringEmail, e.getMessage());
+                    // Continue sending email even if BCC fails
+                }
+            } else {
+                logger.warn("Monitoring email not configured - BCC will not be added. Check app.email.monitoring-cc property.");
+            }
+
             // Set subject
             helper.setSubject(subject);
 
@@ -79,13 +106,44 @@ public class MailService {
             // Send email
             mailSender.send(message);
             logger.info("HTML email sent successfully to {} recipients: {}", to.size(), to);
+            
+            // Log to app_log database
+            if (databaseLoggerService != null) {
+                String recipientsStr = String.join(", ", to);
+                String bccInfo = monitoringEmail != null && !monitoringEmail.trim().isEmpty() 
+                    ? String.format(" (BCC: %s)", monitoringEmail) : "";
+                databaseLoggerService.logBusinessEvent("EMAIL_SENT",
+                        String.format("Email sent to: %s%s, Subject: %s", recipientsStr, bccInfo, subject),
+                        null);
+            }
+            
             return true;
 
         } catch (MessagingException e) {
             logger.error("Failed to send HTML email to {}", to, e);
+            
+            // Log error to app_log database
+            if (databaseLoggerService != null) {
+                String recipientsStr = String.join(", ", to);
+                databaseLoggerService.logError("EMAIL_SEND_FAILED",
+                        String.format("Failed to send email to: %s, Subject: %s, Error: %s", 
+                                recipientsStr, subject, e.getMessage()),
+                        e, null, String.format("recipients=%s,subject=%s", recipientsStr, subject));
+            }
+            
             return false;
         } catch (Exception e) {
             logger.error("Unexpected error sending HTML email to {}", to, e);
+            
+            // Log error to app_log database
+            if (databaseLoggerService != null) {
+                String recipientsStr = String.join(", ", to);
+                databaseLoggerService.logError("EMAIL_SEND_ERROR",
+                        String.format("Unexpected error sending email to: %s, Subject: %s, Error: %s", 
+                                recipientsStr, subject, e.getMessage()),
+                        e, null, String.format("recipients=%s,subject=%s", recipientsStr, subject));
+            }
+            
             return false;
         }
     }
@@ -131,6 +189,19 @@ public class MailService {
 
             // Set recipient
             helper.setTo(to);
+
+            // Add monitoring BCC if configured
+            if (monitoringEmail != null && !monitoringEmail.trim().isEmpty()) {
+                try {
+                    helper.setBcc(monitoringEmail);
+                    logger.info("Added monitoring BCC: {} (email to: {})", monitoringEmail, to);
+                } catch (MessagingException e) {
+                    logger.error("Failed to set BCC to {}: {}", monitoringEmail, e.getMessage());
+                    // Continue sending email even if BCC fails
+                }
+            } else {
+                logger.warn("Monitoring email not configured - BCC will not be added. Check app.email.monitoring-cc property.");
+            }
 
             // Set subject
             helper.setSubject(subject);
@@ -203,6 +274,19 @@ public class MailService {
             // Set recipient
             helper.setTo(to);
 
+            // Add monitoring BCC if configured
+            if (monitoringEmail != null && !monitoringEmail.trim().isEmpty()) {
+                try {
+                    helper.setBcc(monitoringEmail);
+                    logger.info("Added monitoring BCC: {} (email to: {})", monitoringEmail, to);
+                } catch (MessagingException e) {
+                    logger.error("Failed to set BCC to {}: {}", monitoringEmail, e.getMessage());
+                    // Continue sending email even if BCC fails
+                }
+            } else {
+                logger.warn("Monitoring email not configured - BCC will not be added. Check app.email.monitoring-cc property.");
+            }
+
             // Set subject
             helper.setSubject(subject);
 
@@ -217,13 +301,42 @@ public class MailService {
             // Send email
             mailSender.send(message);
             logger.info("HTML email with attachment sent successfully to {}", to);
+            
+            // Log to app_log database
+            if (databaseLoggerService != null) {
+                String bccInfo = monitoringEmail != null && !monitoringEmail.trim().isEmpty() 
+                    ? String.format(" (BCC: %s)", monitoringEmail) : "";
+                databaseLoggerService.logBusinessEvent("EMAIL_SENT_WITH_ATTACHMENT",
+                        String.format("Email with attachment sent to: %s%s, Subject: %s, Attachment: %s", 
+                                to, bccInfo, subject, attachmentName),
+                        null);
+            }
+            
             return true;
 
         } catch (MessagingException e) {
             logger.error("Failed to send HTML email with attachment to {}", to, e);
+            
+            // Log error to app_log database
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logError("EMAIL_SEND_WITH_ATTACHMENT_FAILED",
+                        String.format("Failed to send email with attachment to: %s, Subject: %s, Error: %s", 
+                                to, subject, e.getMessage()),
+                        e, null, String.format("recipient=%s,subject=%s,attachment=%s", to, subject, attachmentName));
+            }
+            
             return false;
         } catch (Exception e) {
             logger.error("Unexpected error sending HTML email with attachment to {}", to, e);
+            
+            // Log error to app_log database
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logError("EMAIL_SEND_WITH_ATTACHMENT_ERROR",
+                        String.format("Unexpected error sending email with attachment to: %s, Subject: %s, Error: %s", 
+                                to, subject, e.getMessage()),
+                        e, null, String.format("recipient=%s,subject=%s,attachment=%s", to, subject, attachmentName));
+            }
+            
             return false;
         }
     }
@@ -244,6 +357,15 @@ public class MailService {
      */
     public String getFromEmail() {
         return fromEmail;
+    }
+
+    /**
+     * Get the configured monitoring BCC email address
+     *
+     * @return Monitoring BCC email address
+     */
+    public String getMonitoringEmail() {
+        return monitoringEmail;
     }
 }
 

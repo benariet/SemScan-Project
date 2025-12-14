@@ -27,9 +27,33 @@ public class SeminarSlotRegistration {
     @Column(name = "registered_at", nullable = false)
     private LocalDateTime registeredAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false)
+    private ApprovalStatus approvalStatus = ApprovalStatus.PENDING;
+
+    @Column(name = "approval_token", unique = true)
+    private String approvalToken;
+
+    @Column(name = "approval_token_expires_at")
+    private LocalDateTime approvalTokenExpiresAt;
+
+    @Column(name = "supervisor_approved_at")
+    private LocalDateTime supervisorApprovedAt;
+
+    @Column(name = "supervisor_declined_at")
+    private LocalDateTime supervisorDeclinedAt;
+
+    @Column(name = "supervisor_declined_reason", columnDefinition = "TEXT")
+    private String supervisorDeclinedReason;
+
     @PrePersist
     public void onCreate() {
-        this.registeredAt = LocalDateTime.now();
+        if (this.registeredAt == null) {
+            this.registeredAt = LocalDateTime.now();
+        }
+        if (this.approvalStatus == null) {
+            this.approvalStatus = ApprovalStatus.PENDING;
+        }
     }
 
     public SeminarSlotRegistrationId getId() {
@@ -86,6 +110,54 @@ public class SeminarSlotRegistration {
 
     public String getPresenterUsername() {
         return id != null ? id.getPresenterUsername() : null;
+    }
+
+    public ApprovalStatus getApprovalStatus() {
+        return approvalStatus;
+    }
+
+    public void setApprovalStatus(ApprovalStatus approvalStatus) {
+        this.approvalStatus = approvalStatus;
+    }
+
+    public String getApprovalToken() {
+        return approvalToken;
+    }
+
+    public void setApprovalToken(String approvalToken) {
+        this.approvalToken = approvalToken;
+    }
+
+    public LocalDateTime getApprovalTokenExpiresAt() {
+        return approvalTokenExpiresAt;
+    }
+
+    public void setApprovalTokenExpiresAt(LocalDateTime approvalTokenExpiresAt) {
+        this.approvalTokenExpiresAt = approvalTokenExpiresAt;
+    }
+
+    public LocalDateTime getSupervisorApprovedAt() {
+        return supervisorApprovedAt;
+    }
+
+    public void setSupervisorApprovedAt(LocalDateTime supervisorApprovedAt) {
+        this.supervisorApprovedAt = supervisorApprovedAt;
+    }
+
+    public LocalDateTime getSupervisorDeclinedAt() {
+        return supervisorDeclinedAt;
+    }
+
+    public void setSupervisorDeclinedAt(LocalDateTime supervisorDeclinedAt) {
+        this.supervisorDeclinedAt = supervisorDeclinedAt;
+    }
+
+    public String getSupervisorDeclinedReason() {
+        return supervisorDeclinedReason;
+    }
+
+    public void setSupervisorDeclinedReason(String supervisorDeclinedReason) {
+        this.supervisorDeclinedReason = supervisorDeclinedReason;
     }
 }
 

@@ -11,6 +11,7 @@ import edu.bgu.semscanapi.dto.PresenterHomeResponse.SlotState;
 import edu.bgu.semscanapi.dto.PresenterOpenAttendanceResponse;
 import edu.bgu.semscanapi.dto.PresenterSlotRegistrationRequest;
 import edu.bgu.semscanapi.dto.PresenterSlotRegistrationResponse;
+import edu.bgu.semscanapi.entity.ApprovalStatus;
 import edu.bgu.semscanapi.entity.Seminar;
 import edu.bgu.semscanapi.entity.SeminarSlot;
 import edu.bgu.semscanapi.entity.SeminarSlotRegistration;
@@ -57,6 +58,9 @@ public class PresenterHomeService {
     private final GlobalConfig globalConfig;
     private final EmailService emailService;
     private final DatabaseLoggerService databaseLoggerService;
+    private final RegistrationApprovalService approvalService;
+    private final WaitingListService waitingListService;
+    private final MailService mailService;
 
     public PresenterHomeService(UserRepository userRepository,
                                 SeminarSlotRepository seminarSlotRepository,
@@ -65,7 +69,10 @@ public class PresenterHomeService {
                                 SessionRepository sessionRepository,
                                 GlobalConfig globalConfig,
                                 EmailService emailService,
-                                DatabaseLoggerService databaseLoggerService) {
+                                DatabaseLoggerService databaseLoggerService,
+                                RegistrationApprovalService approvalService,
+                                WaitingListService waitingListService,
+                                MailService mailService) {
         this.userRepository = userRepository;
         this.seminarSlotRepository = seminarSlotRepository;
         this.registrationRepository = registrationRepository;
@@ -74,6 +81,9 @@ public class PresenterHomeService {
         this.globalConfig = globalConfig;
         this.emailService = emailService;
         this.databaseLoggerService = databaseLoggerService;
+        this.approvalService = approvalService;
+        this.waitingListService = waitingListService;
+        this.mailService = mailService;
     }
 
     @Transactional(readOnly = true)
@@ -158,21 +168,68 @@ public class PresenterHomeService {
                 return new PresenterSlotRegistrationResponse(true, "Already registered for this slot", "ALREADY_IN_SLOT");
             }
 
-            // Check if presenter registered in another slot
-            if (registrationRepository.existsByIdPresenterUsername(presenterUsername)) {
+            // Check registration limits based on degree
+            presenterDegree = presenter.getDegree() != null ? presenter.getDegree() : User.Degree.MSc;
+            
+            // Get all registrations for this user (across all slots)
+            List<SeminarSlotRegistration> userRegistrations = registrationRepository.findByIdPresenterUsername(presenterUsername);
+            
+            // Count approved and pending registrations
+            long approvedCount = userRegistrations.stream()
+                    .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
+                    .count();
+            LocalDateTime now = nowIsrael();
+            long pendingCount = userRegistrations.stream()
+                    .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                    .filter(reg -> reg.getApprovalTokenExpiresAt() == null || now.isBefore(reg.getApprovalTokenExpiresAt()))
+                    .count();
+            
+            // Enforce registration limits
+            if (presenterDegree == User.Degree.PhD) {
+                // PhD: Max 1 approved, Max 1 pending
+                if (approvedCount >= 1) {
+                    String errorMsg = "PhD students can have at most 1 approved registration";
+                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                        String.format("slotId=%s,reason=REGISTRATION_LIMIT_EXCEEDED,approvedCount=%d", slotId, approvedCount));
+                    return new PresenterSlotRegistrationResponse(false, errorMsg, "REGISTRATION_LIMIT_EXCEEDED");
+                }
+                if (pendingCount >= 1) {
+                    String errorMsg = "PhD students can have at most 1 pending approval";
+                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                        String.format("slotId=%s,reason=PENDING_LIMIT_EXCEEDED,pendingCount=%d", slotId, pendingCount));
+                    return new PresenterSlotRegistrationResponse(false, errorMsg, "PENDING_LIMIT_EXCEEDED");
+                }
+            } else {
+                // MSc: Max 1 approved, Max 2 pending
+                if (approvedCount >= 1) {
+                    String errorMsg = "MSc students can have at most 1 approved registration";
+                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                        String.format("slotId=%s,reason=REGISTRATION_LIMIT_EXCEEDED,approvedCount=%d", slotId, approvedCount));
+                    return new PresenterSlotRegistrationResponse(false, errorMsg, "REGISTRATION_LIMIT_EXCEEDED");
+                }
+                if (pendingCount >= 2) {
+                    String errorMsg = "MSc students can have at most 2 pending approvals";
+                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                        String.format("slotId=%s,reason=PENDING_LIMIT_EXCEEDED,pendingCount=%d", slotId, pendingCount));
+                    return new PresenterSlotRegistrationResponse(false, errorMsg, "PENDING_LIMIT_EXCEEDED");
+                }
+            }
+            
+            // Check if presenter registered in another slot (for backward compatibility check)
+            if (!userRegistrations.isEmpty()) {
                 String errorMsg = "Presenter already registered in another slot";
                 databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
                     String.format("slotId=%s,reason=ALREADY_REGISTERED", slotId));
                 return new PresenterSlotRegistrationResponse(false, errorMsg, "ALREADY_REGISTERED");
             }
             
-            // Load existing registrations for this slot (needed for capacity/PhD checks)
+            // Load existing APPROVED registrations for this slot (needed for capacity/PhD checks)
+            // Only APPROVED registrations count towards capacity
             // Do this BEFORE reading slot to minimize lock time
-            List<SeminarSlotRegistration> existingRegistrations = registrationRepository.findByIdSlotId(slotId);
+            List<SeminarSlotRegistration> existingRegistrations = registrationRepository
+                    .findByIdSlotIdAndApprovalStatus(slotId, ApprovalStatus.APPROVED);
             boolean existingPhd = existingRegistrations.stream()
                     .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
-
-            presenterDegree = presenter.getDegree() != null ? presenter.getDegree() : User.Degree.MSc;
             
             // If slot already has a PhD, no one else can register
             if (existingPhd) {
@@ -210,6 +267,7 @@ public class PresenterHomeService {
             registration.setSupervisorName(normalizeSupervisorName(request.getSupervisorName()));
             registration.setSupervisorEmail(request.getSupervisorEmail());
             registration.setRegisteredAt(LocalDateTime.now());
+            registration.setApprovalStatus(ApprovalStatus.PENDING); // Default to PENDING
 
             registrationRepository.save(registration);
 
@@ -261,50 +319,39 @@ public class PresenterHomeService {
             throw e;
         }
         
-        // Send supervisor notification email OUTSIDE the transaction
+        // Send supervisor approval email OUTSIDE the transaction
         // This prevents holding database locks during slow email operations
-        boolean emailSent = false;
         String supervisorEmail = request.getSupervisorEmail();
         if (supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
             try {
-                String presenterName = formatName(presenter);
-                if (presenterName == null || presenterName.trim().isEmpty()) {
-                    presenterName = presenterUsername;
-                }
-                String presenterDegreeStr = presenterDegree.name();
-                String slotDateStr = slot.getSlotDate() != null ? DATE_FORMAT.format(slot.getSlotDate()) : "N/A";
-                String slotStartTimeStr = slot.getStartTime() != null ? TIME_FORMAT.format(slot.getStartTime()) : "N/A";
-                String slotEndTimeStr = slot.getEndTime() != null ? TIME_FORMAT.format(slot.getEndTime()) : "N/A";
-                String topic = registration.getTopic();
-
-                EmailService.EmailResult emailResult = emailService.sendSupervisorNotificationEmail(
-                        supervisorEmail,
-                        request.getSupervisorName(),
-                        presenterName,
-                        presenterUsername,
-                        presenterDegreeStr,
-                        slotDateStr,
-                        slotStartTimeStr,
-                        slotEndTimeStr,
-                        slot.getBuilding(),
-                        slot.getRoom(),
-                        topic
-                );
-
-                emailSent = emailResult.isSuccess();
-                if (emailSent) {
-                    logger.info("Supervisor email sent successfully for presenter {} and slot {}", presenterUsername, slotId);
-                } else {
-                    logger.warn("Failed to send supervisor email for presenter {} and slot {}: {} (Code: {})", 
-                        presenterUsername, slotId, emailResult.getErrorMessage(), emailResult.getErrorCode());
-                }
+                approvalService.sendApprovalEmail(registration);
+                logger.info("Approval email sent successfully for presenter {} and slot {}", presenterUsername, slotId);
             } catch (Exception e) {
-                logger.error("Failed to send supervisor email for presenter {} and slot {}", presenterUsername, slotId, e);
+                logger.error("Failed to send approval email for presenter {} and slot {}", presenterUsername, slotId, e);
                 // Don't fail registration if email fails
             }
+        } else {
+            logger.warn("No supervisor email provided for presenter {} and slot {}", presenterUsername, slotId);
         }
 
-        return new PresenterSlotRegistrationResponse(true, "Registered successfully", "REGISTERED", emailSent);
+        // Map approval status for mobile compatibility
+        String approvalStatusStr = "PENDING_APPROVAL"; // Map PENDING to PENDING_APPROVAL
+        
+        // Generate a unique registration ID for mobile (using hash of slotId + username)
+        // This is a workaround since we use composite key, but mobile expects a single ID
+        Long registrationId = (long) (slotId.toString() + presenterUsername).hashCode();
+        if (registrationId < 0) {
+            registrationId = Math.abs(registrationId);
+        }
+        
+        return new PresenterSlotRegistrationResponse(
+                true, 
+                "Registration submitted. Waiting for supervisor approval.", 
+                "PENDING_APPROVAL",
+                registrationId,
+                registration.getApprovalToken(),
+                approvalStatusStr
+        );
     }
 
     @Transactional(readOnly = true)
@@ -346,12 +393,45 @@ public class PresenterHomeService {
             return new PresenterSlotRegistrationResponse(false, "Presenter is not registered for this slot", "NOT_REGISTERED");
         }
 
-        registrationRepository.delete(existing.get());
+        SeminarSlotRegistration registration = existing.get();
+        
+        // Send cancellation email to supervisor if registration was APPROVED
+        // Do this BEFORE deleting the registration so we can access supervisor info
+        if (registration.getApprovalStatus() == ApprovalStatus.APPROVED) {
+            String supervisorEmail = registration.getSupervisorEmail();
+            if (supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
+                try {
+                    sendRegistrationCancellationEmail(registration, slot, presenter);
+                    logger.info("Registration cancellation email sent to supervisor {} for user {} and slotId={}",
+                            supervisorEmail, presenterUsername, slotId);
+                } catch (Exception e) {
+                    logger.error("Failed to send registration cancellation email to supervisor {} for user {} and slotId={}",
+                            supervisorEmail, presenterUsername, slotId, e);
+                    // Don't fail cancellation if email fails
+                }
+            } else {
+                logger.debug("No supervisor email for approved registration - skipping cancellation email. slotId={}, presenter={}",
+                        slotId, presenterUsername);
+            }
+        }
 
+        // Get approval status before deletion
+        String approvalStatusStr = registration.getApprovalStatus() != null ? registration.getApprovalStatus().toString() : "UNKNOWN";
+        
+        registrationRepository.delete(registration);
+
+        // Get remaining registrations count
         List<SeminarSlotRegistration> remainingRegistrations = registrationRepository.findByIdSlotId(slotId);
+        long remaining = remainingRegistrations.size();
+        
+        // Log cancellation to app_log
+        databaseLoggerService.logBusinessEvent("SLOT_REGISTRATION_CANCELLED",
+                String.format("User %s cancelled registration for slotId=%d (approval status: %s, remaining: %d)",
+                        presenterUsername, slotId, approvalStatusStr, remaining),
+                presenterUsername);
+        
         boolean remainingPhd = remainingRegistrations.stream()
                 .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
-        long remaining = remainingRegistrations.size();
 
         // If PhD remains, slot stays FULL; otherwise update based on capacity
         SlotState newState = remainingPhd
@@ -374,6 +454,121 @@ public class PresenterHomeService {
 
         logger.info("Presenter {} removed from slot {}. Remaining presenters: {}", presenterUsername, slotId, remaining);
         return new PresenterSlotRegistrationResponse(true, "Registration cancelled", "UNREGISTERED", false);
+    }
+
+    /**
+     * Send registration cancellation email to supervisor when an approved registration is canceled
+     */
+    private void sendRegistrationCancellationEmail(SeminarSlotRegistration registration, SeminarSlot slot, User presenter) {
+        String supervisorEmail = registration.getSupervisorEmail();
+        String supervisorName = registration.getSupervisorName();
+        
+        if (supervisorEmail == null || supervisorEmail.trim().isEmpty()) {
+            logger.debug("No supervisor email for registration cancellation - skipping email. slotId={}, presenter={}",
+                    registration.getId().getSlotId(), registration.getId().getPresenterUsername());
+            return;
+        }
+
+        // Format student name
+        String studentName = presenter != null && presenter.getFirstName() != null && presenter.getLastName() != null
+                ? presenter.getFirstName() + " " + presenter.getLastName()
+                : registration.getId().getPresenterUsername();
+
+        // Generate email content
+        String subject = "SemScan - Registration Cancellation: Presentation Slot";
+        String htmlContent = generateRegistrationCancellationEmailHtml(registration, slot, studentName, supervisorName);
+
+        // Send email
+        boolean sent = mailService.sendHtmlEmail(supervisorEmail, subject, htmlContent);
+        if (sent) {
+            logger.info("Registration cancellation email sent to supervisor {} for user {} and slotId={}",
+                    supervisorEmail, registration.getId().getPresenterUsername(), registration.getId().getSlotId());
+            databaseLoggerService.logBusinessEvent("REGISTRATION_CANCELLATION_EMAIL_SENT",
+                    String.format("Registration cancellation email sent to supervisor %s for user %s and slotId=%d",
+                            supervisorEmail, registration.getId().getPresenterUsername(), registration.getId().getSlotId()),
+                    registration.getId().getPresenterUsername());
+        } else {
+            logger.error("Failed to send registration cancellation email to supervisor {} for user {} and slotId={}",
+                    supervisorEmail, registration.getId().getPresenterUsername(), registration.getId().getSlotId());
+            databaseLoggerService.logError("REGISTRATION_CANCELLATION_EMAIL_FAILED",
+                    String.format("Failed to send registration cancellation email to supervisor %s for user %s and slotId=%d",
+                            supervisorEmail, registration.getId().getPresenterUsername(), registration.getId().getSlotId()),
+                    null, registration.getId().getPresenterUsername(),
+                    String.format("slotId=%d,supervisorEmail=%s", registration.getId().getSlotId(), supervisorEmail));
+        }
+    }
+
+    /**
+     * Generate HTML email content for registration cancellation notification
+     */
+    private String generateRegistrationCancellationEmailHtml(SeminarSlotRegistration registration, SeminarSlot slot, 
+                                                             String studentName, String supervisorName) {
+        return String.format("""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background-color: #dc3545; color: white; padding: 20px; text-align: center; }
+                    .content { padding: 20px; background-color: #f9f9f9; }
+                    .info-box { background-color: #f8d7da; padding: 15px; margin: 15px 0; border-left: 4px solid #dc3545; }
+                    .details-box { background-color: #e3f2fd; padding: 15px; margin: 15px 0; border-left: 4px solid #2196F3; }
+                    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>SemScan - Registration Cancellation</h1>
+                    </div>
+                    <div class="content">
+                        <p>Dear %s,</p>
+                        
+                        <div class="info-box">
+                            <h3 style="margin-top: 0; color: #721c24;">⚠️ Registration Cancelled</h3>
+                            <p>Your student has cancelled their approved registration for this presentation slot.</p>
+                        </div>
+                        
+                        <div class="details-box">
+                            <h3>Student Details:</h3>
+                            <p><strong>Name:</strong> %s</p>
+                            <p><strong>Username:</strong> %s</p>
+                            <p><strong>Degree:</strong> %s</p>
+                            <p><strong>Topic:</strong> %s</p>
+                        </div>
+                        
+                        <div class="details-box">
+                            <h3>Slot Information:</h3>
+                            <p><strong>Date:</strong> %s</p>
+                            <p><strong>Time:</strong> %s - %s</p>
+                            <p><strong>Location:</strong> %s, Room %s</p>
+                        </div>
+                        
+                        <p><strong>Note:</strong> The slot is now available for other students.</p>
+                        
+                        <p>If you have any questions, please contact the system administrator.</p>
+                    </div>
+                    <div class="footer">
+                        <p>This is an automated message from SemScan Attendance System.</p>
+                        <p>If you did not expect this email, please ignore it.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """,
+            supervisorName != null && !supervisorName.trim().isEmpty() ? supervisorName : "Supervisor",
+            studentName,
+            registration.getId().getPresenterUsername(),
+            registration.getDegree() != null ? registration.getDegree().toString() : "N/A",
+            registration.getTopic() != null ? registration.getTopic() : "Not specified",
+            slot.getSlotDate() != null ? DATE_FORMAT.format(slot.getSlotDate()) : "N/A",
+            slot.getStartTime() != null ? TIME_FORMAT.format(slot.getStartTime()) : "N/A",
+            slot.getEndTime() != null ? TIME_FORMAT.format(slot.getEndTime()) : "N/A",
+            slot.getBuilding() != null ? slot.getBuilding() : "N/A",
+            slot.getRoom() != null ? slot.getRoom() : "N/A"
+        );
     }
 
     /**
@@ -733,7 +928,9 @@ public class PresenterHomeService {
             return Collections.emptyMap();
         }
 
+        // Only load APPROVED registrations for display and capacity calculations
         return registrationRepository.findByIdSlotIdIn(slotIds).stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
                 .collect(Collectors.groupingBy(SeminarSlotRegistration::getSlotId));
     }
 
@@ -873,7 +1070,41 @@ public class PresenterHomeService {
                                    boolean presenterRegisteredElsewhere,
                                    boolean presenterInThisSlot) {
 
-        int enrolledCount = registrations.size();
+        // Load ALL registrations for this slot (not just approved) to calculate counts
+        List<SeminarSlotRegistration> allRegistrations = registrationRepository.findByIdSlotId(slot.getSlotId());
+        
+        // Calculate approved and pending counts
+        long approvedCount = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
+                .count();
+        
+        LocalDateTime now = nowIsrael();
+        long pendingCount = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .filter(reg -> reg.getApprovalTokenExpiresAt() == null || now.isBefore(reg.getApprovalTokenExpiresAt()))
+                .count();
+        
+        // Get current user's approval status for this slot
+        String userApprovalStatus = null;
+        boolean onWaitingList = false;
+        if (presenterUsername != null) {
+            Optional<SeminarSlotRegistration> userRegistration = allRegistrations.stream()
+                    .filter(reg -> presenterUsername.equalsIgnoreCase(reg.getPresenterUsername()))
+                    .findFirst();
+            if (userRegistration.isPresent()) {
+                ApprovalStatus status = userRegistration.get().getApprovalStatus();
+                // Map status values for mobile compatibility
+                if (status == ApprovalStatus.PENDING) {
+                    userApprovalStatus = "PENDING_APPROVAL";
+                } else {
+                    userApprovalStatus = status.name();
+                }
+            }
+            // Check if user is on waiting list
+            onWaitingList = waitingListService.isOnWaitingList(slot.getSlotId(), presenterUsername);
+        }
+
+        int enrolledCount = registrations.size(); // This is already filtered to APPROVED only
         int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
         boolean slotLockedByPhd = registrations.stream()
                 .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
@@ -888,7 +1119,6 @@ public class PresenterHomeService {
             }
         }
         // Also check if attendance window has passed (even if session wasn't explicitly closed)
-        LocalDateTime now = nowIsrael();
         if (slot.getAttendanceClosesAt() != null && now.isAfter(slot.getAttendanceClosesAt())) {
             attendanceClosed = true;
             logger.debug("Slot {} attendance window has closed at {}, marking as unavailable", slot.getSlotId(), slot.getAttendanceClosesAt());
@@ -916,6 +1146,12 @@ public class PresenterHomeService {
         card.setCapacity(capacity);
         card.setEnrolledCount(enrolledCount);
         card.setAvailableCount(available);
+        
+        // Set new fields for mobile compatibility
+        card.setApprovedCount((int) approvedCount);
+        card.setPendingCount((int) pendingCount);
+        card.setApprovalStatus(userApprovalStatus);
+        card.setOnWaitingList(onWaitingList);
         
         // Set session status fields for client-side filtering
         card.setAttendanceOpenedAt(slot.getAttendanceOpenedAt() != null ? DATE_TIME_FORMAT.format(slot.getAttendanceOpenedAt()) : null);

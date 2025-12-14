@@ -105,7 +105,16 @@ public class RequestLoggingFilter implements Filter {
             }
             
             // Log to database with sanitized body (full body, but will be truncated in database if needed)
+            // Try to extract username from request if not already in MDC context
             String bguUsername = LoggerUtil.getCurrentBguUsername();
+            if (bguUsername == null || bguUsername.trim().isEmpty()) {
+                // Try to extract username from request body or query parameters
+                bguUsername = extractUsernameFromRequest(request, sanitizedBody);
+                if (bguUsername != null && !bguUsername.trim().isEmpty()) {
+                    LoggerUtil.setBguUsername(bguUsername);
+                }
+            }
+            
             if (databaseLoggerService != null) {
                 databaseLoggerService.logApiRequest(method, uri, bguUsername, sanitizedBody);
             }
@@ -140,7 +149,20 @@ public class RequestLoggingFilter implements Filter {
             }
             
             // Log to database with body (full body, but will be truncated in database if needed)
+            // Try to extract username from request if not already in MDC context
             String bguUsername = LoggerUtil.getCurrentBguUsername();
+            if (bguUsername == null || bguUsername.trim().isEmpty()) {
+                // Try to extract username from request body or query parameters
+                String requestBody = null;
+                if (request instanceof ContentCachingRequestWrapper) {
+                    requestBody = getRequestBody((ContentCachingRequestWrapper) request);
+                }
+                bguUsername = extractUsernameFromRequest(request, requestBody);
+                if (bguUsername != null && !bguUsername.trim().isEmpty()) {
+                    LoggerUtil.setBguUsername(bguUsername);
+                }
+            }
+            
             if (databaseLoggerService != null) {
                 databaseLoggerService.logApiResponse(method, uri, statusCode, bguUsername, responseBody);
             }
@@ -326,5 +348,43 @@ public class RequestLoggingFilter implements Filter {
             logger.warn("Failed to sanitize password from request body: {}", e.getMessage());
             return body;
         }
+    }
+    
+    /**
+     * Extract username from request body or query parameters
+     * This helps populate MDC context for logging when username is not yet set
+     */
+    private String extractUsernameFromRequest(HttpServletRequest request, String requestBody) {
+        try {
+            // Try to extract from query parameters first (for DELETE requests)
+            String usernameParam = request.getParameter("username");
+            if (usernameParam != null && !usernameParam.trim().isEmpty()) {
+                return usernameParam.trim();
+            }
+            
+            // Try to extract from request body (for POST requests with JSON)
+            if (requestBody != null && !requestBody.trim().isEmpty() && requestBody.trim().startsWith("{")) {
+                // Simple JSON parsing to extract username fields
+                // Look for: "username", "presenterUsername", "bguUsername", "presenter_username"
+                String[] usernameFields = {"username", "presenterUsername", "bguUsername", "presenter_username"};
+                for (String field : usernameFields) {
+                    // Pattern: "field":"value" or "field": "value"
+                    String pattern = "\"" + field + "\"\\s*:\\s*\"([^\"]+)\"";
+                    java.util.regex.Pattern regex = java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.CASE_INSENSITIVE);
+                    java.util.regex.Matcher matcher = regex.matcher(requestBody);
+                    if (matcher.find()) {
+                        String username = matcher.group(1);
+                        if (username != null && !username.trim().isEmpty()) {
+                            return username.trim();
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // If extraction fails, just return null - don't break request processing
+            logger.debug("Failed to extract username from request: {}", e.getMessage());
+        }
+        
+        return null;
     }
 }

@@ -275,11 +275,13 @@ public class MailController {
         try {
             boolean configured = mailService.isEmailConfigured();
             String fromEmail = mailService.getFromEmail();
+            String monitoringEmail = mailService.getMonitoringEmail();
 
             LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(), "Email status retrieved");
             return ResponseEntity.ok(Map.of(
                     "configured", configured,
-                    "fromEmail", fromEmail != null ? fromEmail : "Not configured"
+                    "fromEmail", fromEmail != null ? fromEmail : "Not configured",
+                    "monitoringBcc", monitoringEmail != null && !monitoringEmail.trim().isEmpty() ? monitoringEmail : "Not configured"
             ));
         } catch (Exception ex) {
             LoggerUtil.logError(logger, "Unexpected error during get email status", ex);

@@ -122,6 +122,12 @@ CREATE TABLE slot_registration (
     supervisor_name VARCHAR(255),
     supervisor_email VARCHAR(255),
     registered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    approval_status ENUM('PENDING','APPROVED','DECLINED','EXPIRED') NOT NULL DEFAULT 'PENDING',
+    approval_token VARCHAR(255) UNIQUE,
+    approval_token_expires_at DATETIME,
+    supervisor_approved_at DATETIME,
+    supervisor_declined_at DATETIME,
+    supervisor_declined_reason TEXT,
     PRIMARY KEY (slot_id, presenter_username),
     CONSTRAINT fk_slot_registration_slot
         FOREIGN KEY (slot_id) REFERENCES slots(slot_id)
@@ -132,6 +138,34 @@ CREATE TABLE slot_registration (
 );
 
 CREATE INDEX idx_slot_registration_presenter ON slot_registration(presenter_username);
+CREATE INDEX idx_slot_registration_approval_status ON slot_registration(approval_status);
+CREATE INDEX idx_slot_registration_approval_token ON slot_registration(approval_token);
+
+-- =====================================================================
+--  WAITING LIST
+-- =====================================================================
+CREATE TABLE waiting_list (
+    waiting_list_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    slot_id BIGINT NOT NULL,
+    presenter_username VARCHAR(50) NOT NULL,
+    degree ENUM('MSc','PhD') NOT NULL,
+    topic VARCHAR(255),
+    supervisor_name VARCHAR(255),
+    supervisor_email VARCHAR(255),
+    position INT NOT NULL,
+    added_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_waiting_list_slot
+        FOREIGN KEY (slot_id) REFERENCES slots(slot_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_waiting_list_presenter
+        FOREIGN KEY (presenter_username) REFERENCES users(bgu_username)
+        ON DELETE CASCADE,
+    UNIQUE KEY unique_slot_presenter_waiting (slot_id, presenter_username)
+);
+
+CREATE INDEX idx_waiting_list_slot ON waiting_list(slot_id);
+CREATE INDEX idx_waiting_list_presenter ON waiting_list(presenter_username);
+CREATE INDEX idx_waiting_list_position ON waiting_list(slot_id, position);
 
 -- =====================================================================
 --  ATTENDANCE
