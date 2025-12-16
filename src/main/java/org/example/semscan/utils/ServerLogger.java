@@ -1,10 +1,14 @@
 package org.example.semscan.utils;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.text.TextUtils;
 import android.util.Log;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
+import android.os.Build;
 
 import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
@@ -65,12 +69,17 @@ public class ServerLogger {
     private int currentRetryAttempt = 0;
     private final Gson gson = new Gson();
     private long lastBatchTime = System.currentTimeMillis();
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
+    private android.content.BroadcastReceiver networkReceiver;
+    private boolean isNetworkListenerRegistered = false;
     
     private ServerLogger(Context context) {
         this.context = context.getApplicationContext();
         this.apiService = ApiClient.getInstance(context).getApiService();
         this.executorService = Executors.newSingleThreadScheduledExecutor();
         this.preferencesManager = PreferencesManager.getInstance(context);
+        this.connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         
         // Get user info for logging context (only once profile completed)
         this.bguUsername = shouldAttachUsername(preferencesManager.getUserName())
@@ -80,6 +89,9 @@ public class ServerLogger {
 
         // Load any persisted pending logs from previous runs
         loadPendingLogs();
+
+        // Register network connectivity listener
+        registerNetworkListener();
 
         // Try to send any restored logs shortly after startup
         executorService.schedule(this::flushLogs, 2, TimeUnit.SECONDS);
@@ -112,8 +124,9 @@ public class ServerLogger {
     }
     
     private boolean shouldAttachUsername(String username) {
+        // Allow username if it exists - no need to wait for setup completion
+        // Username is already known after login, so it's safe to include in logs
         return preferencesManager != null
-                && preferencesManager.hasCompletedInitialSetup()
                 && !TextUtils.isEmpty(username);
     }
 
@@ -290,7 +303,7 @@ public class ServerLogger {
                 Log.v(tag, message, throwable);
                 break;
             case DEBUG:
-                Log.d(tag, message, throwable);
+                Log.i(tag, message, throwable);
                 break;
             case INFO:
                 Log.i(tag, message, throwable);
@@ -329,7 +342,7 @@ public class ServerLogger {
     private void sendBatchedLogsToServer() {
         // Double-check to prevent sending empty requests
         if (pendingLogs.isEmpty()) {
-            Log.d(TAG_API, "No logs to send, skipping request");
+            Log.i(TAG_API, "No logs to send, skipping request");
             return;
         }
         if (!isNetworkAvailable()) {
@@ -350,24 +363,24 @@ public class ServerLogger {
                 
                 // Final check to prevent sending empty requests
                 if (logsToSend.isEmpty()) {
-                    Log.d(TAG_API, "No logs to send after processing, skipping request");
+                    Log.i(TAG_API, "No logs to send after processing, skipping request");
                     return;
                 }
                 
                 // Debug logging
-                Log.d(TAG_API, "Sending " + logsToSend.size() + " logs to server");
+                Log.i(TAG_API, "Sending " + logsToSend.size() + " logs to server");
                 
                 // Create API request
                 LogRequest request = new LogRequest(logsToSend);
                 
                 // Send to server (no authentication required)
-                Log.d(TAG_API, "Sending logs to server (no authentication required)");
+                Log.i(TAG_API, "Sending logs to server (no authentication required)");
                 Call<LogResponse> call = apiService.sendLogs(request);
                 call.enqueue(new Callback<LogResponse>() {
                     @Override
                     public void onResponse(Call<LogResponse> call, Response<LogResponse> response) {
                         if (response.isSuccessful()) {
-                            Log.d(TAG_API, "Logs sent successfully: " + logsToSend.size() + " entries");
+                            Log.i(TAG_API, "Logs sent successfully: " + logsToSend.size() + " entries");
                             currentRetryAttempt = 0; // reset backoff on success
                         } else {
                             Log.w(TAG_API, "Failed to send logs to server: " + response.code());
@@ -382,7 +395,11 @@ public class ServerLogger {
                     
                     @Override
                     public void onFailure(Call<LogResponse> call, Throwable t) {
-                        Log.w(TAG_API, "Failed to send logs to server", t);
+                        // Log the network error itself (this will be queued if network is down)
+                        String errorMsg = String.format("Failed to send logs to server - Exception: %s, Message: %s",
+                            t.getClass().getSimpleName(), t.getMessage());
+                        Log.w(TAG_API, errorMsg, t);
+                        
                         // Re-add logs to pending list for retry
                         synchronized (pendingLogs) {
                             pendingLogs.addAll(0, logsToSend);
@@ -426,7 +443,7 @@ public class ServerLogger {
 
         long delay = (long) Math.min(MAX_RETRY_DELAY_MS, BASE_RETRY_DELAY_MS * Math.pow(2, currentRetryAttempt));
         currentRetryAttempt++;
-        Log.d(TAG_API, "Scheduling retry attempt " + currentRetryAttempt + " in " + delay + "ms");
+        Log.i(TAG_API, "Scheduling retry attempt " + currentRetryAttempt + " in " + delay + "ms");
         executorService.schedule(() -> {
             synchronized (pendingLogs) {
                 if (!pendingLogs.isEmpty()) {
@@ -623,6 +640,94 @@ public class ServerLogger {
         
         public java.util.List<LogEntry> getLogs() { return logs; }
         public void setLogs(java.util.List<LogEntry> logs) { this.logs = logs; }
+    }
+    
+    /**
+     * Register network connectivity listener to auto-retry when network becomes available
+     */
+    private void registerNetworkListener() {
+        if (connectivityManager == null) {
+            Log.w(TAG_API, "ConnectivityManager is null, cannot register network listener");
+            return;
+        }
+        
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                // Use NetworkCallback for Android 7.0+
+                networkCallback = new ConnectivityManager.NetworkCallback() {
+                    @Override
+                    public void onAvailable(android.net.Network network) {
+                        Log.i(TAG_API, "Network available - attempting to send queued logs");
+                        executorService.execute(() -> {
+                            synchronized (pendingLogs) {
+                                if (!pendingLogs.isEmpty()) {
+                                    flushLogs();
+                                }
+                            }
+                        });
+                    }
+                    
+                    @Override
+                    public void onLost(android.net.Network network) {
+                        Log.i(TAG_API, "Network lost");
+                    }
+                };
+                
+                NetworkRequest request = new NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build();
+                connectivityManager.registerNetworkCallback(request, networkCallback);
+                isNetworkListenerRegistered = true;
+                Log.i(TAG_API, "Network callback registered (Android 7.0+)");
+            } else {
+                // For older Android versions, use BroadcastReceiver
+                networkReceiver = new android.content.BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent intent) {
+                        if (isNetworkAvailable()) {
+                            Log.i(TAG_API, "Network available (broadcast) - attempting to send queued logs");
+                            executorService.execute(() -> {
+                                synchronized (pendingLogs) {
+                                    if (!pendingLogs.isEmpty()) {
+                                        flushLogs();
+                                    }
+                                }
+                            });
+                        }
+                    }
+                };
+                
+                IntentFilter filter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
+                context.registerReceiver(networkReceiver, filter);
+                isNetworkListenerRegistered = true;
+                Log.i(TAG_API, "Network broadcast receiver registered (Android < 7.0)");
+            }
+        } catch (Exception e) {
+            Log.w(TAG_API, "Failed to register network listener", e);
+        }
+    }
+    
+    /**
+     * Unregister network connectivity listener
+     */
+    public void unregisterNetworkListener() {
+        if (!isNetworkListenerRegistered) {
+            return;
+        }
+        
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && networkCallback != null) {
+                connectivityManager.unregisterNetworkCallback(networkCallback);
+                networkCallback = null;
+            } else if (networkReceiver != null) {
+                context.unregisterReceiver(networkReceiver);
+                networkReceiver = null;
+            }
+            isNetworkListenerRegistered = false;
+            Log.i(TAG_API, "Network listener unregistered");
+        } catch (Exception e) {
+            Log.w(TAG_API, "Failed to unregister network listener", e);
+        }
     }
     
     /**

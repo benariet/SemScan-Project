@@ -63,6 +63,13 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         preferencesManager = PreferencesManager.getInstance(this);
         apiService = ApiClient.getInstance(this).getApiService();
         serverLogger = ServerLogger.getInstance(this);
+        
+        // Update user context for logging
+        String username = preferencesManager.getUserName();
+        String userRole = preferencesManager.getUserRole();
+        if (serverLogger != null) {
+            serverLogger.updateUserContext(username, userRole);
+        }
 
         setupToolbar();
         initializeViews();
@@ -182,16 +189,16 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
 
         // Frontend validation: Check if another presenter has an open session for this slot
         // This is a workaround for backend bug where it doesn't properly check for other presenters' sessions
-        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-        Logger.d(Logger.TAG_UI, "ATTEMPTING TO OPEN SESSION");
-        Logger.d(Logger.TAG_UI, "Presenter: " + normalizedUsername);
-        Logger.d(Logger.TAG_UI, "Slot ID: " + currentSlot.slotId);
-        Logger.d(Logger.TAG_UI, "Slot Time: " + currentSlot.timeRange);
-        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+        Logger.i(Logger.TAG_UI, "ATTEMPTING TO OPEN SESSION");
+        Logger.i(Logger.TAG_UI, "Presenter: " + normalizedUsername);
+        Logger.i(Logger.TAG_UI, "Slot ID: " + currentSlot.slotId);
+        Logger.i(Logger.TAG_UI, "Slot Time: " + currentSlot.timeRange);
+        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
         
         if (serverLogger != null) {
-            serverLogger.d(ServerLogger.TAG_UI, "ATTEMPTING TO OPEN SESSION | Presenter: " + normalizedUsername + 
-                ", Slot ID: " + currentSlot.slotId + ", Slot Time: " + currentSlot.timeRange);
+            serverLogger.i(ServerLogger.TAG_UI, "ATTEMPTING TO OPEN SESSION | Presenter: " + normalizedUsername + 
+                    ", Slot ID: " + currentSlot.slotId + ", Slot Time: " + currentSlot.timeRange);
         }
 
         // Check for other presenters' open sessions before opening
@@ -207,7 +214,7 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                     List<Session> openSessions = response.body();
                     String currentPresenterName = preferencesManager.getUserName();
                     
-                    Logger.d(Logger.TAG_UI, "Checking " + openSessions.size() + " open sessions for conflicts");
+                    Logger.i(Logger.TAG_UI, "Checking " + openSessions.size() + " open sessions for conflicts");
                     
                     // Check if any open session has the same time range and different presenter
                     boolean foundConflict = false;
@@ -322,11 +329,11 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         // The backend will return the correct state (OPENED, ALREADY_OPEN for this presenter, or IN_PROGRESS for another presenter)
         setLoading(true);
         
-        Logger.d(Logger.TAG_UI, "Calling backend to open session: POST /api/v1/presenters/" + normalizedUsername + 
+        Logger.i(Logger.TAG_UI, "Calling backend to open session: POST /api/v1/presenters/" + normalizedUsername + 
             "/home/slots/" + currentSlot.slotId + "/attendance/open");
         
         if (serverLogger != null) {
-            serverLogger.d(ServerLogger.TAG_UI, "CALLING BACKEND: POST /api/v1/presenters/" + normalizedUsername + 
+            serverLogger.i(ServerLogger.TAG_UI, "CALLING BACKEND: POST /api/v1/presenters/" + normalizedUsername + 
                 "/home/slots/" + currentSlot.slotId + "/attendance/open | " +
                 "Expected: Backend should return IN_PROGRESS if another presenter has open session");
         }
@@ -433,16 +440,16 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                         ApiService.PresenterAttendanceOpenResponse body = response.body();
                         String code = body.code != null ? body.code : "";
                         
-                        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-                        Logger.d(Logger.TAG_UI, "BACKEND RESPONSE RECEIVED");
-                        Logger.d(Logger.TAG_UI, "Response Code: " + code);
-                        Logger.d(Logger.TAG_UI, "Session ID: " + body.sessionId);
-                        Logger.d(Logger.TAG_UI, "Message: " + body.message);
-                        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                        Logger.i(Logger.TAG_UI, "BACKEND RESPONSE RECEIVED");
+                        Logger.i(Logger.TAG_UI, "Response Code: " + code);
+                        Logger.i(Logger.TAG_UI, "Session ID: " + body.sessionId);
+                        Logger.i(Logger.TAG_UI, "Message: " + body.message);
+                        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
                         
                         if (serverLogger != null) {
-                            serverLogger.d(ServerLogger.TAG_UI, "BACKEND RESPONSE | Code: " + code + 
-                                ", Session ID: " + body.sessionId + ", Message: " + body.message);
+                            serverLogger.i(ServerLogger.TAG_UI, "BACKEND RESPONSE | Code: " + code + 
+                                    ", Session ID: " + body.sessionId + ", Message: " + body.message);
                         }
                         
                         // CRITICAL: If backend returns OPENED when it should return IN_PROGRESS, log it

@@ -47,6 +47,13 @@ public class PresenterHomeActivity extends AppCompatActivity {
         apiService = ApiClient.getInstance(this).getApiService();
         serverLogger = ServerLogger.getInstance(this);
         
+        // Update user context for logging
+        String username = preferencesManager.getUserName();
+        String userRole = preferencesManager.getUserRole();
+        if (serverLogger != null) {
+            serverLogger.updateUserContext(username, userRole);
+        }
+        
         // Check if user is actually a presenter
         if (!preferencesManager.isPresenter()) {
             navigateToRolePicker();
@@ -222,7 +229,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
         // Restore user data (username is critical for role selection)
         if (username != null && !username.isEmpty()) {
             preferencesManager.setUserName(username);
-            Logger.d(Logger.TAG_UI, "Preserved username when changing role: " + username);
+            Logger.i(Logger.TAG_UI, "Preserved username when changing role: " + username);
         }
         if (firstName != null && !firstName.isEmpty()) {
             preferencesManager.setFirstName(firstName);
@@ -253,8 +260,10 @@ public class PresenterHomeActivity extends AppCompatActivity {
     // Menu removed - no longer showing 3 dots menu
     
     @Override
+    @SuppressWarnings("deprecation")
     public void onBackPressed() {
         // Prevent going back to role picker
         moveTaskToBack(true);
+        super.onBackPressed(); // Required by lint
     }
 }

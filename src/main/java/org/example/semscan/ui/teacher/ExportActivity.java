@@ -117,7 +117,7 @@ public class ExportActivity extends AppCompatActivity {
         
         if (sessionDetails.length() > 0) {
             textSessionId.setText(sessionDetails.toString());
-            Logger.d(Logger.TAG_UI, "Export activity initialized with session details");
+            Logger.i(Logger.TAG_UI, "Export activity initialized with session details");
         } else {
             textSessionId.setText("No session data available");
             Logger.e(Logger.TAG_UI, "No session details provided in intent");
@@ -173,10 +173,10 @@ public class ExportActivity extends AppCompatActivity {
         call.enqueue(new Callback<List<ManualAttendanceResponse>>() {
             @Override
             public void onResponse(Call<List<ManualAttendanceResponse>> call, Response<List<ManualAttendanceResponse>> response) {
-                Logger.d("ExportActivity", "=== API RESPONSE DEBUG ===");
-                Logger.d("ExportActivity", "Response successful: " + response.isSuccessful());
-                Logger.d("ExportActivity", "Response code: " + response.code());
-                Logger.d("ExportActivity", "Response body null: " + (response.body() == null));
+                Logger.i("ExportActivity", "=== API RESPONSE DEBUG ===");
+                Logger.i("ExportActivity", "Response successful: " + response.isSuccessful());
+                Logger.i("ExportActivity", "Response code: " + response.code());
+                Logger.i("ExportActivity", "Response body null: " + (response.body() == null));
                 
                 if (response.isSuccessful() && response.body() != null) {
                     List<ManualAttendanceResponse> pendingRequests = response.body();
@@ -184,26 +184,26 @@ public class ExportActivity extends AppCompatActivity {
                         response.code(), "Found " + pendingRequests.size() + " pending requests");
                     
                     // Debug logging for pending requests
-                    Logger.d("ExportActivity", "=== PENDING REQUESTS DEBUG ===");
-                    Logger.d("ExportActivity", "Total pending requests: " + pendingRequests.size());
+                    Logger.i("ExportActivity", "=== PENDING REQUESTS DEBUG ===");
+                    Logger.i("ExportActivity", "Total pending requests: " + pendingRequests.size());
                     for (int i = 0; i < pendingRequests.size(); i++) {
                         ManualAttendanceResponse req = pendingRequests.get(i);
-                        Logger.d("ExportActivity", "Request " + i + ":");
-                        Logger.d("ExportActivity", "  - Attendance ID: '" + req.getAttendanceId() + "'");
-                        Logger.d("ExportActivity", "  - Session ID: '" + req.getSessionId() + "'");
-                        Logger.d("ExportActivity", "  - Student Username: '" + req.getStudentUsername() + "'");
-                        Logger.d("ExportActivity", "  - Request Status: '" + req.getRequestStatus() + "'");
-                        Logger.d("ExportActivity", "  - Manual Reason: '" + req.getReason() + "'");
-                        Logger.d("ExportActivity", "  - Full object: " + req.toString());
+                        Logger.i("ExportActivity", "Request " + i + ":");
+                        Logger.i("ExportActivity", "  - Attendance ID: '" + req.getAttendanceId() + "'");
+                        Logger.i("ExportActivity", "  - Session ID: '" + req.getSessionId() + "'");
+                        Logger.i("ExportActivity", "  - Student Username: '" + req.getStudentUsername() + "'");
+                        Logger.i("ExportActivity", "  - Request Status: '" + req.getRequestStatus() + "'");
+                        Logger.i("ExportActivity", "  - Manual Reason: '" + req.getReason() + "'");
+                        Logger.i("ExportActivity", "  - Full object: " + req.toString());
                     }
                     
                     if (pendingRequests.isEmpty()) {
                         // No pending requests, proceed with export
-                        Logger.d("ExportActivity", "No pending requests found, proceeding with export");
+                        Logger.i("ExportActivity", "No pending requests found, proceeding with export");
                         exportData();
                     } else {
                         // Show review modal
-                        Logger.d("ExportActivity", "Found " + pendingRequests.size() + " pending requests, showing review modal");
+                        Logger.i("ExportActivity", "Found " + pendingRequests.size() + " pending requests, showing review modal");
                         showReviewModal(pendingRequests);
                     }
                 } else {
@@ -219,7 +219,7 @@ public class ExportActivity extends AppCompatActivity {
                     
                     Logger.apiError("GET", "api/v1/attendance/manual/pending-requests", 
                         response.code(), errorBody != null ? errorBody : "Failed to get pending requests");
-                    Logger.d("ExportActivity", "API Error - Code: " + response.code() + ", Body: " + errorBody);
+                    Logger.i("ExportActivity", "API Error - Code: " + response.code() + ", Body: " + errorBody);
                     ToastUtils.showError(ExportActivity.this, "Failed to check pending requests");
                 }
             }
@@ -256,7 +256,7 @@ public class ExportActivity extends AppCompatActivity {
             public void onResponse(Call<List<ManualAttendanceResponse>> call, Response<List<ManualAttendanceResponse>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     List<ManualAttendanceResponse> pendingRequests = response.body();
-                    Logger.d("ExportActivity", "Refreshed pending requests: " + pendingRequests.size() + " remaining");
+                    Logger.i("ExportActivity", "Refreshed pending requests: " + pendingRequests.size() + " remaining");
                     
                     // Update the adapter with the new list
                     requestAdapter.updateRequests(pendingRequests);
@@ -264,7 +264,7 @@ public class ExportActivity extends AppCompatActivity {
                     // If there are no more pending requests, we could optionally show a message
                     // but we should NOT automatically trigger export
                     if (pendingRequests.isEmpty()) {
-                        Logger.d("ExportActivity", "All pending requests have been resolved");
+                        Logger.i("ExportActivity", "All pending requests have been resolved");
                         // Don't auto-export - user must click Export button explicitly
                     }
                 }
@@ -279,8 +279,8 @@ public class ExportActivity extends AppCompatActivity {
     }
     
     private void showReviewModal(List<ManualAttendanceResponse> pendingRequests) {
-        Logger.d("ExportActivity", "=== SHOW REVIEW MODAL DEBUG ===");
-        Logger.d("ExportActivity", "Creating review modal for " + pendingRequests.size() + " requests");
+        Logger.i("ExportActivity", "=== SHOW REVIEW MODAL DEBUG ===");
+        Logger.i("ExportActivity", "Creating review modal for " + pendingRequests.size() + " requests");
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         LayoutInflater inflater = getLayoutInflater();
@@ -293,13 +293,13 @@ public class ExportActivity extends AppCompatActivity {
         Button btnCancelReview = dialogView.findViewById(R.id.btn_cancel_review);
         Button btnContinueExport = dialogView.findViewById(R.id.btn_continue_export);
         
-        Logger.d("ExportActivity", "Dialog view components found:");
-        Logger.d("ExportActivity", "  - textPendingCount: " + (textPendingCount != null));
-        Logger.d("ExportActivity", "  - recyclerRequests: " + (recyclerRequests != null));
-        Logger.d("ExportActivity", "  - btnApproveAllSafe: " + (btnApproveAllSafe != null));
-        Logger.d("ExportActivity", "  - btnRejectAllDuplicates: " + (btnRejectAllDuplicates != null));
-        Logger.d("ExportActivity", "  - btnCancelReview: " + (btnCancelReview != null));
-        Logger.d("ExportActivity", "  - btnContinueExport: " + (btnContinueExport != null));
+        Logger.i("ExportActivity", "Dialog view components found:");
+        Logger.i("ExportActivity", "  - textPendingCount: " + (textPendingCount != null));
+        Logger.i("ExportActivity", "  - recyclerRequests: " + (recyclerRequests != null));
+        Logger.i("ExportActivity", "  - btnApproveAllSafe: " + (btnApproveAllSafe != null));
+        Logger.i("ExportActivity", "  - btnRejectAllDuplicates: " + (btnRejectAllDuplicates != null));
+        Logger.i("ExportActivity", "  - btnCancelReview: " + (btnCancelReview != null));
+        Logger.i("ExportActivity", "  - btnContinueExport: " + (btnContinueExport != null));
         
         // Set up recycler view
         recyclerRequests.setLayoutManager(new LinearLayoutManager(this));
@@ -310,7 +310,7 @@ public class ExportActivity extends AppCompatActivity {
         textPendingCount.setText(pendingRequests.size() + " pending requests");
         
         AlertDialog dialog = builder.setView(dialogView).create();
-        Logger.d("ExportActivity", "Dialog created successfully");
+        Logger.i("ExportActivity", "Dialog created successfully");
         
         // Set up button listeners
         btnApproveAllSafe.setOnClickListener(v -> {
@@ -330,10 +330,10 @@ public class ExportActivity extends AppCompatActivity {
             exportData();
         });
         
-        Logger.d("ExportActivity", "About to show dialog");
+        Logger.i("ExportActivity", "About to show dialog");
         try {
             dialog.show();
-            Logger.d("ExportActivity", "Dialog show() called successfully");
+            Logger.i("ExportActivity", "Dialog show() called successfully");
         } catch (Exception e) {
             Logger.e("ExportActivity", "Failed to show dialog", e);
             // Fallback: handle pending requests directly
@@ -345,13 +345,13 @@ public class ExportActivity extends AppCompatActivity {
         // API key no longer required - removed authentication
         
         // Debug logging to see what's in the request object
-        Logger.d("ExportActivity", "=== ATTENDANCE REQUEST DEBUG ===");
-        Logger.d("ExportActivity", "Attendance ID: '" + request.getAttendanceId() + "'");
-        Logger.d("ExportActivity", "Session ID: '" + request.getSessionId() + "'");
-        Logger.d("ExportActivity", "Student Username: '" + request.getStudentUsername() + "'");
-        Logger.d("ExportActivity", "Request Status: '" + request.getRequestStatus() + "'");
-        Logger.d("ExportActivity", "Manual Reason: '" + request.getReason() + "'");
-        Logger.d("ExportActivity", "Attendance object: " + request.toString());
+        Logger.i("ExportActivity", "=== ATTENDANCE REQUEST DEBUG ===");
+        Logger.i("ExportActivity", "Attendance ID: '" + request.getAttendanceId() + "'");
+        Logger.i("ExportActivity", "Session ID: '" + request.getSessionId() + "'");
+        Logger.i("ExportActivity", "Student Username: '" + request.getStudentUsername() + "'");
+        Logger.i("ExportActivity", "Request Status: '" + request.getRequestStatus() + "'");
+        Logger.i("ExportActivity", "Manual Reason: '" + request.getReason() + "'");
+        Logger.i("ExportActivity", "Attendance object: " + request.toString());
         
         // Check if attendanceId is null
         if (request.getAttendanceId() == null || request.getAttendanceId() <= 0) {
@@ -976,7 +976,7 @@ public class ExportActivity extends AppCompatActivity {
      * This can be called as a fallback if the dialog fails
      */
     private void handlePendingRequestsDirectly(List<ManualAttendanceResponse> pendingRequests) {
-        Logger.d("ExportActivity", "Handling pending requests directly - count: " + pendingRequests.size());
+        Logger.i("ExportActivity", "Handling pending requests directly - count: " + pendingRequests.size());
         
         // For now, just show a message and allow user to continue
         // In a real implementation, you might want to show a simpler dialog or list
@@ -989,7 +989,7 @@ public class ExportActivity extends AppCompatActivity {
         
         // For debugging, let's also log the details
         for (ManualAttendanceResponse req : pendingRequests) {
-            Logger.d("ExportActivity", "Pending request - ID: " + req.getAttendanceId() + 
+            Logger.i("ExportActivity", "Pending request - ID: " + req.getAttendanceId() + 
                       ", Student: " + req.getStudentUsername() + ", Reason: " + req.getReason());
         }
     }
@@ -1145,7 +1145,7 @@ public class ExportActivity extends AppCompatActivity {
         
         filename.append(extension);
         
-        Logger.d(Logger.TAG_UI, "Generated export filename: " + filename.toString());
+        Logger.i(Logger.TAG_UI, "Generated export filename: " + filename.toString());
         return filename.toString();
     }
     

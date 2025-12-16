@@ -417,7 +417,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
             return;
         }
         
-        Logger.d(Logger.TAG_UI, "Creating user profile with username: " + username);
+        Logger.i(Logger.TAG_UI, "Creating user profile with username: " + username);
         String email = username != null ? username + "@bgu.ac.il" : null;
 
         ApiService.UserProfileUpdateRequest request = new ApiService.UserProfileUpdateRequest(
@@ -486,7 +486,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         } else {
             // Explicitly preserve username (should already be set, but ensure it's not lost)
             preferencesManager.setUserName(username);
-            Logger.d(Logger.TAG_UI, "Preserving username in persistProfile: " + username);
+            Logger.i(Logger.TAG_UI, "Preserving username in persistProfile: " + username);
         }
         
         preferencesManager.setFirstName(firstName);
@@ -505,15 +505,15 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         }
         
         // Final check: Log all saved values
-        Logger.d(Logger.TAG_UI, "=== Profile Persisted ===");
-        Logger.d(Logger.TAG_UI, "Username: " + preferencesManager.getUserName());
-        Logger.d(Logger.TAG_UI, "Role: " + preferencesManager.getUserRole());
-        Logger.d(Logger.TAG_UI, "First Name: " + preferencesManager.getFirstName());
-        Logger.d(Logger.TAG_UI, "Last Name: " + preferencesManager.getLastName());
-        Logger.d(Logger.TAG_UI, "Email: " + preferencesManager.getEmail());
-        Logger.d(Logger.TAG_UI, "Degree: " + preferencesManager.getDegree());
-        Logger.d(Logger.TAG_UI, "Participation: " + preferencesManager.getParticipationPreference());
-        Logger.d(Logger.TAG_UI, "=========================");
+        Logger.i(Logger.TAG_UI, "=== Profile Persisted ===");
+        Logger.i(Logger.TAG_UI, "Username: " + preferencesManager.getUserName());
+        Logger.i(Logger.TAG_UI, "Role: " + preferencesManager.getUserRole());
+        Logger.i(Logger.TAG_UI, "First Name: " + preferencesManager.getFirstName());
+        Logger.i(Logger.TAG_UI, "Last Name: " + preferencesManager.getLastName());
+        Logger.i(Logger.TAG_UI, "Email: " + preferencesManager.getEmail());
+        Logger.i(Logger.TAG_UI, "Degree: " + preferencesManager.getDegree());
+        Logger.i(Logger.TAG_UI, "Participation: " + preferencesManager.getParticipationPreference());
+        Logger.i(Logger.TAG_UI, "=========================");
     }
 
     private void navigateToRolePicker() {

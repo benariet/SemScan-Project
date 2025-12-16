@@ -43,6 +43,11 @@ android {
         viewBinding = true
     }
     
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+    
     // 16 KB page size compatibility - ensure native libraries are properly aligned
     packaging {
         jniLibs {

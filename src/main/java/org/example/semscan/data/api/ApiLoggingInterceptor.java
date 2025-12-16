@@ -104,7 +104,7 @@ public class ApiLoggingInterceptor implements Interceptor {
                 
                 // Always log to Android Logcat (with sanitized password)
                 String requestLog = String.format("Request Body: %s", sanitizedRequestBody);
-                Log.d(TAG, method + " " + url + " - " + requestLog);
+                Log.i(TAG, method + " " + url + " - " + requestLog);
                 
                 // Only log to ServerLogger if NOT the logs endpoint (to avoid recursion)
                 if (!isLogsEndpoint) {
@@ -131,7 +131,7 @@ public class ApiLoggingInterceptor implements Interceptor {
             getServerLogger().api(method, path, requestDetails);
         } else {
             // Still log to Android Logcat for debugging
-            Log.d(TAG, requestDetails);
+            Log.i(TAG, requestDetails);
         }
         
         // Execute request
@@ -162,7 +162,7 @@ public class ApiLoggingInterceptor implements Interceptor {
                 // Sanitize passwords from response body as well (in case server returns password)
                 String sanitizedResponseBody = sanitizePasswords(responseBodyString);
                 String responseLog = String.format("Response Body: %s", sanitizedResponseBody);
-                Log.d(TAG, method + " " + url + " - " + responseLog);
+                Log.i(TAG, method + " " + url + " - " + responseLog);
                 
                 // Only log to ServerLogger if NOT the logs endpoint
                 if (!isLogsEndpoint) {
@@ -200,7 +200,7 @@ public class ApiLoggingInterceptor implements Interceptor {
             }
         } else {
             // Still log to Android Logcat for debugging
-            Log.d(TAG, responseDetails);
+            Log.i(TAG, responseDetails);
         }
         
         return response;

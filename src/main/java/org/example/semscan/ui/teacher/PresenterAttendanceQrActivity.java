@@ -28,6 +28,7 @@ import com.google.zxing.qrcode.QRCodeWriter;
 import org.example.semscan.R;
 import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
+import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.QRUtils;
 import org.example.semscan.utils.ServerLogger;
@@ -94,6 +95,15 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
 
         apiService = ApiClient.getInstance(this).getApiService();
         serverLogger = ServerLogger.getInstance(this);
+        
+        // Update user context for logging
+        PreferencesManager preferencesManager = PreferencesManager.getInstance(this);
+        String username = preferencesManager.getUserName();
+        String userRole = preferencesManager.getUserRole();
+        if (serverLogger != null) {
+            serverLogger.updateUserContext(username, userRole);
+        }
+        
         autoCloseHandler = new Handler(Looper.getMainLooper());
 
         setupToolbar();

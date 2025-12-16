@@ -30,6 +30,7 @@ import org.example.semscan.R;
 import org.example.semscan.constants.ApiConstants;
 import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
+import org.example.semscan.utils.ErrorMessageHelper;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.ServerLogger;
@@ -67,6 +68,8 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
     private ServerLogger serverLogger;
 
     private boolean shouldScrollToMySlot;
+    private List<ApiService.SlotCard> currentSlots = Collections.emptyList(); // Store current slots for limit checking
+    private Long lastJoinedWaitingListSlotId = null; // Track slot where user just joined waiting list
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -76,6 +79,13 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         preferencesManager = PreferencesManager.getInstance(this);
         apiService = ApiClient.getInstance(this).getApiService();
         serverLogger = ServerLogger.getInstance(this);
+        
+        // Update user context for logging
+        String username = preferencesManager.getUserName();
+        String userRole = preferencesManager.getUserRole();
+        if (serverLogger != null) {
+            serverLogger.updateUserContext(username, userRole);
+        }
 
         if (!preferencesManager.isPresenter()) {
             finish();
@@ -132,6 +142,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         
         // Filter out past slots
         List<ApiService.SlotCard> futureSlots = filterPastSlots(allSlots);
+        
+        // Store current slots for limit checking
+        currentSlots = futureSlots;
         
         slotAdapter.submitList(futureSlots);
         emptyState.setVisibility(futureSlots.isEmpty() ? View.VISIBLE : View.GONE);
@@ -244,6 +257,63 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     Logger.apiError("GET", "api/v1/presenters/{username}/home", response.code(), response.message());
                     return;
                 }
+                
+                // Log waiting list status from backend for debugging - check ALL slots
+                if (response.body().slotCatalog != null) {
+                    for (ApiService.SlotCard slot : response.body().slotCatalog) {
+                        // Log waiting list status for all slots to debug (both local and server)
+                        String wlStatus = "Slot " + slot.slotId + " waiting list: onWaitingList=" + 
+                            slot.onWaitingList + ", waitingListCount=" + slot.waitingListCount + 
+                            ", waitingListUserName=" + slot.waitingListUserName;
+                        Logger.i(Logger.TAG_API, wlStatus);
+                        if (serverLogger != null) {
+                            serverLogger.i(ServerLogger.TAG_API, wlStatus);
+                        }
+                        
+                        // WARNING: If backend doesn't return waitingListCount, it defaults to 0
+                        // Backend MUST include waitingListCount in JSON response for ALL slots
+                        // This is required so all users can see if someone is on the waiting list
+                        if (slot.waitingListCount == 0 && slot.onWaitingList) {
+                            // This shouldn't happen - if user is on waiting list, count should be at least 1
+                            String warning = "WARNING: Slot " + slot.slotId + " has onWaitingList=true but waitingListCount=0. " +
+                                "Backend may not be returning waitingListCount field in JSON response.";
+                            Logger.w(Logger.TAG_API, warning);
+                            if (serverLogger != null) {
+                                serverLogger.w(ServerLogger.TAG_API, warning);
+                            }
+                        }
+                        
+                        // If backend didn't return onWaitingList=true but we just joined, fix it locally
+                        if (lastJoinedWaitingListSlotId != null && slot.slotId != null && 
+                            slot.slotId.equals(lastJoinedWaitingListSlotId) && !slot.onWaitingList) {
+                            String fixMsg = "Backend didn't return onWaitingList=true for slot " + slot.slotId + " we just joined, fixing locally";
+                            Logger.w(Logger.TAG_API, fixMsg);
+                            if (serverLogger != null) {
+                                serverLogger.w(ServerLogger.TAG_API, fixMsg);
+                            }
+                            slot.onWaitingList = true;
+                            if (slot.waitingListCount <= 0) {
+                                slot.waitingListCount = 1;
+                            }
+                        }
+                        
+                        // IMPORTANT: If backend returns waitingListCount=0 but someone is on waiting list,
+                        // we need to detect this. The backend should return waitingListCount > 0 for ALL users
+                        // when someone is on the waiting list, not just when the current user is on it.
+                        // For now, if onWaitingList=true but waitingListCount=0, set it to 1
+                        if (slot.onWaitingList && slot.waitingListCount <= 0) {
+                            String fixCountMsg = "Slot " + slot.slotId + " has onWaitingList=true but waitingListCount=0, fixing to 1";
+                            Logger.w(Logger.TAG_API, fixCountMsg);
+                            if (serverLogger != null) {
+                                serverLogger.w(ServerLogger.TAG_API, fixCountMsg);
+                            }
+                            slot.waitingListCount = 1;
+                        }
+                    }
+                    // Clear the tracking after we've processed it
+                    lastJoinedWaitingListSlotId = null;
+                }
+                
                 renderSlots(response.body());
             }
 
@@ -268,24 +338,344 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         if (serverLogger != null) {
             serverLogger.userAction("Register Slot", "User clicked register for slot=" + (slot != null ? slot.slotId : "null"));
         }
-        // Show registration dialog with topic field
+        
+        // Check registration limits BEFORE showing dialog
+        String errorMessage = checkRegistrationLimitsEarly(slot);
+        if (errorMessage != null) {
+            Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show();
+            return;
+        }
+        
+        // All checks passed - show registration dialog
         showRegistrationDialog(slot);
+    }
+
+    @Override
+    public void onJoinWaitingList(ApiService.SlotCard slot) {
+        Logger.userAction("Join Waiting List", "User clicked join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+        if (serverLogger != null) {
+            serverLogger.userAction("Join Waiting List", "User clicked join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+        }
+        
+        // Check waiting list limit before showing dialog
+        int waitingListCount = 0;
+        for (ApiService.SlotCard s : currentSlots) {
+            if (s.onWaitingList) {
+                waitingListCount++;
+            }
+        }
+        if (waitingListCount >= 1) {
+            Toast.makeText(this, 
+                "You can only be on 1 waiting list at once. " +
+                "Please cancel your current waiting list position first.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        
+        joinWaitingList(slot);
+    }
+
+    @Override
+    public void onCancelWaitingList(ApiService.SlotCard slot) {
+        Logger.userAction("Cancel Waiting List", "User clicked cancel waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+        if (serverLogger != null) {
+            serverLogger.userAction("Cancel Waiting List", "User clicked cancel waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+        }
+        leaveWaitingList(slot);
+    }
+
+    @Override
+    public void onSlotClicked(ApiService.SlotCard slot, boolean isFull) {
+        String action = isFull ? "Full Slot Clicked" : "Slot Clicked";
+        String details = "User clicked slot=" + (slot != null ? slot.slotId : "null") + ", isFull=" + isFull;
+        Logger.userAction(action, details);
+        if (serverLogger != null) {
+            serverLogger.userAction(action, details);
+        }
+    }
+
+    /**
+     * Show dialog to confirm joining waiting list
+     */
+    private void joinWaitingList(ApiService.SlotCard slot) {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.presenter_slot_waiting_list_title)
+                .setMessage(R.string.presenter_slot_waiting_list_message)
+                .setPositiveButton(R.string.presenter_slot_join_waiting_list, (d, which) -> {
+                    performJoinWaitingList(slot);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    /**
+     * Call API to join waiting list
+     */
+    private void performJoinWaitingList(ApiService.SlotCard slot) {
+        Logger.userAction("Join Waiting List", "Starting join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+        if (serverLogger != null) {
+            serverLogger.userAction("Join Waiting List", "Starting join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+        }
+        
+        if (slot == null || slot.slotId == null) {
+            Logger.e(Logger.TAG_UI, "Join waiting list failed - slot is null");
+            if (serverLogger != null) {
+                serverLogger.e(ServerLogger.TAG_UI, "Join waiting list failed - slot is null");
+            }
+            Toast.makeText(this, "Invalid slot", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String username = preferencesManager.getUserName();
+        if (TextUtils.isEmpty(username)) {
+            Logger.e(Logger.TAG_UI, "Join waiting list failed - username is empty");
+            if (serverLogger != null) {
+                serverLogger.e(ServerLogger.TAG_UI, "Join waiting list failed - username is empty");
+            }
+            Toast.makeText(this, R.string.presenter_start_session_error_no_user, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        final String normalizedUsername = username.trim().toLowerCase(Locale.US);
+        ApiService.WaitingListRequest request = new ApiService.WaitingListRequest();
+        request.username = normalizedUsername;
+
+        String apiEndpoint = "api/v1/slots/" + slot.slotId + "/waiting-list";
+        String apiMessage = "Joining waiting list for slot=" + slot.slotId;
+        Logger.api("POST", apiEndpoint, apiMessage);
+        if (serverLogger != null) {
+            serverLogger.api("POST", apiEndpoint, apiMessage);
+        }
+
+        apiService.joinWaitingList(slot.slotId, request)
+                .enqueue(new Callback<ApiService.WaitingListResponse>() {
+                    @Override
+                    public void onResponse(Call<ApiService.WaitingListResponse> call, 
+                                         Response<ApiService.WaitingListResponse> response) {
+                        Logger.apiResponse("POST", apiEndpoint, response.code(), "Join waiting list response received");
+                        if (serverLogger != null) {
+                            serverLogger.apiResponse("POST", apiEndpoint, response.code(), "Join waiting list response received");
+                        }
+                        
+                        if (response.isSuccessful() && response.body() != null && response.body().ok) {
+                            Logger.i(Logger.TAG_API, "Successfully joined waiting list for slot=" + slot.slotId);
+                            if (serverLogger != null) {
+                                serverLogger.i(ServerLogger.TAG_API, "Successfully joined waiting list for slot=" + slot.slotId + 
+                                        ", user=" + normalizedUsername);
+                            }
+                            // Remember that we just joined this slot's waiting list
+                            lastJoinedWaitingListSlotId = slot.slotId;
+                            Toast.makeText(PresenterSlotSelectionActivity.this, 
+                                "Added to waiting list. You will be notified when slot becomes available.",
+                                Toast.LENGTH_LONG).show();
+                            loadSlots(); // Refresh to show waiting list status
+                        } else {
+                            Logger.apiError("POST", apiEndpoint, response.code(), "Failed to join waiting list");
+                            if (serverLogger != null) {
+                                serverLogger.apiError("POST", apiEndpoint, response.code(), "Failed to join waiting list");
+                            }
+                            
+                            // Try to extract error message from response body
+                            String errorMessage = null;
+                            if (response.body() != null && response.body().message != null) {
+                                errorMessage = response.body().message;
+                            } else if (response.errorBody() != null) {
+                                try {
+                                    String errorBodyString = response.errorBody().string();
+                                    Logger.i(Logger.TAG_API, "Join waiting list error response body: " + errorBodyString);
+                                    
+                                    // Try to parse JSON error body
+                                    try {
+                                        JsonObject jsonObject = new JsonParser().parse(errorBodyString).getAsJsonObject();
+                                        if (jsonObject.has("message") && jsonObject.get("message").isJsonPrimitive()) {
+                                            errorMessage = jsonObject.get("message").getAsString();
+                                        } else if (jsonObject.has("error") && jsonObject.get("error").isJsonPrimitive()) {
+                                            errorMessage = jsonObject.get("error").getAsString();
+                                        }
+                                    } catch (Exception e) {
+                                        // If JSON parsing fails, try manual extraction
+                                        int messageStart = errorBodyString.indexOf("\"message\":\"");
+                                        if (messageStart >= 0) {
+                                            messageStart += 10;
+                                            int messageEnd = errorBodyString.indexOf("\"", messageStart);
+                                            if (messageEnd > messageStart) {
+                                                errorMessage = errorBodyString.substring(messageStart, messageEnd);
+                                            }
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    Logger.e(Logger.TAG_API, "Failed to read error body", e);
+                                }
+                            }
+                            
+                            // Get user-friendly error message
+                            String userMessage = ErrorMessageHelper.getWaitingListErrorMessage(
+                                PresenterSlotSelectionActivity.this, response.code(), errorMessage);
+                            Toast.makeText(PresenterSlotSelectionActivity.this, userMessage, Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiService.WaitingListResponse> call, Throwable t) {
+                        String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
+                        String errorDetails = "Join waiting list network failure - URL: " + requestUrl + 
+                                ", Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
+                        Logger.e(Logger.TAG_API, errorDetails, t);
+                        if (serverLogger != null) {
+                            serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                        }
+                        
+                        String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(
+                            PresenterSlotSelectionActivity.this, t);
+                        Toast.makeText(PresenterSlotSelectionActivity.this, 
+                            "Cannot join waiting list: " + errorMessage,
+                            Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    /**
+     * Show dialog to confirm leaving waiting list
+     */
+    private void leaveWaitingList(ApiService.SlotCard slot) {
+        new AlertDialog.Builder(this)
+                .setTitle("Leave Waiting List")
+                .setMessage("Are you sure you want to leave the waiting list for this slot?")
+                .setPositiveButton("Leave", (d, which) -> {
+                    performLeaveWaitingList(slot);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    /**
+     * Call API to leave waiting list
+     */
+    private void performLeaveWaitingList(ApiService.SlotCard slot) {
+        if (slot == null || slot.slotId == null) {
+            Toast.makeText(this, "Invalid slot", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String username = preferencesManager.getUserName();
+        if (TextUtils.isEmpty(username)) {
+            Toast.makeText(this, R.string.presenter_start_session_error_no_user, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        final String normalizedUsername = username.trim().toLowerCase(Locale.US);
+        String apiEndpoint = "api/v1/slots/" + slot.slotId + "/waiting-list";
+        String apiMessage = "Leaving waiting list for slot=" + slot.slotId;
+        Logger.api("DELETE", apiEndpoint, apiMessage);
+        if (serverLogger != null) {
+            serverLogger.api("DELETE", apiEndpoint, apiMessage);
+        }
+
+        apiService.leaveWaitingList(slot.slotId, normalizedUsername)
+                .enqueue(new Callback<ApiService.WaitingListResponse>() {
+                    @Override
+                    public void onResponse(Call<ApiService.WaitingListResponse> call, 
+                                         Response<ApiService.WaitingListResponse> response) {
+                        Logger.apiResponse("DELETE", apiEndpoint, response.code(), "Leave waiting list response received");
+                        if (serverLogger != null) {
+                            serverLogger.apiResponse("DELETE", apiEndpoint, response.code(), "Leave waiting list response received");
+                        }
+                        
+                        if (response.isSuccessful() && response.body() != null && response.body().ok) {
+                            Logger.i(Logger.TAG_API, "Successfully left waiting list for slot=" + slot.slotId);
+                            if (serverLogger != null) {
+                                serverLogger.i(ServerLogger.TAG_API, "Successfully left waiting list for slot=" + slot.slotId + 
+                                        ", user=" + normalizedUsername);
+                            }
+                            // Clear tracking if we left the waiting list
+                            if (lastJoinedWaitingListSlotId != null && lastJoinedWaitingListSlotId.equals(slot.slotId)) {
+                                lastJoinedWaitingListSlotId = null;
+                            }
+                            Toast.makeText(PresenterSlotSelectionActivity.this, 
+                                "Left waiting list successfully.",
+                                Toast.LENGTH_SHORT).show();
+                            loadSlots(); // Refresh to update waiting list status
+                        } else {
+                            Logger.apiError("DELETE", apiEndpoint, response.code(), "Failed to leave waiting list");
+                            if (serverLogger != null) {
+                                serverLogger.apiError("DELETE", apiEndpoint, response.code(), "Failed to leave waiting list");
+                            }
+                            
+                            // Try to extract error message from response body
+                            String errorMessage = null;
+                            if (response.body() != null && response.body().message != null) {
+                                errorMessage = response.body().message;
+                            } else if (response.errorBody() != null) {
+                                try {
+                                    String errorBodyString = response.errorBody().string();
+                                    Logger.i(Logger.TAG_API, "Leave waiting list error response body: " + errorBodyString);
+                                    
+                                    // Try to parse JSON error body
+                                    try {
+                                        JsonObject jsonObject = new JsonParser().parse(errorBodyString).getAsJsonObject();
+                                        if (jsonObject.has("message") && jsonObject.get("message").isJsonPrimitive()) {
+                                            errorMessage = jsonObject.get("message").getAsString();
+                                        } else if (jsonObject.has("error") && jsonObject.get("error").isJsonPrimitive()) {
+                                            errorMessage = jsonObject.get("error").getAsString();
+                                        }
+                                    } catch (Exception e) {
+                                        // If JSON parsing fails, try manual extraction
+                                        int messageStart = errorBodyString.indexOf("\"message\":\"");
+                                        if (messageStart >= 0) {
+                                            messageStart += 10;
+                                            int messageEnd = errorBodyString.indexOf("\"", messageStart);
+                                            if (messageEnd > messageStart) {
+                                                errorMessage = errorBodyString.substring(messageStart, messageEnd);
+                                            }
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    Logger.e(Logger.TAG_API, "Failed to read error body", e);
+                                }
+                            }
+                            
+                            // Get user-friendly error message
+                            String userMessage = ErrorMessageHelper.getWaitingListErrorMessage(
+                                PresenterSlotSelectionActivity.this, response.code(), errorMessage);
+                            Toast.makeText(PresenterSlotSelectionActivity.this, userMessage, Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiService.WaitingListResponse> call, Throwable t) {
+                        String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
+                        String errorDetails = "Leave waiting list network failure - URL: " + requestUrl + 
+                                ", Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
+                        Logger.e(Logger.TAG_API, errorDetails, t);
+                        if (serverLogger != null) {
+                            serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                        }
+                        
+                        String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(
+                            PresenterSlotSelectionActivity.this, t);
+                        Toast.makeText(PresenterSlotSelectionActivity.this, 
+                            "Cannot leave waiting list: " + errorMessage,
+                            Toast.LENGTH_LONG).show();
+                    }
+                });
     }
     
     private void showRegistrationDialog(ApiService.SlotCard slot) {
-        Logger.d(Logger.TAG_UI, "Showing registration dialog for slot=" + (slot != null ? slot.slotId : "null"));
+        Logger.i(Logger.TAG_UI, "Showing registration dialog for slot=" + (slot != null ? slot.slotId : "null"));
         if (serverLogger != null) {
-            serverLogger.d(ServerLogger.TAG_UI, "Showing registration dialog for slot=" + (slot != null ? slot.slotId : "null"));
+            serverLogger.i(ServerLogger.TAG_UI, "Showing registration dialog for slot=" + (slot != null ? slot.slotId : "null"));
         }
         View dialogView = getLayoutInflater().inflate(R.layout.view_register_slot_dialog, null);
         TextInputLayout layoutTopic = dialogView.findViewById(R.id.input_layout_topic);
         TextInputEditText inputTopic = dialogView.findViewById(R.id.input_topic);
         
-        // Hide supervisor fields - they're only needed for invitation email
+        // Show supervisor fields - required for registration
         TextInputLayout layoutSupervisorName = dialogView.findViewById(R.id.input_layout_supervisor_name);
         TextInputLayout layoutSupervisorEmail = dialogView.findViewById(R.id.input_layout_supervisor_email);
-        layoutSupervisorName.setVisibility(View.GONE);
-        layoutSupervisorEmail.setVisibility(View.GONE);
+        TextInputEditText inputSupervisorName = dialogView.findViewById(R.id.input_supervisor_name);
+        TextInputEditText inputSupervisorEmail = dialogView.findViewById(R.id.input_supervisor_email);
+        layoutSupervisorName.setVisibility(View.VISIBLE);
+        layoutSupervisorEmail.setVisibility(View.VISIBLE);
         
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.presenter_home_register_title)
@@ -299,9 +689,15 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             final Button button = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
             button.setOnClickListener(v -> {
                 String topic = inputTopic.getText() != null ? inputTopic.getText().toString().trim() : null;
+                String supervisorName = inputSupervisorName.getText() != null ? 
+                    inputSupervisorName.getText().toString().trim() : null;
+                String supervisorEmail = inputSupervisorEmail.getText() != null ? 
+                    inputSupervisorEmail.getText().toString().trim() : null;
                 
                 // Clear previous errors
                 layoutTopic.setError(null);
+                layoutSupervisorName.setError(null);
+                layoutSupervisorEmail.setError(null);
                 
                 // Topic is optional, so we can proceed with null or empty topic
                 // But if user entered something, use it
@@ -309,20 +705,205 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     topic = null; // Convert empty string to null
                 }
                 
+                // Validate supervisor name (required)
+                if (TextUtils.isEmpty(supervisorName)) {
+                    layoutSupervisorName.setError(getString(R.string.presenter_home_supervisor_name_required));
+                    return;
+                }
+                
+                // Validate supervisor email (required)
+                if (TextUtils.isEmpty(supervisorEmail)) {
+                    layoutSupervisorEmail.setError(getString(R.string.presenter_home_supervisor_email_required));
+                    return;
+                }
+                
+                // Validate email format
+                if (!Patterns.EMAIL_ADDRESS.matcher(supervisorEmail).matches()) {
+                    layoutSupervisorEmail.setError(getString(R.string.presenter_home_supervisor_email_invalid));
+                    return;
+                }
+                
                 // All validated - proceed with registration
                 dialog.dismiss();
-                performRegistration(slot, topic, null, null, null);
+                performRegistration(slot, topic, supervisorName, supervisorEmail);
             });
         });
         
         dialog.show();
     }
 
+    /**
+     * Check registration limits early (before showing dialog)
+     * Returns error message if limits are exceeded, null if OK
+     */
+    private String checkRegistrationLimitsEarly(ApiService.SlotCard slot) {
+        if (slot == null) {
+            return "Invalid slot";
+        }
+        
+        // Check if already registered
+        if (slot.alreadyRegistered) {
+            return "You are already registered for this slot.";
+        }
+        
+        // Check if slot is full (including pending registrations)
+        // NOTE: Backend now properly enforces capacity limits (approved + pending >= capacity)
+        // This client-side check provides immediate feedback and prevents unnecessary API calls
+        int approved = (slot.enrolledCount > slot.approvedCount) ? slot.enrolledCount : slot.approvedCount;
+        int pending = slot.pendingCount;
+        int totalOccupied = approved + pending;
+        boolean isFull = (totalOccupied >= slot.capacity);
+        
+        // Log capacity check for debugging
+        String capacityCheck = String.format("Slot %d capacity check: approved=%d, pending=%d, total=%d, capacity=%d, isFull=%s",
+            slot != null ? slot.slotId : "null", approved, pending, totalOccupied, slot != null ? slot.capacity : 0, isFull);
+        Logger.i(Logger.TAG_UI, capacityCheck);
+        if (serverLogger != null) {
+            serverLogger.i(ServerLogger.TAG_UI, capacityCheck);
+        }
+        
+        if (isFull) {
+            String fullMsg = "This slot is full (" + totalOccupied + "/" + slot.capacity + "). You can join the waiting list instead.";
+            Logger.w(Logger.TAG_UI, "Registration blocked - slot is full: " + capacityCheck);
+            if (serverLogger != null) {
+                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked - slot is full: " + capacityCheck);
+            }
+            return fullMsg;
+        }
+        
+        // Count current registrations across all slots
+        int approvedCount = 0;
+        int pendingCount = 0;
+        int waitingListCount = 0;
+        
+        for (ApiService.SlotCard s : currentSlots) {
+            if (s.alreadyRegistered) {
+                if ("APPROVED".equals(s.approvalStatus)) {
+                    approvedCount++;
+                } else if ("PENDING_APPROVAL".equals(s.approvalStatus)) {
+                    pendingCount++;
+                }
+            }
+            if (s.onWaitingList) {
+                waitingListCount++;
+            }
+        }
+        
+        // Get student degree to determine limits
+        String degree = preferencesManager.getDegree();
+        boolean isPhd = "PHD".equals(degree);
+        
+        // Check presentation limit (1 per semester)
+        if (approvedCount >= 1) {
+            return "You can only present once per semester. " +
+                   "You already have an approved registration.";
+        }
+        
+        // Check pending limit (1 for PhD, 2 for MSC)
+        int maxPending = isPhd ? 1 : 2;
+        if (pendingCount >= maxPending) {
+            return String.format("You can only have %d pending approval%s at once. " +
+                               "Please wait for supervisor responses or cancel a pending registration.",
+                               maxPending, maxPending == 1 ? "" : "s");
+        }
+        
+        // Check waiting list limit (1 for all)
+        if (waitingListCount >= 1) {
+            return "You can only be on 1 waiting list at once. " +
+                   "Please wait for notification or cancel your waiting list position.";
+        }
+        
+        // All checks passed
+        return null;
+    }
+
+    /**
+     * Check registration limits before allowing registration
+     * Limits: 1 approved per semester, 2 pending for MSC / 1 pending for PhD, 1 waiting list
+     */
+    private void checkRegistrationLimits(ApiService.SlotCard slot, Runnable onSuccess) {
+        // Count current registrations
+        int approvedCount = 0;
+        int pendingCount = 0;
+        int waitingListCount = 0;
+        
+        for (ApiService.SlotCard s : currentSlots) {
+            if (s.alreadyRegistered) {
+                if ("APPROVED".equals(s.approvalStatus)) {
+                    approvedCount++;
+                } else if ("PENDING_APPROVAL".equals(s.approvalStatus)) {
+                    pendingCount++;
+                }
+            }
+            if (s.onWaitingList) {
+                waitingListCount++;
+            }
+        }
+        
+        // Get student degree to determine limits
+        String degree = preferencesManager.getDegree();
+        boolean isPhd = "PHD".equals(degree);
+        
+        // Check presentation limit (1 per semester)
+        if (approvedCount >= 1) {
+            String limitMsg = "Registration limit reached: Already have 1 approved registration (max 1 per semester)";
+            Logger.w(Logger.TAG_UI, limitMsg);
+            if (serverLogger != null) {
+                serverLogger.w(ServerLogger.TAG_UI, limitMsg + ", slot=" + (slot != null ? slot.slotId : "null"));
+            }
+            Toast.makeText(this, 
+                "You can only present once per semester. " +
+                "You already have an approved registration.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        
+        // Check pending limit (1 for PhD, 2 for MSC)
+        int maxPending = isPhd ? 1 : 2;
+        if (pendingCount >= maxPending) {
+            String limitMsg = String.format("Registration limit reached: %d pending approvals (max %d for %s)",
+                    pendingCount, maxPending, isPhd ? "PhD" : "MSC");
+            Logger.w(Logger.TAG_UI, limitMsg);
+            if (serverLogger != null) {
+                serverLogger.w(ServerLogger.TAG_UI, limitMsg + ", slot=" + (slot != null ? slot.slotId : "null"));
+            }
+            Toast.makeText(this, 
+                String.format("You can only have %d pending approval%s at once. " +
+                             "Please wait for supervisor responses or cancel a pending registration.",
+                             maxPending, maxPending == 1 ? "" : "s"),
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        
+        // Check waiting list limit (1 for all)
+        if (waitingListCount >= 1) {
+            String limitMsg = "Registration limit reached: Already on 1 waiting list (max 1)";
+            Logger.w(Logger.TAG_UI, limitMsg);
+            if (serverLogger != null) {
+                serverLogger.w(ServerLogger.TAG_UI, limitMsg + ", slot=" + (slot != null ? slot.slotId : "null"));
+            }
+            Toast.makeText(this, 
+                "You can only be on 1 waiting list at once. " +
+                "Please wait for notification or cancel your waiting list position.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        
+        // All checks passed
+        Logger.i(Logger.TAG_UI, "Registration limits check passed: approved=" + approvedCount + 
+                ", pending=" + pendingCount + ", waitingList=" + waitingListCount);
+        if (serverLogger != null) {
+            serverLogger.i(ServerLogger.TAG_UI, "Registration limits check passed: approved=" + approvedCount + 
+                    ", pending=" + pendingCount + ", waitingList=" + waitingListCount + 
+                    ", slot=" + (slot != null ? slot.slotId : "null"));
+        }
+        onSuccess.run();
+    }
+
     private void performRegistration(ApiService.SlotCard slot,
                                      @Nullable String topic,
-                                     @Nullable String supervisorName,
-                                     @Nullable String supervisorEmail,
-                                     AlertDialog dialog) {
+                                     @NonNull String supervisorName,
+                                     @NonNull String supervisorEmail) {
         Logger.userAction("Register Slot", "Starting registration for slot=" + (slot != null ? slot.slotId : "null"));
         if (serverLogger != null) {
             serverLogger.userAction("Register Slot", "Starting registration for slot=" + (slot != null ? slot.slotId : "null"));
@@ -352,31 +933,171 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         }
 
         // Get presenter's email from profile (required for sending notification)
-        final String presenterEmail = preferencesManager.getEmail();
+        String presenterEmailRaw = preferencesManager.getEmail();
+        if (presenterEmailRaw != null) {
+            presenterEmailRaw = presenterEmailRaw.trim();
+        }
+        final String presenterEmail = presenterEmailRaw;
+        
         if (TextUtils.isEmpty(presenterEmail)) {
-            Logger.e(Logger.TAG_UI, "Registration failed - presenter email is empty");
+            String errorMsg = "Registration failed - presenter email is empty or null. User profile may not have email set.";
+            Logger.e("EMAIL_" + Logger.TAG_UI, errorMsg);
             if (serverLogger != null) {
-                serverLogger.e(ServerLogger.TAG_UI, "Registration failed - presenter email is empty");
+                serverLogger.e("EMAIL_" + ServerLogger.TAG_UI, errorMsg + ", username=" + username);
             }
             Toast.makeText(this, R.string.presenter_home_presenter_email_required, Toast.LENGTH_LONG).show();
             return;
+        }
+        
+        // Log presenter email status for debugging
+        Logger.i("EMAIL_" + Logger.TAG_UI, "Presenter email retrieved: " + (presenterEmail != null ? presenterEmail : "null"));
+        if (serverLogger != null) {
+            serverLogger.i("EMAIL_" + ServerLogger.TAG_UI, "Presenter email retrieved: " + (presenterEmail != null ? presenterEmail : "null") + 
+                ", username=" + username);
         }
 
         final String normalizedUsername = username.trim().toLowerCase(Locale.US);
         // Make topic final for use in lambda
         final String finalTopic = topic;
-        // Supervisor details are NOT needed for registration - they're only used for sending invitation email later
-        // So we send null for supervisorName and supervisorEmail during registration
-        ApiService.PresenterRegisterRequest request = new ApiService.PresenterRegisterRequest(finalTopic, null, null, presenterEmail);
-
-        String apiEndpoint = "api/v1/presenters/" + normalizedUsername + "/home/slots/" + slotId + "/register";
-        String apiMessage = "Registering for slot=" + slotId + ", topic=" + (finalTopic != null ? finalTopic : "null");
-        Logger.api("POST", apiEndpoint, apiMessage);
-        if (serverLogger != null) {
-            serverLogger.api("POST", apiEndpoint, apiMessage);
+        
+        // Normalize email addresses and names for use in lambda and callbacks
+        final String normalizedSupervisorEmail = supervisorEmail != null ? supervisorEmail.trim() : null;
+        final String normalizedSupervisorName = supervisorName != null ? supervisorName.trim() : null;
+        final String normalizedPresenterEmail = presenterEmail != null ? presenterEmail.trim() : null;
+        final String normalizedTopic = finalTopic != null ? finalTopic.trim() : null;
+        
+        // Double-check slot capacity before proceeding (defense in depth)
+        // NOTE: Backend now properly enforces capacity limits, but we check here to provide
+        // immediate feedback and prevent unnecessary API calls if data changed since last refresh
+        int approved = (slot.enrolledCount > slot.approvedCount) ? slot.enrolledCount : slot.approvedCount;
+        int pending = slot.pendingCount;
+        int totalOccupied = approved + pending;
+        boolean isFull = (totalOccupied >= slot.capacity);
+        
+        if (isFull) {
+            String fullMsg = "This slot is full (" + totalOccupied + "/" + slot.capacity + "). Cannot register.";
+            Logger.w(Logger.TAG_UI, "Registration blocked at performRegistration - slot is full: slot=" + 
+                (slot != null ? slot.slotId : "null") + ", approved=" + approved + ", pending=" + pending + 
+                ", total=" + totalOccupied + ", capacity=" + (slot != null ? slot.capacity : 0));
+            if (serverLogger != null) {
+                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked at performRegistration - slot is full: slot=" + 
+                    (slot != null ? slot.slotId : "null") + ", approved=" + approved + ", pending=" + pending + 
+                    ", total=" + totalOccupied + ", capacity=" + (slot != null ? slot.capacity : 0));
+            }
+            Toast.makeText(this, fullMsg, Toast.LENGTH_LONG).show();
+            return;
         }
         
-        apiService.registerForSlot(normalizedUsername, slotId, request)
+        // Check registration limits before proceeding
+        checkRegistrationLimits(slot, () -> {
+            // Supervisor info is now required (using normalized values from outer scope)
+            ApiService.PresenterRegisterRequest request = new ApiService.PresenterRegisterRequest(
+                normalizedTopic, normalizedSupervisorName, normalizedSupervisorEmail, normalizedPresenterEmail);
+
+            // Log email addresses and registration details for debugging email issues
+            String emailLogMsg = String.format("Registration email details - slot=%d, presenterEmail=%s, supervisorEmail=%s, supervisorName=%s, topic=%s",
+                slotId, 
+                normalizedPresenterEmail != null ? normalizedPresenterEmail : "null",
+                normalizedSupervisorEmail != null ? normalizedSupervisorEmail : "null",
+                normalizedSupervisorName != null ? normalizedSupervisorName : "null",
+                normalizedTopic != null ? normalizedTopic : "null");
+            Logger.i("EMAIL_" + Logger.TAG_API, emailLogMsg);
+            if (serverLogger != null) {
+                serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailLogMsg);
+            }
+            
+            // Validate email addresses before sending (with detailed error messages)
+            if (TextUtils.isEmpty(normalizedSupervisorEmail)) {
+                String emailError = "Supervisor email is empty or null";
+                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                if (serverLogger != null) {
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId);
+                }
+                Toast.makeText(PresenterSlotSelectionActivity.this, "Supervisor email is required", Toast.LENGTH_LONG).show();
+                return;
+            }
+            
+            if (!Patterns.EMAIL_ADDRESS.matcher(normalizedSupervisorEmail).matches()) {
+                String emailError = "Invalid supervisor email format: " + normalizedSupervisorEmail;
+                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                if (serverLogger != null) {
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId);
+                }
+                Toast.makeText(PresenterSlotSelectionActivity.this, "Invalid supervisor email format", Toast.LENGTH_LONG).show();
+                return;
+            }
+            
+            if (TextUtils.isEmpty(normalizedPresenterEmail)) {
+                String emailError = "Presenter email is empty or null";
+                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                if (serverLogger != null) {
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId + ", username=" + normalizedUsername);
+                }
+                Toast.makeText(PresenterSlotSelectionActivity.this, "Presenter email is required. Please update your profile.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            
+            if (!Patterns.EMAIL_ADDRESS.matcher(normalizedPresenterEmail).matches()) {
+                String emailError = "Invalid presenter email format: " + normalizedPresenterEmail;
+                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                if (serverLogger != null) {
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId + ", username=" + normalizedUsername);
+                }
+                Toast.makeText(PresenterSlotSelectionActivity.this, "Invalid presenter email format. Please update your profile.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            
+            // Log request object details to verify serialization
+            // This helps diagnose if backend receives the data correctly
+            String requestDetails = String.format("Registration request object - topic=%s, supervisorName=%s, supervisorEmail=%s, presenterEmail=%s",
+                request.topic != null ? request.topic : "null",
+                request.supervisorName != null ? request.supervisorName : "null",
+                request.supervisorEmail != null ? request.supervisorEmail : "null",
+                request.presenterEmail != null ? request.presenterEmail : "null");
+            Logger.i("EMAIL_" + Logger.TAG_API, requestDetails);
+            if (serverLogger != null) {
+                serverLogger.i("EMAIL_" + ServerLogger.TAG_API, requestDetails + ", slot=" + slotId);
+            }
+            
+            // Additional validation to match backend requirements
+            // Backend checks: email must contain "@" and be at least 5 chars
+            if (normalizedSupervisorEmail != null && (normalizedSupervisorEmail.length() < 5 || !normalizedSupervisorEmail.contains("@"))) {
+                String emailError = "Supervisor email does not meet minimum requirements (must contain @ and be at least 5 chars): " + normalizedSupervisorEmail;
+                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                if (serverLogger != null) {
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId);
+                }
+                Toast.makeText(PresenterSlotSelectionActivity.this, "Invalid supervisor email format", Toast.LENGTH_LONG).show();
+                return;
+            }
+            
+            if (normalizedPresenterEmail != null && (normalizedPresenterEmail.length() < 5 || !normalizedPresenterEmail.contains("@"))) {
+                String emailError = "Presenter email does not meet minimum requirements (must contain @ and be at least 5 chars): " + normalizedPresenterEmail;
+                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                if (serverLogger != null) {
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId + ", username=" + normalizedUsername);
+                }
+                Toast.makeText(PresenterSlotSelectionActivity.this, "Invalid presenter email format. Please update your profile.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            
+            // Log that all validations passed and request is ready to send
+            String validationPassed = String.format("All email validations passed - supervisorEmail=%s (length=%d), presenterEmail=%s (length=%d)",
+                normalizedSupervisorEmail, normalizedSupervisorEmail != null ? normalizedSupervisorEmail.length() : 0,
+                normalizedPresenterEmail, normalizedPresenterEmail != null ? normalizedPresenterEmail.length() : 0);
+            Logger.i("EMAIL_" + Logger.TAG_API, validationPassed);
+            if (serverLogger != null) {
+                serverLogger.i("EMAIL_" + ServerLogger.TAG_API, validationPassed + ", slot=" + slotId);
+            }
+
+            String apiEndpoint = "api/v1/presenters/" + normalizedUsername + "/home/slots/" + slotId + "/register";
+            String apiMessage = "Registering for slot=" + slotId + ", topic=" + (finalTopic != null ? finalTopic : "null");
+            Logger.api("POST", apiEndpoint, apiMessage);
+            if (serverLogger != null) {
+                serverLogger.api("POST", apiEndpoint, apiMessage);
+            }
+            
+            apiService.registerForSlot(normalizedUsername, slotId, request)
                 .enqueue(new Callback<ApiService.PresenterRegisterResponse>() {
                     @Override
                     public void onResponse(Call<ApiService.PresenterRegisterResponse> call, Response<ApiService.PresenterRegisterResponse> response) {
@@ -384,6 +1105,51 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                         Logger.apiResponse("POST", apiEndpoint, response.code(), "Registration response received");
                         if (serverLogger != null) {
                             serverLogger.apiResponse("POST", apiEndpoint, response.code(), "Registration response received");
+                        }
+                        
+                        // Log response body for email debugging
+                        if (response.body() != null) {
+                            ApiService.PresenterRegisterResponse regResponse = response.body();
+                            String responseLog = String.format("Registration response - ok=%s, code=%s, message=%s, registrationId=%s, approvalStatus=%s",
+                                regResponse.ok,
+                                regResponse.code != null ? regResponse.code : "null",
+                                regResponse.message != null ? regResponse.message : "null",
+                                regResponse.registrationId != null ? regResponse.registrationId.toString() : "null",
+                                regResponse.approvalStatus != null ? regResponse.approvalStatus : "null");
+                            Logger.i(Logger.TAG_API, responseLog);
+                            if (serverLogger != null) {
+                                serverLogger.i(ServerLogger.TAG_API, responseLog);
+                            }
+                            
+                            // Log email-related info from response
+                            if (regResponse.message != null && (regResponse.message.toLowerCase().contains("email") || 
+                                regResponse.message.toLowerCase().contains("mail"))) {
+                                String emailMsg = "Email-related message in registration response: " + regResponse.message;
+                                Logger.w("EMAIL_" + Logger.TAG_API, emailMsg);
+                                if (serverLogger != null) {
+                                    serverLogger.w("EMAIL_" + ServerLogger.TAG_API, emailMsg);
+                                }
+                            }
+                            
+                            // If registration was successful, log that backend should have sent email
+                            // Backend error codes to watch for in app_logs:
+                            // - EMAIL_MAILSENDER_NULL: JavaMailSender not configured
+                            // - REGISTRATION_NO_SUPERVISOR_EMAIL: Supervisor email missing
+                            // - REGISTRATION_INVALID_EMAIL_FORMAT: Invalid email format
+                            // - EMAIL_AUTH_FAILED: SMTP authentication failed
+                            // - EMAIL_SEND_FAILED: Email send failed
+                            // - REGISTRATION_NOT_FOUND_AFTER_SAVE: Registration not persisted
+                            if (regResponse.ok && (regResponse.code != null && 
+                                (regResponse.code.equals("PENDING_APPROVAL") || regResponse.code.equals("REGISTERED")))) {
+                                String backendEmailNote = "Backend should have attempted to send email. Check app_logs for: " +
+                                    "EMAIL_MAILSENDER_NULL, REGISTRATION_NO_SUPERVISOR_EMAIL, REGISTRATION_INVALID_EMAIL_FORMAT, " +
+                                    "EMAIL_AUTH_FAILED, EMAIL_SEND_FAILED, REGISTRATION_NOT_FOUND_AFTER_SAVE";
+                                Logger.i("EMAIL_" + Logger.TAG_API, backendEmailNote);
+                                if (serverLogger != null) {
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, backendEmailNote + ", slot=" + slotId + 
+                                        ", supervisorEmail=" + normalizedSupervisorEmail);
+                                }
+                            }
                         }
                         
                         // Handle unsuccessful HTTP responses (non-200 status codes)
@@ -400,7 +1166,21 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             if (response.errorBody() != null) {
                                 try {
                                     String errorBodyString = response.errorBody().string();
-                                    Logger.d(Logger.TAG_API, "Registration error response body: " + errorBodyString);
+                                    Logger.i(Logger.TAG_API, "Registration error response body: " + errorBodyString);
+                                    if (serverLogger != null) {
+                                        serverLogger.i(ServerLogger.TAG_API, "Registration error response body: " + errorBodyString + 
+                                            ", slot=" + slotId + ", supervisorEmail=" + supervisorEmail + ", presenterEmail=" + presenterEmail);
+                                    }
+                                    
+                                    // Check if error mentions email issues
+                                    if (errorBodyString.toLowerCase().contains("email") || errorBodyString.toLowerCase().contains("mail")) {
+                                        String emailError = "Email-related error in registration: " + errorBodyString;
+                                        Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                                        if (serverLogger != null) {
+                                            serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + 
+                                                ", slot=" + slotId + ", supervisorEmail=" + supervisorEmail + ", presenterEmail=" + presenterEmail);
+                                        }
+                                    }
                                     
                                     // Try to parse JSON error body
                                     try {
@@ -422,6 +1202,20 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                             String errorField = jsonObject.get("error").getAsString();
                                             if (errorField != null && errorField.toLowerCase().contains("lock wait timeout")) {
                                                 rawErrorMessage = errorField;
+                                            }
+                                        }
+                                        
+                                        // Check for email-related errors
+                                        if (jsonObject.has("error") && jsonObject.get("error").isJsonPrimitive()) {
+                                            String errorField = jsonObject.get("error").getAsString();
+                                            if (errorField != null && (errorField.toLowerCase().contains("email") || 
+                                                errorField.toLowerCase().contains("mail"))) {
+                                                String emailError = "Email error in registration response: " + errorField;
+                                                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                                                if (serverLogger != null) {
+                                                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + 
+                                                        ", slot=" + slotId + ", supervisorEmail=" + supervisorEmail);
+                                                }
                                             }
                                         }
                                     } catch (Exception e) {
@@ -483,28 +1277,14 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                         " | This indicates a database-level issue. Check for stuck transactions.");
                                     serverLogger.flushLogs(); // Force send critical error immediately
                                 }
-                                errorMessage = "Database lock timeout. Please try again in a few moments.";
+                                errorMessage = ErrorMessageHelper.cleanBackendMessage(rawErrorMessage);
                             }
                             
-                            // Show appropriate error message based on code
-                            if ("ALREADY_REGISTERED".equals(errorCode) || "ALREADY_IN_SLOT".equals(errorCode)) {
-                                // Use the backend message if available, otherwise use default
-                                if (errorMessage != null && !errorMessage.trim().isEmpty() && 
-                                    !errorMessage.equals(getString(R.string.error_registration_failed))) {
-                                    Toast.makeText(PresenterSlotSelectionActivity.this, errorMessage, Toast.LENGTH_LONG).show();
-                                } else {
-                                    Toast.makeText(PresenterSlotSelectionActivity.this, R.string.presenter_home_register_already, Toast.LENGTH_LONG).show();
-                                }
-                            } else if ("SLOT_FULL".equals(errorCode)) {
-                                Toast.makeText(PresenterSlotSelectionActivity.this, R.string.presenter_home_register_full, Toast.LENGTH_LONG).show();
-                            } else {
-                                // Show the actual error message from backend, or fallback to generic
-                                Toast.makeText(PresenterSlotSelectionActivity.this, errorMessage, Toast.LENGTH_LONG).show();
-                            }
+                            // Get user-friendly error message
+                            String userMessage = ErrorMessageHelper.getRegistrationErrorMessage(
+                                PresenterSlotSelectionActivity.this, errorCode, errorMessage);
+                            Toast.makeText(PresenterSlotSelectionActivity.this, userMessage, Toast.LENGTH_LONG).show();
                             
-                            if (dialog != null) {
-                                dialog.dismiss();
-                            }
                             loadSlots();
                             return;
                         }
@@ -522,20 +1302,43 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                     ", message: " + (body.message != null ? body.message : "null"));
                         }
                         switch (code) {
+                            case "PENDING_APPROVAL":
+                                Logger.i(Logger.TAG_API, "Registration pending approval for slot=" + slot.slotId);
+                                if (serverLogger != null) {
+                                    String pendingLog = String.format("Registration pending approval - slot=%d, presenter=%s, supervisorEmail=%s, presenterEmail=%s, supervisorName=%s",
+                                        slot.slotId, normalizedUsername, normalizedSupervisorEmail, normalizedPresenterEmail, normalizedSupervisorName);
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, pendingLog);
+                                    // Log that email should have been sent to supervisor
+                                    String emailExpectedLog = String.format("Expected email to supervisor - slot=%d, supervisorEmail=%s, supervisorName=%s, presenterEmail=%s",
+                                        slot.slotId, normalizedSupervisorEmail, normalizedSupervisorName, normalizedPresenterEmail);
+                                    Logger.i("EMAIL_" + Logger.TAG_API, emailExpectedLog);
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailExpectedLog);
+                                    // Note: If email is not received, check backend logs for email service errors
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, "NOTE: If supervisor did not receive email, check backend email service configuration and logs");
+                                }
+                                Toast.makeText(PresenterSlotSelectionActivity.this, 
+                                    "Registration submitted. Waiting for supervisor approval.",
+                                    Toast.LENGTH_LONG).show();
+                                loadSlots(); // Refresh to show pending status
+                                break;
                             case "REGISTERED":
                                 Logger.i(Logger.TAG_API, "Registration successful for slot=" + slot.slotId);
                                 if (serverLogger != null) {
-                                    serverLogger.i(ServerLogger.TAG_API, "Registration successful for slot=" + slot.slotId + 
-                                            ", presenter=" + normalizedUsername);
+                                    String successLog = String.format("Registration successful - slot=%d, presenter=%s, supervisorEmail=%s, presenterEmail=%s, supervisorName=%s",
+                                        slot.slotId, normalizedUsername, normalizedSupervisorEmail, normalizedPresenterEmail, normalizedSupervisorName);
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, successLog);
+                                    // Log that email should have been sent to supervisor
+                                    String emailExpectedLog = String.format("Expected email to supervisor - slot=%d, supervisorEmail=%s, supervisorName=%s, presenterEmail=%s",
+                                        slot.slotId, normalizedSupervisorEmail, normalizedSupervisorName, normalizedPresenterEmail);
+                                    Logger.i("EMAIL_" + Logger.TAG_API, emailExpectedLog);
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailExpectedLog);
+                                    // Note: If email is not received, check backend logs for email service errors
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, "NOTE: If supervisor did not receive email, check backend email service configuration and logs");
                                 }
                                 Toast.makeText(PresenterSlotSelectionActivity.this, R.string.presenter_home_register_success, Toast.LENGTH_LONG).show();
-                                if (dialog != null) {
-                                    dialog.dismiss();
-                                }
                                 
-                                // After successful registration, ask if they want to send invitation to supervisor
-                                // Pass the topic that was entered during registration
-                                showSupervisorInvitationQuestionDialog(slot, finalTopic);
+                                // Supervisor invitation is now handled automatically by backend
+                                // No need to show post-registration dialog
                                 
                                 loadSlots();
                                 break;
@@ -546,9 +1349,6 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                     ? body.message
                                     : getString(R.string.presenter_home_register_already);
                                 Toast.makeText(PresenterSlotSelectionActivity.this, alreadyRegisteredMsg, Toast.LENGTH_LONG).show();
-                                if (dialog != null) {
-                                    dialog.dismiss();
-                                }
                                 loadSlots();
                                 break;
                             case "SLOT_FULL":
@@ -566,261 +1366,27 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     @Override
                     public void onFailure(Call<ApiService.PresenterRegisterResponse> call, Throwable t) {
                         String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
-                        String errorDetails = "Slot registration network failure - URL: " + requestUrl + 
-                                ", Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
+                        String errorDetails = String.format("Slot registration network failure - URL: %s, Error: %s, Message: %s, slot=%d, supervisorEmail=%s, presenterEmail=%s",
+                            requestUrl, t.getClass().getSimpleName(), t.getMessage(), slotId, supervisorEmail, presenterEmail);
                         Logger.e(Logger.TAG_API, errorDetails, t);
                         if (serverLogger != null) {
                             serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
                         }
                         
-                        String errorMessage;
-                        if (t instanceof java.net.SocketTimeoutException) {
-                            errorMessage = "Connection timeout. Please check:\n" +
-                                    "1. Backend server is running at " + ApiConstants.SERVER_URL + "\n" +
-                                    "2. Network connection is stable\n" +
-                                    "3. Server is accessible from your device";
-                            Logger.e(Logger.TAG_API, "Slot registration timeout - URL: " + requestUrl, t);
-                            if (serverLogger != null) {
-                                serverLogger.e(ServerLogger.TAG_API, "Slot registration timeout - URL: " + requestUrl, t);
-                            }
-                        } else if (t instanceof java.net.ConnectException) {
-                            errorMessage = "Cannot connect to server at " + ApiConstants.SERVER_URL + 
-                                    ". Please check:\n" +
-                                    "1. Server is running\n" +
-                                    "2. Device can reach the server IP\n" +
-                                    "3. Firewall allows connections";
-                            Logger.e(Logger.TAG_API, "Slot registration connection failed - URL: " + requestUrl, t);
-                            if (serverLogger != null) {
-                                serverLogger.e(ServerLogger.TAG_API, "Slot registration connection failed - URL: " + requestUrl, t);
-                            }
-                        } else if (t instanceof java.net.UnknownHostException) {
-                            errorMessage = "Server unavailable: " + ApiConstants.SERVER_URL + 
-                                    "\nPlease check the server address.";
-                            Logger.e(Logger.TAG_API, "Slot registration - server unavailable: " + requestUrl, t);
-                            if (serverLogger != null) {
-                                serverLogger.e(ServerLogger.TAG_API, "Slot registration - server unavailable: " + requestUrl, t);
-                            }
-                        } else {
-                            errorMessage = "Registration failed: " + t.getMessage() + 
-                                    "\nURL: " + requestUrl;
-                            Logger.e(Logger.TAG_API, "Slot registration failed - Error: " + t.getClass().getSimpleName() + 
-                                    ", Message: " + t.getMessage(), t);
-                            if (serverLogger != null) {
-                                serverLogger.e(ServerLogger.TAG_API, "Slot registration failed - Error: " + t.getClass().getSimpleName() + 
-                                        ", Message: " + t.getMessage(), t);
-                            }
+                        // Note: If registration fails due to network error, email won't be sent
+                        String emailNote = String.format("Registration failed - email NOT sent due to network error - slot=%d, supervisorEmail=%s",
+                            slotId, supervisorEmail);
+                        Logger.w("EMAIL_" + Logger.TAG_API, emailNote);
+                        if (serverLogger != null) {
+                            serverLogger.w("EMAIL_" + ServerLogger.TAG_API, emailNote);
                         }
                         
+                        String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(
+                            PresenterSlotSelectionActivity.this, t);
                         Toast.makeText(PresenterSlotSelectionActivity.this, errorMessage, Toast.LENGTH_LONG).show();
                     }
                 });
-    }
-    
-    /**
-     * Show dialog asking if user wants to send supervisor invitation after successful registration
-     */
-    private void showSupervisorInvitationQuestionDialog(ApiService.SlotCard slot, 
-                                                        @Nullable String topic) {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.presenter_slot_supervisor_invitation_title)
-                .setMessage(R.string.presenter_slot_supervisor_invitation_message)
-                .setPositiveButton(R.string.yes, (d, which) -> {
-                    // User wants to send invitation - show form to collect supervisor details
-                    showSupervisorDetailsDialog(slot, topic);
-                })
-                .setNegativeButton(R.string.no, (d, which) -> {
-                    // User doesn't want to send invitation - just dismiss
-                    d.dismiss();
-                })
-                .setCancelable(true)
-                .show();
-    }
-    
-    /**
-     * Show dialog to collect supervisor details (name, email, topic) for sending invitation
-     */
-    private void showSupervisorDetailsDialog(ApiService.SlotCard slot, @Nullable String topic) {
-        View dialogView = getLayoutInflater().inflate(R.layout.view_register_slot_dialog, null);
-        TextInputLayout layoutTopic = dialogView.findViewById(R.id.input_layout_topic);
-        TextInputLayout layoutSupervisorName = dialogView.findViewById(R.id.input_layout_supervisor_name);
-        TextInputLayout layoutSupervisorEmail = dialogView.findViewById(R.id.input_layout_supervisor_email);
-        TextInputEditText inputTopic = dialogView.findViewById(R.id.input_topic);
-        TextInputEditText inputSupervisorName = dialogView.findViewById(R.id.input_supervisor_name);
-        TextInputEditText inputSupervisorEmail = dialogView.findViewById(R.id.input_supervisor_email);
-        
-        // Pre-fill topic if it was entered during registration
-        if (topic != null && !topic.trim().isEmpty()) {
-            inputTopic.setText(topic);
-        }
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(R.string.presenter_slot_supervisor_invitation_title)
-                .setView(dialogView)
-                .setPositiveButton(R.string.presenter_slot_send_invitation_button, null)
-                .setNegativeButton(R.string.cancel, (d, which) -> d.dismiss())
-                .create();
-
-        dialog.setOnShowListener(d -> {
-            final Button button = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
-            button.setOnClickListener(v -> {
-                String supervisorTopic = inputTopic.getText() != null ? inputTopic.getText().toString().trim() : null;
-                String supervisorName = inputSupervisorName.getText() != null ? inputSupervisorName.getText().toString().trim() : null;
-                String supervisorEmail = inputSupervisorEmail.getText() != null ? inputSupervisorEmail.getText().toString().trim() : null;
-
-                // Clear previous errors
-                layoutTopic.setError(null);
-                layoutSupervisorName.setError(null);
-                layoutSupervisorEmail.setError(null);
-
-                // Validate supervisor name (required)
-                if (TextUtils.isEmpty(supervisorName)) {
-                    layoutSupervisorName.setError(getString(R.string.presenter_home_supervisor_name_required));
-                    return;
-                }
-
-                // Validate supervisor email (required)
-                if (TextUtils.isEmpty(supervisorEmail)) {
-                    layoutSupervisorEmail.setError(getString(R.string.presenter_home_supervisor_email_required));
-                    return;
-                }
-
-                // Validate email format
-                if (!Patterns.EMAIL_ADDRESS.matcher(supervisorEmail).matches()) {
-                    layoutSupervisorEmail.setError(getString(R.string.presenter_home_supervisor_email_invalid));
-                    return;
-                }
-
-                // All validated - send invitation email
-                dialog.dismiss();
-                sendSupervisorInvitationEmail(slot, supervisorTopic, supervisorName, supervisorEmail);
-            });
-        });
-
-        dialog.show();
-    }
-    
-    private void sendSupervisorInvitationEmail(ApiService.SlotCard slot, 
-                                              @Nullable String topic, 
-                                              @NonNull String supervisorName, 
-                                              @NonNull String supervisorEmail) {
-        Logger.i(Logger.TAG_UI, "Sending supervisor invitation email to: " + supervisorEmail);
-        
-        // Get presenter's name and email
-        String presenterFirstName = preferencesManager.getFirstName();
-        String presenterLastName = preferencesManager.getLastName();
-        String presenterName = (presenterFirstName != null ? presenterFirstName : "") + 
-                              (presenterLastName != null ? " " + presenterLastName : "").trim();
-        String presenterEmail = preferencesManager.getEmail();
-        
-        // Build email content
-        String subject = "SemScan - Presentation Slot Registration Invitation";
-        String htmlContent = buildSupervisorInvitationEmailHtml(slot, topic, supervisorName, presenterName, presenterEmail);
-        
-        // Send email via backend API
-        ApiService.TestEmailRequest request = new ApiService.TestEmailRequest(
-            supervisorEmail,
-            subject,
-            htmlContent
-        );
-        
-        apiService.sendTestEmail(request).enqueue(new Callback<ApiService.TestEmailResponse>() {
-            @Override
-            public void onResponse(Call<ApiService.TestEmailResponse> call, Response<ApiService.TestEmailResponse> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().success) {
-                    Logger.i(Logger.TAG_API, "Supervisor invitation email sent successfully to: " + supervisorEmail);
-                    Toast.makeText(PresenterSlotSelectionActivity.this, 
-                        getString(R.string.presenter_slot_supervisor_email_sent, supervisorEmail), 
-                        Toast.LENGTH_LONG).show();
-                } else {
-                    Logger.e(Logger.TAG_API, "Failed to send supervisor invitation email to: " + supervisorEmail);
-                    Toast.makeText(PresenterSlotSelectionActivity.this, 
-                        getString(R.string.presenter_slot_supervisor_email_failed), 
-                        Toast.LENGTH_SHORT).show();
-                }
-            }
-            
-            @Override
-            public void onFailure(Call<ApiService.TestEmailResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_API, "Error sending supervisor invitation email to: " + supervisorEmail, t);
-                Toast.makeText(PresenterSlotSelectionActivity.this, 
-                    getString(R.string.presenter_slot_supervisor_email_failed), 
-                    Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-    
-    private String buildSupervisorInvitationEmailHtml(ApiService.SlotCard slot, 
-                                                      @Nullable String topic, 
-                                                      @NonNull String supervisorName,
-                                                      @NonNull String presenterName,
-                                                      @Nullable String presenterEmail) {
-        StringBuilder html = new StringBuilder();
-        html.append("<!DOCTYPE html>");
-        html.append("<html>");
-        html.append("<head>");
-        html.append("<meta charset=\"UTF-8\">");
-        html.append("<style>");
-        html.append("body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }");
-        html.append(".container { max-width: 600px; margin: 0 auto; padding: 20px; }");
-        html.append(".header { background-color: #2196F3; color: white; padding: 20px; text-align: center; }");
-        html.append(".content { padding: 20px; background-color: #f9f9f9; }");
-        html.append(".details { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #2196F3; }");
-        html.append(".footer { padding: 20px; text-align: center; color: #666; font-size: 12px; }");
-        html.append("</style>");
-        html.append("</head>");
-        html.append("<body>");
-        html.append("<div class=\"container\">");
-        html.append("<div class=\"header\">");
-        html.append("<h1>SemScan - Presentation Slot Registration</h1>");
-        html.append("</div>");
-        html.append("<div class=\"content\">");
-        html.append("<p>Dear ").append(escapeHtml(supervisorName)).append(",</p>");
-        html.append("<p>You have been invited as a supervisor for a presentation slot registration.</p>");
-        
-        // Presentation details
-        html.append("<div class=\"details\">");
-        html.append("<h3>Presentation Details:</h3>");
-        html.append("<ul>");
-        html.append("<li><strong>Presenter:</strong> ").append(escapeHtml(presenterName)).append("</li>");
-        if (presenterEmail != null && !presenterEmail.isEmpty()) {
-            html.append("<li><strong>Presenter Email:</strong> ").append(escapeHtml(presenterEmail)).append("</li>");
-        }
-        if (topic != null && !topic.trim().isEmpty()) {
-            html.append("<li><strong>Topic:</strong> ").append(escapeHtml(topic)).append("</li>");
-        }
-        if (slot.date != null) {
-            html.append("<li><strong>Date:</strong> ").append(escapeHtml(slot.date)).append("</li>");
-        }
-        if (slot.timeRange != null) {
-            html.append("<li><strong>Time:</strong> ").append(escapeHtml(slot.timeRange)).append("</li>");
-        }
-        if (slot.room != null && slot.building != null) {
-            html.append("<li><strong>Location:</strong> Building ").append(escapeHtml(slot.building))
-                .append(", Room ").append(escapeHtml(slot.room)).append("</li>");
-        }
-        html.append("</ul>");
-        html.append("</div>");
-        
-        html.append("<p>This is an automated notification from the SemScan system.</p>");
-        html.append("</div>");
-        html.append("<div class=\"footer\">");
-        html.append("<p>This is an automated message from SemScan System.</p>");
-        html.append("<p>Please do not reply to this email.</p>");
-        html.append("</div>");
-        html.append("</div>");
-        html.append("</body>");
-        html.append("</html>");
-        
-        return html.toString();
-    }
-    
-    private String escapeHtml(String text) {
-        if (text == null) return "";
-        return text.replace("&", "&amp;")
-                   .replace("<", "&lt;")
-                   .replace(">", "&gt;")
-                   .replace("\"", "&quot;")
-                   .replace("'", "&#39;");
+        }); // Close checkRegistrationLimits lambda
     }
 
     @Override

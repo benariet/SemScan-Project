@@ -64,14 +64,38 @@
             android:textColor="@color/gray_600"
             android:textSize="14sp" />
 
+        <!-- Approved count line -->
         <TextView
-            android:id="@+id/text_slot_capacity"
+            android:id="@+id/text_slot_approved"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:textColor="@color/gray_700"
             android:textSize="14sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!-- Pending count line -->
+        <TextView
+            android:id="@+id/text_slot_pending"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/gray_700"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!-- Waiting list line -->
+        <TextView
+            android:id="@+id/text_slot_waiting_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/gray_700"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/text_slot_presenters"
@@ -100,6 +124,24 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/presenter_slot_register_button" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_waiting_list"
+                style="@style/SemScanButtonPrimary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/presenter_slot_join_waiting_list"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_cancel_waiting_list"
+                style="@style/SemScanButtonPrimary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/presenter_slot_cancel_waiting_list"
+                android:visibility="gone" />
         </LinearLayout>
 
     </LinearLayout>

@@ -27,6 +27,7 @@ import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
 import org.example.semscan.data.model.Session;
 import org.example.semscan.data.model.ManualAttendanceResponse;
+import org.example.semscan.utils.ErrorMessageHelper;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.ServerLogger;
@@ -126,31 +127,31 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
         Logger.userAction("Check Active Sessions", "Checking for active sessions for manual attendance");
         
         // No authentication required
-        Logger.d("ManualAttendance", "Checking for active sessions (no authentication required)");
+        Logger.i("ManualAttendance", "Checking for active sessions (no authentication required)");
         
         if (serverLogger != null) {
-            serverLogger.d(ServerLogger.TAG_UI, "REQUESTING OPEN SESSIONS - Endpoint: GET /api/v1/sessions/open - Expected: Backend should return ALL open sessions");
+            serverLogger.i(ServerLogger.TAG_UI, "REQUESTING OPEN SESSIONS - Endpoint: GET /api/v1/sessions/open - Expected: Backend should return ALL open sessions");
         }
         
         Call<List<Session>> call = apiService.getOpenSessions();
         call.enqueue(new Callback<List<Session>>() {
             @Override
             public void onResponse(Call<List<Session>> call, Response<List<Session>> response) {
-                Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-                Logger.d(Logger.TAG_UI, "OPEN SESSIONS API RESPONSE");
-                Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-                Logger.d(Logger.TAG_UI, "Status Code: " + response.code());
-                Logger.d(Logger.TAG_UI, "Is Successful: " + response.isSuccessful());
-                Logger.d(Logger.TAG_UI, "Has Body: " + (response.body() != null));
+                Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                Logger.i(Logger.TAG_UI, "OPEN SESSIONS API RESPONSE");
+                Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                Logger.i(Logger.TAG_UI, "Status Code: " + response.code());
+                Logger.i(Logger.TAG_UI, "Is Successful: " + response.isSuccessful());
+                Logger.i(Logger.TAG_UI, "Has Body: " + (response.body() != null));
                 
                 if (serverLogger != null) {
-                    serverLogger.d(ServerLogger.TAG_UI, "OPEN SESSIONS API RESPONSE - Status Code: " + response.code() + 
+                    serverLogger.i(ServerLogger.TAG_UI, "OPEN SESSIONS API RESPONSE - Status Code: " + response.code() + 
                         ", Is Successful: " + response.isSuccessful() + ", Has Body: " + (response.body() != null));
                 }
                 
                 if (response.isSuccessful() && response.body() != null) {
                     List<Session> allSessions = response.body();
-                    Logger.d(Logger.TAG_UI, "Total sessions returned by backend: " + allSessions.size());
+                    Logger.i(Logger.TAG_UI, "Total sessions returned by backend: " + allSessions.size());
                     
                     if (allSessions.isEmpty()) {
                         Logger.e(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
@@ -184,7 +185,7 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
                         }
                     } else {
                         if (serverLogger != null) {
-                            serverLogger.d(ServerLogger.TAG_UI, "Total sessions returned by backend: " + allSessions.size());
+                            serverLogger.i(ServerLogger.TAG_UI, "Total sessions returned by backend: " + allSessions.size());
                         }
                     }
                     
@@ -194,14 +195,14 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
                     for (Session session : allSessions) {
                         if (session != null && session.getStatus() != null) {
                             String status = session.getStatus().toUpperCase();
-                            Logger.d(Logger.TAG_UI, "Session ID: " + session.getSessionId() + ", Status: " + status);
+                            Logger.i(Logger.TAG_UI, "Session ID: " + session.getSessionId() + ", Status: " + status);
                             if ("OPEN".equals(status)) {
                                 openSessions.add(session);
-                                Logger.d(Logger.TAG_UI, "  ✓ Added to open sessions list");
+                                Logger.i(Logger.TAG_UI, "  ✓ Added to open sessions list");
                                 if (sessionDetails.length() > 0) sessionDetails.append(" | ");
                                 sessionDetails.append("Session ").append(session.getSessionId()).append(": OPEN");
                             } else {
-                                Logger.d(Logger.TAG_UI, "  ✗ Filtered out (status: " + session.getStatus() + ")");
+                                Logger.i(Logger.TAG_UI, "  ✗ Filtered out (status: " + session.getStatus() + ")");
                                 if (sessionDetails.length() > 0) sessionDetails.append(" | ");
                                 sessionDetails.append("Session ").append(session.getSessionId()).append(": ").append(session.getStatus());
                             }
@@ -212,13 +213,13 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
                         }
                     }
                     
-                    Logger.d(Logger.TAG_UI, "Open sessions after filtering: " + openSessions.size());
-                    Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                    Logger.i(Logger.TAG_UI, "Open sessions after filtering: " + openSessions.size());
+                    Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
                     
                     if (serverLogger != null) {
                         String sessionSummary = "Open sessions after filtering: " + openSessions.size() + 
                             (sessionDetails.length() > 0 ? " | Details: " + sessionDetails.toString() : "");
-                        serverLogger.d(ServerLogger.TAG_UI, sessionSummary);
+                        serverLogger.i(ServerLogger.TAG_UI, sessionSummary);
                     }
                     
                     Logger.session("Sessions Retrieved", "Found " + openSessions.size() + " open sessions (filtered from " + allSessions.size() + " total)");
@@ -305,9 +306,9 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
     }
 
     private void submitManualRequest(String reason) {
-        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-        Logger.d(Logger.TAG_UI, "MANUAL ATTENDANCE REQUEST - SUBMISSION STARTING");
-        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+        Logger.i(Logger.TAG_UI, "MANUAL ATTENDANCE REQUEST - SUBMISSION STARTING");
+        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
         
         String studentUsername = preferencesManager.getUserName();
         if (TextUtils.isEmpty(studentUsername)) {
@@ -348,17 +349,17 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
         // Set currentSessionId from the validated selected session
         currentSessionId = selectedSession.getSessionId();
         
-        Logger.d(Logger.TAG_UI, "Session ID: " + currentSessionId);
-        Logger.d(Logger.TAG_UI, "Student Username: " + studentUsername);
-        Logger.d(Logger.TAG_UI, "Reason: " + reason);
-        Logger.d(Logger.TAG_UI, "Session Status: " + selectedSession.getStatus());
-        Logger.d(Logger.TAG_UI, "Session Topic: " + selectedSession.getTopic());
-        Logger.d(Logger.TAG_UI, "Session Presenter: " + selectedSession.getPresenterName());
+        Logger.i(Logger.TAG_UI, "Session ID: " + currentSessionId);
+        Logger.i(Logger.TAG_UI, "Student Username: " + studentUsername);
+        Logger.i(Logger.TAG_UI, "Reason: " + reason);
+        Logger.i(Logger.TAG_UI, "Session Status: " + selectedSession.getStatus());
+        Logger.i(Logger.TAG_UI, "Session Topic: " + selectedSession.getTopic());
+        Logger.i(Logger.TAG_UI, "Session Presenter: " + selectedSession.getPresenterName());
         
         String deviceId = android.provider.Settings.Secure.getString(
             getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
         
-        Logger.d(Logger.TAG_UI, "Device ID: " + deviceId);
+        Logger.i(Logger.TAG_UI, "Device ID: " + deviceId);
         
         // Log AFTER validation and setting currentSessionId
         Logger.attendance("Submitting Manual Request", "Session ID: " + currentSessionId + 
@@ -367,23 +368,23 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
             ", Student username: " + studentUsername + ", Reason: " + reason);
         
         String apiBaseUrl = ApiClient.getInstance(this).getCurrentBaseUrl();
-        Logger.d(Logger.TAG_UI, "API Base URL: " + apiBaseUrl);
-        Logger.d(Logger.TAG_UI, "Full Endpoint URL: " + apiBaseUrl + "/attendance/manual");
+        Logger.i(Logger.TAG_UI, "API Base URL: " + apiBaseUrl);
+        Logger.i(Logger.TAG_UI, "Full Endpoint URL: " + apiBaseUrl + "/attendance/manual");
         
-        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-        Logger.d(Logger.TAG_UI, "REQUEST DETAILS");
-        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-        Logger.d(Logger.TAG_UI, "Method: POST");
-        Logger.d(Logger.TAG_UI, "Endpoint: /api/v1/attendance/manual");
-        Logger.d(Logger.TAG_UI, "Full URL: " + apiBaseUrl + "/attendance/manual");
-        Logger.d(Logger.TAG_UI, "Session ID: " + currentSessionId);
-        Logger.d(Logger.TAG_UI, "Student Username: '" + studentUsername + "'");
-        Logger.d(Logger.TAG_UI, "Reason: '" + reason + "'");
-        Logger.d(Logger.TAG_UI, "Device ID: " + deviceId);
-        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+        Logger.i(Logger.TAG_UI, "REQUEST DETAILS");
+        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+        Logger.i(Logger.TAG_UI, "Method: POST");
+        Logger.i(Logger.TAG_UI, "Endpoint: /api/v1/attendance/manual");
+        Logger.i(Logger.TAG_UI, "Full URL: " + apiBaseUrl + "/attendance/manual");
+        Logger.i(Logger.TAG_UI, "Session ID: " + currentSessionId);
+        Logger.i(Logger.TAG_UI, "Student Username: '" + studentUsername + "'");
+        Logger.i(Logger.TAG_UI, "Reason: '" + reason + "'");
+        Logger.i(Logger.TAG_UI, "Device ID: " + deviceId);
+        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
         
         if (serverLogger != null) {
-            serverLogger.d(ServerLogger.TAG_UI, "MANUAL ATTENDANCE REQUEST - SUBMISSION | Session ID: " + currentSessionId + 
+            serverLogger.i(ServerLogger.TAG_UI, "MANUAL ATTENDANCE REQUEST - SUBMISSION | Session ID: " + currentSessionId + 
                 ", Student: " + studentUsername + ", Reason: " + reason);
         }
         
@@ -395,7 +396,7 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
         ApiService.CreateManualRequestRequest request = new ApiService.CreateManualRequestRequest(
             currentSessionId, studentUsername, reason, deviceId);
         
-        Logger.d(Logger.TAG_UI, "Sending HTTP request to backend...");
+        Logger.i(Logger.TAG_UI, "Sending HTTP request to backend...");
         long requestStartTime = System.currentTimeMillis();
         
         Call<ManualAttendanceResponse> call = apiService.createManualRequest(request);
@@ -403,33 +404,33 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<ManualAttendanceResponse> call, Response<ManualAttendanceResponse> response) {
                 long requestDuration = System.currentTimeMillis() - requestStartTime;
-                Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-                Logger.d(Logger.TAG_UI, "RESPONSE RECEIVED");
-                Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-                Logger.d(Logger.TAG_UI, "Request Duration: " + requestDuration + "ms");
-                Logger.d(Logger.TAG_UI, "Response Code: " + response.code());
-                Logger.d(Logger.TAG_UI, "Response Message: " + response.message());
-                Logger.d(Logger.TAG_UI, "Is Successful: " + response.isSuccessful());
-                Logger.d(Logger.TAG_UI, "Has Body: " + (response.body() != null));
-                Logger.d(Logger.TAG_UI, "Has Error Body: " + (response.errorBody() != null));
-                Logger.d(Logger.TAG_UI, "Request URL: " + (call.request() != null ? call.request().url() : "NULL"));
-                Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                Logger.i(Logger.TAG_UI, "RESPONSE RECEIVED");
+                Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                Logger.i(Logger.TAG_UI, "Request Duration: " + requestDuration + "ms");
+                Logger.i(Logger.TAG_UI, "Response Code: " + response.code());
+                Logger.i(Logger.TAG_UI, "Response Message: " + response.message());
+                Logger.i(Logger.TAG_UI, "Is Successful: " + response.isSuccessful());
+                Logger.i(Logger.TAG_UI, "Has Body: " + (response.body() != null));
+                Logger.i(Logger.TAG_UI, "Has Error Body: " + (response.errorBody() != null));
+                Logger.i(Logger.TAG_UI, "Request URL: " + (call.request() != null ? call.request().url() : "NULL"));
+                Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
                 
                 if (serverLogger != null) {
-                    serverLogger.d(ServerLogger.TAG_UI, "RESPONSE RECEIVED | Duration: " + requestDuration + "ms, " +
+                    serverLogger.i(ServerLogger.TAG_UI, "RESPONSE RECEIVED | Duration: " + requestDuration + "ms, " +
                         "Status Code: " + response.code() + ", Is Successful: " + response.isSuccessful());
                 }
                 
                 if (response.isSuccessful()) {
                     ManualAttendanceResponse attendance = response.body();
                     if (attendance != null) {
-                        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-                        Logger.d(Logger.TAG_UI, "✅ SUCCESS - MANUAL REQUEST SUBMITTED");
-                        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-                        Logger.d(Logger.TAG_UI, "Session ID: " + attendance.getSessionId() + " (Expected: " + currentSessionId + ", Match: " + (attendance.getSessionId() != null && attendance.getSessionId().equals(currentSessionId)) + ")");
-                        Logger.d(Logger.TAG_UI, "Student: " + attendance.getStudentUsername() + " (Expected: " + studentUsername + ", Match: " + (attendance.getStudentUsername() != null && attendance.getStudentUsername().equals(studentUsername)) + ")");
-                        Logger.d(Logger.TAG_UI, "Response Object: " + attendance.toString());
-                        Logger.d(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                        Logger.i(Logger.TAG_UI, "✅ SUCCESS - MANUAL REQUEST SUBMITTED");
+                        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
+                        Logger.i(Logger.TAG_UI, "Session ID: " + attendance.getSessionId() + " (Expected: " + currentSessionId + ", Match: " + (attendance.getSessionId() != null && attendance.getSessionId().equals(currentSessionId)) + ")");
+                        Logger.i(Logger.TAG_UI, "Student: " + attendance.getStudentUsername() + " (Expected: " + studentUsername + ", Match: " + (attendance.getStudentUsername() != null && attendance.getStudentUsername().equals(studentUsername)) + ")");
+                        Logger.i(Logger.TAG_UI, "Response Object: " + attendance.toString());
+                        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
                         
                         Logger.attendance("Manual Request Submitted", "Student: " + studentUsername + 
                             ", Session: " + currentSessionId);
@@ -534,53 +535,22 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
                     serverLogger.flushLogs();
                 }
                 
-                String errorMessage = getString(R.string.error_operation_failed);
-                if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
-                    errorMessage = getString(R.string.error_network_timeout);
-                } else if (t instanceof java.net.UnknownHostException) {
-                    errorMessage = getString(R.string.error_server_unavailable);
-                }
+                String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(
+                    ManualAttendanceRequestActivity.this, t);
                 showError(errorMessage);
             }
         });
     }
 
     private void handleManualRequestError(int responseCode, String errorBody) {
-        String errorMessage = "Failed to submit manual request. Please try again.";
+        String errorMessage = ErrorMessageHelper.getAttendanceErrorMessage(
+            ManualAttendanceRequestActivity.this, responseCode, errorBody);
         
-        // Check for specific error messages in response body
-        if (errorBody != null) {
-            if (errorBody.contains("Session is not open") || errorBody.contains("status: CLOSED") || errorBody.contains("not open")) {
-                errorMessage = "The selected session is no longer open. Please refresh and select a different session.";
-                // Auto-refresh the session list
-                checkForActiveSessions();
-            } else if (errorBody.contains("already attended") || errorBody.contains("already submitted")) {
-                errorMessage = "You have already submitted a request for this session.";
-            } else if (errorBody.contains("not found")) {
-                errorMessage = "Session not found or not accepting requests.";
-            }
-        }
-        
-        // Fallback to status code-based messages
-        if (errorMessage.equals("Failed to submit manual request. Please try again.")) {
-            switch (responseCode) {
-                case 400:
-                    errorMessage = "Invalid request. Please check your information.";
-                    break;
-                case 401:
-                    errorMessage = "Server error. Please try again.";
-                    break;
-                case 409:
-                    errorMessage = "You have already submitted a request for this session.";
-                    break;
-                case 404:
-                    errorMessage = "Session not found or not accepting requests.";
-                    break;
-                case 422:
-                    errorMessage = "The selected session is no longer open. Please refresh and select a different session.";
-                    checkForActiveSessions();
-                    break;
-            }
+        // Auto-refresh if session is closed
+        if (errorBody != null && (errorBody.contains("Session is not open") || 
+            errorBody.contains("status: CLOSED") || errorBody.contains("not open") || 
+            responseCode == 422)) {
+            checkForActiveSessions();
         }
         
         showError(errorMessage);
@@ -606,7 +576,7 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         // Refresh session list when activity resumes to show newly opened sessions
-        Logger.d(Logger.TAG_UI, "ManualAttendanceRequestActivity resumed - refreshing session list");
+        Logger.i(Logger.TAG_UI, "ManualAttendanceRequestActivity resumed - refreshing session list");
         checkForActiveSessions();
     }
     

@@ -173,10 +173,10 @@ public class StudentHomeActivity extends AppCompatActivity {
     }
     
     private void checkForOpenSessions() {
-        Logger.d(Logger.TAG_UI, "Checking for open sessions before opening QR scanner");
+        Logger.i(Logger.TAG_UI, "Checking for open sessions before opening QR scanner");
         
         if (serverLogger != null) {
-            serverLogger.d(ServerLogger.TAG_UI, "CHECKING OPEN SESSIONS - Before opening QR scanner");
+            serverLogger.i(ServerLogger.TAG_UI, "CHECKING OPEN SESSIONS - Before opening QR scanner");
         }
         
         Call<List<Session>> call = apiService.getOpenSessions();
@@ -197,10 +197,10 @@ public class StudentHomeActivity extends AppCompatActivity {
                         }
                     }
                     
-                    Logger.d(Logger.TAG_UI, "Found " + openSessions.size() + " open sessions");
+                    Logger.i(Logger.TAG_UI, "Found " + openSessions.size() + " open sessions");
                     
                     if (serverLogger != null) {
-                        serverLogger.d(ServerLogger.TAG_UI, "OPEN SESSIONS CHECK - Found " + openSessions.size() + " open sessions");
+                        serverLogger.i(ServerLogger.TAG_UI, "OPEN SESSIONS CHECK - Found " + openSessions.size() + " open sessions");
                     }
                     
                     if (openSessions.isEmpty()) {
@@ -214,7 +214,7 @@ public class StudentHomeActivity extends AppCompatActivity {
                         showNoSessionsError();
                     } else {
                         // Open sessions available - proceed to open scanner
-                        Logger.d(Logger.TAG_UI, "Open sessions available - opening QR scanner");
+                        Logger.i(Logger.TAG_UI, "Open sessions available - opening QR scanner");
                         
                         if (serverLogger != null) {
                             serverLogger.userAction("Navigate", "Launching ModernQRScannerActivity - " + openSessions.size() + " open sessions available");
@@ -289,7 +289,7 @@ public class StudentHomeActivity extends AppCompatActivity {
         // Restore user data (username is critical for role selection)
         if (username != null && !username.isEmpty()) {
             preferencesManager.setUserName(username);
-            Logger.d(Logger.TAG_UI, "Preserved username when changing role: " + username);
+            Logger.i(Logger.TAG_UI, "Preserved username when changing role: " + username);
         }
         if (firstName != null && !firstName.isEmpty()) {
             preferencesManager.setFirstName(firstName);

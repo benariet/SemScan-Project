@@ -101,7 +101,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void loadCurrentSettings() {
         String username = preferencesManager.getUserName();
         Logger.i(Logger.TAG_UI, "Loading current settings");
-        Logger.d(Logger.TAG_UI, "Current username from preferences: " + username);
+        Logger.i(Logger.TAG_UI, "Current username from preferences: " + username);
         
         // Also check if there's a bguUsername stored
         if (username == null || username.isEmpty()) {
@@ -111,7 +111,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         if (username != null && !username.isEmpty()) {
             editUsername.setText(username);
-            Logger.d(Logger.TAG_UI, "Username set in EditText: " + username);
+            Logger.i(Logger.TAG_UI, "Username set in EditText: " + username);
         } else {
             editUsername.setText("");
             Logger.w(Logger.TAG_UI, "Username is empty, EditText cleared");

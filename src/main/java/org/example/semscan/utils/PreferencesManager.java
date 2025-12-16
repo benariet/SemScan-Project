@@ -200,6 +200,6 @@ public class PreferencesManager {
                 .remove(KEY_SAVED_PASSWORD)
                 .remove(KEY_REMEMBER_ME)
                 .apply();
-        Logger.d(Logger.TAG_UI, "Cleared saved credentials");
+        Logger.i(Logger.TAG_UI, "Cleared saved credentials");
     }
 }

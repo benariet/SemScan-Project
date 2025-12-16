@@ -107,16 +107,16 @@ public class RolePickerActivity extends AppCompatActivity {
             return;
         }
         
-        Logger.d(Logger.TAG_UI, "Setting role with username: " + username);
+        Logger.i(Logger.TAG_UI, "Setting role with username: " + username);
         preferencesManager.setUserRole(role);
         
         // Final check: Log all values before navigation
-        Logger.d(Logger.TAG_UI, "=== Role Selected ===");
-        Logger.d(Logger.TAG_UI, "Username: " + preferencesManager.getUserName());
-        Logger.d(Logger.TAG_UI, "Role: " + preferencesManager.getUserRole());
-        Logger.d(Logger.TAG_UI, "Is Participant: " + preferencesManager.isParticipant());
-        Logger.d(Logger.TAG_UI, "Is Presenter: " + preferencesManager.isPresenter());
-        Logger.d(Logger.TAG_UI, "=====================");
+        Logger.i(Logger.TAG_UI, "=== Role Selected ===");
+        Logger.i(Logger.TAG_UI, "Username: " + preferencesManager.getUserName());
+        Logger.i(Logger.TAG_UI, "Role: " + preferencesManager.getUserRole());
+        Logger.i(Logger.TAG_UI, "Is Participant: " + preferencesManager.isParticipant());
+        Logger.i(Logger.TAG_UI, "Is Presenter: " + preferencesManager.isPresenter());
+        Logger.i(Logger.TAG_UI, "=====================");
         
         navigateToHome();
     }

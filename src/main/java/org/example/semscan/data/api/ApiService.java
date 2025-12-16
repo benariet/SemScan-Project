@@ -100,6 +100,22 @@ public interface ApiService {
     Call<List<SlotCard>> getPublicSlots();
 
     // =============================
+    // Waiting List
+    // =============================
+
+    @POST("api/v1/slots/{slotId}/waiting-list")
+    Call<WaitingListResponse> joinWaitingList(
+            @Path("slotId") Long slotId,
+            @Body WaitingListRequest request
+    );
+
+    @DELETE("api/v1/slots/{slotId}/waiting-list")
+    Call<WaitingListResponse> leaveWaitingList(
+            @Path("slotId") Long slotId,
+            @Query("username") String username
+    );
+
+    // =============================
     // Logging
     // =============================
 
@@ -252,6 +268,16 @@ public interface ApiService {
         
         @SerializedName("hasClosedSession")
         public Boolean hasClosedSession; // True if slot has a closed attendance session
+        
+        // Approval status fields
+        public int approvedCount;        // Number of approved registrations
+        public int pendingCount;          // Number of pending approvals
+        public String approvalStatus;     // Current user's approval status: "PENDING_APPROVAL", "APPROVED", null
+        public boolean onWaitingList;     // Is current user on waiting list for this slot
+        // IMPORTANT: Backend MUST return waitingListCount for ALL slots, not just when current user is on it
+        // This field should show the total number of people on the waiting list, visible to everyone
+        public int waitingListCount;      // Total number of people on waiting list (defaults to 0 if backend doesn't send it)
+        public String waitingListUserName; // Name of user on waiting list (if current user is on it)
     }
 
     enum SlotState {
@@ -292,6 +318,9 @@ public interface ApiService {
         public boolean ok;
         public String code;
         public String message;
+        public Long registrationId;      // Registration ID for approval/decline links
+        public String approvalToken;     // Token for approval/decline links
+        public String approvalStatus;     // "PENDING_APPROVAL", "APPROVED", null
     }
 
     class PresenterAttendanceOpenResponse {
@@ -483,5 +512,24 @@ public interface ApiService {
         public Boolean verified;
         public String uploadUrl;
         public Object uploadResponse;
+    }
+
+    // =============================
+    // Waiting List Models
+    // =============================
+
+    class WaitingListRequest {
+        public String username;
+
+        public WaitingListRequest() {}
+
+        public WaitingListRequest(String username) {
+            this.username = username;
+        }
+    }
+
+    class WaitingListResponse {
+        public boolean ok;
+        public String message;
     }
 }

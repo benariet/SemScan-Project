@@ -36,7 +36,7 @@ public class Logger {
      */
     public static void d(String tag, String message) {
         if (DEBUG_ENABLED) {
-            Log.d(tag, message);
+            Log.i(tag, message);
         }
     }
     
@@ -90,9 +90,9 @@ public class Logger {
      */
     public static void api(String method, String url, String requestBody) {
         if (DEBUG_ENABLED) {
-            Log.d(TAG_API, String.format("API %s: %s", method, url));
+            Log.i(TAG_API, String.format("API %s: %s", method, url));
             if (requestBody != null && !requestBody.isEmpty()) {
-                Log.d(TAG_API, "Request Body: " + requestBody);
+                Log.i(TAG_API, "Request Body: " + requestBody);
             }
         }
     }
@@ -102,9 +102,9 @@ public class Logger {
      */
     public static void apiResponse(String method, String url, int statusCode, String responseBody) {
         if (DEBUG_ENABLED) {
-            Log.d(TAG_API, String.format("API Response %s %s: %d", method, url, statusCode));
+            Log.i(TAG_API, String.format("API Response %s %s: %d", method, url, statusCode));
             if (responseBody != null && !responseBody.isEmpty()) {
-                Log.d(TAG_API, "Response Body: " + responseBody);
+                Log.i(TAG_API, "Response Body: " + responseBody);
             }
         }
     }
@@ -160,7 +160,7 @@ public class Logger {
      */
     public static void prefs(String key, String value) {
         if (DEBUG_ENABLED) {
-            Log.d(TAG_PREFS, String.format("Preference: %s = %s", key, value));
+            Log.i(TAG_PREFS, String.format("Preference: %s = %s", key, value));
         }
     }
 }

@@ -22,6 +22,7 @@ import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
+import org.example.semscan.utils.ServerLogger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +47,7 @@ public class PresenterMySlotActivity extends AppCompatActivity {
 
     private PreferencesManager preferencesManager;
     private ApiService apiService;
+    private ServerLogger serverLogger;
 
     private ApiService.MySlotSummary currentSlot;
 
@@ -56,6 +58,14 @@ public class PresenterMySlotActivity extends AppCompatActivity {
 
         preferencesManager = PreferencesManager.getInstance(this);
         apiService = ApiClient.getInstance(this).getApiService();
+        serverLogger = ServerLogger.getInstance(this);
+        
+        // Update user context for logging
+        String username = preferencesManager.getUserName();
+        String userRole = preferencesManager.getUserRole();
+        if (serverLogger != null) {
+            serverLogger.updateUserContext(username, userRole);
+        }
 
         setupToolbar();
         initializeViews();
@@ -125,7 +135,11 @@ public class PresenterMySlotActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) {
                 setLoading(false);
-                Logger.e(Logger.TAG_API, "Failed to load my slot", t);
+                String errorDetails = "Failed to load my slot - Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
+                Logger.e(Logger.TAG_API, errorDetails, t);
+                if (serverLogger != null) {
+                    serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                }
                 String errorMessage = getString(R.string.error_slot_load_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
                     errorMessage = getString(R.string.error_network_timeout);
@@ -208,14 +222,36 @@ public class PresenterMySlotActivity extends AppCompatActivity {
     }
 
     private void cancelRegistration() {
+        Logger.userAction("Cancel Registration", "User clicked cancel registration");
+        if (serverLogger != null) {
+            serverLogger.userAction("Cancel Registration", "User clicked cancel registration for slot=" + 
+                    (currentSlot != null ? currentSlot.slotId : "null"));
+        }
+        
         if (currentSlot == null || currentSlot.slotId == null) {
+            Logger.e(Logger.TAG_UI, "Cancel registration failed - slot is null");
+            if (serverLogger != null) {
+                serverLogger.e(ServerLogger.TAG_UI, "Cancel registration failed - slot is null");
+            }
             Toast.makeText(this, R.string.presenter_my_slot_no_slot_error, Toast.LENGTH_LONG).show();
             return;
         }
         final String username = preferencesManager.getUserName();
         if (TextUtils.isEmpty(username)) {
+            Logger.e(Logger.TAG_UI, "Cancel registration failed - username is empty");
+            if (serverLogger != null) {
+                serverLogger.e(ServerLogger.TAG_UI, "Cancel registration failed - username is empty");
+            }
             Toast.makeText(this, R.string.presenter_my_slot_no_user_error, Toast.LENGTH_LONG).show();
             return;
+        }
+
+        final String normalizedUsername = username.trim().toLowerCase(Locale.US);
+        String apiEndpoint = "api/v1/presenters/" + normalizedUsername + "/home/slots/" + currentSlot.slotId + "/cancel";
+        String apiMessage = "Cancelling registration for slot=" + currentSlot.slotId;
+        Logger.api("DELETE", apiEndpoint, apiMessage);
+        if (serverLogger != null) {
+            serverLogger.api("DELETE", apiEndpoint, apiMessage);
         }
 
         setLoading(true);
@@ -224,7 +260,18 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                     @Override
                     public void onResponse(Call<Void> call, Response<Void> response) {
                         setLoading(false);
+                        String apiEndpoint = "api/v1/presenters/" + normalizedUsername + "/home/slots/" + currentSlot.slotId + "/cancel";
+                        Logger.apiResponse("DELETE", apiEndpoint, response.code(), "Cancel registration response received");
+                        if (serverLogger != null) {
+                            serverLogger.apiResponse("DELETE", apiEndpoint, response.code(), "Cancel registration response received");
+                        }
+                        
                         if (response.isSuccessful()) {
+                            Logger.i(Logger.TAG_API, "Successfully cancelled registration for slot=" + currentSlot.slotId);
+                            if (serverLogger != null) {
+                                serverLogger.i(ServerLogger.TAG_API, "Successfully cancelled registration for slot=" + currentSlot.slotId + 
+                                        ", user=" + normalizedUsername);
+                            }
                             Toast.makeText(PresenterMySlotActivity.this, R.string.presenter_my_slot_cancel_success, Toast.LENGTH_LONG).show();
                             loadSlot();
                         } else {
@@ -233,7 +280,7 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                             if (response.errorBody() != null) {
                                 try {
                                     String errorBodyString = response.errorBody().string();
-                                    Logger.d(Logger.TAG_API, "Cancel registration error response body: " + errorBodyString);
+                                    Logger.i(Logger.TAG_API, "Cancel registration error response body: " + errorBodyString);
                                     
                                     // Try to parse JSON error body
                                     try {
@@ -256,7 +303,14 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                                     }
                                 } catch (Exception e) {
                                     Logger.e(Logger.TAG_API, "Failed to read error body", e);
+                                    if (serverLogger != null) {
+                                        serverLogger.e(ServerLogger.TAG_API, "Failed to read error body", e);
+                                    }
                                 }
+                            }
+                            Logger.apiError("DELETE", apiEndpoint, response.code(), "Failed to cancel registration");
+                            if (serverLogger != null) {
+                                serverLogger.apiError("DELETE", apiEndpoint, response.code(), "Failed to cancel registration");
                             }
                             Toast.makeText(PresenterMySlotActivity.this, errorMessage, Toast.LENGTH_LONG).show();
                         }
@@ -265,7 +319,13 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                     @Override
                     public void onFailure(Call<Void> call, Throwable t) {
                         setLoading(false);
-                        Logger.e(Logger.TAG_API, "Failed to cancel slot", t);
+                        String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
+                        String errorDetails = "Cancel registration network failure - URL: " + requestUrl + 
+                                ", Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
+                        Logger.e(Logger.TAG_API, errorDetails, t);
+                        if (serverLogger != null) {
+                            serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                        }
                         Toast.makeText(PresenterMySlotActivity.this, R.string.presenter_my_slot_cancel_error, Toast.LENGTH_LONG).show();
                     }
                 });

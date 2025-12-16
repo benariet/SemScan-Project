@@ -25,16 +25,16 @@ public class Session {
                 if (json.getAsJsonPrimitive().isNumber()) {
                     // Already a number (timestamp)
                     long timestamp = json.getAsLong();
-                    android.util.Log.d("Session", "Deserialized timestamp as number: " + timestamp);
+                    android.util.Log.i("Session", "Deserialized timestamp as number: " + timestamp);
                     return timestamp;
                 } else if (json.getAsJsonPrimitive().isString()) {
                     // ISO 8601 string format
                     String dateString = json.getAsString();
-                    android.util.Log.d("Session", "Deserializing ISO 8601 string: " + dateString);
+                    android.util.Log.i("Session", "Deserializing ISO 8601 string: " + dateString);
                     try {
                         Date date = ISO_FORMAT.parse(dateString);
                         long timestamp = date.getTime();
-                        android.util.Log.d("Session", "Converted to timestamp: " + timestamp);
+                        android.util.Log.i("Session", "Converted to timestamp: " + timestamp);
                         return timestamp;
                     } catch (ParseException e) {
                         android.util.Log.e("Session", "Failed to parse date: " + dateString, e);

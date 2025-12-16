@@ -181,6 +181,14 @@ public class LoginActivity extends AppCompatActivity {
                 btnLogin.setText(getString(R.string.login_button));
                 Logger.e(Logger.TAG_API, "Authentication API call error", t);
                 
+                // Log network error to ServerLogger with full exception details
+                // This will be queued and sent when network is available
+                ServerLogger serverLogger = ServerLogger.getInstance(LoginActivity.this);
+                String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
+                String errorDetails = String.format("Login network failure - URL: %s, Exception: %s, Message: %s",
+                    requestUrl, t.getClass().getSimpleName(), t.getMessage());
+                serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                
                 // Show user-friendly error message based on exception type
                 String errorMessage = getString(R.string.error_network_connection);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
@@ -399,7 +407,7 @@ public class LoginActivity extends AppCompatActivity {
                 checkboxRememberMe.setChecked(true);
             }
             
-            Logger.d(Logger.TAG_UI, "Loaded saved credentials for: " + savedUsername);
+            Logger.i(Logger.TAG_UI, "Loaded saved credentials for: " + savedUsername);
         }
     }
     
@@ -412,7 +420,7 @@ public class LoginActivity extends AppCompatActivity {
         preferencesManager.setSavedUsername(username);
         preferencesManager.setSavedPassword(password);
         preferencesManager.setRememberMeEnabled(true);
-        Logger.d(Logger.TAG_UI, "Saved credentials for: " + username);
+        Logger.i(Logger.TAG_UI, "Saved credentials for: " + username);
     }
     
     /**
@@ -420,7 +428,7 @@ public class LoginActivity extends AppCompatActivity {
      */
     private void clearSavedCredentials() {
         preferencesManager.clearSavedCredentials();
-        Logger.d(Logger.TAG_UI, "Cleared saved credentials");
+        Logger.i(Logger.TAG_UI, "Cleared saved credentials");
     }
 }
 

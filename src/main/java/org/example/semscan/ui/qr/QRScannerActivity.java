@@ -134,16 +134,16 @@ public class QRScannerActivity extends AppCompatActivity {
 
     private void handleQRResult(String qrContent) {
         Logger.qr("QR Code Scanned", "Content: " + qrContent);
-        Logger.d(Logger.TAG_QR, "=== QR CODE PARSING DEBUG ===");
-        Logger.d(Logger.TAG_QR, "Raw QR content: '" + qrContent + "'");
-        Logger.d(Logger.TAG_QR, "QR content length: " + qrContent.length());
-        Logger.d(Logger.TAG_QR, "QR content trimmed: '" + qrContent.trim() + "'");
+        Logger.i(Logger.TAG_QR, "=== QR CODE PARSING DEBUG ===");
+        Logger.i(Logger.TAG_QR, "Raw QR content: '" + qrContent + "'");
+        Logger.i(Logger.TAG_QR, "QR content length: " + qrContent.length());
+        Logger.i(Logger.TAG_QR, "QR content trimmed: '" + qrContent.trim() + "'");
         
         stopScanning();
         
         // Parse QR content
         QRPayload payload = QRUtils.parseQRContent(qrContent);
-        Logger.d(Logger.TAG_QR, "Parsed payload: " + (payload != null ? payload.toString() : "null"));
+        Logger.i(Logger.TAG_QR, "Parsed payload: " + (payload != null ? payload.toString() : "null"));
         
         if (payload == null || !QRUtils.isValidQRContent(qrContent)) {
             Logger.qr("Invalid QR Code", "Failed to parse QR content: " + qrContent);
@@ -153,8 +153,8 @@ public class QRScannerActivity extends AppCompatActivity {
         }
         
         Long sessionId = payload.getSessionId();
-        Logger.d(Logger.TAG_QR, "Extracted session ID: '" + sessionId + "'");
-        Logger.d(Logger.TAG_QR, "Session ID is null: " + (sessionId == null));
+        Logger.i(Logger.TAG_QR, "Extracted session ID: '" + sessionId + "'");
+        Logger.i(Logger.TAG_QR, "Session ID is null: " + (sessionId == null));
         
         if (sessionId == null || sessionId <= 0) {
             Logger.qr("Invalid QR Code", "Session ID is null or empty");
@@ -173,8 +173,8 @@ public class QRScannerActivity extends AppCompatActivity {
     
     private void submitAttendance(Long sessionId) {
         // Enhanced validation and logging
-        Logger.d(Logger.TAG_QR, "=== ATTENDANCE SUBMISSION DEBUG ===");
-        Logger.d(Logger.TAG_QR, "Session ID from QR: '" + sessionId + "'");
+        Logger.i(Logger.TAG_QR, "=== ATTENDANCE SUBMISSION DEBUG ===");
+        Logger.i(Logger.TAG_QR, "Session ID from QR: '" + sessionId + "'");
         
         serverLogger.attendance("AttendanceSubmission", "Session ID: " + sessionId);
         
@@ -187,7 +187,7 @@ public class QRScannerActivity extends AppCompatActivity {
         
         // Check user role first
         String userRole = preferencesManager.getUserRole();
-        Logger.d(Logger.TAG_QR, "User role: '" + userRole + "'");
+        Logger.i(Logger.TAG_QR, "User role: '" + userRole + "'");
         
         if (preferencesManager.isPresenter()) {
             Logger.w(Logger.TAG_QR, "Presenter trying to mark attendance - this should be done by students only");
@@ -196,7 +196,7 @@ public class QRScannerActivity extends AppCompatActivity {
         }
         
         String studentUsername = preferencesManager.getUserName();
-        Logger.d(Logger.TAG_QR, "Student username from preferences: '" + studentUsername + "'");
+        Logger.i(Logger.TAG_QR, "Student username from preferences: '" + studentUsername + "'");
         if (TextUtils.isEmpty(studentUsername)) {
             Logger.e(Logger.TAG_QR, "Student username validation failed: null or empty");
             showError("Student username not found. Please log in again.");
@@ -204,12 +204,12 @@ public class QRScannerActivity extends AppCompatActivity {
         }
         
         Logger.qr("Submitting attendance", "Session ID: " + sessionId);
-        Logger.d(Logger.TAG_QR, "  - username: '" + studentUsername + "'");
-        Logger.d(Logger.TAG_QR, "  - timestamp: '" + System.currentTimeMillis() + "'");
+        Logger.i(Logger.TAG_QR, "  - username: '" + studentUsername + "'");
+        Logger.i(Logger.TAG_QR, "  - timestamp: '" + System.currentTimeMillis() + "'");
         
         // Debug: Log the API base URL being used
         String apiBaseUrl = ApiClient.getInstance(this).getCurrentBaseUrl();
-        Logger.d(Logger.TAG_QR, "API Base URL: " + apiBaseUrl);
+        Logger.i(Logger.TAG_QR, "API Base URL: " + apiBaseUrl);
         
         // Create request with validated data
         ApiService.SubmitAttendanceRequest request = new ApiService.SubmitAttendanceRequest(
@@ -217,10 +217,10 @@ public class QRScannerActivity extends AppCompatActivity {
         );
         
         // Log the complete request
-        Logger.d(Logger.TAG_QR, "Request object created:");
-        Logger.d(Logger.TAG_QR, "  - sessionId: '" + request.sessionId + "'");
-        Logger.d(Logger.TAG_QR, "  - username: '" + request.studentUsername + "'");
-        Logger.d(Logger.TAG_QR, "  - timestampMs: " + request.timestampMs);
+        Logger.i(Logger.TAG_QR, "Request object created:");
+        Logger.i(Logger.TAG_QR, "  - sessionId: '" + request.sessionId + "'");
+        Logger.i(Logger.TAG_QR, "  - username: '" + request.studentUsername + "'");
+        Logger.i(Logger.TAG_QR, "  - timestampMs: " + request.timestampMs);
         
         // API key no longer required - removed authentication
         
@@ -228,9 +228,9 @@ public class QRScannerActivity extends AppCompatActivity {
         call.enqueue(new Callback<Attendance>() {
             @Override
             public void onResponse(Call<Attendance> call, Response<Attendance> response) {
-                Logger.d(Logger.TAG_QR, "=== API RESPONSE DEBUG ===");
-                Logger.d(Logger.TAG_QR, "Response code: " + response.code());
-                Logger.d(Logger.TAG_QR, "Response successful: " + response.isSuccessful());
+                Logger.i(Logger.TAG_QR, "=== API RESPONSE DEBUG ===");
+                Logger.i(Logger.TAG_QR, "Response code: " + response.code());
+                Logger.i(Logger.TAG_QR, "Response successful: " + response.isSuccessful());
                 
                 if (response.isSuccessful()) {
                     Attendance result = response.body();

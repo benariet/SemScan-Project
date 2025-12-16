@@ -25,7 +25,7 @@ public class ApiClient {
         currentBaseUrl = normalizeBaseUrl(DEFAULT_BASE_URL);
         
         // Log the current API URL for debugging
-        android.util.Log.d("ApiClient", "Current API Base URL: " + currentBaseUrl);
+        android.util.Log.i("ApiClient", "Current API Base URL: " + currentBaseUrl);
         
         createApiService();
     }
@@ -88,7 +88,7 @@ public class ApiClient {
         
         OkHttpClient client = clientBuilder.build();
         
-        android.util.Log.d("ApiClient", "Creating Retrofit with base URL: " + currentBaseUrl);
+        android.util.Log.i("ApiClient", "Creating Retrofit with base URL: " + currentBaseUrl);
         
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(currentBaseUrl)
@@ -104,7 +104,7 @@ public class ApiClient {
         
         // If instance is null or URL has changed, create new instance
         if (instance == null || !instance.currentBaseUrl.equals(currentUrl)) {
-            android.util.Log.d("ApiClient", "Creating new instance - URL changed from " + 
+            android.util.Log.i("ApiClient", "Creating new instance - URL changed from " + 
                 (instance != null ? instance.currentBaseUrl : "null") + " to " + currentUrl);
             instance = new ApiClient(context);
         }

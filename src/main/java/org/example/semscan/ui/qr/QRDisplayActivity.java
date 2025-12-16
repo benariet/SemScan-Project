@@ -176,7 +176,7 @@ public class QRDisplayActivity extends AppCompatActivity {
     private void updateAttendanceCount() {
         // Don't make API calls if polling is not active
         if (!isPollingActive) {
-            Logger.d(Logger.TAG_QR, "Skipping attendance update - polling not active");
+            Logger.i(Logger.TAG_QR, "Skipping attendance update - polling not active");
             return;
         }
         
@@ -190,7 +190,7 @@ public class QRDisplayActivity extends AppCompatActivity {
             public void onResponse(Call<List<Attendance>> call, Response<List<Attendance>> response) {
                 // Check if polling is still active before processing response
                 if (!isPollingActive) {
-                    Logger.d(Logger.TAG_QR, "Ignoring attendance response - polling stopped");
+                    Logger.i(Logger.TAG_QR, "Ignoring attendance response - polling stopped");
                     return;
                 }
                 
@@ -210,7 +210,7 @@ public class QRDisplayActivity extends AppCompatActivity {
                             }
                         });
                     } else {
-                        Logger.d(Logger.TAG_QR, "Attendance count unchanged: " + newCount);
+                        Logger.i(Logger.TAG_QR, "Attendance count unchanged: " + newCount);
                     }
                 } else {
                     Logger.w(Logger.TAG_QR, "Failed to get attendance count - Response code: " + response.code());

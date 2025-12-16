@@ -163,7 +163,7 @@ public class LoggingSettingsActivity extends AppCompatActivity {
     private void testLogging() {
         // Test different log levels
         serverLogger.v(ServerLogger.TAG_UI, "Test verbose log message");
-        serverLogger.d(ServerLogger.TAG_UI, "Test debug log message");
+        serverLogger.i(ServerLogger.TAG_UI, "Test debug log message");
         serverLogger.i(ServerLogger.TAG_UI, "Test info log message");
         serverLogger.w(ServerLogger.TAG_UI, "Test warning log message");
         serverLogger.e(ServerLogger.TAG_UI, "Test error log message");
