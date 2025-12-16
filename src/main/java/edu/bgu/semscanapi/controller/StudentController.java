@@ -39,11 +39,10 @@ public class StudentController {
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/student/sessions/open", null);
 
         try {
-            // Get all open sessions (already filtered and ordered by repository query)
+            // Retrieve all OPEN sessions from database (filtered by repository query, ordered by start time)
             List<Session> allOpenSessions = sessionService.getOpenSessions();
             
-            // Filter to only show sessions that are currently active and relevant
-            // Note: Status is already filtered by repository, but double-check for safety
+            // Additional safety filter: ensure all returned sessions are actually OPEN status (defensive check)
             List<Session> relevantSessions = allOpenSessions.stream()
                 .filter(session -> session.getStatus() == Session.SessionStatus.OPEN)
                 .filter(session -> session.getStartTime() != null)
@@ -55,7 +54,7 @@ public class StudentController {
             LoggerUtil.logApiResponse(logger, "GET", "/api/v1/student/sessions/open", 200, 
                 "List of " + relevantSessions.size() + " relevant sessions");
             
-            // Return with metadata for better UI handling
+            // Return sessions with metadata (count, status) for client-side UI rendering and state management
             Map<String, Object> response = new HashMap<>();
             response.put("sessions", relevantSessions);
             response.put("totalCount", relevantSessions.size());
@@ -93,7 +92,7 @@ public class StudentController {
             // For now, return open sessions (in the future, this could filter by student enrollment)
             List<Session> sessions = sessionService.getOpenSessions();
             
-            // Return all open sessions (ordered by most recent first)
+            // Return all OPEN sessions ordered by start time descending (most recent first) for participant view
             // No limit to ensure participants can see all newly opened sessions
             List<Session> limitedSessions = sessions.stream()
                 .filter(session -> session.getStatus() == Session.SessionStatus.OPEN)

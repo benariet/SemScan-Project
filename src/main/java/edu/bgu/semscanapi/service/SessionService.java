@@ -53,7 +53,7 @@ public class SessionService {
         LoggerUtil.setSeminarId(session.getSeminarId() != null ? session.getSeminarId().toString() : null);
         
         try {
-            // Validate seminar exists
+            // Verify the seminar referenced by session exists in database before creating session
             Optional<Seminar> seminar = seminarRepository.findById(session.getSeminarId());
             if (seminar.isEmpty()) {
                 String errorMsg = "Seminar not found: " + session.getSeminarId();
@@ -63,13 +63,13 @@ public class SessionService {
                 throw new IllegalArgumentException(errorMsg);
             }
             
-            // Set default status if not provided
+            // Default session status to OPEN if not specified in request
             if (session.getStatus() == null) {
                 session.setStatus(Session.SessionStatus.OPEN);
                 logger.debug("Set default session status: OPEN");
             }
             
-            // Validate start time
+            // Require start time: sessions must have a start time to determine attendance window
             if (session.getStartTime() == null) {
                 // CRITICAL: Use Israel timezone to match slot times
                 session.setStartTime(nowIsrael());

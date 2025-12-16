@@ -59,53 +59,99 @@ public class RegistrationApprovalService {
      */
     @Transactional
     public void sendApprovalEmail(SeminarSlotRegistration registration) {
+        logger.info("📧 [RegistrationApprovalService] sendApprovalEmail() called - slotId: {}, presenter: {}",
+                registration.getSlotId(), registration.getPresenterUsername());
+        databaseLoggerService.logAction("INFO", "EMAIL_SEND_APPROVAL_EMAIL_CALLED",
+                String.format("sendApprovalEmail() called for slotId=%d, presenter=%s", registration.getSlotId(), registration.getPresenterUsername()),
+                registration.getPresenterUsername(), String.format("slotId=%d", registration.getSlotId()));
+        
         if (registration.getSupervisorEmail() == null || registration.getSupervisorEmail().trim().isEmpty()) {
-            logger.warn("Cannot send approval email: supervisor email is missing for registration slotId={}, presenter={}",
+            String errorMsg = String.format("Cannot send approval email: supervisor email is missing for registration slotId=%d, presenter=%s",
                     registration.getSlotId(), registration.getPresenterUsername());
+            logger.warn("📧 ❌ {}", errorMsg);
+            databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_MISSING_SUPERVISOR",
+                    errorMsg, null, registration.getPresenterUsername(),
+                    String.format("slotId=%d,presenter=%s", registration.getSlotId(), registration.getPresenterUsername()));
             return;
         }
 
-        // Generate unique approval token
+        logger.info("📧 [RegistrationApprovalService] Supervisor email found: {}", registration.getSupervisorEmail());
+        databaseLoggerService.logAction("INFO", "EMAIL_SUPERVISOR_EMAIL_VALIDATED",
+                String.format("Supervisor email validated: %s", registration.getSupervisorEmail()),
+                registration.getPresenterUsername(), String.format("slotId=%d,supervisorEmail=%s", registration.getSlotId(), registration.getSupervisorEmail()));
+
+        // Generate cryptographically secure UUID token for email approval link (expires in configured hours)
         String approvalToken = UUID.randomUUID().toString();
         LocalDateTime expiresAt = LocalDateTime.now().plusHours(approvalTokenExpirationHours);
+        logger.info("📧 [RegistrationApprovalService] Generated approval token: {} (expires: {})", approvalToken, expiresAt);
+        databaseLoggerService.logAction("INFO", "EMAIL_APPROVAL_TOKEN_GENERATED",
+                String.format("Generated approval token (expires: %s)", expiresAt),
+                registration.getPresenterUsername(), String.format("slotId=%d,tokenExpiresAt=%s", registration.getSlotId(), expiresAt));
 
         registration.setApprovalToken(approvalToken);
         registration.setApprovalTokenExpiresAt(expiresAt);
         registration.setApprovalStatus(ApprovalStatus.PENDING);
         registrationRepository.save(registration);
+        logger.info("📧 [RegistrationApprovalService] Registration saved with approval token");
+        databaseLoggerService.logAction("INFO", "EMAIL_REGISTRATION_TOKEN_SAVED",
+                String.format("Registration saved with approval token"),
+                registration.getPresenterUsername(), String.format("slotId=%d", registration.getSlotId()));
 
-        // Get slot details
+        // Retrieve slot information (date, time, location) to include in approval email
         SeminarSlot slot = slotRepository.findById(registration.getSlotId())
-                .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + registration.getSlotId()));
+                .orElseThrow(() -> {
+                    String errorMsg = "Slot not found: " + registration.getSlotId();
+                    logger.error("📧 ❌ {}", errorMsg);
+                    databaseLoggerService.logError("EMAIL_SLOT_NOT_FOUND_EMAIL",
+                            errorMsg, null, registration.getPresenterUsername(),
+                            String.format("slotId=%d", registration.getSlotId()));
+                    return new IllegalArgumentException(errorMsg);
+                });
+        logger.info("📧 [RegistrationApprovalService] Slot retrieved: slotId={}, date={}, time={}-{}",
+                slot.getSlotId(), slot.getSlotDate(), slot.getStartTime(), slot.getEndTime());
 
-        // Generate approval and decline URLs (mobile-compatible format)
+        // Generate mobile-compatible approval/decline URLs using token-based authentication
         String baseUrl = globalConfig.getApiBaseUrl();
-        // Use mobile-compatible endpoints
         String approveUrl = baseUrl + "/approve/" + approvalToken;
         String declineUrl = baseUrl + "/decline/" + approvalToken;
-
-        // Generate email content
+        logger.info("📧 [RegistrationApprovalService] Generated URLs - approve: {}, decline: {}", approveUrl, declineUrl);
+        
+        // Generate HTML email with slot details, student info, and clickable approve/decline buttons
         String subject = "SemScan: Approval Required for Seminar Slot Registration";
+        logger.info("📧 [RegistrationApprovalService] Generating HTML email content...");
         String htmlContent = generateApprovalEmailHtml(registration, slot, approveUrl, declineUrl, expiresAt);
-
-        // Send email
+        logger.info("📧 [RegistrationApprovalService] HTML email content generated (length: {} chars)", htmlContent.length());
+        databaseLoggerService.logAction("INFO", "EMAIL_CONTENT_GENERATED",
+                String.format("HTML email content generated (length: %d chars)", htmlContent.length()),
+                registration.getPresenterUsername(), String.format("slotId=%d,contentLength=%d", registration.getSlotId(), htmlContent.length()));
+        
+        // Send email to supervisor's email address via MailService
+        logger.info("📧 [RegistrationApprovalService] Calling mailService.sendHtmlEmail() - to: {}, subject: {}", 
+                registration.getSupervisorEmail(), subject);
+        databaseLoggerService.logAction("INFO", "EMAIL_CALLING_MAILSERVICE",
+                String.format("Calling mailService.sendHtmlEmail() to: %s", registration.getSupervisorEmail()),
+                registration.getPresenterUsername(), String.format("slotId=%d,supervisorEmail=%s", registration.getSlotId(), registration.getSupervisorEmail()));
         boolean sent = mailService.sendHtmlEmail(registration.getSupervisorEmail(), subject, htmlContent);
+        
         if (sent) {
-            logger.info("Approval email sent to supervisor {} for registration slotId={}, presenter={}",
+            logger.info("📧 ✅ [RegistrationApprovalService] Approval email sent successfully to supervisor {} for registration slotId={}, presenter={}",
                     registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername());
-            databaseLoggerService.logBusinessEvent("REGISTRATION_APPROVAL_EMAIL_SENT",
+            databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT",
                     String.format("Approval email sent to supervisor %s for registration slotId=%d, presenter=%s",
                             registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername()),
                     registration.getPresenterUsername());
         } else {
-            logger.error("Failed to send approval email to supervisor {} for registration slotId={}, presenter={}",
+            logger.error("📧 ❌ [RegistrationApprovalService] Failed to send approval email to supervisor {} for registration slotId={}, presenter={}",
                     registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername());
-            databaseLoggerService.logError("REGISTRATION_APPROVAL_EMAIL_FAILED",
+            databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_FAILED",
                     String.format("Failed to send approval email to supervisor %s for registration slotId=%d, presenter=%s",
                             registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername()),
                     null, registration.getPresenterUsername(),
                     String.format("slotId=%d,supervisorEmail=%s", registration.getSlotId(), registration.getSupervisorEmail()));
         }
+        
+        logger.info("📧 [RegistrationApprovalService] sendApprovalEmail() completed - slotId: {}, presenter: {}, sent: {}",
+                registration.getSlotId(), registration.getPresenterUsername(), sent);
     }
 
     /**
@@ -125,7 +171,7 @@ public class RegistrationApprovalService {
             throw new IllegalArgumentException("Invalid approval token");
         }
 
-        // Check if token expired
+        // Verify token hasn't expired: compare current time with token expiration timestamp
         if (registration.getApprovalTokenExpiresAt() != null && 
             LocalDateTime.now().isAfter(registration.getApprovalTokenExpiresAt())) {
             registration.setApprovalStatus(ApprovalStatus.EXPIRED);
@@ -136,12 +182,12 @@ public class RegistrationApprovalService {
             throw new IllegalStateException("Approval token has expired");
         }
 
-        // Check if already processed
+        // Prevent double-processing: only PENDING registrations can be approved/declined
         if (registration.getApprovalStatus() != ApprovalStatus.PENDING) {
             throw new IllegalStateException("Registration is not pending approval");
         }
 
-        // Approve registration
+        // Update registration status to APPROVED and record supervisor approval timestamp
         registration.setApprovalStatus(ApprovalStatus.APPROVED);
         registration.setSupervisorApprovedAt(LocalDateTime.now());
         registrationRepository.save(registration);
@@ -151,8 +197,7 @@ public class RegistrationApprovalService {
                 String.format("Registration approved for slotId=%d, presenter=%s", slotId, presenterUsername),
                 presenterUsername);
 
-        // Send approval notification email to presenter OUTSIDE the transaction
-        // This prevents holding database locks during slow email operations
+        // Send approval notification email OUTSIDE transaction to prevent holding database locks during SMTP operations
         try {
             sendApprovalNotificationEmail(registration);
         } catch (Exception e) {
@@ -208,7 +253,7 @@ public class RegistrationApprovalService {
             throw new IllegalArgumentException("Invalid approval token");
         }
 
-        // Check if token expired
+        // Verify token hasn't expired: compare current time with token expiration timestamp
         if (registration.getApprovalTokenExpiresAt() != null && 
             LocalDateTime.now().isAfter(registration.getApprovalTokenExpiresAt())) {
             registration.setApprovalStatus(ApprovalStatus.EXPIRED);
@@ -219,7 +264,7 @@ public class RegistrationApprovalService {
             throw new IllegalStateException("Approval token has expired");
         }
 
-        // Check if already processed
+        // Prevent double-processing: only PENDING registrations can be approved/declined
         if (registration.getApprovalStatus() != ApprovalStatus.PENDING) {
             throw new IllegalStateException("Registration is not pending approval");
         }
@@ -353,7 +398,7 @@ public class RegistrationApprovalService {
         } else {
             logger.error("Failed to send approval notification email to presenter {} ({}) for registration slotId={}",
                     registration.getPresenterUsername(), presenterEmail, registration.getSlotId());
-            databaseLoggerService.logError("REGISTRATION_APPROVAL_NOTIFICATION_EMAIL_FAILED",
+            databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_NOTIFICATION_EMAIL_FAILED",
                     String.format("Failed to send approval notification email to presenter %s (%s) for registration slotId=%d",
                             registration.getPresenterUsername(), presenterEmail, registration.getSlotId()),
                     null, registration.getPresenterUsername(),

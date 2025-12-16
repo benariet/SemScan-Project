@@ -107,10 +107,10 @@ public class AuthController {
             boolean changed = false;
 
             if (!baseUsername.equals(user.getBguUsername())) {
-                // Check if baseUsername already exists for another user before updating
+                // Prevent username conflicts: verify baseUsername isn't already assigned to a different user
                 Optional<User> userWithBguUsername = userRepository.findByBguUsername(baseUsername);
                 if (userWithBguUsername.isPresent() && !userWithBguUsername.get().getId().equals(user.getId())) {
-                    // Another user already has this bguUsername - don't update
+                    // Username collision detected: another user already has this bguUsername - skip update to prevent data corruption
                     logger.warn("Cannot update bguUsername to {} for user {} (id={}) - username already exists for user {} (id={}). Keeping existing bguUsername.",
                             baseUsername, user.getEmail(), user.getId(),
                             userWithBguUsername.get().getEmail(), userWithBguUsername.get().getId());
@@ -147,7 +147,7 @@ public class AuthController {
             return user;
         }
 
-        // Before creating a new user, check if the derived email already exists
+        // Before creating new user: check if derived email (username@bgu.ac.il) already exists to prevent duplicates
         String derivedEmail = deriveEmailFromUsername(normalizedUsername);
         if (derivedEmail != null) {
             Optional<User> existingUserByEmail = userRepository.findByEmail(derivedEmail);
@@ -158,17 +158,17 @@ public class AuthController {
                 
                 // Only update bguUsername if it's different AND the new bguUsername doesn't already exist
                 if (!baseUsername.equals(userWithEmail.getBguUsername())) {
-                    // Check if baseUsername already exists for another user
+                    // Prevent username conflicts: check if baseUsername is already assigned to a different user
                     Optional<User> userWithBguUsername = userRepository.findByBguUsername(baseUsername);
                     if (userWithBguUsername.isPresent() && !userWithBguUsername.get().getId().equals(userWithEmail.getId())) {
-                        // Another user already has this bguUsername - don't update, just return existing user
+                        // Username collision: another user already has this bguUsername - return existing user without update
                         logger.warn("Cannot update bguUsername to {} for user {} (id={}) - username already exists for user {} (id={}). Returning existing user.",
                                 baseUsername, userWithEmail.getEmail(), userWithEmail.getId(),
                                 userWithBguUsername.get().getEmail(), userWithBguUsername.get().getId());
                         return userWithEmail;
                     }
                     
-                    // Safe to update bguUsername
+                    // No conflict: update existing user's bguUsername to normalized baseUsername
                     userWithEmail.setBguUsername(baseUsername);
                     userWithEmail = userRepository.save(userWithEmail);
                     logger.debug("Updated bguUsername for existing user {} to {}", userWithEmail.getId(), baseUsername);
@@ -177,7 +177,7 @@ public class AuthController {
             }
         }
 
-        // Before creating, double-check that bguUsername doesn't already exist
+        // Final safety check before user creation: verify bguUsername doesn't already exist (prevents duplicate users)
         Optional<User> checkBguUsername = userRepository.findByBguUsername(baseUsername);
         if (checkBguUsername.isPresent()) {
             logger.warn("User with bguUsername {} already exists (id={}, email={}). Returning existing user instead of creating duplicate.",
@@ -190,7 +190,7 @@ public class AuthController {
         newUser.setFirstName("User");
         newUser.setLastName(baseUsername);
         newUser.setEmail(derivedEmail);
-        // Default to both presenter and participant - users can be both
+        // Set default permissions: new users can be both presenter and participant (can be restricted later if needed)
         newUser.setIsPresenter(true);
         newUser.setIsParticipant(true);
 

@@ -30,9 +30,7 @@
             <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
                 <maxFileSize>10MB</maxFileSize>
             </timeBasedFileNamingAndTriggeringPolicy>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>1GB</totalSizeCap>
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+            <!-- No maxHistory, totalSizeCap, or cleanHistoryOnStart - all log files are kept permanently -->
         </rollingPolicy>
     </appender>
     
@@ -53,8 +51,7 @@
             <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
                 <maxFileSize>10MB</maxFileSize>
             </timeBasedFileNamingAndTriggeringPolicy>
-            <maxHistory>30</maxHistory>
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+            <!-- No maxHistory or cleanHistoryOnStart - all error log files are kept permanently -->
         </rollingPolicy>
     </appender>
     
@@ -70,9 +67,7 @@
             <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
                 <maxFileSize>5MB</maxFileSize>
             </timeBasedFileNamingAndTriggeringPolicy>
-            <maxHistory>7</maxHistory>
-            <totalSizeCap>100MB</totalSizeCap>
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+            <!-- No maxHistory, totalSizeCap, or cleanHistoryOnStart - all session log files are kept permanently -->
         </rollingPolicy>
     </appender>
     

@@ -57,17 +57,13 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            // Set sender
+            // Configure email: sender address, recipient list, and subject line with session ID
             helper.setFrom(fromEmail);
-
-            // Set recipients
             helper.setTo(recipients.toArray(new String[0]));
-
-            // Set subject
             String subject = String.format("Attendance Export - Session %d", sessionId);
             helper.setSubject(subject);
 
-            // Set body
+            // Generate plain text email body with session details and file information
             String body = String.format(
                 "Dear Administrator,\n\n" +
                 "Please find attached the attendance export for session %d.\n\n" +
@@ -82,17 +78,17 @@ public class EmailService {
                 format.toUpperCase(),
                 fileData.length / 1024.0
             );
-            // Convert plain text to HTML
+            // Convert plain text body to HTML format (line breaks -> <br> tags) for email rendering
             String htmlBody = convertToHtml(body);
-            helper.setText(htmlBody, true); // true = HTML content
+            helper.setText(htmlBody, true);
 
-            // Add attachment
+            // Attach exported file: determine MIME type (Excel XLSX or CSV) and attach file data
             String contentType = format.equalsIgnoreCase("xlsx")
                 ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 : "text/csv";
             helper.addAttachment(filename, () -> new java.io.ByteArrayInputStream(fileData), contentType);
 
-            // Send email
+            // Send email with attachment via SMTP server
             mailSender.send(message);
             logger.info("Export email sent successfully to {} recipients for session {}", recipients.size(), sessionId);
             return true;
@@ -286,11 +282,11 @@ public class EmailService {
                 topic != null && !topic.trim().isEmpty() ? topic : "Not specified"
             );
 
-            // Convert plain text to HTML
+            // Convert plain text body to HTML (line breaks -> <br> tags) for proper email rendering
             String htmlBody = convertToHtml(body);
-            helper.setText(htmlBody, true); // true = HTML content
+            helper.setText(htmlBody, true);
 
-            // Send email
+            // Send notification email to supervisor via SMTP
             mailSender.send(message);
             logger.info("Supervisor notification email sent successfully to {} for presenter {}", supervisorEmail, presenterUsername);
             return EmailResult.success();

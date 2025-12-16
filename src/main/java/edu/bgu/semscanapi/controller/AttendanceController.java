@@ -428,9 +428,7 @@ public class AttendanceController {
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance?sessionId=" + sessionId, null);
         
         try {
-            // No API key validation for POC
-            
-            // Get attendance records for the session
+            // Retrieve all attendance records for the specified sessionId from database
             List<Attendance> attendanceList = attendanceService.getAttendanceBySession(sessionId);
             logger.info("Retrieved {} attendance records for session: {}", 
                 attendanceList.size(), sessionId);
@@ -470,7 +468,7 @@ public class AttendanceController {
             // Redirect to the manual attendance service
             List<Attendance> attendanceList = attendanceService.getAttendanceBySession(sessionId);
             
-            // Filter for pending requests (PENDING_APPROVAL status)
+            // Filter attendance records to only include those with PENDING_APPROVAL status (awaiting manual approval)
             List<Attendance> pendingRequests = attendanceList.stream()
                 .filter(attendance -> attendance.getRequestStatus() == Attendance.RequestStatus.PENDING_APPROVAL)
                 .collect(java.util.stream.Collectors.toList());
@@ -509,12 +507,10 @@ public class AttendanceController {
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/export/csv?sessionId=" + sessionId, null);
         
         try {
-            // No API key validation for POC
-            
-            // Get attendance records for the session
+            // Retrieve all attendance records for the specified sessionId from database
             List<Attendance> attendanceList = attendanceService.getAttendanceBySession(sessionId);
             
-            // Generate CSV data
+            // Generate CSV file content: header row + one row per attendance record with student username, time, method
             byte[] csvData = generateCsvForSession(sessionId, attendanceList);
             
             HttpHeaders headers = new HttpHeaders();
@@ -558,12 +554,10 @@ public class AttendanceController {
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/export/xlsx?sessionId=" + sessionId, null);
         
         try {
-            // No API key validation for POC
-            
-            // Get attendance records for the session
+            // Retrieve all attendance records for the specified sessionId from database
             List<Attendance> attendanceList = attendanceService.getAttendanceBySession(sessionId);
             
-            // Generate Excel data (simplified - returns CSV format for now)
+            // Generate Excel export: currently returns CSV format (full Excel requires Apache POI dependency)
             byte[] excelData = generateExcelForSession(sessionId, attendanceList);
             
             HttpHeaders headers = new HttpHeaders();

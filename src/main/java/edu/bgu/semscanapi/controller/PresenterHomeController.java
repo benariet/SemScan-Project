@@ -184,7 +184,7 @@ public class PresenterHomeController {
                     .body(Map.of("error", ex.getMessage(), "code", "NOT_FOUND"));
         } catch (IllegalStateException ex) {
             LoggerUtil.logError(logger, "Get QR code failed - attendance not open", ex);
-            // Check if it's a "closed" error vs "not open" error
+            // Distinguish between "attendance window closed" vs "attendance never opened" for better error messages
             String errorMessage = ex.getMessage();
             String errorCode;
             HttpStatus status;
@@ -239,7 +239,7 @@ public class PresenterHomeController {
             return HttpStatus.BAD_REQUEST;
         }
         
-        // Registration-related status codes
+        // Map registration-related error codes to HTTP status codes for API response
         if ("MISSING_USERNAME".equals(code)) {
             return HttpStatus.BAD_REQUEST;
         }

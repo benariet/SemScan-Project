@@ -59,9 +59,7 @@ public class AppLogController {
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/logs", request != null ? request.toString() : null);
         
         try {
-            // No API key validation for POC
-            
-            // Process logs
+            // Process mobile app logs: validate, convert DTOs to entities, save to app_logs table
             LogResponse response = appLogService.processLogs(request);
             
             if (response.isSuccess()) {
@@ -104,8 +102,7 @@ public class AppLogController {
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/errors", null);
         
         try {
-            // No API key validation for POC
-            
+            // Retrieve all ERROR level logs from app_logs table for debugging and monitoring
             List<AppLog> errorLogs = appLogService.getErrorLogs();
             
             logger.info("Retrieved {} error logs - Correlation ID: {}", errorLogs.size(), correlationId);
@@ -140,8 +137,7 @@ public class AppLogController {
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/recent?limit=" + limit, null);
         
         try {
-            // No API key validation for POC
-            
+            // Retrieve most recent log entries from app_logs table, ordered by timestamp descending
             List<AppLog> recentLogs = appLogService.getRecentLogs(limit);
             
             logger.info("Retrieved {} recent logs - Correlation ID: {}", recentLogs.size(), correlationId);
@@ -174,8 +170,7 @@ public class AppLogController {
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/logs/stats", null);
         
         try {
-            // No API key validation for POC
-            
+            // Calculate log statistics: total count and breakdown by level (ERROR, INFO, WARN, DEBUG)
             Map<String, Object> stats = new HashMap<>();
             stats.put("totalLogs", appLogService.getTotalLogCount());
             stats.put("errorLogs", appLogService.getLogCountByLevel("ERROR"));
@@ -211,7 +206,7 @@ public class AppLogController {
         logger.info("Checking database health - Correlation ID: {}", correlationId);
         
         try {
-            // Test database connection
+            // Health check: verify database connectivity by querying total log count from app_logs table
             long logCount = appLogService.getTotalLogCount();
             
             Map<String, Object> health = new HashMap<>();

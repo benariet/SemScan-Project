@@ -44,19 +44,19 @@ public class AppLogService {
         try {
             List<AppLogEntry> logEntries = request.getLogs();
             
-            // Validate logs
+            // Validate log entries: check required fields (timestamp, level, tag, message) and format
             validateLogs(logEntries);
             
-            // Handle empty logs list gracefully
+            // Handle empty logs list: mobile app may send 0 entries (valid scenario)
             if (logEntries.isEmpty()) {
                 logger.info("No log entries to process - Correlation ID: {}", correlationId);
                 return LogResponse.success(0);
             }
             
-            // Convert DTOs to entities
+            // Convert mobile app log DTOs to database entities (AppLog) with username validation and role derivation
             List<AppLog> appLogs = convertToEntities(logEntries);
             
-            // Save logs synchronously to ensure they are persisted
+            // Save logs synchronously to database: ensures persistence before returning success response
             try {
                 appLogRepository.saveAll(appLogs);
                 logger.info("Successfully saved {} log entries - Correlation ID: {}", 
@@ -66,7 +66,7 @@ public class AppLogService {
                 throw new RuntimeException("Failed to save log entries", e);
             }
             
-            // Update analytics asynchronously
+            // Update analytics data asynchronously (does not block log persistence)
             updateAnalytics(appLogs);
             
             logger.info("Logs processed successfully - {} entries - Correlation ID: {}", 
@@ -103,12 +103,12 @@ public class AppLogService {
                 throw new IllegalArgumentException("Invalid log entry: missing required fields");
             }
             
-            // Validate log level
+            // Validate log level: must be one of DEBUG, INFO, WARN, or ERROR (case-insensitive)
             if (!isValidLogLevel(log.getLevel())) {
                 throw new IllegalArgumentException("Invalid log level: " + log.getLevel());
             }
             
-            // Validate message length
+            // Validate message length: prevent extremely long messages that could cause database issues
             if (log.getMessage().length() > 10000) {
                 throw new IllegalArgumentException("Log message too long");
             }

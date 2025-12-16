@@ -236,6 +236,8 @@ public class PresenterHomeResponse {
         private int pendingCount; // Number of pending approvals
         private String approvalStatus; // Current user's approval status: "PENDING_APPROVAL", "APPROVED", "DECLINED", "EXPIRED", or null
         private boolean onWaitingList; // Is current user on waiting list
+        private int waitingListCount; // Total number of people on waiting list for this slot (MUST be included for all slots)
+        private String waitingListUserName; // Username of first person on waiting list (or null)
 
         public Long getSlotId() {
             return slotId;
@@ -403,6 +405,22 @@ public class PresenterHomeResponse {
 
         public void setOnWaitingList(boolean onWaitingList) {
             this.onWaitingList = onWaitingList;
+        }
+
+        public int getWaitingListCount() {
+            return waitingListCount;
+        }
+
+        public void setWaitingListCount(int waitingListCount) {
+            this.waitingListCount = waitingListCount;
+        }
+
+        public String getWaitingListUserName() {
+            return waitingListUserName;
+        }
+
+        public void setWaitingListUserName(String waitingListUserName) {
+            this.waitingListUserName = waitingListUserName;
         }
     }
 

@@ -86,7 +86,7 @@ public class AttendanceService {
             logger.info("Session validation passed - SessionID: {} is OPEN, allowing attendance submission", 
                 sessionEntity.getSessionId());
             
-            // Validate student exists (use case-insensitive lookup)
+            // Verify student exists in database using case-insensitive username lookup (handles username variations)
             Optional<User> student = userRepository.findByBguUsernameIgnoreCase(attendance.getStudentUsername());
             if (student.isEmpty()) {
                 String errorMsg = "Student not found: " + attendance.getStudentUsername();
@@ -98,7 +98,7 @@ public class AttendanceService {
             
             logger.debug("Student found: {}", student.get().getBguUsername());
             
-            // Check if already attended (use case-insensitive check)
+            // Prevent duplicate attendance: check if student already recorded attendance for this session (case-insensitive)
             String normalizedUsername = attendance.getStudentUsername();
             boolean alreadyAttended = attendanceRepository.existsBySessionIdAndStudentUsernameIgnoreCase(
                 attendance.getSessionId(), normalizedUsername);
@@ -123,13 +123,13 @@ public class AttendanceService {
                 }
             }
             
-            // Set attendance time if not provided
+            // Default attendance time to current timestamp if not provided in request
             if (attendance.getAttendanceTime() == null) {
                 attendance.setAttendanceTime(LocalDateTime.now());
                 logger.debug("Set attendance time to current time");
             }
             
-            // Set default method if not provided
+            // Default attendance method to QR_SCAN if not specified in request
             if (attendance.getMethod() == null) {
                 attendance.setMethod(Attendance.AttendanceMethod.QR_SCAN);
                 logger.debug("Set default attendance method: QR_SCAN");

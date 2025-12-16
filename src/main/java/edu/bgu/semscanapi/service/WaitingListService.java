@@ -1,5 +1,6 @@
 package edu.bgu.semscanapi.service;
 
+import edu.bgu.semscanapi.entity.ApprovalStatus;
 import edu.bgu.semscanapi.entity.SeminarSlot;
 import edu.bgu.semscanapi.entity.SeminarSlotRegistration;
 import edu.bgu.semscanapi.entity.User;
@@ -70,7 +71,7 @@ public class WaitingListService {
                 presenterUsername,
                 String.format("slotId=%d,topic=%s,supervisorName=%s,supervisorEmail=%s", slotId, topic, supervisorName, supervisorEmail));
 
-        // Validate input parameters
+        // Validate slotId and presenterUsername are not null/empty before processing waiting list addition
         if (slotId == null) {
             String errorMsg = "Slot ID is null";
             logger.error("{} - slotId=null, presenterUsername={}", errorMsg, presenterUsername);
@@ -89,7 +90,7 @@ public class WaitingListService {
 
         String normalizedUsername = presenterUsername.trim();
 
-        // Check if slot exists
+        // Verify the requested slot exists in database before adding user to waiting list
         Optional<SeminarSlot> slotOpt = slotRepository.findById(slotId);
         if (slotOpt.isEmpty()) {
             String errorMsg = String.format("Slot not found: slotId=%d", slotId);
@@ -99,7 +100,7 @@ public class WaitingListService {
             throw new IllegalArgumentException("Slot not found: " + slotId);
         }
 
-        // Check if already in waiting list
+        // Prevent duplicate entries: check if user is already on waiting list for this slot
         Optional<WaitingListEntry> existing = waitingListRepository.findBySlotIdAndPresenterUsername(slotId, normalizedUsername);
         if (existing.isPresent()) {
             String errorMsg = String.format("User is already on the waiting list for slotId=%d", slotId);
@@ -109,7 +110,7 @@ public class WaitingListService {
             throw new IllegalStateException("User is already on the waiting list for this slot");
         }
 
-        // Check if already registered
+        // Prevent adding to waiting list if user already has an approved/pending registration for this slot
         boolean alreadyRegistered = registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, normalizedUsername);
         if (alreadyRegistered) {
             String errorMsg = String.format("User is already registered for slotId=%d", slotId);
@@ -119,7 +120,7 @@ public class WaitingListService {
             throw new IllegalStateException("User is already registered for this slot");
         }
 
-        // Get user to determine degree
+        // Retrieve user record to determine degree (PhD/MSc) which affects waiting list position and promotion logic
         Optional<User> userOpt = userRepository.findByBguUsername(normalizedUsername);
         if (userOpt.isEmpty()) {
             String errorMsg = String.format("User not found: %s", normalizedUsername);
@@ -134,15 +135,15 @@ public class WaitingListService {
             String errorMsg = String.format("User degree is not set for user: %s", normalizedUsername);
             logger.error("{} - slotId={}", errorMsg, slotId);
             databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
-                    String.format("slotId=%d,presenterUsername=%s,userId=%d", slotId, normalizedUsername, user.getUserId()));
+                    String.format("slotId=%d,presenterUsername=%s,userId=%d", slotId, normalizedUsername, user.getId()));
             throw new IllegalStateException("User degree is not set");
         }
 
-        // Get current position (next position = count + 1)
+        // Calculate position: new entries are added at the end (position = current count + 1)
         long currentCount = waitingListRepository.countBySlotId(slotId);
         int position = (int) currentCount + 1;
 
-        // Create waiting list entry
+        // Create new waiting list entry with calculated position and user details
         WaitingListEntry entry = new WaitingListEntry();
         entry.setSlotId(slotId);
         entry.setPresenterUsername(normalizedUsername);
@@ -184,7 +185,7 @@ public class WaitingListService {
         WaitingListEntry entryToRemove = entry.get();
         int position = entryToRemove.getPosition();
         
-        // Delete from waiting list
+        // Remove user from waiting list and decrement positions of all entries that were after this one
         waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, presenterUsername);
         
         // Decrement positions of entries after this one
@@ -195,8 +196,7 @@ public class WaitingListService {
                 String.format("User %s removed from waiting list for slotId=%d", presenterUsername, slotId),
                 presenterUsername);
         
-        // Send cancellation email to supervisor OUTSIDE the transaction
-        // This prevents holding database locks during slow email operations
+        // Send cancellation email OUTSIDE transaction to prevent holding database locks during slow SMTP operations
         try {
             sendWaitingListCancellationEmail(entryToRemove);
         } catch (Exception e) {
@@ -243,36 +243,36 @@ public class WaitingListService {
             return;
         }
 
-        // Get slot details
+        // Retrieve slot information (date, time, location) for email content
         SeminarSlot slot = slotRepository.findById(entry.getSlotId())
                 .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + entry.getSlotId()));
 
-        // Get user details
+        // Retrieve user information to format full name in email
         User user = userRepository.findByBguUsername(entry.getPresenterUsername())
                 .orElse(null);
 
-        // Format student name
+        // Format full name: "FirstName LastName" if available, otherwise use username
         String studentName = user != null && user.getFirstName() != null && user.getLastName() != null
                 ? user.getFirstName() + " " + user.getLastName()
                 : entry.getPresenterUsername();
 
-        // Generate email content
+        // Generate HTML email content with slot details and cancellation reason
         String subject = "SemScan - Waiting List Cancellation: Presentation Slot";
         String htmlContent = generateWaitingListCancellationEmailHtml(entry, slot, studentName, supervisorName);
 
-        // Send email
+        // Send email via MailService (handles SMTP connection and error handling)
         boolean sent = mailService.sendHtmlEmail(supervisorEmail, subject, htmlContent);
         if (sent) {
             logger.info("Waiting list cancellation email sent to supervisor {} for user {} and slotId={}",
                     supervisorEmail, entry.getPresenterUsername(), entry.getSlotId());
-            databaseLoggerService.logBusinessEvent("WAITING_LIST_CANCELLATION_EMAIL_SENT",
+            databaseLoggerService.logBusinessEvent("EMAIL_WAITING_LIST_CANCELLATION_EMAIL_SENT",
                     String.format("Waiting list cancellation email sent to supervisor %s for user %s and slotId=%d",
                             supervisorEmail, entry.getPresenterUsername(), entry.getSlotId()),
                     entry.getPresenterUsername());
         } else {
             logger.error("Failed to send waiting list cancellation email to supervisor {} for user {} and slotId={}",
                     supervisorEmail, entry.getPresenterUsername(), entry.getSlotId());
-            databaseLoggerService.logError("WAITING_LIST_CANCELLATION_EMAIL_FAILED",
+            databaseLoggerService.logError("EMAIL_WAITING_LIST_CANCELLATION_EMAIL_FAILED",
                     String.format("Failed to send waiting list cancellation email to supervisor %s for user %s and slotId=%d",
                             supervisorEmail, entry.getPresenterUsername(), entry.getSlotId()),
                     null, entry.getPresenterUsername(),
@@ -369,22 +369,31 @@ public class WaitingListService {
             return Optional.empty();
         }
 
-        // Get current approved registrations count
-        // Note: This logic should be enhanced to check actual degree counts
-        // For now, we'll use a simpler approach and let PresenterHomeService handle capacity checks
+        // Count approved registrations to determine if slot has available capacity
+        // TODO: Enhance to check degree-specific capacity (PhD takes whole slot, MSc shares)
+        List<SeminarSlotRegistration> existingRegistrations = registrationRepository
+                .findByIdSlotIdAndApprovalStatus(slotId, ApprovalStatus.APPROVED);
+        long approvedCount = existingRegistrations.size();
 
         WaitingListEntry nextEntry = waitingList.get(0);
         
-        // Check if slot has capacity
-        // This logic should be enhanced based on degree and current registrations
-        // For now, we'll just promote if there's space
+        // Load slot to check capacity before promoting
+        SeminarSlot slot = slotRepository.findById(slotId)
+                .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
         
-        // Remove from waiting list (don't send cancellation email for promotion)
-        // We need to remove manually to avoid sending cancellation email
+        // Promote if slot has capacity: approved registrations must be less than slot capacity
+        // TODO: Add degree-based capacity logic (PhD = 1 slot, MSc = capacity-based)
+        if (approvedCount >= slot.getCapacity()) {
+            logger.info("Cannot promote user {} from waiting list - slot {} is full (capacity: {}, approved: {})",
+                    nextEntry.getPresenterUsername(), slotId, slot.getCapacity(), approvedCount);
+            return Optional.empty();
+        }
+        
+        // Remove from waiting list without sending cancellation email (this is a promotion, not cancellation)
         int position = nextEntry.getPosition();
         waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, nextEntry.getPresenterUsername());
         
-        // Decrement positions of entries after this one
+        // Decrement positions of all waiting list entries that were after this one (maintains queue order)
         waitingListRepository.decrementPositionsAfter(slotId, position);
         
         logger.info("Promoted user {} from waiting list for slotId={} (removed without cancellation email)", 
@@ -393,11 +402,7 @@ public class WaitingListService {
                 String.format("User %s promoted from waiting list for slotId=%d", nextEntry.getPresenterUsername(), slotId),
                 nextEntry.getPresenterUsername());
 
-        // Create registration (this will need to be handled by PresenterHomeService)
-        // For now, return the entry so the caller can create the registration
-        logger.info("Promoted user {} from waiting list for slotId={}", nextEntry.getPresenterUsername(), slotId);
-        
-        // Return empty for now - the actual registration creation should be handled by PresenterHomeService
+        // Registration creation delegated to PresenterHomeService to maintain transaction boundaries
         return Optional.empty();
     }
 
@@ -406,6 +411,15 @@ public class WaitingListService {
      */
     public boolean isOnWaitingList(Long slotId, String presenterUsername) {
         return waitingListRepository.existsBySlotIdAndPresenterUsername(slotId, presenterUsername);
+    }
+
+    /**
+     * Get the count of people on the waiting list for a slot
+     * @param slotId The slot ID
+     * @return The number of people on the waiting list
+     */
+    public long getWaitingListCount(Long slotId) {
+        return waitingListRepository.countBySlotId(slotId);
     }
 }
 

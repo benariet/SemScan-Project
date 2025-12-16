@@ -18,6 +18,7 @@ import edu.bgu.semscanapi.entity.SeminarSlotRegistration;
 import edu.bgu.semscanapi.entity.SeminarSlotRegistrationId;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.entity.User;
+import edu.bgu.semscanapi.entity.WaitingListEntry;
 import edu.bgu.semscanapi.repository.SeminarRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRepository;
@@ -168,13 +169,13 @@ public class PresenterHomeService {
                 return new PresenterSlotRegistrationResponse(true, "Already registered for this slot", "ALREADY_IN_SLOT");
             }
 
-            // Check registration limits based on degree
+            // Determine presenter's degree (PhD or MSc) to apply appropriate registration limits
             presenterDegree = presenter.getDegree() != null ? presenter.getDegree() : User.Degree.MSc;
             
-            // Get all registrations for this user (across all slots)
+            // Retrieve all registrations for this user across all slots to check registration limits
             List<SeminarSlotRegistration> userRegistrations = registrationRepository.findByIdPresenterUsername(presenterUsername);
             
-            // Count approved and pending registrations
+            // Count approved and pending registrations: PhD max 1 approved + 1 pending, MSc max 1 approved + 2 pending
             long approvedCount = userRegistrations.stream()
                     .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
                     .count();
@@ -215,23 +216,26 @@ public class PresenterHomeService {
                 }
             }
             
-            // Check if presenter registered in another slot (for backward compatibility check)
-            if (!userRegistrations.isEmpty()) {
-                String errorMsg = "Presenter already registered in another slot";
-                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                    String.format("slotId=%s,reason=ALREADY_REGISTERED", slotId));
-                return new PresenterSlotRegistrationResponse(false, errorMsg, "ALREADY_REGISTERED");
-            }
+            // NOTE: Registration limits are already enforced above (PhD: max 1 approved + 1 pending, MSc: max 1 approved + 2 pending)
+            // Being on a waiting list for another slot does NOT prevent registration for other slots
+            // Only actual registrations (approved/pending) count towards the limits
             
-            // Load existing APPROVED registrations for this slot (needed for capacity/PhD checks)
-            // Only APPROVED registrations count towards capacity
-            // Do this BEFORE reading slot to minimize lock time
-            List<SeminarSlotRegistration> existingRegistrations = registrationRepository
-                    .findByIdSlotIdAndApprovalStatus(slotId, ApprovalStatus.APPROVED);
-            boolean existingPhd = existingRegistrations.stream()
+            // Load ALL registrations for this slot (APPROVED + PENDING) to check capacity
+            // CRITICAL: Both approved AND pending registrations count towards capacity
+            // This prevents over-registration when multiple users register simultaneously
+            List<SeminarSlotRegistration> allSlotRegistrations = registrationRepository.findByIdSlotId(slotId);
+            List<SeminarSlotRegistration> approvedRegistrations = allSlotRegistrations.stream()
+                    .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
+                    .collect(Collectors.toList());
+            List<SeminarSlotRegistration> pendingRegistrations = allSlotRegistrations.stream()
+                    .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                    .filter(reg -> reg.getApprovalTokenExpiresAt() == null || now.isBefore(reg.getApprovalTokenExpiresAt()))
+                    .collect(Collectors.toList());
+            
+            boolean existingPhd = approvedRegistrations.stream()
                     .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
             
-            // If slot already has a PhD, no one else can register
+            // PhD exclusivity rule: if slot already has a PhD presenter, no other presenters can register
             if (existingPhd) {
                 String errorMsg = "Slot already has a PhD presenter";
                 databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
@@ -239,8 +243,7 @@ public class PresenterHomeService {
                 return new PresenterSlotRegistrationResponse(false, "Slot locked by PhD presenter", "SLOT_LOCKED");
             }
             
-            // Read slot ONLY when we need it (for capacity check and update)
-            // This minimizes the time we hold a lock on the slot row
+            // Read slot entity only when needed (for capacity check and status update) to minimize row lock duration
             slot = seminarSlotRepository.findById(slotId)
                     .orElseThrow(() -> {
                         String errorMsg = "Slot not found: " + slotId;
@@ -249,15 +252,21 @@ public class PresenterHomeService {
                         return new IllegalArgumentException(errorMsg);
                     });
             
-            // Check capacity for non-PhD students
-            // PhD students take the whole slot (handled separately below)
+            // Check slot capacity for non-PhD students: PhD students automatically take entire slot (capacity = 1)
+            // CRITICAL FIX: Count BOTH approved AND pending registrations against capacity
             int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
-            if (presenterDegree != User.Degree.PhD && existingRegistrations.size() >= capacity) {
+            int totalRegistrations = approvedRegistrations.size() + pendingRegistrations.size();
+            
+            if (presenterDegree != User.Degree.PhD && totalRegistrations >= capacity) {
                 updateSlotStatus(slot, SlotState.FULL);
-                String errorMsg = "Slot is already full";
+                String errorMsg = String.format("Slot is already full (capacity: %d, approved: %d, pending: %d)", 
+                        capacity, approvedRegistrations.size(), pendingRegistrations.size());
+                logger.warn("Slot {} is full - capacity: {}, approved: {}, pending: {}", 
+                        slotId, capacity, approvedRegistrations.size(), pendingRegistrations.size());
                 databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                    String.format("slotId=%s,reason=SLOT_FULL,capacity=%d,existing=%d", slotId, capacity, existingRegistrations.size()));
-                return new PresenterSlotRegistrationResponse(false, errorMsg, "SLOT_FULL");
+                    String.format("slotId=%s,reason=SLOT_FULL,capacity=%d,approved=%d,pending=%d,total=%d", 
+                            slotId, capacity, approvedRegistrations.size(), pendingRegistrations.size(), totalRegistrations));
+                return new PresenterSlotRegistrationResponse(false, "Slot is already full", "SLOT_FULL");
             }
 
             registration = new SeminarSlotRegistration();
@@ -271,16 +280,35 @@ public class PresenterHomeService {
 
             registrationRepository.save(registration);
 
-            // If PhD registered, slot becomes FULL immediately (PhD takes the whole slot)
-            // Otherwise, update based on capacity
+            // OPTION 1: "Safety Net" Logic - If user was on waiting list for THIS slot, remove them
+            // (They got a spot, so they don't need to be on the waiting list anymore)
+            // BUT: Keep them on waiting lists for OTHER slots (they can have a backup option)
+            if (waitingListService.isOnWaitingList(slotId, presenterUsername)) {
+                try {
+                    waitingListService.removeFromWaitingList(slotId, presenterUsername);
+                    logger.info("Removed user {} from waiting list for slot {} after successful registration", 
+                            presenterUsername, slotId);
+                    databaseLoggerService.logBusinessEvent("WAITING_LIST_AUTO_REMOVED_ON_REGISTRATION",
+                            String.format("User %s automatically removed from waiting list for slot %d after registering", 
+                                    presenterUsername, slotId),
+                            presenterUsername);
+                } catch (Exception e) {
+                    // Don't fail registration if waiting list removal fails
+                    logger.warn("Failed to remove user {} from waiting list for slot {} after registration: {}", 
+                            presenterUsername, slotId, e.getMessage());
+                }
+            }
+
+            // PhD registration: slot becomes FULL immediately (PhD takes entire slot, no other presenters allowed)
+            // Non-PhD registration: update slot state based on current capacity vs total registrations (approved + pending)
             boolean slotNowHasPhd = presenterDegree == User.Degree.PhD;
-            long newEnrolled = existingRegistrations.size() + 1;
+            int newTotalRegistrations = totalRegistrations + 1; // Include this new pending registration
             SlotState updatedState = slotNowHasPhd
                     ? SlotState.FULL
-                    : determineState(slot.getCapacity(), (int) newEnrolled);
+                    : determineState(slot.getCapacity(), newTotalRegistrations);
 
             if (slotNowHasPhd) {
-                // Close attendance if PhD registered (PhD takes the whole slot)
+                // PhD registration: close attendance window (PhD takes whole slot, no attendance needed)
                 slot.setAttendanceOpenedAt(null);
                 slot.setAttendanceClosesAt(null);
                 slot.setAttendanceOpenedBy(null);
@@ -291,18 +319,17 @@ public class PresenterHomeService {
             updateSlotStatus(slot, updatedState);
             seminarSlotRepository.save(slot);
             
-            // Transaction commits here - all database operations complete
-            // This releases locks immediately, preventing lock contention
+            // Transaction commits here: all database operations complete, locks released immediately to prevent contention
 
             logger.info("Presenter {} successfully registered to slot {}", presenterUsername, slotId);
             
-            // Log successful registration to database
+            // Log successful registration to app_logs table for audit trail and analytics
             databaseLoggerService.logBusinessEvent("SLOT_REGISTRATION_SUCCESS", 
                 String.format("Presenter %s registered to slot %s (degree: %s)", presenterUsername, slotId, presenterDegree), 
                 presenterUsername);
             
         } catch (org.springframework.dao.DataAccessException e) {
-            // Database errors (locks, timeouts, etc.)
+            // Handle database-level errors: deadlocks, timeouts, constraint violations, connection failures
             String errorMsg = String.format("Database error during slot registration: %s", e.getMessage());
             logger.error("Database error registering presenter {} to slot {}", presenterUsername, slotId, e);
             databaseLoggerService.logError("SLOT_REGISTRATION_DB_ERROR", errorMsg, e, 
@@ -310,7 +337,7 @@ public class PresenterHomeService {
                 String.format("slotId=%s,exceptionType=%s", slotId, e.getClass().getName()));
             throw e; // Re-throw to trigger transaction rollback
         } catch (Exception e) {
-            // Any other unexpected errors
+            // Handle unexpected application errors: null pointers, illegal arguments, business logic exceptions
             String errorMsg = String.format("Unexpected error during slot registration: %s", e.getMessage());
             logger.error("Unexpected error registering presenter {} to slot {}", presenterUsername, slotId, e);
             databaseLoggerService.logError("SLOT_REGISTRATION_ERROR", errorMsg, e, 
@@ -319,29 +346,181 @@ public class PresenterHomeService {
             throw e;
         }
         
-        // Send supervisor approval email OUTSIDE the transaction
-        // This prevents holding database locks during slow email operations
+        // Send supervisor approval email OUTSIDE transaction to prevent holding database locks during SMTP operations
+        logger.info("📧 EMAIL SENDING FLOW START - presenter: {}, slotId: {}", presenterUsername, slotId);
+        databaseLoggerService.logAction("INFO", "EMAIL_SENDING_FLOW_START",
+                String.format("Starting email sending flow for presenter %s and slot %s", presenterUsername, slotId),
+                presenterUsername, String.format("slotId=%d", slotId));
+        
+        // CRITICAL: Wait a moment for transaction to commit before refreshing registration
+        // This ensures the registration is fully persisted in the database
+        try {
+            Thread.sleep(100); // Small delay to ensure transaction commit
+            logger.info("📧 Waited 100ms for transaction commit before refreshing registration");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warn("📧 Thread interrupted while waiting for transaction commit");
+        }
+        
+        // CRITICAL: Refresh registration from database to ensure all fields are persisted before sending email
+        if (registration != null && registration.getId() != null) {
+            logger.info("📧 Refreshing registration from database - registrationId: {}", registration.getId());
+            databaseLoggerService.logAction("INFO", "EMAIL_REGISTRATION_REFRESH_ATTEMPT",
+                    String.format("Refreshing registration from database for presenter %s and slot %s", presenterUsername, slotId),
+                    presenterUsername, String.format("slotId=%d,registrationId=%s", slotId, registration.getId()));
+            
+            // Try multiple times in case transaction hasn't committed yet
+            Optional<SeminarSlotRegistration> refreshedRegistration = Optional.empty();
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                refreshedRegistration = registrationRepository.findById(registration.getId());
+                if (refreshedRegistration.isPresent()) {
+                    logger.info("📧 Registration found on attempt {}", attempt);
+                    break;
+                } else {
+                    logger.warn("📧 Registration not found on attempt {}, waiting 200ms before retry...", attempt);
+                    try {
+                        Thread.sleep(200);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+            
+            if (refreshedRegistration.isPresent()) {
+                registration = refreshedRegistration.get();
+                String dbEmail = registration.getSupervisorEmail() != null ? registration.getSupervisorEmail() : "null";
+                logger.info("📧 Registration refreshed - supervisorEmail in DB: {}", dbEmail);
+                databaseLoggerService.logAction("INFO", "EMAIL_REGISTRATION_REFRESHED",
+                        String.format("Registration refreshed from database - supervisorEmail: %s", dbEmail),
+                        presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, dbEmail));
+            } else {
+                logger.error("📧 CRITICAL: Registration not found in database after 3 attempts! registrationId: {}", registration.getId());
+                databaseLoggerService.logError("EMAIL_REGISTRATION_NOT_FOUND_AFTER_SAVE",
+                        String.format("Registration not found in database after save for presenter %s and slot %s (tried 3 times)",
+                                presenterUsername, slotId),
+                        null, presenterUsername, String.format("slotId=%d,registrationId=%s,attempts=3", slotId, registration.getId()));
+                // Continue anyway - use the registration object we have
+                logger.warn("📧 Continuing with original registration object (may not have supervisorEmail persisted)");
+            }
+        } else {
+            logger.error("📧 CRITICAL: Registration is null or has no ID! registration: {}, id: {}", 
+                    registration != null ? "not null" : "null",
+                    registration != null && registration.getId() != null ? registration.getId() : "null");
+            databaseLoggerService.logError("EMAIL_REGISTRATION_NULL_OR_NO_ID",
+                    String.format("Registration is null or has no ID for presenter %s and slot %s",
+                            presenterUsername, slotId),
+                    null, presenterUsername, String.format("slotId=%d", slotId));
+        }
+        
         String supervisorEmail = request.getSupervisorEmail();
+        logger.info("📧 Supervisor email from request: {}", supervisorEmail != null ? supervisorEmail : "null");
+        databaseLoggerService.logAction("INFO", "EMAIL_SUPERVISOR_EMAIL_CHECK",
+                String.format("Checking supervisor email from request: %s", supervisorEmail != null ? supervisorEmail : "null"),
+                presenterUsername, String.format("slotId=%d,requestEmail=%s", slotId, supervisorEmail != null ? supervisorEmail : "null"));
+        
+        // Also check registration object in case request email is null but registration has it
+        if ((supervisorEmail == null || supervisorEmail.trim().isEmpty()) && registration != null) {
+            supervisorEmail = registration.getSupervisorEmail();
+            logger.info("📧 Supervisor email from registration object: {}", supervisorEmail != null ? supervisorEmail : "null");
+            databaseLoggerService.logAction("INFO", "EMAIL_SUPERVISOR_EMAIL_FROM_REGISTRATION",
+                    String.format("Using supervisor email from registration: %s", supervisorEmail != null ? supervisorEmail : "null"),
+                    presenterUsername, String.format("slotId=%d,registrationEmail=%s", slotId, supervisorEmail != null ? supervisorEmail : "null"));
+        }
+        
+        // Validate email format before attempting to send
+        if (supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
+            supervisorEmail = supervisorEmail.trim();
+            
+            // Basic email validation
+            if (!supervisorEmail.contains("@") || supervisorEmail.length() < 5) {
+                String errorMsg = String.format("Invalid supervisor email format: %s", supervisorEmail);
+                logger.error("📧 ❌ {}", errorMsg);
+                databaseLoggerService.logError("EMAIL_REGISTRATION_INVALID_EMAIL_FORMAT", errorMsg, null,
+                        presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
+                supervisorEmail = null; // Treat as missing
+            } else {
+                logger.info("📧 Supervisor email found and validated: {} - proceeding with email send", supervisorEmail);
+            }
+        }
+        
         if (supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
             try {
-                approvalService.sendApprovalEmail(registration);
-                logger.info("Approval email sent successfully for presenter {} and slot {}", presenterUsername, slotId);
+                // Ensure registration has supervisorEmail set before sending
+                if (registration != null && (registration.getSupervisorEmail() == null || registration.getSupervisorEmail().trim().isEmpty())) {
+                    logger.info("📧 Setting supervisorEmail on registration object before sending");
+                    registration.setSupervisorEmail(supervisorEmail);
+                    registrationRepository.save(registration);
+                    logger.info("📧 Updated registration with supervisor email: {}", supervisorEmail);
+                    databaseLoggerService.logAction("INFO", "EMAIL_REGISTRATION_EMAIL_UPDATED",
+                            String.format("Updated registration with supervisor email %s for presenter %s and slot %s",
+                                    supervisorEmail, presenterUsername, slotId),
+                            presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
+                }
+                
+                if (registration == null) {
+                    logger.error("📧 ❌ CRITICAL: Registration is null when trying to send email!");
+                    databaseLoggerService.logError("EMAIL_REGISTRATION_NULL_EMAIL_SEND",
+                            String.format("Registration is null when trying to send email for presenter %s and slot %s",
+                                    presenterUsername, slotId),
+                            null, presenterUsername, String.format("slotId=%d", slotId));
+                } else {
+                    logger.info("📧 Calling approvalService.sendApprovalEmail() for presenter {} and slot {}", presenterUsername, slotId);
+                    databaseLoggerService.logAction("INFO", "EMAIL_CALLING_APPROVAL_SERVICE",
+                            String.format("Calling approvalService.sendApprovalEmail() for presenter %s and slot %s",
+                                    presenterUsername, slotId),
+                            presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
+                    
+                    approvalService.sendApprovalEmail(registration);
+                    
+                    logger.info("📧 ✅ Approval email send completed (check logs for success/failure) for presenter {} and slot {} to supervisor {}", 
+                            presenterUsername, slotId, supervisorEmail);
+                    databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_ATTEMPTED",
+                            String.format("Attempted to send approval email for presenter %s and slot %s to supervisor %s",
+                                    presenterUsername, slotId, supervisorEmail),
+                            presenterUsername);
+                }
             } catch (Exception e) {
-                logger.error("Failed to send approval email for presenter {} and slot {}", presenterUsername, slotId, e);
+                logger.error("📧 ❌ Failed to send approval email for presenter {} and slot {} to supervisor {} - Exception: {}",
+                        presenterUsername, slotId, supervisorEmail, e.getMessage(), e);
+                databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_EXCEPTION",
+                        String.format("Exception sending approval email for presenter %s and slot %s: %s",
+                                presenterUsername, slotId, e.getMessage()),
+                        e, presenterUsername,
+                        String.format("slotId=%d,supervisorEmail=%s,exceptionType=%s,exceptionMessage=%s,stackTrace=%s",
+                                slotId, supervisorEmail, e.getClass().getSimpleName(), e.getMessage(),
+                                e.getStackTrace().length > 0 ? e.getStackTrace()[0].toString() : "no_stack_trace"));
                 // Don't fail registration if email fails
             }
         } else {
-            logger.warn("No supervisor email provided for presenter {} and slot {}", presenterUsername, slotId);
+            String warningMsg = String.format("No supervisor email provided for presenter %s and slot %s - email not sent. Request email: %s, Registration email: %s",
+                    presenterUsername, slotId, 
+                    request.getSupervisorEmail() != null ? request.getSupervisorEmail() : "null",
+                    registration != null && registration.getSupervisorEmail() != null ? registration.getSupervisorEmail() : "null");
+            logger.warn("📧 ⚠️ {}", warningMsg);
+            databaseLoggerService.logError("EMAIL_REGISTRATION_NO_SUPERVISOR_EMAIL", warningMsg, null,
+                    presenterUsername, String.format("slotId=%d,requestEmail=%s,registrationEmail=%s",
+                            slotId, 
+                            request.getSupervisorEmail() != null ? request.getSupervisorEmail() : "null",
+                            registration != null && registration.getSupervisorEmail() != null ? registration.getSupervisorEmail() : "null"));
         }
-
-        // Map approval status for mobile compatibility
-        String approvalStatusStr = "PENDING_APPROVAL"; // Map PENDING to PENDING_APPROVAL
         
-        // Generate a unique registration ID for mobile (using hash of slotId + username)
-        // This is a workaround since we use composite key, but mobile expects a single ID
+        logger.info("📧 EMAIL SENDING FLOW END - presenter: {}, slotId: {}", presenterUsername, slotId);
+
+        // Map approval status for mobile API compatibility: PENDING -> PENDING_APPROVAL (mobile expects this format)
+        String approvalStatusStr = "PENDING_APPROVAL";
+        
+        // Generate unique registration ID for mobile: hash of slotId+username (workaround for composite key limitation)
+        // Mobile app expects single Long ID, but database uses composite key (slotId, username)
         Long registrationId = (long) (slotId.toString() + presenterUsername).hashCode();
         if (registrationId < 0) {
             registrationId = Math.abs(registrationId);
+        }
+        
+        // Get approval token from registration (may be null if email wasn't sent yet)
+        String approvalToken = null;
+        if (registration != null) {
+            approvalToken = registration.getApprovalToken();
         }
         
         return new PresenterSlotRegistrationResponse(
@@ -349,7 +528,7 @@ public class PresenterHomeService {
                 "Registration submitted. Waiting for supervisor approval.", 
                 "PENDING_APPROVAL",
                 registrationId,
-                registration.getApprovalToken(),
+                approvalToken,
                 approvalStatusStr
         );
     }
@@ -415,19 +594,24 @@ public class PresenterHomeService {
             }
         }
 
-        // Get approval status before deletion
+        // Capture approval status before deletion for logging purposes
         String approvalStatusStr = registration.getApprovalStatus() != null ? registration.getApprovalStatus().toString() : "UNKNOWN";
         
         registrationRepository.delete(registration);
 
-        // Get remaining registrations count
+        // Count remaining registrations for this slot to determine if slot should be marked as AVAILABLE again
         List<SeminarSlotRegistration> remainingRegistrations = registrationRepository.findByIdSlotId(slotId);
         long remaining = remainingRegistrations.size();
         
+        // Count only APPROVED registrations for capacity check (PENDING may be declined, DECLINED/EXPIRED don't take capacity)
+        long approvedRemaining = remainingRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
+                .count();
+        
         // Log cancellation to app_log
         databaseLoggerService.logBusinessEvent("SLOT_REGISTRATION_CANCELLED",
-                String.format("User %s cancelled registration for slotId=%d (approval status: %s, remaining: %d)",
-                        presenterUsername, slotId, approvalStatusStr, remaining),
+                String.format("User %s cancelled registration for slotId=%d (approval status: %s, remaining: %d, approved: %d)",
+                        presenterUsername, slotId, approvalStatusStr, remaining, approvedRemaining),
                 presenterUsername);
         
         boolean remainingPhd = remainingRegistrations.stream()
@@ -451,6 +635,21 @@ public class PresenterHomeService {
             }
         }
         seminarSlotRepository.save(slot);
+
+        // CRITICAL: If an APPROVED registration was cancelled and slot now has capacity, promote next from waiting list
+        // Only count APPROVED registrations for capacity check - PENDING may be declined, DECLINED/EXPIRED don't take capacity
+        if (registration.getApprovalStatus() == ApprovalStatus.APPROVED && approvedRemaining < slot.getCapacity()) {
+            try {
+                Optional<WaitingListEntry> promotedEntry = promoteFromWaitingListAfterCancellation(slotId, slot);
+                if (promotedEntry.isPresent()) {
+                    logger.info("Successfully promoted user {} from waiting list for slot {} after cancellation", 
+                            promotedEntry.get().getPresenterUsername(), slotId);
+                }
+            } catch (Exception e) {
+                logger.error("Failed to promote from waiting list after cancellation for slot {}: {}", slotId, e.getMessage(), e);
+                // Don't fail cancellation if promotion fails
+            }
+        }
 
         logger.info("Presenter {} removed from slot {}. Remaining presenters: {}", presenterUsername, slotId, remaining);
         return new PresenterSlotRegistrationResponse(true, "Registration cancelled", "UNREGISTERED", false);
@@ -483,14 +682,14 @@ public class PresenterHomeService {
         if (sent) {
             logger.info("Registration cancellation email sent to supervisor {} for user {} and slotId={}",
                     supervisorEmail, registration.getId().getPresenterUsername(), registration.getId().getSlotId());
-            databaseLoggerService.logBusinessEvent("REGISTRATION_CANCELLATION_EMAIL_SENT",
+            databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_CANCELLATION_EMAIL_SENT",
                     String.format("Registration cancellation email sent to supervisor %s for user %s and slotId=%d",
                             supervisorEmail, registration.getId().getPresenterUsername(), registration.getId().getSlotId()),
                     registration.getId().getPresenterUsername());
         } else {
             logger.error("Failed to send registration cancellation email to supervisor {} for user {} and slotId={}",
                     supervisorEmail, registration.getId().getPresenterUsername(), registration.getId().getSlotId());
-            databaseLoggerService.logError("REGISTRATION_CANCELLATION_EMAIL_FAILED",
+            databaseLoggerService.logError("EMAIL_REGISTRATION_CANCELLATION_EMAIL_FAILED",
                     String.format("Failed to send registration cancellation email to supervisor %s for user %s and slotId=%d",
                             supervisorEmail, registration.getId().getPresenterUsername(), registration.getId().getSlotId()),
                     null, registration.getId().getPresenterUsername(),
@@ -569,6 +768,88 @@ public class PresenterHomeService {
             slot.getBuilding() != null ? slot.getBuilding() : "N/A",
             slot.getRoom() != null ? slot.getRoom() : "N/A"
         );
+    }
+
+    /**
+     * Promote next user from waiting list after an approved registration is cancelled
+     * Creates a PENDING registration and sends approval email to supervisor
+     */
+    @Transactional
+    private Optional<WaitingListEntry> promoteFromWaitingListAfterCancellation(Long slotId, SeminarSlot slot) {
+        logger.info("Attempting to promote from waiting list for slot {} after cancellation", slotId);
+        
+        // Get next person on waiting list
+        List<WaitingListEntry> waitingList = waitingListService.getWaitingList(slotId);
+        if (waitingList.isEmpty()) {
+            logger.debug("No one on waiting list for slot {}", slotId);
+            return Optional.empty();
+        }
+        
+        WaitingListEntry nextEntry = waitingList.get(0);
+        String promotedUsername = nextEntry.getPresenterUsername();
+        
+        // Check if slot has capacity (count both approved and pending)
+        List<SeminarSlotRegistration> allRegistrations = registrationRepository.findByIdSlotId(slotId);
+        long approvedCount = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
+                .count();
+        long pendingCount = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .count();
+        int totalRegistrations = (int) (approvedCount + pendingCount);
+        int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
+        
+        if (totalRegistrations >= capacity && capacity > 0) {
+            logger.info("Cannot promote user {} from waiting list - slot {} is still full (capacity: {}, total: {})",
+                    promotedUsername, slotId, capacity, totalRegistrations);
+            return Optional.empty();
+        }
+        
+        // Get user details
+        User promotedUser = userRepository.findByBguUsername(promotedUsername)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + promotedUsername));
+        
+        // Check if user already registered (shouldn't happen, but safety check)
+        if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, promotedUsername)) {
+            logger.warn("User {} already registered for slot {} - removing from waiting list without promotion",
+                    promotedUsername, slotId);
+            waitingListService.removeFromWaitingList(slotId, promotedUsername);
+            return Optional.empty();
+        }
+        
+        // Create PENDING registration (not APPROVED - supervisor must approve)
+        SeminarSlotRegistration newRegistration = new SeminarSlotRegistration();
+        newRegistration.setId(new SeminarSlotRegistrationId(slotId, promotedUsername));
+        newRegistration.setDegree(promotedUser.getDegree());
+        newRegistration.setTopic(nextEntry.getTopic());
+        newRegistration.setSupervisorName(nextEntry.getSupervisorName());
+        newRegistration.setSupervisorEmail(nextEntry.getSupervisorEmail());
+        newRegistration.setRegisteredAt(LocalDateTime.now());
+        newRegistration.setApprovalStatus(ApprovalStatus.PENDING);
+        
+        registrationRepository.save(newRegistration);
+        
+        // Remove from waiting list
+        waitingListService.removeFromWaitingList(slotId, promotedUsername);
+        
+        logger.info("Promoted user {} from waiting list for slot {} - created PENDING registration", 
+                promotedUsername, slotId);
+        databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTED_AFTER_CANCELLATION",
+                String.format("User %s promoted from waiting list for slot %d after cancellation (PENDING registration created)",
+                        promotedUsername, slotId),
+                promotedUsername);
+        
+        // Send approval email to supervisor (outside transaction to avoid holding locks)
+        try {
+            approvalService.sendApprovalEmail(newRegistration);
+            logger.info("Approval email sent to supervisor for promoted user {} in slot {}", promotedUsername, slotId);
+        } catch (Exception e) {
+            logger.error("Failed to send approval email for promoted user {} in slot {}: {}", 
+                    promotedUsername, slotId, e.getMessage(), e);
+            // Don't fail promotion if email fails
+        }
+        
+        return Optional.of(nextEntry);
     }
 
     /**
@@ -1109,6 +1390,10 @@ public class PresenterHomeService {
         boolean slotLockedByPhd = registrations.stream()
                 .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
 
+        // CRITICAL FIX: Calculate total registrations (approved + pending) to determine if slot is actually full
+        int totalRegistrations = (int) (approvedCount + pendingCount);
+        boolean slotOverCapacity = totalRegistrations >= capacity && capacity > 0;
+
         // Check if attendance was closed - if session exists and is CLOSED, slot is no longer available
         boolean attendanceClosed = false;
         if (slot.getLegacySessionId() != null) {
@@ -1124,10 +1409,23 @@ public class PresenterHomeService {
             logger.debug("Slot {} attendance window has closed at {}, marking as unavailable", slot.getSlotId(), slot.getAttendanceClosesAt());
         }
 
-        int available = Math.max(capacity - enrolledCount, 0);
-        SlotState state = slotLockedByPhd ? SlotState.FULL : determineState(capacity, enrolledCount);
+        // Calculate available count: capacity minus total registrations (approved + pending)
+        // If pending registrations exceed capacity, available should be 0 or negative
+        int available = Math.max(capacity - totalRegistrations, 0);
+        
+        // Determine slot state: if total registrations (approved + pending) >= capacity, slot is FULL
+        SlotState state;
         if (slotLockedByPhd) {
+            state = SlotState.FULL;
             available = 0;
+        } else if (slotOverCapacity) {
+            // Slot is over capacity due to pending registrations
+            state = SlotState.FULL;
+            available = 0;
+            logger.warn("Slot {} is over capacity: capacity={}, approved={}, pending={}, total={}",
+                    slot.getSlotId(), capacity, approvedCount, pendingCount, totalRegistrations);
+        } else {
+            state = determineState(capacity, totalRegistrations);
         }
         
         // NOTE: Do NOT change available count or state when attendance is closed
@@ -1147,20 +1445,56 @@ public class PresenterHomeService {
         card.setEnrolledCount(enrolledCount);
         card.setAvailableCount(available);
         
+        // Get waiting list count for this slot (MUST be included for all slots)
+        long waitingListCount = waitingListService.getWaitingListCount(slot.getSlotId());
+        
+        // Get the first person on the waiting list (if any) for waitingListUserName
+        String waitingListUserName = null;
+        if (waitingListCount > 0) {
+            List<WaitingListEntry> waitingList = waitingListService.getWaitingList(slot.getSlotId());
+            if (!waitingList.isEmpty()) {
+                waitingListUserName = waitingList.get(0).getPresenterUsername();
+            }
+        }
+        
+        // Log waiting list status to app_log for all slots
+        databaseLoggerService.logAction("INFO", "WAITING_LIST_STATUS",
+                String.format("Slot %d waiting list status: count=%d, userOnList=%s, firstUser=%s",
+                        slot.getSlotId(), waitingListCount, onWaitingList, waitingListUserName != null ? waitingListUserName : "none"),
+                presenterUsername != null ? presenterUsername : "system",
+                String.format("slotId=%d,waitingListCount=%d,onWaitingList=%s,waitingListUserName=%s",
+                        slot.getSlotId(), waitingListCount, onWaitingList, waitingListUserName != null ? waitingListUserName : "null"));
+        
+        // Warning: Log data inconsistency when user is marked as on waiting list but count is 0
+        // This indicates a potential missing field or data synchronization issue
+        if (onWaitingList && waitingListCount == 0) {
+            String warningMsg = String.format("Data inconsistency detected: onWaitingList=true but waitingListCount=0 for slotId=%d, presenterUsername=%s",
+                    slot.getSlotId(), presenterUsername != null ? presenterUsername : "unknown");
+            logger.warn("⚠️ {}", warningMsg);
+            databaseLoggerService.logError("WAITING_LIST_DATA_INCONSISTENCY", warningMsg, null,
+                    presenterUsername != null ? presenterUsername : "system",
+                    String.format("slotId=%d,presenterUsername=%s,onWaitingList=true,waitingListCount=0",
+                            slot.getSlotId(), presenterUsername != null ? presenterUsername : "unknown"));
+        }
+        
         // Set new fields for mobile compatibility
         card.setApprovedCount((int) approvedCount);
         card.setPendingCount((int) pendingCount);
         card.setApprovalStatus(userApprovalStatus);
         card.setOnWaitingList(onWaitingList);
+        card.setWaitingListCount((int) waitingListCount);
+        card.setWaitingListUserName(waitingListUserName);
         
         // Set session status fields for client-side filtering
         card.setAttendanceOpenedAt(slot.getAttendanceOpenedAt() != null ? DATE_TIME_FORMAT.format(slot.getAttendanceOpenedAt()) : null);
         card.setAttendanceClosesAt(slot.getAttendanceClosesAt() != null ? DATE_TIME_FORMAT.format(slot.getAttendanceClosesAt()) : null);
         card.setHasClosedSession(attendanceClosed);
 
+        // NOTE: Registration limits are enforced at the API level, not UI level
+        // Being registered in another slot or on a waiting list does NOT block registration
+        // Users can register for multiple slots as long as they're within limits (PhD: 1 approved + 1 pending, MSc: 1 approved + 2 pending)
         boolean canRegister = presenterUsername != null
                 && !presenterInThisSlot
-                && !presenterRegisteredElsewhere
                 && available > 0
                 && !attendanceClosed; // Cannot register if attendance was closed
 
@@ -1180,9 +1514,6 @@ public class PresenterHomeService {
         } else if (presenterInThisSlot) {
             canRegister = false;
             card.setDisableReason("You are already registered in this slot");
-        } else if (presenterRegisteredElsewhere) {
-            canRegister = false;
-            card.setDisableReason("You are registered in another slot");
         } else if (presenterUsername == null) {
             canRegister = false;
         }
