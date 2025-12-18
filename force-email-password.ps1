@@ -2,6 +2,9 @@
 # Nuclear Approach: Force Email Password via Environment Variable
 # =============================================
 # For Windows - instructions to run on Linux server
+#
+# SECURITY WARNING: Do NOT commit real passwords to version control!
+# Replace "your-password-here" with actual password when running this script.
 
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "FORCING EMAIL PASSWORD UPDATE" -ForegroundColor Cyan
@@ -18,8 +21,8 @@ sudo mkdir -p /etc/systemd/system/semscan-api.service.d
 sudo tee /etc/systemd/system/semscan-api.service.d/override.conf > /dev/null << 'EOF'
 [Service]
 # FORCE email password via environment variable (highest priority)
-Environment="SPRING_MAIL_PASSWORD=Taltal123!"
-Environment="SPRING_MAIL_USERNAME=benariet@bgu.ac.il"
+Environment="SPRING_MAIL_PASSWORD=your-password-here"
+Environment="SPRING_MAIL_USERNAME=your-email@bgu.ac.il"
 Environment="SPRING_MAIL_FROM=SemScan_System_NoReply@bgu.ac.il"
 EOF
 

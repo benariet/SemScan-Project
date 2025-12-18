@@ -1,0 +1,17 @@
+-- =====================================================================
+-- DATABASE UPDATE SCRIPT
+-- =====================================================================
+-- Run this script to update your existing database with app_config table
+-- 
+-- Usage:
+--   mysql -u username -p semscan_db < migration-app-config.sql
+-- 
+-- Or execute migration-app-config.sql in MySQL Workbench / your SQL client
+-- 
+-- This file is just a pointer - the actual migration is in:
+--   migration-app-config.sql (in project root)
+-- =====================================================================
+
+-- IMPORTANT: Run migration-app-config.sql from the project root directory
+-- This file exists only to document the update process
+-- See scripts/UPDATE-DATABASE.md for detailed instructions

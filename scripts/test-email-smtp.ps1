@@ -3,6 +3,9 @@
 # =============================================
 # This script tests SMTP connection and authentication
 # Usage: .\test-email-smtp.ps1
+#
+# SECURITY WARNING: Do NOT commit real passwords to version control!
+# Replace "your-password-here" with actual password when running this script.
 
 param(
     [string]$ToEmail = "benariet@bgu.ac.il",
@@ -10,7 +13,7 @@ param(
     [string]$SmtpHost = "outlook.office365.com",
     [int]$SmtpPort = 587,
     [string]$Username = "benariet@bgu.ac.il",
-    [string]$Password = "Taltal123!"
+    [string]$Password = "your-password-here"
 )
 
 Write-Host "=========================================" -ForegroundColor Cyan

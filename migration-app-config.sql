@@ -1,11 +1,4 @@
--- =====================================================================
--- App Config Migration Script
--- =====================================================================
--- This script creates the app_config table and inserts default values
--- Uses ON DUPLICATE KEY UPDATE for idempotent migrations
--- =====================================================================
 
--- Create app_config table if it doesn't exist
 CREATE TABLE IF NOT EXISTS app_config (
     config_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     config_key VARCHAR(255) NOT NULL UNIQUE,
@@ -18,21 +11,53 @@ CREATE TABLE IF NOT EXISTS app_config (
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Create indexes if they don't exist
-CREATE INDEX IF NOT EXISTS idx_app_config_target_system ON app_config(target_system);
-CREATE INDEX IF NOT EXISTS idx_app_config_category ON app_config(category);
-CREATE INDEX IF NOT EXISTS idx_app_config_key ON app_config(config_key);
 
--- Insert or update default config values
+SET @db_name = DATABASE();
+
+SELECT COUNT(*) INTO @idx_exists FROM information_schema.statistics 
+WHERE table_schema = @db_name 
+AND table_name = 'app_config' 
+AND index_name = 'idx_app_config_target_system';
+
+SET @sql = IF(@idx_exists = 0, 
+    'CREATE INDEX idx_app_config_target_system ON app_config(target_system)',
+    'SELECT ''Index idx_app_config_target_system already exists'' AS message');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SELECT COUNT(*) INTO @idx_exists FROM information_schema.statistics 
+WHERE table_schema = @db_name 
+AND table_name = 'app_config' 
+AND index_name = 'idx_app_config_category';
+
+SET @sql = IF(@idx_exists = 0, 
+    'CREATE INDEX idx_app_config_category ON app_config(category)',
+    'SELECT ''Index idx_app_config_category already exists'' AS message');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+
+SELECT COUNT(*) INTO @idx_exists FROM information_schema.statistics 
+WHERE table_schema = @db_name 
+AND table_name = 'app_config' 
+AND index_name = 'idx_app_config_key';
+
+SET @sql = IF(@idx_exists = 0, 
+    'CREATE INDEX idx_app_config_key ON app_config(config_key)',
+    'SELECT ''Index idx_app_config_key already exists'' AS message');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 INSERT INTO app_config (config_key, config_value, config_type, category, target_system, description) VALUES
--- BOTH: Must be identical for mobile and API (emails, domains, URLs)
 ('server_url', 'http://132.72.50.53:8080', 'STRING', 'NETWORK', 'BOTH', 'Base server URL for API calls - MUST be same for mobile and API'),
 ('export_email_recipients', 'benariet@bgu.ac.il,talbnwork@gmail.com', 'STRING', 'EMAIL', 'BOTH', 'Comma-separated email recipients for export emails - MUST be same for mobile and API'),
 ('support_email', 'benariet@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'Support email for bug reports and feedback - MUST be same for mobile and API'),
 ('email_domain', '@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'Email domain suffix for username-based emails - MUST be same for mobile and API'),
 ('test_email_recipient', 'talbnwork@gmail.com', 'STRING', 'EMAIL', 'BOTH', 'Test email recipient address - MUST be same for mobile and API'),
 
--- MOBILE: Only for mobile app
 ('connection_timeout_seconds', '10', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP connection timeout in seconds - mobile app only'),
 ('read_timeout_seconds', '10', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP read timeout in seconds - mobile app only'),
 ('write_timeout_seconds', '10', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP write timeout in seconds - mobile app only'),
@@ -48,15 +73,11 @@ INSERT INTO app_config (config_key, config_value, config_type, category, target_
 ('student_attendance_window_before_minutes', '5', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes before session start for student attendance - mobile app only'),
 ('student_attendance_window_after_minutes', '10', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes after session start for student attendance - mobile app only'),
 
--- BOTH: Must be identical for mobile and API
 ('waiting_list_approval_window_hours', '24', 'INTEGER', 'WAITING_LIST', 'BOTH', 'Hours user has to approve waiting list slot - MUST be same for mobile and API'),
 ('email_from_name', 'SemScan System', 'STRING', 'EMAIL', 'BOTH', 'Email sender display name - MUST be same for mobile and API'),
 ('email_reply_to', 'noreply@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'Email reply-to address - MUST be same for mobile and API'),
 ('email_bcc_list', 'admin@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'BCC recipients for emails (comma-separated) - MUST be same for mobile and API')
 
--- API: Only for backend API (add examples as needed)
--- ('api_email_password', 'secret123', 'STRING', 'EMAIL', 'API', 'Email service password - backend API only'),
--- ('api_rate_limit_per_minute', '100', 'INTEGER', 'NETWORK', 'API', 'API rate limit - backend API only')
 ON DUPLICATE KEY UPDATE 
     config_value = VALUES(config_value),
     config_type = VALUES(config_type),
