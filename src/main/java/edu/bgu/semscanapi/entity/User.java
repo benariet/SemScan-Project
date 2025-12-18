@@ -38,6 +38,10 @@ public class User {
     @Column(name = "national_id_number")
     private String nationalIdNumber;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supervisor_id")
+    private Supervisor supervisor;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -142,6 +146,14 @@ public class User {
 
     public void setNationalIdNumber(String nationalIdNumber) {
         this.nationalIdNumber = nationalIdNumber;
+    }
+
+    public Supervisor getSupervisor() {
+        return supervisor;
+    }
+
+    public void setSupervisor(Supervisor supervisor) {
+        this.supervisor = supervisor;
     }
 
     public LocalDateTime getCreatedAt() {

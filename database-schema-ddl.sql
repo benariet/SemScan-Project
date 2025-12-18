@@ -3,6 +3,19 @@ CREATE DATABASE semscan_db;
 USE semscan_db;
 
 -- =====================================================================
+--  SUPERVISORS
+-- =====================================================================
+CREATE TABLE supervisors (
+    supervisor_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_supervisors_email ON supervisors(email);
+
+-- =====================================================================
 --  USERS
 -- =====================================================================
 CREATE TABLE users (
@@ -15,14 +28,19 @@ CREATE TABLE users (
     is_presenter BOOLEAN DEFAULT FALSE,
     is_participant BOOLEAN DEFAULT FALSE,
     national_id_number VARCHAR(50),
+    supervisor_id BIGINT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_users_supervisor
+        FOREIGN KEY (supervisor_id) REFERENCES supervisors(supervisor_id)
+        ON DELETE SET NULL
 );
 
 CREATE INDEX idx_users_degree ON users(degree);
 CREATE INDEX idx_users_bgu_username ON users(bgu_username);
 CREATE INDEX idx_users_is_presenter ON users(is_presenter);
 CREATE INDEX idx_users_is_participant ON users(is_participant);
+CREATE INDEX idx_users_supervisor_id ON users(supervisor_id);
 
 -- =====================================================================
 --  SEMINARS

@@ -465,6 +465,7 @@ public class GlobalConfig {
             getServerUrl(),
             getApiBaseUrl(),
             databaseUrl,
+            getApiKeyHeader(),
             getEnvironment(),
             getManualAttendanceWindowBeforeMinutes(),
             getManualAttendanceWindowAfterMinutes(),

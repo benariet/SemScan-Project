@@ -1,18 +1,25 @@
 package edu.bgu.semscanapi.controller;
 
+import edu.bgu.semscanapi.dto.AccountSetupRequest;
 import edu.bgu.semscanapi.dto.LoginRequest;
 import edu.bgu.semscanapi.dto.LoginResponse;
+import edu.bgu.semscanapi.entity.Supervisor;
 import edu.bgu.semscanapi.entity.User;
+import edu.bgu.semscanapi.repository.SupervisorRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.service.BguAuthSoapService;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -28,6 +35,12 @@ public class AuthController {
 
     private final BguAuthSoapService bguAuthSoapService;
     private final UserRepository userRepository;
+    
+    @Autowired(required = false)
+    private SupervisorRepository supervisorRepository;
+    
+    @Autowired(required = false)
+    private DatabaseLoggerService databaseLoggerService;
 
     public AuthController(BguAuthSoapService bguAuthSoapService, UserRepository userRepository) {
         this.bguAuthSoapService = bguAuthSoapService;
@@ -55,15 +68,19 @@ public class AuthController {
             logger.debug("BGU authentication succeeded for username: {}", request.getUsername());
 
             User user = ensureLocalUser(request.getUsername());
-            logger.debug("Resolved local user: id={}, bguUsername={}, email={}, isPresenter={}, isParticipant={}",
-                    user.getId(), user.getBguUsername(), user.getEmail(), user.getIsPresenter(), user.getIsParticipant());
+            logger.debug("Resolved local user: id={}, bguUsername={}, email={}, isPresenter={}, isParticipant={}, supervisor={}",
+                    user.getId(), user.getBguUsername(), user.getEmail(), user.getIsPresenter(), user.getIsParticipant(),
+                    user.getSupervisor() != null ? user.getSupervisor().getEmail() : "null");
 
             LoggerUtil.setBguUsername(user.getBguUsername());
+
+            // Check if this is a first-time user (no supervisor linked)
+            boolean isFirstTime = user.getSupervisor() == null;
 
             LoginResponse response = LoginResponse.success(
                     user.getBguUsername(),
                     user.getEmail(),
-                    false,
+                    isFirstTime,
                     Boolean.TRUE.equals(user.getIsPresenter()),
                     Boolean.TRUE.equals(user.getIsParticipant()));
 
@@ -209,6 +226,172 @@ public class AuthController {
             return trimmed.toLowerCase(Locale.ROOT);
         }
         return trimmed.toLowerCase(Locale.ROOT) + "@bgu.ac.il";
+    }
+
+    /**
+     * Complete account setup by linking supervisor to user
+     * POST /api/v1/auth/setup
+     */
+    @PostMapping("/setup")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> setupAccount(
+            @Valid @RequestBody AccountSetupRequest request) {
+        LoggerUtil.generateAndSetCorrelationId();
+        String endpoint = "/api/v1/auth/setup";
+
+        LoggerUtil.logApiRequest(logger, "POST", endpoint, 
+                String.format("{\"supervisorName\":\"%s\",\"supervisorEmail\":\"%s\"}", 
+                        request.getSupervisorName(), request.getSupervisorEmail()));
+
+        try {
+            // Get current user from context (should be set by authentication filter or passed as parameter)
+            // For now, we'll need to get it from the request - but typically this would come from security context
+            // Since we don't have authentication filter yet, we'll need to pass username in request or use a different approach
+            
+            // TODO: Get username from security context when authentication is implemented
+            // For now, we'll need to add username to AccountSetupRequest or use a different endpoint structure
+            
+            logger.error("Account setup endpoint called but username not available in request. " +
+                    "Need to implement security context or add username to request.");
+            
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Username not provided", "message", 
+                            "Account setup requires authentication. Please include username in request or implement security context."));
+            
+        } catch (Exception ex) {
+            LoggerUtil.logError(logger, "Unexpected error during account setup", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Account setup failed", "message", ex.getMessage()));
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+
+    /**
+     * Complete account setup by linking supervisor to user
+     * POST /api/v1/auth/setup/{username}
+     */
+    @PostMapping("/setup/{username}")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> setupAccountForUser(
+            @PathVariable String username,
+            @Valid @RequestBody AccountSetupRequest request) {
+        LoggerUtil.generateAndSetCorrelationId();
+        String endpoint = "/api/v1/auth/setup/" + username;
+
+        LoggerUtil.logApiRequest(logger, "POST", endpoint, 
+                String.format("{\"supervisorName\":\"%s\",\"supervisorEmail\":\"%s\"}", 
+                        request.getSupervisorName(), request.getSupervisorEmail()));
+
+        try {
+            LoggerUtil.setBguUsername(username);
+
+            // Normalize username
+            String normalizedUsername = username != null ? username.trim().toLowerCase(Locale.ROOT) : "";
+            if (normalizedUsername.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Invalid username", "message", "Username cannot be empty"));
+            }
+
+            // Remove @domain if present
+            String baseUsername = normalizedUsername.contains("@")
+                    ? normalizedUsername.substring(0, normalizedUsername.indexOf('@'))
+                    : normalizedUsername;
+
+            // Find user
+            Optional<User> userOpt = userRepository.findByBguUsername(baseUsername);
+            if (userOpt.isEmpty()) {
+                logger.warn("Account setup failed: user not found: {}", baseUsername);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "User not found", "message", 
+                                "User with username " + baseUsername + " does not exist. Please login first."));
+            }
+
+            User user = userOpt.get();
+
+            // Check if supervisor is already set
+            if (user.getSupervisor() != null) {
+                logger.info("Account setup: user {} already has supervisor linked: {}", 
+                        baseUsername, user.getSupervisor().getEmail());
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "message", "Account already set up",
+                        "supervisorName", user.getSupervisor().getName(),
+                        "supervisorEmail", user.getSupervisor().getEmail()
+                ));
+            }
+
+            // Find or create supervisor
+            Supervisor supervisor;
+            Optional<Supervisor> existingSupervisor = supervisorRepository != null 
+                    ? supervisorRepository.findByEmail(request.getSupervisorEmail().trim().toLowerCase(Locale.ROOT))
+                    : Optional.empty();
+
+            if (existingSupervisor.isPresent()) {
+                supervisor = existingSupervisor.get();
+                logger.info("Using existing supervisor: id={}, name={}, email={}", 
+                        supervisor.getId(), supervisor.getName(), supervisor.getEmail());
+            } else {
+                // Create new supervisor
+                supervisor = new Supervisor();
+                supervisor.setName(request.getSupervisorName().trim());
+                supervisor.setEmail(request.getSupervisorEmail().trim().toLowerCase(Locale.ROOT));
+                
+                if (supervisorRepository != null) {
+                    supervisor = supervisorRepository.save(supervisor);
+                    logger.info("Created new supervisor: id={}, name={}, email={}", 
+                            supervisor.getId(), supervisor.getName(), supervisor.getEmail());
+                } else {
+                    logger.error("SupervisorRepository is null - cannot save supervisor");
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(Map.of("error", "Service unavailable", "message", 
+                                    "Supervisor repository not configured"));
+                }
+            }
+
+            // Link supervisor to user
+            user.setSupervisor(supervisor);
+            user = userRepository.save(user);
+
+            logger.info("Account setup completed for user {}: linked to supervisor {} ({})", 
+                    baseUsername, supervisor.getName(), supervisor.getEmail());
+
+            if (databaseLoggerService != null) {
+                try {
+                    databaseLoggerService.logAction("INFO", "ACCOUNT_SETUP_COMPLETED",
+                            String.format("User %s linked to supervisor %s (%s)", 
+                                    baseUsername, supervisor.getName(), supervisor.getEmail()),
+                            baseUsername, String.format("supervisorId=%d,supervisorEmail=%s", 
+                                    supervisor.getId(), supervisor.getEmail()));
+                } catch (Exception logEx) {
+                    logger.warn("Failed to log account setup to database", logEx);
+                }
+            }
+
+            LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), "Account setup completed");
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Account setup completed successfully",
+                    "supervisorName", supervisor.getName(),
+                    "supervisorEmail", supervisor.getEmail()
+            ));
+
+        } catch (Exception ex) {
+            LoggerUtil.logError(logger, "Unexpected error during account setup", ex);
+            if (databaseLoggerService != null) {
+                try {
+                    databaseLoggerService.logError("ACCOUNT_SETUP_FAILED",
+                            String.format("Account setup failed for user %s: %s", username, ex.getMessage()),
+                            ex, username, String.format("supervisorEmail=%s", request.getSupervisorEmail()));
+                } catch (Exception logEx) {
+                    // Ignore logging errors
+                }
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Account setup failed", "message", ex.getMessage()));
+        } finally {
+            LoggerUtil.clearContext();
+        }
     }
 }
 

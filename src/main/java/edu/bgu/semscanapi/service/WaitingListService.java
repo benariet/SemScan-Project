@@ -168,6 +168,34 @@ public class WaitingListService {
             throw new IllegalStateException("User degree is not set");
         }
 
+        // Get supervisor from User entity (preferred) or fall back to request parameters (backward compatibility)
+        String finalSupervisorName = null;
+        String finalSupervisorEmail = null;
+        
+        if (user.getSupervisor() != null) {
+            // Use supervisor from User entity (new way - after account setup)
+            finalSupervisorName = user.getSupervisor().getName();
+            finalSupervisorEmail = user.getSupervisor().getEmail();
+            logger.info("Using supervisor from User entity: name={}, email={}", finalSupervisorName, finalSupervisorEmail);
+        } else if (supervisorName != null && !supervisorName.trim().isEmpty() && 
+                   supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
+            // Fall back to request parameters (backward compatibility for users who haven't completed account setup)
+            finalSupervisorName = supervisorName.trim();
+            finalSupervisorEmail = supervisorEmail.trim();
+            logger.warn("User {} has no supervisor linked. Using supervisor from request (backward compatibility): name={}, email={}. " +
+                    "User should complete account setup via /api/v1/auth/setup/{}", 
+                    normalizedUsername, finalSupervisorName, finalSupervisorEmail, normalizedUsername);
+        } else {
+            // No supervisor available - this is required
+            String errorMsg = String.format("Supervisor information is required. User %s has no supervisor linked and none provided in request. " +
+                    "Please complete account setup via /api/v1/auth/setup/%s", normalizedUsername, normalizedUsername);
+            logger.error("{} - slotId={}", errorMsg, slotId);
+            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
+                    String.format("slotId=%d,presenterUsername=%s,userId=%d,reason=NO_SUPERVISOR", 
+                            slotId, normalizedUsername, user.getId()));
+            throw new IllegalStateException("Supervisor information is required. Please complete account setup first.");
+        }
+
         // Calculate position: new entries are added at the end (position = current count + 1)
         long currentCount = waitingListRepository.countBySlotId(slotId);
         int position = (int) currentCount + 1;
@@ -178,8 +206,8 @@ public class WaitingListService {
         entry.setPresenterUsername(normalizedUsername);
         entry.setDegree(user.getDegree());
         entry.setTopic(topic);
-        entry.setSupervisorName(supervisorName);
-        entry.setSupervisorEmail(supervisorEmail);
+        entry.setSupervisorName(finalSupervisorName);
+        entry.setSupervisorEmail(finalSupervisorEmail);
         entry.setPosition(position);
 
         try {

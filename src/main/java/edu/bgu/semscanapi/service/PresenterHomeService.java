@@ -280,12 +280,39 @@ public class PresenterHomeService {
                 return new PresenterSlotRegistrationResponse(false, "Slot is already full", "SLOT_FULL");
             }
 
+            // Get supervisor from User entity (preferred) or fall back to request parameters (backward compatibility)
+            String finalSupervisorName = null;
+            String finalSupervisorEmail = null;
+            
+            if (presenter.getSupervisor() != null) {
+                // Use supervisor from User entity (new way - after account setup)
+                finalSupervisorName = presenter.getSupervisor().getName();
+                finalSupervisorEmail = presenter.getSupervisor().getEmail();
+                logger.info("Using supervisor from User entity: name={}, email={}", finalSupervisorName, finalSupervisorEmail);
+            } else if (request.getSupervisorName() != null && !request.getSupervisorName().trim().isEmpty() && 
+                       request.getSupervisorEmail() != null && !request.getSupervisorEmail().trim().isEmpty()) {
+                // Fall back to request parameters (backward compatibility for users who haven't completed account setup)
+                finalSupervisorName = normalizeSupervisorName(request.getSupervisorName());
+                finalSupervisorEmail = request.getSupervisorEmail().trim();
+                logger.warn("User {} has no supervisor linked. Using supervisor from request (backward compatibility): name={}, email={}. " +
+                        "User should complete account setup via /api/v1/auth/setup/{}", 
+                        presenterUsername, finalSupervisorName, finalSupervisorEmail, presenterUsername);
+            } else {
+                // No supervisor available - this is required
+                String errorMsg = String.format("Supervisor information is required. User %s has no supervisor linked and none provided in request. " +
+                        "Please complete account setup via /api/v1/auth/setup/%s", presenterUsername, presenterUsername);
+                logger.error("{} - slotId={}", errorMsg, slotId);
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
+                    String.format("slotId=%s,reason=NO_SUPERVISOR", slotId));
+                return new PresenterSlotRegistrationResponse(false, errorMsg, "NO_SUPERVISOR");
+            }
+
             registration = new SeminarSlotRegistration();
             registration.setId(new SeminarSlotRegistrationId(slotId, presenterUsername));
             registration.setDegree(presenter.getDegree());
             registration.setTopic(normalizeTopic(request.getTopic()));
-            registration.setSupervisorName(normalizeSupervisorName(request.getSupervisorName()));
-            registration.setSupervisorEmail(request.getSupervisorEmail());
+            registration.setSupervisorName(finalSupervisorName);
+            registration.setSupervisorEmail(finalSupervisorEmail);
             registration.setRegisteredAt(LocalDateTime.now());
             registration.setApprovalStatus(ApprovalStatus.PENDING); // Default to PENDING
 
@@ -424,19 +451,36 @@ public class PresenterHomeService {
                     null, presenterUsername, String.format("slotId=%d", slotId));
         }
         
-        String supervisorEmail = request.getSupervisorEmail();
-        logger.info("📧 Supervisor email from request: {}", supervisorEmail != null ? supervisorEmail : "null");
-        databaseLoggerService.logAction("INFO", "EMAIL_SUPERVISOR_EMAIL_CHECK",
-                String.format("Checking supervisor email from request: %s", supervisorEmail != null ? supervisorEmail : "null"),
-                presenterUsername, String.format("slotId=%d,requestEmail=%s", slotId, supervisorEmail != null ? supervisorEmail : "null"));
+        // Get supervisor email: prefer User entity, then registration, then request (backward compatibility)
+        String supervisorEmail = null;
+        String supervisorName = null;
         
-        // Also check registration object in case request email is null but registration has it
-        if ((supervisorEmail == null || supervisorEmail.trim().isEmpty()) && registration != null) {
+        if (presenter.getSupervisor() != null) {
+            // Use supervisor from User entity (new way - after account setup)
+            supervisorEmail = presenter.getSupervisor().getEmail();
+            supervisorName = presenter.getSupervisor().getName();
+            logger.info("📧 Using supervisor from User entity: name={}, email={}", supervisorName, supervisorEmail);
+            databaseLoggerService.logAction("INFO", "EMAIL_SUPERVISOR_EMAIL_FROM_USER",
+                    String.format("Using supervisor from User entity: %s (%s)", supervisorName, supervisorEmail),
+                    presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
+        } else if (registration != null && registration.getSupervisorEmail() != null && !registration.getSupervisorEmail().trim().isEmpty()) {
+            // Fall back to registration (backward compatibility)
             supervisorEmail = registration.getSupervisorEmail();
-            logger.info("📧 Supervisor email from registration object: {}", supervisorEmail != null ? supervisorEmail : "null");
+            supervisorName = registration.getSupervisorName();
+            logger.info("📧 Using supervisor from registration object: name={}, email={}", supervisorName, supervisorEmail);
             databaseLoggerService.logAction("INFO", "EMAIL_SUPERVISOR_EMAIL_FROM_REGISTRATION",
-                    String.format("Using supervisor email from registration: %s", supervisorEmail != null ? supervisorEmail : "null"),
-                    presenterUsername, String.format("slotId=%d,registrationEmail=%s", slotId, supervisorEmail != null ? supervisorEmail : "null"));
+                    String.format("Using supervisor from registration: %s (%s)", supervisorName, supervisorEmail),
+                    presenterUsername, String.format("slotId=%d,registrationEmail=%s", slotId, supervisorEmail));
+        } else if (request.getSupervisorEmail() != null && !request.getSupervisorEmail().trim().isEmpty()) {
+            // Fall back to request (backward compatibility)
+            supervisorEmail = request.getSupervisorEmail();
+            supervisorName = request.getSupervisorName();
+            logger.warn("📧 Using supervisor from request (backward compatibility): name={}, email={}. " +
+                    "User should complete account setup via /api/v1/auth/setup/{}", 
+                    supervisorName, supervisorEmail, presenterUsername);
+            databaseLoggerService.logAction("INFO", "EMAIL_SUPERVISOR_EMAIL_FROM_REQUEST",
+                    String.format("Using supervisor from request (backward compatibility): %s (%s)", supervisorName, supervisorEmail),
+                    presenterUsername, String.format("slotId=%d,requestEmail=%s", slotId, supervisorEmail));
         }
         
         // Validate email format before attempting to send
