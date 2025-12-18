@@ -203,9 +203,48 @@ CREATE TABLE app_config (
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_app_config_target_system ON app_config(target_system);
-CREATE INDEX idx_app_config_category ON app_config(category);
-CREATE INDEX idx_app_config_key ON app_config(config_key);
+-- Create indexes (MySQL-compatible: check if exists before creating)
+-- MySQL doesn't support CREATE INDEX IF NOT EXISTS, so we check first
+SET @db_name = DATABASE();
+
+-- Check and create idx_app_config_target_system
+SELECT COUNT(*) INTO @idx_exists FROM information_schema.statistics 
+WHERE table_schema = @db_name 
+AND table_name = 'app_config' 
+AND index_name = 'idx_app_config_target_system';
+
+SET @sql = IF(@idx_exists = 0, 
+    'CREATE INDEX idx_app_config_target_system ON app_config(target_system)',
+    'SELECT ''Index idx_app_config_target_system already exists'' AS message');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Check and create idx_app_config_category
+SELECT COUNT(*) INTO @idx_exists FROM information_schema.statistics 
+WHERE table_schema = @db_name 
+AND table_name = 'app_config' 
+AND index_name = 'idx_app_config_category';
+
+SET @sql = IF(@idx_exists = 0, 
+    'CREATE INDEX idx_app_config_category ON app_config(category)',
+    'SELECT ''Index idx_app_config_category already exists'' AS message');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Check and create idx_app_config_key
+SELECT COUNT(*) INTO @idx_exists FROM information_schema.statistics 
+WHERE table_schema = @db_name 
+AND table_name = 'app_config' 
+AND index_name = 'idx_app_config_key';
+
+SET @sql = IF(@idx_exists = 0, 
+    'CREATE INDEX idx_app_config_key ON app_config(config_key)',
+    'SELECT ''Index idx_app_config_key already exists'' AS message');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Insert default configuration values
 -- Note: Uses INSERT IGNORE to allow re-running schema without errors
