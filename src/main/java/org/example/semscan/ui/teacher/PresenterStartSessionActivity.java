@@ -31,6 +31,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.util.Locale;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -465,6 +467,14 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                         switch (code) {
                             case "OPENED":
                             case "ALREADY_OPEN":
+                                // Log session start with timestamp
+                                String sessionStartTime = formatTime(System.currentTimeMillis());
+                                String sessionStartLog = String.format("Session started at %s | Session ID: %s, Slot ID: %s", 
+                                    sessionStartTime, body.sessionId, currentSlot.slotId);
+                                Logger.i(Logger.TAG_UI, sessionStartLog);
+                                if (serverLogger != null) {
+                                    serverLogger.i(ServerLogger.TAG_UI, sessionStartLog);
+                                }
                                 openAttendanceQr(body.qrUrl, body.qrPayload, body.openedAt, body.closesAt, body.sessionId);
                                 break;
                             case "TOO_EARLY":
@@ -648,6 +658,14 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    /**
+     * Format timestamp to yyyy-MM-dd HH:mm format (e.g., "2025-12-17 13:24")
+     */
+    private String formatTime(long timestampMs) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+        return sdf.format(new Date(timestampMs));
     }
 
     @Override

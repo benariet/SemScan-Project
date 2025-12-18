@@ -12,6 +12,7 @@ import com.google.android.material.button.MaterialButton;
 import org.example.semscan.R;
 import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
+import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 
@@ -42,8 +43,8 @@ public class TestEmailActivity extends AppCompatActivity {
     }
 
     private void sendTestEmail() {
-        // Use the specified test email address
-        String userEmail = "talbnwork@gmail.com";
+        // Use test email address from ConfigManager
+        String userEmail = ConfigManager.getInstance(this).getTestEmailRecipient();
 
         // Disable button and show progress
         btnSendTestEmail.setEnabled(false);

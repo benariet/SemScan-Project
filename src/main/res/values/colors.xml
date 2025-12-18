@@ -44,6 +44,15 @@
     <color name="background_white">#FFFFFFFF</color>
     <color name="surface_light">#FFFFFFFF</color>
     <color name="white_900">#FFFFFFFF</color>
+    <color name="background_presenter">#FFF8F9FA</color>
+    
+    <!-- Presenter Dashboard Colors -->
+    <color name="appbar_blue">#FF2E5BFF</color>
+    <color name="appbar_orange">#FFFF8F3F</color>
+    <color name="button_orange_start">#FFFF7D45</color>
+    <color name="button_orange_end">#FFFFAF60</color>
+    <color name="icon_blue">#FF2E5BFF</color>
+    <color name="welcome_text_color">#FF102A68</color>
     
     <!-- QR Scanner colors -->
     <color name="result_view">#FF00FF00</color>

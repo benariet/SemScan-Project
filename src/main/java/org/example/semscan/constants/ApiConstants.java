@@ -10,8 +10,12 @@ public class ApiConstants {
     // BASE CONFIGURATION
     // =============================================
     // Production server URL (HTTP)
-    public static final String SERVER_URL = "http://132.72.50.53:8080";
-    public static final String API_BASE_URL = "http://132.72.50.53:8080/api/v1";
+    // NOTE: Configurable values (server URL, email addresses, timeouts) have been moved to ConfigManager
+    // These hardcoded values are now used as fallback defaults only
+    // The app fetches configuration from backend API endpoint /api/v1/config/mobile on every login
+    // See: org.example.semscan.utils.ConfigManager
+    public static final String SERVER_URL = "http://132.72.50.53:8080"; // Fallback default - use ConfigManager.getServerUrl()
+    public static final String API_BASE_URL = "http://132.72.50.53:8080/api/v1"; // Fallback default
     public static final String API_VERSION = "v1";
     // =============================================
     // API ENDPOINTS
@@ -55,19 +59,23 @@ public class ApiConstants {
     // =============================================
     // MANUAL ATTENDANCE CONFIGURATION
     // =============================================
-    public static final int MANUAL_ATTENDANCE_WINDOW_BEFORE_MINUTES = 10;
-    public static final int MANUAL_ATTENDANCE_WINDOW_AFTER_MINUTES = 15;
+    // NOTE: These values are now configurable via ConfigManager
+    // These are fallback defaults - use ConfigManager.getManualAttendanceWindowBeforeMinutes() etc.
+    public static final int MANUAL_ATTENDANCE_WINDOW_BEFORE_MINUTES = 10; // Fallback default
+    public static final int MANUAL_ATTENDANCE_WINDOW_AFTER_MINUTES = 15; // Fallback default
     public static final int MANUAL_ATTENDANCE_AUTO_APPROVE_CAP_PERCENTAGE = 5;
     public static final int MANUAL_ATTENDANCE_AUTO_APPROVE_MIN_CAP = 5;
     
     // =============================================
     // EXPORT CONFIGURATION
     // =============================================
-    public static final int MAX_EXPORT_FILE_SIZE_MB = 50;
+    // NOTE: MAX_EXPORT_FILE_SIZE_MB and EXPORT_EMAIL_RECIPIENTS are now configurable via ConfigManager
+    // These are fallback defaults - use ConfigManager.getMaxExportFileSizeMb() and getExportEmailRecipients()
+    public static final int MAX_EXPORT_FILE_SIZE_MB = 50; // Fallback default
     public static final String ALLOWED_EXPORT_FORMATS = "csv,xlsx";
     // Multiple email recipients - separate with commas
     // Example: "attendance@example.com,admin@example.com"
-    public static final String EXPORT_EMAIL_RECIPIENTS = "benariet@bgu.ac.il,talbnwork@gmail.com"; // Change these to your desired email addresses
+    public static final String EXPORT_EMAIL_RECIPIENTS = "benariet@bgu.ac.il,talbnwork@gmail.com"; // Fallback default - use ConfigManager.getExportEmailRecipients()
     
     // =============================================
     // APPLICATION CONFIGURATION
@@ -80,9 +88,11 @@ public class ApiConstants {
     // =============================================
     // HTTP CONFIGURATION
     // =============================================
-    public static final int CONNECTION_TIMEOUT_SECONDS = 10;  // Connection timeout (increased for ADB port forwarding)
-    public static final int READ_TIMEOUT_SECONDS = 10;        // Read timeout (increased for slow responses)
-    public static final int WRITE_TIMEOUT_SECONDS = 10;       // Write timeout (increased for slow responses)
+    // NOTE: These timeout values are now configurable via ConfigManager
+    // These are fallback defaults - use ConfigManager.getConnectionTimeoutSeconds() etc.
+    public static final int CONNECTION_TIMEOUT_SECONDS = 10;  // Fallback default - use ConfigManager.getConnectionTimeoutSeconds()
+    public static final int READ_TIMEOUT_SECONDS = 10;        // Fallback default - use ConfigManager.getReadTimeoutSeconds()
+    public static final int WRITE_TIMEOUT_SECONDS = 10;       // Fallback default - use ConfigManager.getWriteTimeoutSeconds()
     
     // =============================================
     // ERROR CODES
@@ -195,8 +205,10 @@ public class ApiConstants {
     // =============================================
     // TOAST MESSAGE CONFIGURATION
     // =============================================
-    public static final int TOAST_DURATION_ERROR = 10000;  // 10 seconds for errors
-    public static final int TOAST_DURATION_SUCCESS = 5000;  // 5 seconds for success
-    public static final int TOAST_DURATION_INFO = 6000;  // 6 seconds for info
-    public static final int TOAST_DURATION_DEBUG = 7000;  // 7 seconds for debug
+    // NOTE: Toast durations are now configurable via ConfigManager
+    // These are fallback defaults - use ConfigManager.getToastDurationError() etc.
+    public static final int TOAST_DURATION_ERROR = 10000;  // Fallback default - use ConfigManager.getToastDurationError()
+    public static final int TOAST_DURATION_SUCCESS = 5000;  // Fallback default - use ConfigManager.getToastDurationSuccess()
+    public static final int TOAST_DURATION_INFO = 6000;  // Fallback default - use ConfigManager.getToastDurationInfo()
+    public static final int TOAST_DURATION_DEBUG = 7000;  // 7 seconds for debug (not configurable)
 }

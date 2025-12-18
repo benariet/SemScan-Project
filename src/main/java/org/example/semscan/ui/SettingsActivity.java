@@ -16,6 +16,7 @@ import com.google.android.material.button.MaterialButton;
 
 import org.example.semscan.R;
 import org.example.semscan.ui.auth.LoginActivity;
+import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 
@@ -221,9 +222,10 @@ public class SettingsActivity extends AppCompatActivity {
             body.append("[What actually happens?]\n");
             
             // Build mailto URI with recipient, subject, and body
+            String supportEmail = ConfigManager.getInstance(this).getSupportEmail();
             String subject = "SemScan - Bug Report or Problem";
             String bodyText = body.toString();
-            String mailtoUri = "mailto:benariet@bgu.ac.il" +
+            String mailtoUri = "mailto:" + supportEmail +
                     "?subject=" + Uri.encode(subject) +
                     "&body=" + Uri.encode(bodyText);
             
@@ -236,11 +238,12 @@ public class SettingsActivity extends AppCompatActivity {
                 startActivity(Intent.createChooser(emailIntent, "Send email via..."));
             } else {
                 // No email app available - show message
-                Toast.makeText(this, "No email app found. Please send an email to benariet@bgu.ac.il", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "No email app found. Please send an email to " + supportEmail, Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
             Logger.e(Logger.TAG_UI, "Failed to open email intent", e);
-            Toast.makeText(this, "Failed to open email. Please send an email to benariet@bgu.ac.il", Toast.LENGTH_LONG).show();
+            String supportEmail = ConfigManager.getInstance(this).getSupportEmail();
+            Toast.makeText(this, "Failed to open email. Please send an email to " + supportEmail, Toast.LENGTH_LONG).show();
         }
     }
 

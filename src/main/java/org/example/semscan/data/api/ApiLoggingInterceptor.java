@@ -108,7 +108,7 @@ public class ApiLoggingInterceptor implements Interceptor {
                 
                 // Only log to ServerLogger if NOT the logs endpoint (to avoid recursion)
                 if (!isLogsEndpoint) {
-                    getServerLogger().d(ServerLogger.TAG_API, requestLog);
+                    getServerLogger().i(ServerLogger.TAG_API, requestLog);
                 }
             }
             
@@ -166,7 +166,7 @@ public class ApiLoggingInterceptor implements Interceptor {
                 
                 // Only log to ServerLogger if NOT the logs endpoint
                 if (!isLogsEndpoint) {
-                    getServerLogger().d(ServerLogger.TAG_API, responseLog);
+                    getServerLogger().i(ServerLogger.TAG_API, responseLog);
                 }
             }
             

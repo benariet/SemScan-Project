@@ -4,24 +4,29 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background_light">
+    android:background="@color/background_presenter">
 
-    <!-- Toolbar -->
+    <!-- AppBar with Gradient and Rounded Bottom -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/primary_blue"
+        android:layout_height="70dp"
+        android:background="@drawable/bg_appbar_rounded"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
         app:title="@string/presenter_home_title"
-        app:titleTextColor="@color/white" />
+        app:titleTextColor="@color/white"
+        app:navigationIcon="?attr/homeAsUpIndicator" />
 
     <!-- Main Content -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="16dp">
+        android:fillViewport="true"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="30dp"
+        android:paddingBottom="30dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -34,12 +39,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:layout_marginBottom="24dp"
+                android:layout_marginBottom="40dp"
                 android:text="@string/presenter_home_welcome_default"
-                android:textColor="@color/gray_700"
-                android:textSize="20sp"
+                android:textColor="@color/welcome_text_color"
+                android:textSize="24sp"
                 android:textStyle="bold" />
 
+            <!-- Main Action Cards -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -53,60 +59,15 @@
 
             </LinearLayout>
 
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="60dp" />
+
+            <!-- Change Role Card -->
+            <include layout="@layout/card_presenter_action_change_role" />
+
         </LinearLayout>
 
     </ScrollView>
-
-    <!-- Bottom Navigation -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="@color/white"
-        android:padding="12dp"
-        android:elevation="8dp"
-        android:gravity="center">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_settings"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/settings"
-            android:textSize="14sp"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="10dp"
-            android:paddingBottom="10dp"
-            android:drawableStart="@drawable/ic_settings"
-            android:drawablePadding="8dp"
-            android:drawableTint="@color/primary_blue"
-            app:strokeColor="@color/primary_blue"
-            app:strokeWidth="1dp"
-            app:cornerRadius="8dp"
-            android:layout_marginEnd="6dp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_change_role"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/change_role"
-            android:textSize="14sp"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="10dp"
-            android:paddingBottom="10dp"
-            android:drawableStart="@drawable/ic_swap_horiz"
-            android:drawablePadding="8dp"
-            android:drawableTint="@color/primary_blue"
-            app:strokeColor="@color/primary_blue"
-            app:strokeWidth="1dp"
-            app:cornerRadius="8dp"
-            android:layout_marginStart="6dp" />
-
-    </LinearLayout>
 
 </LinearLayout>

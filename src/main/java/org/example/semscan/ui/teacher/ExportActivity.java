@@ -22,6 +22,7 @@ import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
 import org.example.semscan.data.model.ManualAttendanceResponse;
 import org.example.semscan.data.model.Session;
+import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.ToastUtils;
@@ -640,8 +641,9 @@ public class ExportActivity extends AppCompatActivity {
             String subject = "SemScan Attendance Export - Session " + currentSessionId;
             String htmlContent = buildExportEmailHtml(file, fileBytes, mimeType);
             
-            // Parse multiple email recipients (comma-separated)
-            String[] recipients = ApiConstants.EXPORT_EMAIL_RECIPIENTS.split(",");
+            // Parse multiple email recipients (comma-separated) from ConfigManager
+            String exportRecipients = ConfigManager.getInstance(this).getExportEmailRecipients();
+            String[] recipients = exportRecipients.split(",");
             
             // Send email to each recipient via backend API with file attachment
             sendExportEmailToRecipients(recipients, subject, htmlContent, file, fileBytes, mimeType);
@@ -667,7 +669,7 @@ public class ExportActivity extends AppCompatActivity {
         
         if (validRecipients.isEmpty()) {
             Toast.makeText(this, "No email recipients configured", Toast.LENGTH_LONG).show();
-            Logger.w(Logger.TAG_UI, "No valid email recipients found in EXPORT_EMAIL_RECIPIENTS");
+            Logger.w(Logger.TAG_UI, "No valid email recipients found in config");
             return;
         }
         
@@ -1173,8 +1175,17 @@ public class ExportActivity extends AppCompatActivity {
     
     @Override
     public boolean onSupportNavigateUp() {
-        finish();
+        // Navigate to home instead of just finishing
+        navigateToHome();
         return true;
+    }
+    
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        // Navigate to home instead of finishing (which would log user out)
+        // This ensures user returns to home page when they come back to the app
+        navigateToHome();
     }
 }
 

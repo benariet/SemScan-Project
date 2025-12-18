@@ -4,164 +4,215 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center"
-    android:background="@color/background_light">
+    android:background="@drawable/bg_gradient_main"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp">
 
-    <!-- App Logo/Title -->
-    <ImageView
-        android:layout_width="120dp"
-        android:layout_height="120dp"
-        android:layout_marginBottom="32dp"
-        android:src="@mipmap/ic_launcher_foreground"
-        android:contentDescription="@string/app_name" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/app_name"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:textColor="@color/purple_700"
-        android:layout_marginBottom="16dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/select_role"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="@color/gray_800"
-        android:layout_marginBottom="48dp" />
-
-    <!-- Role Selection Cards -->
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginBottom="32dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
-        <!-- Presenter Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_presenter"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="12dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="0dp"
-            app:cardBackgroundColor="@color/white"
-            android:clickable="true"
-            android:focusable="true"
-            android:foreground="?android:attr/selectableItemBackground">
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingTop="60dp">
 
-            <LinearLayout
+            <!-- Logo Container with Gradient and Shadow -->
+            <FrameLayout
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_marginBottom="30dp">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_logo_gradient"
+                    android:elevation="8dp" />
+
+                <ImageView
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_qr_scanner_white"
+                    android:contentDescription="@string/app_name"
+                    android:scaleType="fitCenter" />
+
+            </FrameLayout>
+
+            <!-- Title Text -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:textColor="@color/purple_500"
+                android:layout_marginBottom="10dp" />
+
+            <!-- Subtitle Text -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/select_role"
+                android:textSize="18sp"
+                android:textColor="@color/gray_600"
+                android:layout_marginBottom="50dp" />
+
+            <!-- Presenter Card with Blue Gradient -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_presenter"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="20dp"
-                android:gravity="center_vertical"
-                android:minHeight="72dp">
+                android:layout_marginBottom="20dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="5dp"
+                app:strokeWidth="0dp"
+                app:cardBackgroundColor="@android:color/transparent"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?android:attr/selectableItemBackground">
 
-                <ImageView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:src="@drawable/ic_role_presenter"
-                    android:contentDescription="@string/presenter"
-                    android:layout_marginEnd="20dp"
-                    android:background="@drawable/circle_background_primary"
-                    android:padding="14dp"
-                    android:tint="@color/white" />
-
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/presenter"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/gray_900"
-                    android:gravity="center_vertical" />
+                    android:orientation="horizontal"
+                    android:background="@drawable/bg_card_presenter_gradient"
+                    android:padding="20dp"
+                    android:gravity="center_vertical"
+                    android:minHeight="72dp">
 
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_arrow_forward"
-                    android:contentDescription="@string/next"
-                    android:tint="@color/gray_500"
-                    android:layout_marginStart="8dp" />
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginEnd="20dp"
+                        app:cardCornerRadius="24dp"
+                        app:cardBackgroundColor="@color/primary_blue"
+                        app:cardElevation="0dp">
 
-            </LinearLayout>
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:src="@drawable/ic_role_presenter"
+                            android:contentDescription="@string/presenter"
+                            android:padding="12dp"
+                            android:tint="@color/white" />
 
-        </com.google.android.material.card.MaterialCardView>
+                    </com.google.android.material.card.MaterialCardView>
 
-        <!-- Participant Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_student"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="12dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="0dp"
-            app:cardBackgroundColor="@color/white"
-            android:clickable="true"
-            android:focusable="true"
-            android:foreground="?android:attr/selectableItemBackground">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/presenter"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/gray_900"
+                        android:gravity="center_vertical" />
 
-            <LinearLayout
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_arrow_forward"
+                        android:contentDescription="@string/next"
+                        android:tint="@color/gray_700"
+                        android:layout_marginStart="8dp" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Participant Card with Orange Gradient -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_student"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="20dp"
-                android:gravity="center_vertical"
-                android:minHeight="72dp">
+                android:layout_marginBottom="20dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="5dp"
+                app:strokeWidth="0dp"
+                app:cardBackgroundColor="@android:color/transparent"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?android:attr/selectableItemBackground">
 
-                <ImageView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:src="@drawable/ic_role_student"
-                    android:contentDescription="@string/participant"
-                    android:layout_marginEnd="20dp"
-                    android:background="@drawable/circle_background_accent"
-                    android:padding="14dp"
-                    android:tint="@color/white" />
-
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/participant"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/gray_900"
-                    android:gravity="center_vertical" />
+                    android:orientation="horizontal"
+                    android:background="@drawable/bg_card_participant_gradient"
+                    android:padding="20dp"
+                    android:gravity="center_vertical"
+                    android:minHeight="72dp">
 
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_arrow_forward"
-                    android:contentDescription="@string/next"
-                    android:tint="@color/gray_500"
-                    android:layout_marginStart="8dp" />
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginEnd="20dp"
+                        app:cardCornerRadius="24dp"
+                        app:cardBackgroundColor="@color/accent_orange"
+                        app:cardElevation="0dp">
 
-            </LinearLayout>
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:src="@drawable/ic_role_student"
+                            android:contentDescription="@string/participant"
+                            android:padding="12dp"
+                            android:tint="@color/white" />
 
-        </com.google.android.material.card.MaterialCardView>
+                    </com.google.android.material.card.MaterialCardView>
 
-    </LinearLayout>
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/participant"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/gray_900"
+                        android:gravity="center_vertical" />
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_arrow_forward"
+                        android:contentDescription="@string/next"
+                        android:tint="@color/gray_700"
+                        android:layout_marginStart="8dp" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
 
     <!-- Settings Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_settings"
-        style="@style/SemScanButtonOutlinedPrimary"
+        style="@style/Widget.MaterialComponents.Button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="40dp"
         android:text="@string/settings"
-        android:layout_marginTop="16dp" />
+        android:textSize="16sp"
+        android:textColor="@color/white"
+        app:icon="@drawable/ic_settings"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp"
+        app:iconTint="@color/white"
+        android:paddingStart="30dp"
+        android:paddingEnd="30dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:backgroundTint="@color/primary_blue"
+        android:elevation="3dp"
+        app:cornerRadius="30dp" />
 
 </LinearLayout>

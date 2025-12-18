@@ -532,4 +532,42 @@ public interface ApiService {
         public boolean ok;
         public String message;
     }
+
+    // =============================
+    // Mobile Configuration
+    // =============================
+
+    @GET("api/v1/config/mobile")
+    Call<MobileConfigResponse> getMobileConfig();
+
+    /**
+     * Mobile configuration response from backend
+     * Contains all configurable values for the mobile app
+     * Fetched from app_config table where target_system IN ('MOBILE', 'BOTH')
+     */
+    class MobileConfigResponse {
+        public String serverUrl;
+        public String exportEmailRecipients;
+        public String supportEmail;
+        public String emailDomain;
+        public String testEmailRecipient;
+        public int connectionTimeoutSeconds;
+        public int readTimeoutSeconds;
+        public int writeTimeoutSeconds;
+        public int manualAttendanceWindowBeforeMinutes;
+        public int manualAttendanceWindowAfterMinutes;
+        public int maxExportFileSizeMb;
+        public int toastDurationError;
+        public int toastDurationSuccess;
+        public int toastDurationInfo;
+        public int presenterSlotOpenWindowBeforeMinutes;
+        public int presenterSlotOpenWindowAfterMinutes;
+        public int studentAttendanceWindowBeforeMinutes;
+        public int studentAttendanceWindowAfterMinutes;
+        public int waitingListApprovalWindowHours;
+        public int presenterCloseSessionDurationMinutes;
+        public String emailFromName;
+        public String emailReplyTo;
+        public String emailBccList;
+    }
 }

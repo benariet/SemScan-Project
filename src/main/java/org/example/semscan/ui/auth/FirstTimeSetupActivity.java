@@ -25,6 +25,7 @@ import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
 import org.example.semscan.data.model.User;
 import org.example.semscan.ui.RolePickerActivity;
+import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.ServerLogger;
@@ -50,6 +51,10 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
     private TextInputEditText editLastName;
     private TextInputEditText editNationalId;
     private TextInputLayout inputLayoutNationalId;
+    private TextInputEditText editPresenterName;
+    private TextInputEditText editPresenterLastName;
+    private TextInputEditText editEmail;
+    private TextInputLayout inputLayoutEmail;
     private MaterialCheckBox checkboxConfirmNationalId;
     private MaterialCardView cardDegree;
     private MaterialCardView cardParticipation;
@@ -99,6 +104,10 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         editLastName = findViewById(R.id.edit_last_name);
         editNationalId = findViewById(R.id.edit_national_id);
         inputLayoutNationalId = findViewById(R.id.input_layout_national_id);
+        editPresenterName = findViewById(R.id.edit_presenter_name);
+        editPresenterLastName = findViewById(R.id.edit_presenter_last_name);
+        editEmail = findViewById(R.id.edit_email);
+        inputLayoutEmail = findViewById(R.id.input_layout_email);
         checkboxConfirmNationalId = findViewById(R.id.checkbox_confirm_national_id);
         cardDegree = findViewById(R.id.card_degree);
         cardParticipation = findViewById(R.id.card_role_context);
@@ -325,6 +334,9 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         String firstName = trim(editFirstName);
         String lastName = trim(editLastName);
         String nationalIdNumber = trim(editNationalId); // Required field
+        String presenterName = trim(editPresenterName);
+        String presenterLastName = trim(editPresenterLastName);
+        String email = trim(editEmail);
 
         boolean valid = true;
 
@@ -340,6 +352,36 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
             valid = false;
         } else {
             editLastName.setError(null);
+        }
+
+        if (TextUtils.isEmpty(presenterName)) {
+            editPresenterName.setError(getString(R.string.setup_error_presenter_name));
+            valid = false;
+        } else {
+            editPresenterName.setError(null);
+        }
+
+        if (TextUtils.isEmpty(presenterLastName)) {
+            editPresenterLastName.setError(getString(R.string.setup_error_presenter_last_name));
+            valid = false;
+        } else {
+            editPresenterLastName.setError(null);
+        }
+
+        if (TextUtils.isEmpty(email)) {
+            if (inputLayoutEmail != null) {
+                inputLayoutEmail.setError(getString(R.string.setup_error_email));
+            }
+            valid = false;
+        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            if (inputLayoutEmail != null) {
+                inputLayoutEmail.setError(getString(R.string.setup_error_email_invalid));
+            }
+            valid = false;
+        } else {
+            if (inputLayoutEmail != null) {
+                inputLayoutEmail.setError(null);
+            }
         }
 
         // Validate national ID (required field)
@@ -418,11 +460,16 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         }
         
         Logger.i(Logger.TAG_UI, "Creating user profile with username: " + username);
-        String email = username != null ? username + "@bgu.ac.il" : null;
+        // Use the email from the input field, or fallback to username + domain if empty
+        String emailDomain = ConfigManager.getInstance(this).getEmailDomain();
+        String finalEmail = email;
+        if (TextUtils.isEmpty(finalEmail) && username != null) {
+            finalEmail = username + emailDomain;
+        }
 
         ApiService.UserProfileUpdateRequest request = new ApiService.UserProfileUpdateRequest(
                 username,
-                email,
+                finalEmail,
                 firstName,
                 lastName,
                 selectedDegree,
@@ -453,7 +500,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
                     return;
                 }
 
-                persistProfile(firstName, lastName, email, selectedDegree, selectedParticipation, nationalIdNumber);
+                persistProfile(firstName, lastName, finalEmail, selectedDegree, selectedParticipation, nationalIdNumber);
                 serverLogger.updateUserContext(preferencesManager.getUserName(), preferencesManager.getUserRole());
                 Toast.makeText(FirstTimeSetupActivity.this, R.string.setup_success, Toast.LENGTH_LONG).show();
                 Logger.userAction("FirstTimeSetup", "Onboarding complete");
@@ -535,6 +582,9 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         }
         editFirstName.setEnabled(!loading);
         editLastName.setEnabled(!loading);
+        editPresenterName.setEnabled(!loading);
+        editPresenterLastName.setEnabled(!loading);
+        editEmail.setEnabled(!loading);
     }
 
     private String trim(@Nullable TextInputEditText editText) {

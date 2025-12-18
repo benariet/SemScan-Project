@@ -60,7 +60,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
     private RecyclerView recyclerSlots;
     private View emptyState;
     private ProgressBar progressBar;
-    private MaterialButton btnReload;
+    private View btnReload;
 
     private PresenterSlotsAdapter slotAdapter;
     private PreferencesManager preferencesManager;
@@ -70,6 +70,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
     private boolean shouldScrollToMySlot;
     private List<ApiService.SlotCard> currentSlots = Collections.emptyList(); // Store current slots for limit checking
     private Long lastJoinedWaitingListSlotId = null; // Track slot where user just joined waiting list
+    private List<SlotStateSnapshot> previousSlotStates = new ArrayList<>(); // Track previous slot states to detect changes
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -126,7 +127,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
     private void setupInteractions() {
         swipeRefreshLayout.setOnRefreshListener(this::loadSlots);
-        btnReload.setOnClickListener(v -> loadSlots());
+        if (btnReload != null) {
+            btnReload.setOnClickListener(v -> loadSlots());
+        }
     }
 
     private void setLoading(boolean loading) {
@@ -313,6 +316,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     // Clear the tracking after we've processed it
                     lastJoinedWaitingListSlotId = null;
                 }
+                
+                // Check for waiting list approval and cancelled pending registrations
+                checkForWaitingListApprovalAndCancellations(response.body());
                 
                 renderSlots(response.body());
             }
@@ -774,7 +780,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         // Count current registrations across all slots
         int approvedCount = 0;
         int pendingCount = 0;
-        int waitingListCount = 0;
+        // NOTE: waitingListCount is NOT counted here - users can register even if on a waiting list
         
         for (ApiService.SlotCard s : currentSlots) {
             if (s.alreadyRegistered) {
@@ -784,19 +790,20 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     pendingCount++;
                 }
             }
-            if (s.onWaitingList) {
-                waitingListCount++;
-            }
+            // NOTE: We don't check s.onWaitingList here - being on a waiting list
+            // does NOT prevent registration for available slots
         }
         
         // Get student degree to determine limits
         String degree = preferencesManager.getDegree();
         boolean isPhd = "PHD".equals(degree);
         
-        // Check presentation limit (1 per semester)
+        // Check presentation limit (1 approved at a time)
+        // Note: Business rule is "once per degree" but not strictly enforced
+        // Students typically won't want to repeat this experience
         if (approvedCount >= 1) {
-            return "You can only present once per semester. " +
-                   "You already have an approved registration.";
+            return "You already have an approved registration. " +
+                   "You can only have one approved registration at a time.";
         }
         
         // Check pending limit (1 for PhD, 2 for MSC)
@@ -807,11 +814,11 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                maxPending, maxPending == 1 ? "" : "s");
         }
         
-        // Check waiting list limit (1 for all)
-        if (waitingListCount >= 1) {
-            return "You can only be on 1 waiting list at once. " +
-                   "Please wait for notification or cancel your waiting list position.";
-        }
+        // NOTE: Waiting list check is NOT here - users CAN register for available slots
+        // even if they are on a waiting list for another slot.
+        // The waiting list limit (1 waiting list max) is only enforced when trying to JOIN
+        // a waiting list, not when registering for an available slot.
+        // See: onJoinWaitingList() for the waiting list limit check.
         
         // All checks passed
         return null;
@@ -819,13 +826,18 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
     /**
      * Check registration limits before allowing registration
-     * Limits: 1 approved per semester, 2 pending for MSC / 1 pending for PhD, 1 waiting list
+     * Limits: 1 approved at a time, 2 pending for MSC / 1 pending for PhD
+     * Note: Business rule is "once per degree" but not strictly enforced
+     * 
+     * IMPORTANT: Being on a waiting list does NOT prevent registration for available slots.
+     * The waiting list limit (1 waiting list max) is only enforced when trying to JOIN
+     * a waiting list, not when registering. See: onJoinWaitingList() for waiting list limit check.
      */
     private void checkRegistrationLimits(ApiService.SlotCard slot, Runnable onSuccess) {
         // Count current registrations
         int approvedCount = 0;
         int pendingCount = 0;
-        int waitingListCount = 0;
+        // NOTE: waitingListCount is NOT counted here - users can register even if on a waiting list
         
         for (ApiService.SlotCard s : currentSlots) {
             if (s.alreadyRegistered) {
@@ -835,25 +847,25 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     pendingCount++;
                 }
             }
-            if (s.onWaitingList) {
-                waitingListCount++;
-            }
+            // NOTE: We don't check s.onWaitingList here - being on a waiting list
+            // does NOT prevent registration for available slots
         }
         
         // Get student degree to determine limits
         String degree = preferencesManager.getDegree();
         boolean isPhd = "PHD".equals(degree);
         
-        // Check presentation limit (1 per semester)
+        // Check presentation limit (1 approved at a time)
+        // Note: Business rule is "once per degree" but not strictly enforced
         if (approvedCount >= 1) {
-            String limitMsg = "Registration limit reached: Already have 1 approved registration (max 1 per semester)";
+            String limitMsg = "Registration limit reached: Already have 1 approved registration (max 1 at a time)";
             Logger.w(Logger.TAG_UI, limitMsg);
             if (serverLogger != null) {
                 serverLogger.w(ServerLogger.TAG_UI, limitMsg + ", slot=" + (slot != null ? slot.slotId : "null"));
             }
             Toast.makeText(this, 
-                "You can only present once per semester. " +
-                "You already have an approved registration.",
+                "You already have an approved registration. " +
+                "You can only have one approved registration at a time.",
                 Toast.LENGTH_LONG).show();
             return;
         }
@@ -875,27 +887,18 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             return;
         }
         
-        // Check waiting list limit (1 for all)
-        if (waitingListCount >= 1) {
-            String limitMsg = "Registration limit reached: Already on 1 waiting list (max 1)";
-            Logger.w(Logger.TAG_UI, limitMsg);
-            if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, limitMsg + ", slot=" + (slot != null ? slot.slotId : "null"));
-            }
-            Toast.makeText(this, 
-                "You can only be on 1 waiting list at once. " +
-                "Please wait for notification or cancel your waiting list position.",
-                Toast.LENGTH_LONG).show();
-            return;
-        }
+        // NOTE: Waiting list check is NOT here - users CAN register for available slots
+        // even if they are on a waiting list for another slot.
+        // The waiting list limit (1 waiting list max) is only enforced when trying to JOIN
+        // a waiting list, not when registering for an available slot.
+        // See: onJoinWaitingList() for the waiting list limit check.
         
         // All checks passed
         Logger.i(Logger.TAG_UI, "Registration limits check passed: approved=" + approvedCount + 
-                ", pending=" + pendingCount + ", waitingList=" + waitingListCount);
+                ", pending=" + pendingCount);
         if (serverLogger != null) {
             serverLogger.i(ServerLogger.TAG_UI, "Registration limits check passed: approved=" + approvedCount + 
-                    ", pending=" + pendingCount + ", waitingList=" + waitingListCount + 
-                    ", slot=" + (slot != null ? slot.slotId : "null"));
+                    ", pending=" + pendingCount + ", slot=" + (slot != null ? slot.slotId : "null"));
         }
         onSuccess.run();
     }
@@ -1396,5 +1399,161 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+    
+    /**
+     * Snapshot of slot state for comparison
+     */
+    private static class SlotStateSnapshot {
+        Long slotId;
+        boolean onWaitingList;
+        String approvalStatus;
+        boolean alreadyRegistered;
+        
+        SlotStateSnapshot(ApiService.SlotCard slot) {
+            this.slotId = slot.slotId;
+            this.onWaitingList = slot.onWaitingList;
+            this.approvalStatus = slot.approvalStatus;
+            this.alreadyRegistered = slot.alreadyRegistered;
+        }
+    }
+    
+    /**
+     * Check if user was approved from waiting list and if other pending registrations were cancelled
+     */
+    private void checkForWaitingListApprovalAndCancellations(ApiService.PresenterHomeResponse response) {
+        if (response == null || response.slotCatalog == null) {
+            return;
+        }
+        
+        // Create snapshot of current states
+        List<SlotStateSnapshot> currentStates = new ArrayList<>();
+        for (ApiService.SlotCard slot : response.slotCatalog) {
+            currentStates.add(new SlotStateSnapshot(slot));
+        }
+        
+        // If we have previous states, compare them
+        if (!previousSlotStates.isEmpty()) {
+            Long approvedFromWaitingListSlotId = null;
+            int cancelledPendingCount = 0;
+            List<String> cancelledSlotDetails = new ArrayList<>();
+            
+            // Find slot where user was on waiting list and is now approved
+            for (SlotStateSnapshot previous : previousSlotStates) {
+                if (previous.onWaitingList && !"APPROVED".equals(previous.approvalStatus)) {
+                    // User was on waiting list before
+                    SlotStateSnapshot current = findSlotState(currentStates, previous.slotId);
+                    if (current != null && "APPROVED".equals(current.approvalStatus)) {
+                        // User is now approved - they were approved from waiting list!
+                        approvedFromWaitingListSlotId = previous.slotId;
+                        Logger.i(Logger.TAG_UI, "User approved from waiting list for slot=" + previous.slotId);
+                        if (serverLogger != null) {
+                            serverLogger.i(ServerLogger.TAG_UI, "User approved from waiting list for slot=" + previous.slotId);
+                        }
+                    }
+                }
+                
+                // Check if user had pending registrations that are now cancelled
+                if ("PENDING_APPROVAL".equals(previous.approvalStatus) && previous.alreadyRegistered) {
+                    SlotStateSnapshot current = findSlotState(currentStates, previous.slotId);
+                    if (current != null && !current.alreadyRegistered && 
+                        !"PENDING_APPROVAL".equals(current.approvalStatus) && 
+                        !"APPROVED".equals(current.approvalStatus)) {
+                        // This pending registration was cancelled
+                        cancelledPendingCount++;
+                        // Try to get slot details for the message
+                        ApiService.SlotCard slot = findSlot(response.slotCatalog, previous.slotId);
+                        if (slot != null) {
+                            String slotInfo = slot.date != null ? slot.date : "Slot " + previous.slotId;
+                            if (slot.timeRange != null) {
+                                slotInfo += " " + slot.timeRange;
+                            }
+                            cancelledSlotDetails.add(slotInfo);
+                        }
+                        Logger.i(Logger.TAG_UI, "Pending registration cancelled for slot=" + previous.slotId);
+                        if (serverLogger != null) {
+                            serverLogger.i(ServerLogger.TAG_UI, "Pending registration cancelled for slot=" + previous.slotId);
+                        }
+                    }
+                }
+            }
+            
+            // Show dialog if user was approved from waiting list
+            if (approvedFromWaitingListSlotId != null) {
+                showWaitingListApprovalDialog(response.slotCatalog, approvedFromWaitingListSlotId, cancelledPendingCount, cancelledSlotDetails);
+            }
+        }
+        
+        // Update previous states for next comparison
+        previousSlotStates = currentStates;
+    }
+    
+    private SlotStateSnapshot findSlotState(List<SlotStateSnapshot> states, Long slotId) {
+        if (slotId == null) return null;
+        for (SlotStateSnapshot state : states) {
+            if (slotId.equals(state.slotId)) {
+                return state;
+            }
+        }
+        return null;
+    }
+    
+    private ApiService.SlotCard findSlot(List<ApiService.SlotCard> slots, Long slotId) {
+        if (slotId == null) return null;
+        for (ApiService.SlotCard slot : slots) {
+            if (slotId.equals(slot.slotId)) {
+                return slot;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Show dialog explaining waiting list approval and cancelled registrations
+     */
+    private void showWaitingListApprovalDialog(List<ApiService.SlotCard> allSlots, Long approvedSlotId, int cancelledPendingCount, List<String> cancelledSlotDetails) {
+        // Get approved slot details from the response slots
+        ApiService.SlotCard approvedSlot = findSlot(allSlots, approvedSlotId);
+        
+        StringBuilder message = new StringBuilder();
+        
+        // Main approval message
+        if (approvedSlot != null) {
+            String slotInfo = approvedSlot.date != null ? approvedSlot.date : "Slot " + approvedSlotId;
+            if (approvedSlot.timeRange != null) {
+                slotInfo += " " + approvedSlot.timeRange;
+            }
+            message.append(getString(R.string.waiting_list_approved_message, slotInfo));
+        } else {
+            message.append(getString(R.string.waiting_list_approved_message_generic));
+        }
+        
+        // Add information about cancelled pending registrations
+        if (cancelledPendingCount > 0) {
+            message.append("\n\n");
+            if (cancelledPendingCount == 1) {
+                message.append(getString(R.string.pending_registration_cancelled_single));
+                if (!cancelledSlotDetails.isEmpty()) {
+                    message.append(" ").append(cancelledSlotDetails.get(0));
+                }
+            } else {
+                message.append(getString(R.string.pending_registrations_cancelled_multiple, cancelledPendingCount));
+            }
+            message.append(" ").append(getString(R.string.pending_cancelled_reason));
+        }
+        
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.waiting_list_approved_title)
+            .setMessage(message.toString())
+            .setPositiveButton(android.R.string.ok, null)
+            .setIcon(android.R.drawable.ic_dialog_info)
+            .show();
+        
+        Logger.userAction("Waiting List Approved", "User was approved from waiting list for slot=" + approvedSlotId + 
+            ", cancelled pending=" + cancelledPendingCount);
+        if (serverLogger != null) {
+            serverLogger.userAction("Waiting List Approved", "User was approved from waiting list for slot=" + approvedSlotId + 
+                ", cancelled pending=" + cancelledPendingCount);
+        }
     }
 }

@@ -3,53 +3,63 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/card_start_session"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginStart="16dp"
-    android:layout_marginEnd="16dp"
-    android:layout_marginBottom="12dp"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="2dp"
+    android:layout_height="110dp"
+    android:layout_marginBottom="20dp"
+    app:cardCornerRadius="24dp"
+    app:cardElevation="8dp"
     app:strokeWidth="0dp"
-    app:cardBackgroundColor="@color/white"
+    app:cardBackgroundColor="@android:color/transparent"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="horizontal"
-        android:padding="20dp"
-        android:gravity="center_vertical"
-        android:minHeight="72dp">
+        android:background="@drawable/bg_button_orange_gradient"
+        android:paddingStart="28dp"
+        android:paddingEnd="28dp"
+        android:gravity="center_vertical">
 
-        <ImageView
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@drawable/ic_qr_code"
-            android:contentDescription="@string/start_session_show_qr"
-            android:layout_marginEnd="20dp"
-            android:background="@drawable/circle_background_primary"
-            android:padding="14dp"
-            android:tint="@color/white" />
+        <!-- White Circular Icon Container -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="55dp"
+            android:layout_height="55dp"
+            android:layout_marginEnd="24dp"
+            app:cardCornerRadius="27.5dp"
+            app:cardBackgroundColor="@color/white"
+            app:cardElevation="0dp">
 
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_qr_scanner"
+                android:contentDescription="@string/start_session_show_qr"
+                android:padding="12dp"
+                android:tint="@color/icon_blue"
+                android:scaleType="fitCenter" />
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Text -->
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/start_session_show_qr"
-            android:textSize="18sp"
+            android:textSize="19sp"
             android:textStyle="bold"
-            android:textColor="@color/gray_900"
-            android:gravity="center_vertical" />
+            android:textColor="@color/white"
+            android:lineSpacingMultiplier="1.2" />
 
+        <!-- Arrow Icon -->
         <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:src="@drawable/ic_arrow_forward"
             android:contentDescription="@string/next"
-            android:tint="@color/gray_500"
-            android:layout_marginStart="8dp" />
+            android:tint="@color/white" />
 
     </LinearLayout>
 

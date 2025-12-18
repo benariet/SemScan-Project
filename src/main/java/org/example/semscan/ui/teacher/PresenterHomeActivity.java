@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
-import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -31,8 +30,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
     private CardView cardStartSession;
     private CardView cardEnrollSlot;
     private CardView cardMySlot;
-    private Button btnSettings;
-    private Button btnChangeRole;
+    private CardView cardChangeRole;
     private TextView textWelcomeMessage;
     private PreferencesManager preferencesManager;
     private ApiService apiService;
@@ -75,8 +73,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
         cardStartSession = findViewById(R.id.card_start_session);
         cardEnrollSlot = findViewById(R.id.card_enroll_slot);
         cardMySlot = findViewById(R.id.card_my_slot);
-        btnSettings = findViewById(R.id.btn_settings);
-        btnChangeRole = findViewById(R.id.btn_change_role);
+        cardChangeRole = findViewById(R.id.card_change_role);
         textWelcomeMessage = findViewById(R.id.text_welcome_message);
     }
     
@@ -156,26 +153,12 @@ public class PresenterHomeActivity extends AppCompatActivity {
             openMySlot();
         });
         
-        btnSettings.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Logger.userAction("Open Settings", "Presenter tapped settings button");
-                if (serverLogger != null) {
-                    serverLogger.userAction("Open Settings", "Presenter tapped settings button");
-                }
-                openSettings();
+        cardChangeRole.setOnClickListener(v -> {
+            Logger.userAction("Change Role", "Presenter tapped change role card");
+            if (serverLogger != null) {
+                serverLogger.userAction("Change Role", "Presenter tapped change role card");
             }
-        });
-        
-        btnChangeRole.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Logger.userAction("Change Role", "Presenter tapped change role button");
-                if (serverLogger != null) {
-                    serverLogger.userAction("Change Role", "Presenter tapped change role button");
-                }
-                changeRole();
-            }
+            changeRole();
         });
     }
     

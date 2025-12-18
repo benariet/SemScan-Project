@@ -32,11 +32,14 @@ import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.QRUtils;
 import org.example.semscan.utils.ServerLogger;
+import org.example.semscan.utils.ConfigManager;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.util.Locale;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -54,7 +57,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     public static final String EXTRA_SESSION_ID = "presenter_attendance_session_id";
 
     private static final long AUTO_CLOSE_CHECK_INTERVAL_MS = 30000L; // Check every 30 seconds
-    private static final long AUTO_CLOSE_DURATION_MS = 15 * 60 * 1000L; // 15 minutes in milliseconds
+    // AUTO_CLOSE_DURATION_MS is now retrieved from ConfigManager (presenterCloseSessionDurationMinutes)
 
     private ImageView imageQr;
     private TextView textSlotTitle;
@@ -166,19 +169,21 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
             // Parse closesAt timestamp to determine when to auto-close
             sessionClosesAtMs = parseTimestamp(closesAt);
             if (sessionClosesAtMs <= 0) {
-                // If parsing fails, calculate from openedAt + 15 minutes
+                // If parsing fails, calculate from openedAt + configured duration
+                long durationMs = getAutoCloseDurationMs();
                 if (sessionOpenedAtMs > 0) {
-                    sessionClosesAtMs = sessionOpenedAtMs + AUTO_CLOSE_DURATION_MS;
+                    sessionClosesAtMs = sessionOpenedAtMs + durationMs;
                 } else {
-                    sessionClosesAtMs = System.currentTimeMillis() + AUTO_CLOSE_DURATION_MS;
+                    sessionClosesAtMs = System.currentTimeMillis() + durationMs;
                 }
             }
         } else {
-            // If no closesAt provided, calculate from openedAt + 15 minutes
+            // If no closesAt provided, calculate from openedAt + configured duration
+            long durationMs = getAutoCloseDurationMs();
             if (sessionOpenedAtMs > 0) {
-                sessionClosesAtMs = sessionOpenedAtMs + AUTO_CLOSE_DURATION_MS;
+                sessionClosesAtMs = sessionOpenedAtMs + durationMs;
             } else {
-                sessionClosesAtMs = System.currentTimeMillis() + AUTO_CLOSE_DURATION_MS;
+                sessionClosesAtMs = System.currentTimeMillis() + durationMs;
             }
         }
 
@@ -219,6 +224,14 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
             Logger.w(Logger.TAG_UI, "Failed to parse timestamp: " + timestamp + " - " + e.getMessage());
             return 0;
         }
+    }
+
+    /**
+     * Format timestamp to yyyy-MM-dd HH:mm format (e.g., "2025-12-17 13:24")
+     */
+    private String formatTime(long timestampMs) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+        return sdf.format(new Date(timestampMs));
     }
 
 
@@ -278,16 +291,24 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     }
 
     /**
+     * Get auto-close duration in milliseconds from ConfigManager
+     */
+    private long getAutoCloseDurationMs() {
+        int minutes = ConfigManager.getInstance(this).getPresenterCloseSessionDurationMinutes();
+        return minutes * 60 * 1000L; // Convert minutes to milliseconds
+    }
+
+    /**
      * Start the auto-close timer that checks if the session close time has been reached.
      * Uses the server's closesAt timestamp to avoid timezone issues.
      */
     private void startAutoCloseTimer() {
         if (sessionClosesAtMs <= 0) {
-            // Fallback: if no close time, calculate from openedAt + 15 minutes
+            // Fallback: if no close time, calculate from openedAt + configured duration
             if (sessionOpenedAtMs <= 0) {
                 sessionOpenedAtMs = System.currentTimeMillis();
             }
-            sessionClosesAtMs = sessionOpenedAtMs + AUTO_CLOSE_DURATION_MS;
+            sessionClosesAtMs = sessionOpenedAtMs + getAutoCloseDurationMs();
         }
         
         autoCloseRunnable = new Runnable() {
@@ -298,7 +319,8 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                 // Check if current time has reached or passed the session close time
                 if (currentTime >= sessionClosesAtMs && !isAutoClosing) {
                     // Session close time has been reached - auto-close the session
-                    long elapsedTime = currentTime - (sessionClosesAtMs - AUTO_CLOSE_DURATION_MS);
+                    long durationMs = getAutoCloseDurationMs();
+                    long elapsedTime = currentTime - (sessionClosesAtMs - durationMs);
                     Logger.i(Logger.TAG_UI, "Auto-closing session. Close time reached. Elapsed: " + (elapsedTime / 1000) + " seconds");
                     isAutoClosing = true;
                     
@@ -437,6 +459,15 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                 btnCancelSession.setEnabled(true);
                 
                 if (response.isSuccessful()) {
+                    // Log session close with timestamp
+                    String sessionCloseTime = formatTime(System.currentTimeMillis());
+                    String sessionCloseLog = String.format("Session closed at %s | Session ID: %s, Slot ID: %s", 
+                        sessionCloseTime, sessionId, slotId != null ? slotId : "unknown");
+                    Logger.i(Logger.TAG_UI, sessionCloseLog);
+                    if (serverLogger != null) {
+                        serverLogger.i(ServerLogger.TAG_UI, sessionCloseLog);
+                    }
+                    
                     String message = navigateToExport 
                         ? getString(R.string.presenter_attendance_qr_end_success)
                         : getString(R.string.presenter_attendance_qr_auto_close_message);

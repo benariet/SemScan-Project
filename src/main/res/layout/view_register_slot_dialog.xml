@@ -9,25 +9,6 @@
     android:paddingTop="12dp"
     android:paddingBottom="12dp">
 
-    <TextView
-        android:id="@+id/text_dialog_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/presenter_home_register_title"
-        android:textColor="@color/gray_900"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:paddingBottom="8dp" />
-
-    <TextView
-        android:id="@+id/text_dialog_message"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/presenter_home_register_description"
-        android:textColor="@color/gray_600"
-        android:textSize="14sp"
-        android:paddingBottom="16dp" />
-
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/input_layout_topic"
         style="@style/SemScanInputLayout"

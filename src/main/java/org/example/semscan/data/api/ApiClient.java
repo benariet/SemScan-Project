@@ -6,6 +6,7 @@ import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import org.example.semscan.constants.ApiConstants;
+import org.example.semscan.utils.ConfigManager;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -22,12 +23,34 @@ public class ApiClient {
     
     private ApiClient(Context context) {
         this.context = context.getApplicationContext();
-        currentBaseUrl = normalizeBaseUrl(DEFAULT_BASE_URL);
+        // Use ConfigManager if available, otherwise fallback to hardcoded URL
+        // This handles circular dependency: ConfigManager needs ApiClient, ApiClient needs ConfigManager
+        String baseUrl = getServerUrlFromConfig(context);
+        currentBaseUrl = normalizeBaseUrl(baseUrl);
         
         // Log the current API URL for debugging
         android.util.Log.i("ApiClient", "Current API Base URL: " + currentBaseUrl);
         
         createApiService();
+    }
+    
+    /**
+     * Get server URL from ConfigManager if available, otherwise use hardcoded default
+     * This handles the circular dependency: ConfigManager needs ApiClient to fetch config,
+     * but ApiClient needs ConfigManager for the URL. First call uses hardcoded URL.
+     */
+    private String getServerUrlFromConfig(Context context) {
+        try {
+            ConfigManager configManager = ConfigManager.getInstance(context);
+            String configUrl = configManager.getServerUrl();
+            if (configUrl != null && !configUrl.trim().isEmpty()) {
+                return configUrl;
+            }
+        } catch (Exception e) {
+            // ConfigManager not ready yet - use hardcoded default
+            android.util.Log.d("ApiClient", "ConfigManager not ready, using hardcoded URL: " + e.getMessage());
+        }
+        return DEFAULT_BASE_URL;
     }
     
     private void createApiService() {
@@ -48,12 +71,18 @@ public class ApiClient {
         // Configure SSL for self-signed certificates
         // Note: This trusts user certificates (configured in network_security_config.xml)
         // For production, use proper certificate pinning
+        
+        // Get timeout values from ConfigManager if available, otherwise use hardcoded defaults
+        int connectionTimeout = getTimeoutFromConfig(context, "connection");
+        int readTimeout = getTimeoutFromConfig(context, "read");
+        int writeTimeout = getTimeoutFromConfig(context, "write");
+        
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
                 .addInterceptor(httpLogging) // Android Logcat logging
                 .addInterceptor(apiLogging)  // ServerLogger (app_logs) logging
-                .connectTimeout(ApiConstants.CONNECTION_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(ApiConstants.READ_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(ApiConstants.WRITE_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+                .connectTimeout(connectionTimeout, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(readTimeout, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(writeTimeout, java.util.concurrent.TimeUnit.SECONDS);
         
         // Trust self-signed certificates (for testing/development)
         // The network_security_config.xml allows user certificates
@@ -100,7 +129,18 @@ public class ApiClient {
     }
     
     public static synchronized ApiClient getInstance(Context context) {
-        String currentUrl = normalizeBaseUrl(DEFAULT_BASE_URL);
+        // Get current URL from ConfigManager if available, otherwise use hardcoded default
+        String currentUrl;
+        try {
+            ConfigManager configManager = ConfigManager.getInstance(context);
+            String configUrl = configManager.getServerUrl();
+            currentUrl = (configUrl != null && !configUrl.trim().isEmpty()) 
+                ? normalizeBaseUrl(configUrl) 
+                : normalizeBaseUrl(DEFAULT_BASE_URL);
+        } catch (Exception e) {
+            // ConfigManager not ready yet - use hardcoded default
+            currentUrl = normalizeBaseUrl(DEFAULT_BASE_URL);
+        }
         
         // If instance is null or URL has changed, create new instance
         if (instance == null || !instance.currentBaseUrl.equals(currentUrl)) {
@@ -109,6 +149,45 @@ public class ApiClient {
             instance = new ApiClient(context);
         }
         return instance;
+    }
+    
+    /**
+     * Get timeout value from ConfigManager if available, otherwise use hardcoded default
+     */
+    private int getTimeoutFromConfig(Context context, String timeoutType) {
+        try {
+            ConfigManager configManager = ConfigManager.getInstance(context);
+            switch (timeoutType) {
+                case "connection":
+                    return configManager.getConnectionTimeoutSeconds();
+                case "read":
+                    return configManager.getReadTimeoutSeconds();
+                case "write":
+                    return configManager.getWriteTimeoutSeconds();
+                default:
+                    return ApiConstants.CONNECTION_TIMEOUT_SECONDS;
+            }
+        } catch (Exception e) {
+            // ConfigManager not ready yet - use hardcoded defaults
+            switch (timeoutType) {
+                case "connection":
+                    return ApiConstants.CONNECTION_TIMEOUT_SECONDS;
+                case "read":
+                    return ApiConstants.READ_TIMEOUT_SECONDS;
+                case "write":
+                    return ApiConstants.WRITE_TIMEOUT_SECONDS;
+                default:
+                    return ApiConstants.CONNECTION_TIMEOUT_SECONDS;
+            }
+        }
+    }
+    
+    /**
+     * Force recreation of ApiClient instance (useful when config changes)
+     */
+    public static synchronized void recreateInstance(Context context) {
+        instance = null;
+        getInstance(context);
     }
     
     public ApiService getApiService() {
