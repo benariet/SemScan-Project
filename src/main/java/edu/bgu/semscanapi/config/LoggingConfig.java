@@ -5,6 +5,7 @@ import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.web.filter.CommonsRequestLoggingFilter;
 
 /**
@@ -43,7 +44,7 @@ public class LoggingConfig {
         registration.setFilter(new RequestLoggingFilter(databaseLoggerService));
         registration.addUrlPatterns("/api/*");
         registration.setName("customRequestLoggingFilter");
-        registration.setOrder(1);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE); // Run FIRST, before all other filters
         return registration;
     }
 }

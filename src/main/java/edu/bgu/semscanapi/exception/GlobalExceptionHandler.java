@@ -14,11 +14,15 @@ import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.hibernate.exception.ConstraintViolationException;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 
@@ -39,15 +43,42 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception ex, HttpServletRequest request) {
+        // IMMEDIATE console logging (bypasses all logging frameworks)
+        System.err.println("=========================================");
+        System.err.println("GLOBAL EXCEPTION HANDLER TRIGGERED");
+        System.err.println("=========================================");
+        System.err.println("Exception Type: " + ex.getClass().getName());
+        System.err.println("Exception Message: " + (ex.getMessage() != null ? ex.getMessage() : "null"));
+        System.err.println("Request URI: " + request.getRequestURI());
+        System.err.println("Request Method: " + request.getMethod());
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        ex.printStackTrace(pw);
+        System.err.println("Stack Trace:\n" + sw.toString());
+        System.err.println("=========================================");
+        
         String correlationId = LoggerUtil.getCurrentCorrelationId();
+        if (correlationId == null || correlationId.isEmpty()) {
+            correlationId = LoggerUtil.generateAndSetCorrelationId();
+        }
         String bguUsername = LoggerUtil.getCurrentBguUsername();
+        
+        // Log to file logger
         logger.error("Unhandled exception - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
-        databaseLoggerService.logError(
-                "GLOBAL_EXCEPTION",
-                ex.getMessage(),
-                ex,
-                bguUsername,
-                String.format("correlationId=%s", correlationId));
+        
+        // Log to app_logs table (with try-catch to ensure it doesn't fail silently)
+        try {
+            databaseLoggerService.logError(
+                    "GLOBAL_EXCEPTION",
+                    ex.getMessage() != null ? ex.getMessage() : ex.getClass().getName(),
+                    ex,
+                    bguUsername,
+                    String.format("correlationId=%s,uri=%s,method=%s", correlationId, request.getRequestURI(), request.getMethod()));
+        } catch (Exception logEx) {
+            System.err.println("FAILED to log to app_logs: " + logEx.getMessage());
+            logEx.printStackTrace();
+            // Still continue to return error response
+        }
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Internal Server Error",
@@ -67,7 +98,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String bguUsername = LoggerUtil.getCurrentBguUsername();
-        logger.warn("Resource not found - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
+        logger.error("Resource not found - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "GLOBAL_EXCEPTION",
                 ex.getMessage(),
@@ -86,6 +117,77 @@ public class GlobalExceptionHandler {
     }
     
     /**
+     * Handle MethodArgumentNotValidException (validation failures from @Valid)
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @Order(1)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        String correlationId = LoggerUtil.getCurrentCorrelationId();
+        String bguUsername = LoggerUtil.getCurrentBguUsername();
+        
+        // Extract validation error messages
+        StringBuilder errorMessages = new StringBuilder();
+        ex.getBindingResult().getFieldErrors().forEach(error -> {
+            if (errorMessages.length() > 0) {
+                errorMessages.append("; ");
+            }
+            errorMessages.append(error.getField()).append(": ").append(error.getDefaultMessage());
+        });
+        
+        String errorMessage = errorMessages.length() > 0 ? errorMessages.toString() : "Validation failed";
+        logger.error("Validation error - Correlation ID: {}, Path: {}, Errors: {}", correlationId, request.getRequestURI(), errorMessage);
+        databaseLoggerService.logError(
+                "VALIDATION_ERROR",
+                "Request validation failed: " + errorMessage,
+                ex,
+                bguUsername,
+                String.format("correlationId=%s,path=%s", correlationId, request.getRequestURI()));
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+            "Validation Failed",
+            errorMessage,
+            HttpStatus.BAD_REQUEST.value(),
+            request.getRequestURI()
+        );
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+    
+    /**
+     * Handle HttpMessageNotReadableException (malformed JSON, null request body, etc.)
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @Order(1)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        String correlationId = LoggerUtil.getCurrentCorrelationId();
+        String bguUsername = LoggerUtil.getCurrentBguUsername();
+        
+        String errorMessage = "Invalid request body. Please check your JSON format.";
+        if (ex.getMessage() != null && ex.getMessage().contains("Required request body is missing")) {
+            errorMessage = "Request body is required but was missing.";
+        } else if (ex.getMessage() != null && ex.getMessage().contains("JSON parse error")) {
+            errorMessage = "Invalid JSON format in request body.";
+        }
+        
+        logger.error("Invalid request body - Correlation ID: {}, Path: {}, Error: {}", correlationId, request.getRequestURI(), ex.getMessage());
+        databaseLoggerService.logError(
+                "INVALID_REQUEST_BODY",
+                "Request body validation failed: " + (ex.getMessage() != null ? ex.getMessage() : "Unknown error"),
+                ex,
+                bguUsername,
+                String.format("correlationId=%s,path=%s", correlationId, request.getRequestURI()));
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+            "Invalid Request",
+            errorMessage,
+            HttpStatus.BAD_REQUEST.value(),
+            request.getRequestURI()
+        );
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+    
+    /**
      * Handle IllegalArgumentException
      */
     @ExceptionHandler(IllegalArgumentException.class)
@@ -93,7 +195,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String bguUsername = LoggerUtil.getCurrentBguUsername();
-        logger.warn("Illegal argument - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
+        logger.error("Illegal argument - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "VALIDATION_ERROR",
                 ex.getMessage(),
@@ -144,7 +246,7 @@ public class GlobalExceptionHandler {
             }
         }
         
-        logger.warn("Constraint violation - Correlation ID: {}, Path: {}, Error: {}", correlationId, request.getRequestURI(), errorMessage, ex);
+        logger.error("Constraint violation - Correlation ID: {}, Path: {}, Error: {}", correlationId, request.getRequestURI(), errorMessage, ex);
         databaseLoggerService.logError(
                 "CONSTRAINT_VIOLATION",
                 errorMessage + ": " + ex.getMessage(),
@@ -196,7 +298,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDeadlockException(DeadlockLoserDataAccessException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String bguUsername = LoggerUtil.getCurrentBguUsername();
-        logger.warn("Database deadlock detected - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
+        logger.error("Database deadlock detected - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "DATABASE_DEADLOCK",
                 "Database deadlock occurred. Transaction was rolled back. User should retry.",
@@ -223,7 +325,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleCannotAcquireLockException(CannotAcquireLockException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String bguUsername = LoggerUtil.getCurrentBguUsername();
-        logger.warn("Database lock timeout - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
+        logger.error("Database lock timeout - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "DATABASE_LOCK_TIMEOUT",
                 "Database lock could not be acquired within timeout period. User should retry.",
@@ -249,7 +351,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleQueryTimeoutException(QueryTimeoutException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String bguUsername = LoggerUtil.getCurrentBguUsername();
-        logger.warn("Database query timeout - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
+        logger.error("Database query timeout - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "DATABASE_QUERY_TIMEOUT",
                 "Database query exceeded timeout limit. User should retry.",
@@ -275,7 +377,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleLockAcquisitionException(LockAcquisitionException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String bguUsername = LoggerUtil.getCurrentBguUsername();
-        logger.warn("Hibernate lock acquisition failed - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
+        logger.error("Hibernate lock acquisition failed - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
         databaseLoggerService.logError(
                 "DATABASE_LOCK_ACQUISITION_FAILED",
                 "Hibernate could not acquire database lock. User should retry.",
@@ -311,7 +413,7 @@ public class GlobalExceptionHandler {
             
             // MySQL Error Code 1213: Deadlock found when trying to get lock
             if (errorCode == 1213) {
-                logger.warn("Database deadlock (SQL 1213) - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
+                logger.error("Database deadlock (SQL 1213) - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
                 databaseLoggerService.logError(
                         "DATABASE_DEADLOCK_SQL",
                         "Database deadlock detected (SQL Error 1213). Transaction was rolled back. User should retry.",
@@ -331,7 +433,7 @@ public class GlobalExceptionHandler {
             
             // MySQL Error Code 1205: Lock wait timeout exceeded
             if (errorCode == 1205) {
-                logger.warn("Database lock timeout (SQL 1205) - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
+                logger.error("Database lock timeout (SQL 1205) - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
                 databaseLoggerService.logError(
                         "DATABASE_LOCK_TIMEOUT_SQL",
                         "Database lock timeout detected (SQL Error 1205). User should retry.",

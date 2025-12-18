@@ -58,8 +58,39 @@ public class RequestLoggingFilter implements Filter {
         // Measure request duration
         long startTime = System.currentTimeMillis();
         
+        Exception caughtException = null;
         try {
             chain.doFilter(wrappedRequest, wrappedResponse);
+        } catch (Exception e) {
+            // Catch exceptions in filter to log immediately
+            caughtException = e;
+            logger.error("Exception caught in filter - Method: {}, URI: {}, Correlation ID: {}, Exception: {}", 
+                        httpRequest.getMethod(), httpRequest.getRequestURI(), correlationId,
+                        e.getClass().getSimpleName(), e);
+            
+            // Log to app_logs table
+            if (databaseLoggerService != null) {
+                try {
+                    String bguUsername = LoggerUtil.getCurrentBguUsername();
+                    if (bguUsername == null || bguUsername.trim().isEmpty()) {
+                        String requestBody = getRequestBody(wrappedRequest);
+                        bguUsername = extractUsernameFromRequest(httpRequest, requestBody);
+                    }
+                    String requestBody = getRequestBody(wrappedRequest);
+                    String payload = String.format("correlationId=%s,method=%s,uri=%s,exceptionType=%s,message=%s",
+                                                  correlationId, httpRequest.getMethod(), httpRequest.getRequestURI(),
+                                                  e.getClass().getSimpleName(), 
+                                                  e.getMessage() != null ? e.getMessage() : "null");
+                    databaseLoggerService.logError("FILTER_EXCEPTION", 
+                                                  "Exception caught in RequestLoggingFilter: " + e.getMessage(),
+                                                  e, bguUsername, payload);
+                } catch (Exception logEx) {
+                    logger.error("Failed to log exception to app_logs table", logEx);
+                }
+            }
+            
+            // Re-throw to let Spring handle it
+            throw e;
         } finally {
             long duration = System.currentTimeMillis() - startTime;
             
@@ -72,11 +103,21 @@ public class RequestLoggingFilter implements Filter {
             // Log request with body
             logRequest(wrappedRequest, requestBody);
             
-            // Log response with body
-            logResponse(wrappedRequest, wrappedResponse, duration, responseBody);
+            // Log response with body (or exception if one occurred)
+            if (caughtException != null) {
+                logger.error("Request failed - Method: {}, URI: {}, Duration: {}ms, Exception: {}", 
+                           httpRequest.getMethod(), httpRequest.getRequestURI(), duration,
+                           caughtException.getClass().getSimpleName());
+            } else {
+                logResponse(wrappedRequest, wrappedResponse, duration, responseBody);
+            }
             
             // Copy response body back to original response
-            wrappedResponse.copyBodyToResponse();
+            try {
+                wrappedResponse.copyBodyToResponse();
+            } catch (Exception e) {
+                logger.error("Failed to copy response body", e);
+            }
             
             LoggerUtil.clearContext();
         }

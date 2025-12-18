@@ -214,6 +214,98 @@ public class RegistrationApprovalController {
         }
     }
 
+    /**
+     * Student confirms promotion from waiting list
+     * GET /api/v1/student-confirm/{confirmationToken}
+     */
+    @GetMapping(value = "/api/v1/student-confirm/{confirmationToken}", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> confirmStudentPromotion(@PathVariable String confirmationToken) {
+        LoggerUtil.generateAndSetCorrelationId();
+        String endpoint = String.format("/api/v1/student-confirm/%s", confirmationToken.substring(0, Math.min(8, confirmationToken.length())) + "...");
+        LoggerUtil.logApiRequest(logger, "GET", endpoint, null);
+
+        try {
+            approvalService.confirmStudentPromotion(confirmationToken);
+            
+            String html = generateSuccessPage("Promotion Confirmed", 
+                    "You have confirmed your promotion. Your supervisor will receive an approval request email shortly.");
+            
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(), "Student promotion confirmed");
+            return ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid confirmation request", e);
+            String html = generateErrorPage("Invalid Request", e.getMessage());
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.BAD_REQUEST.value(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        } catch (IllegalStateException e) {
+            logger.error("Confirmation failed", e);
+            String html = generateErrorPage("Confirmation Failed", e.getMessage());
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.BAD_REQUEST.value(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        } catch (Exception e) {
+            logger.error("Unexpected error during student confirmation", e);
+            String html = generateErrorPage("Error", "An unexpected error occurred. Please try again later.");
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+
+    /**
+     * Student declines promotion from waiting list
+     * GET /api/v1/student-decline/{confirmationToken}
+     */
+    @GetMapping(value = "/api/v1/student-decline/{confirmationToken}", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> declineStudentPromotion(@PathVariable String confirmationToken) {
+        LoggerUtil.generateAndSetCorrelationId();
+        String endpoint = String.format("/api/v1/student-decline/%s", confirmationToken.substring(0, Math.min(8, confirmationToken.length())) + "...");
+        LoggerUtil.logApiRequest(logger, "GET", endpoint, null);
+
+        try {
+            approvalService.declineStudentPromotion(confirmationToken);
+            
+            String html = generateSuccessPage("Promotion Declined", 
+                    "You have declined the promotion. Your registration has been cancelled. The slot will be offered to the next person on the waiting list.");
+            
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(), "Student promotion declined");
+            return ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid decline request", e);
+            String html = generateErrorPage("Invalid Request", e.getMessage());
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.BAD_REQUEST.value(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        } catch (IllegalStateException e) {
+            logger.error("Decline failed", e);
+            String html = generateErrorPage("Decline Failed", e.getMessage());
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.BAD_REQUEST.value(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        } catch (Exception e) {
+            logger.error("Unexpected error during student decline", e);
+            String html = generateErrorPage("Error", "An unexpected error occurred. Please try again later.");
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+
     private String generateSuccessPage(String title, String message) {
         return String.format("""
             <!DOCTYPE html>

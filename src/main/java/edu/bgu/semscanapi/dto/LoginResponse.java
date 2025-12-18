@@ -1,16 +1,31 @@
 package edu.bgu.semscanapi.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Response payload returned after a mobile login attempt.
  */
 public class LoginResponse {
 
+    @JsonProperty("ok")
     private boolean ok;
+    
+    @JsonProperty("message")
     private String message;
+    
+    @JsonProperty("bguUsername")
     private String bguUsername;
+    
+    @JsonProperty("email")
     private String email;
+    
+    @JsonProperty("firstTime")
     private boolean isFirstTime;
+    
+    @JsonProperty("presenter")
     private boolean isPresenter;
+    
+    @JsonProperty("participant")
     private boolean isParticipant;
 
     public static LoginResponse success(String bguUsername,
@@ -33,6 +48,12 @@ public class LoginResponse {
         LoginResponse response = new LoginResponse();
         response.ok = false;
         response.message = message;
+        // Ensure all fields are initialized to prevent null pointer exceptions in mobile app
+        response.bguUsername = null;
+        response.email = null;
+        response.isFirstTime = false;
+        response.isPresenter = false;
+        response.isParticipant = false;
         return response;
     }
 

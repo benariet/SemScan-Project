@@ -5,10 +5,12 @@ import edu.bgu.semscanapi.entity.SeminarSlot;
 import edu.bgu.semscanapi.entity.SeminarSlotRegistration;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.entity.WaitingListEntry;
+import edu.bgu.semscanapi.entity.WaitingListPromotion;
 import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.repository.WaitingListRepository;
+import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.MailService;
 import edu.bgu.semscanapi.util.LoggerUtil;
@@ -17,6 +19,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import edu.bgu.semscanapi.entity.SeminarSlotRegistrationId;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +36,8 @@ public class WaitingListService {
     private final UserRepository userRepository;
     private final DatabaseLoggerService databaseLoggerService;
     private final MailService mailService;
+    private final WaitingListPromotionRepository waitingListPromotionRepository;
+    private final AppConfigService appConfigService;
 
     @Value("${app.registration.msc.max-per-slot:3}")
     private int mscMaxPerSlot;
@@ -48,13 +54,17 @@ public class WaitingListService {
             SeminarSlotRepository slotRepository,
             UserRepository userRepository,
             DatabaseLoggerService databaseLoggerService,
-            MailService mailService) {
+            MailService mailService,
+            WaitingListPromotionRepository waitingListPromotionRepository,
+            AppConfigService appConfigService) {
         this.waitingListRepository = waitingListRepository;
         this.registrationRepository = registrationRepository;
         this.slotRepository = slotRepository;
         this.userRepository = userRepository;
         this.databaseLoggerService = databaseLoggerService;
         this.mailService = mailService;
+        this.waitingListPromotionRepository = waitingListPromotionRepository;
+        this.appConfigService = appConfigService;
     }
 
     /**
@@ -108,6 +118,25 @@ public class WaitingListService {
             databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
                     String.format("slotId=%d,presenterUsername=%s,existingPosition=%d", slotId, normalizedUsername, existing.get().getPosition()));
             throw new IllegalStateException("User is already on the waiting list for this slot");
+        }
+
+        // BUSINESS RULE: Users can only be on ONE waiting list at a time (across all slots)
+        // This prevents users from being on multiple waiting lists simultaneously
+        // NOTE: This restriction does NOT apply to REGISTRATION - users can register for available slots
+        // even if they're on a waiting list for another slot
+        boolean onAnyWaitingList = waitingListRepository.existsByPresenterUsername(normalizedUsername);
+        if (onAnyWaitingList) {
+            // Find which slot they're on the waiting list for (for better error message)
+            List<WaitingListEntry> existingEntries = waitingListRepository.findByPresenterUsername(normalizedUsername);
+            Long existingSlotId = existingEntries.isEmpty() ? null : existingEntries.get(0).getSlotId();
+            String errorMsg = String.format("You can only be on 1 waiting list at once. Please wait for notification or cancel your current waiting list entry (slotId=%d)", 
+                    existingSlotId != null ? existingSlotId : "unknown");
+            logger.warn("{} - presenterUsername={}, existingSlotId={}, requestedSlotId={}", 
+                    errorMsg, normalizedUsername, existingSlotId, slotId);
+            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
+                    String.format("slotId=%d,presenterUsername=%s,existingSlotId=%s,reason=ALREADY_ON_ANOTHER_WAITING_LIST", 
+                            slotId, normalizedUsername, existingSlotId != null ? existingSlotId.toString() : "unknown"));
+            throw new IllegalStateException("You can only be on 1 waiting list at once. Please wait for notification or cancel your current waiting list entry.");
         }
 
         // Prevent adding to waiting list if user already has an approved/pending registration for this slot
@@ -381,36 +410,106 @@ public class WaitingListService {
         SeminarSlot slot = slotRepository.findById(slotId)
                 .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
         
-        // Promote if slot has capacity: approved registrations must be less than slot capacity
-        // TODO: Add degree-based capacity logic (PhD = 1 slot, MSc = capacity-based)
-        if (approvedCount >= slot.getCapacity()) {
-            logger.info("Cannot promote user {} from waiting list - slot {} is full (capacity: {}, approved: {})",
-                    nextEntry.getPresenterUsername(), slotId, slot.getCapacity(), approvedCount);
+        // Check capacity: count both APPROVED and PENDING registrations
+        List<SeminarSlotRegistration> allRegistrations = registrationRepository.findByIdSlotId(slotId);
+        long pendingCount = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .count();
+        int totalRegistrations = (int) (approvedCount + pendingCount);
+        int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
+        
+        // Promote if slot has capacity: total registrations (approved + pending) must be less than capacity
+        if (totalRegistrations >= capacity && capacity > 0) {
+            logger.info("Cannot promote user {} from waiting list - slot {} is full (capacity: {}, approved: {}, pending: {})",
+                    nextEntry.getPresenterUsername(), slotId, capacity, approvedCount, pendingCount);
             return Optional.empty();
         }
         
-        // Remove from waiting list without sending cancellation email (this is a promotion, not cancellation)
+        String promotedUsername = nextEntry.getPresenterUsername();
+        
+        // Get user details
+        User promotedUser = userRepository.findByBguUsername(promotedUsername)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + promotedUsername));
+        
+        // Check if user already registered (shouldn't happen, but safety check)
+        if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, promotedUsername)) {
+            logger.warn("User {} already registered for slot {} - removing from waiting list without promotion",
+                    promotedUsername, slotId);
+            waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, promotedUsername);
+            return Optional.empty();
+        }
+        
+        // CRITICAL: Create registration BEFORE removing from waiting list to prevent data loss
+        SeminarSlotRegistration newRegistration = new SeminarSlotRegistration();
+        newRegistration.setId(new SeminarSlotRegistrationId(slotId, promotedUsername));
+        newRegistration.setDegree(promotedUser.getDegree());
+        newRegistration.setTopic(nextEntry.getTopic());
+        newRegistration.setSupervisorName(nextEntry.getSupervisorName());
+        newRegistration.setSupervisorEmail(nextEntry.getSupervisorEmail());
+        newRegistration.setRegisteredAt(LocalDateTime.now());
+        newRegistration.setApprovalStatus(ApprovalStatus.PENDING);
+        
+        registrationRepository.save(newRegistration);
+        
+        // Remove from waiting list after successful registration creation
         int position = nextEntry.getPosition();
-        waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, nextEntry.getPresenterUsername());
+        waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, promotedUsername);
         
         // Decrement positions of all waiting list entries that were after this one (maintains queue order)
         waitingListRepository.decrementPositionsAfter(slotId, position);
         
-        logger.info("Promoted user {} from waiting list for slotId={} (removed without cancellation email)", 
-                nextEntry.getPresenterUsername(), slotId);
+        // Create WaitingListPromotion record with expiration time
+        LocalDateTime promotedAt = LocalDateTime.now();
+        Integer approvalWindowHours = appConfigService != null 
+                ? appConfigService.getIntegerConfig("waiting_list_approval_window_hours", 24) 
+                : 24;
+        LocalDateTime expiresAt = promotedAt.plusHours(approvalWindowHours);
+        
+        WaitingListPromotion promotion = new WaitingListPromotion();
+        promotion.setSlotId(slotId);
+        promotion.setPresenterUsername(promotedUsername);
+        promotion.setRegistrationSlotId(slotId);
+        promotion.setRegistrationPresenterUsername(promotedUsername);
+        promotion.setPromotedAt(promotedAt);
+        promotion.setExpiresAt(expiresAt);
+        promotion.setStatus(WaitingListPromotion.PromotionStatus.PENDING);
+        waitingListPromotionRepository.save(promotion);
+        
+        logger.info("Promoted user {} from waiting list for slotId={} - created PENDING registration with promotion record (expires at {})", 
+                promotedUsername, slotId, expiresAt);
         databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTED",
-                String.format("User %s promoted from waiting list for slotId=%d", nextEntry.getPresenterUsername(), slotId),
-                nextEntry.getPresenterUsername());
+                String.format("User %s promoted from waiting list for slotId=%d (PENDING registration created, expires at %s, approval window: %d hours)",
+                        promotedUsername, slotId, expiresAt, approvalWindowHours),
+                promotedUsername);
 
-        // Registration creation delegated to PresenterHomeService to maintain transaction boundaries
-        return Optional.empty();
+        // NOTE: Student confirmation email should be sent by the caller using RegistrationApprovalService.sendStudentConfirmationEmail()
+        // to avoid circular dependencies and maintain proper transaction boundaries
+        // After student confirms, supervisor approval email will be sent automatically
+        return Optional.of(newRegistration);
     }
 
     /**
-     * Check if user is on waiting list
+     * Check if user is on waiting list for a specific slot
      */
     public boolean isOnWaitingList(Long slotId, String presenterUsername) {
         return waitingListRepository.existsBySlotIdAndPresenterUsername(slotId, presenterUsername);
+    }
+
+    /**
+     * Check if user is on ANY waiting list (across all slots)
+     * Used to enforce "only one waiting list at a time" rule
+     */
+    public boolean isOnAnyWaitingList(String presenterUsername) {
+        return waitingListRepository.existsByPresenterUsername(presenterUsername);
+    }
+
+    /**
+     * Get the waiting list entry for a user (if they're on any waiting list)
+     * Returns the first waiting list entry found (users can only be on one at a time)
+     */
+    public Optional<WaitingListEntry> getWaitingListEntryForUser(String presenterUsername) {
+        List<WaitingListEntry> entries = waitingListRepository.findByPresenterUsername(presenterUsername);
+        return entries.isEmpty() ? Optional.empty() : Optional.of(entries.get(0));
     }
 
     /**

@@ -34,6 +34,9 @@ public class MailService {
     @Autowired
     private Environment environment;
 
+    @Autowired(required = false)
+    private AppConfigService appConfigService;
+
     @Value("${spring.mail.from:SemScan Attendance System <noreply@semscan.com>}")
     private String fromEmail;
 
@@ -153,23 +156,98 @@ public class MailService {
             logger.info("📧 [MailService] MimeMessage created");
 
             // Configure email sender (from address) and recipient list (to addresses)
-            logger.info("📧 [MailService] Setting from address: {}", fromEmail);
+            String emailFromName = appConfigService != null 
+                    ? appConfigService.getStringConfig("email_from_name", null) 
+                    : null;
+            
+            if (emailFromName != null && !emailFromName.trim().isEmpty()) {
+                // Use configured from name with email address
+                String fromAddress = fromEmail.contains("<") ? fromEmail : emailFromName + " <" + fromEmail + ">";
+                logger.info("📧 [MailService] Setting from address with name: {}", fromAddress);
+                helper.setFrom(fromAddress);
+                
+                if (databaseLoggerService != null) {
+                    databaseLoggerService.logAction("INFO", "EMAIL_CONFIG_FROM_NAME_USED",
+                            String.format("Using email_from_name from app_config: %s", emailFromName),
+                            null, String.format("fromName=%s,fromEmail=%s", emailFromName, fromEmail));
+                }
+            } else {
+                logger.info("📧 [MailService] Setting from address: {}", fromEmail);
             helper.setFrom(fromEmail);
+            }
+            
             logger.info("📧 [MailService] Setting to addresses: {}", to);
             helper.setTo(to.toArray(new String[0]));
 
-            // Add monitoring BCC if configured
-            if (monitoringEmail != null && !monitoringEmail.trim().isEmpty()) {
+            // Set reply-to address if configured
+            String emailReplyTo = appConfigService != null 
+                    ? appConfigService.getStringConfig("email_reply_to", null) 
+                    : null;
+            if (emailReplyTo != null && !emailReplyTo.trim().isEmpty()) {
                 try {
-                    logger.info("📧 [MailService] Adding monitoring BCC: {}", monitoringEmail);
-                    helper.setBcc(monitoringEmail);
-                    logger.info("📧 [MailService] Added monitoring BCC: {} (email to: {})", monitoringEmail, to);
+                    logger.info("📧 [MailService] Setting reply-to: {}", emailReplyTo);
+                    helper.setReplyTo(emailReplyTo);
+                    
+                    if (databaseLoggerService != null) {
+                        databaseLoggerService.logAction("INFO", "EMAIL_CONFIG_REPLY_TO_USED",
+                                String.format("Using email_reply_to from app_config: %s", emailReplyTo),
+                                null, String.format("replyTo=%s", emailReplyTo));
+                    }
                 } catch (MessagingException e) {
-                    logger.error("📧 ⚠️ [MailService] Failed to set BCC to {}: {}", monitoringEmail, e.getMessage());
+                    logger.error("📧 ⚠️ [MailService] Failed to set reply-to to {}: {}", emailReplyTo, e.getMessage());
+                    if (databaseLoggerService != null) {
+                        databaseLoggerService.logError("EMAIL_CONFIG_REPLY_TO_FAILED",
+                                String.format("Failed to set reply-to address from app_config: %s", emailReplyTo),
+                                e, null, String.format("replyTo=%s", emailReplyTo));
+                    }
+                    // Continue sending email even if reply-to fails
+                }
+            }
+
+            // Add BCC recipients if configured (from app_config or fallback to monitoringEmail)
+            String emailBccList = appConfigService != null 
+                    ? appConfigService.getStringConfig("email_bcc_list", null) 
+                    : null;
+            
+            String bccToUse = (emailBccList != null && !emailBccList.trim().isEmpty()) 
+                    ? emailBccList 
+                    : (monitoringEmail != null && !monitoringEmail.trim().isEmpty() ? monitoringEmail : null);
+            
+            if (bccToUse != null && !bccToUse.trim().isEmpty()) {
+                try {
+                    // Parse comma-separated BCC list
+                    String[] bccAddresses = bccToUse.split(",");
+                    List<String> bccList = new java.util.ArrayList<>();
+                    for (String bcc : bccAddresses) {
+                        String trimmed = bcc.trim();
+                        if (!trimmed.isEmpty()) {
+                            bccList.add(trimmed);
+                        }
+                    }
+                    
+                    if (!bccList.isEmpty()) {
+                        logger.info("📧 [MailService] Adding BCC recipients: {}", bccList);
+                        helper.setBcc(bccList.toArray(new String[0]));
+                        logger.info("📧 [MailService] Added BCC: {} (email to: {})", bccList, to);
+                        
+                        if (databaseLoggerService != null) {
+                            String source = (emailBccList != null && !emailBccList.trim().isEmpty()) ? "app_config" : "properties";
+                            databaseLoggerService.logAction("INFO", "EMAIL_CONFIG_BCC_USED",
+                                    String.format("Using BCC from %s: %s", source, bccList),
+                                    null, String.format("bccList=%s,source=%s", String.join(",", bccList), source));
+                        }
+                    }
+                } catch (MessagingException e) {
+                    logger.error("📧 ⚠️ [MailService] Failed to set BCC to {}: {}", bccToUse, e.getMessage());
+                    if (databaseLoggerService != null) {
+                        databaseLoggerService.logError("EMAIL_CONFIG_BCC_FAILED",
+                                String.format("Failed to set BCC from app_config: %s", bccToUse),
+                                e, null, String.format("bccList=%s", bccToUse));
+                    }
                     // Continue sending email even if BCC fails
                 }
             } else {
-                logger.warn("📧 ⚠️ [MailService] Monitoring email not configured - BCC will not be added. Check app.email.monitoring-cc property.");
+                logger.debug("📧 [MailService] No BCC configured - skipping BCC");
             }
 
             // Set email subject line and HTML body content (with optional plain text fallback)
@@ -190,8 +268,8 @@ public class MailService {
             // Log to app_log database
             if (databaseLoggerService != null) {
                 String recipientsStr = String.join(", ", to);
-                String bccInfo = monitoringEmail != null && !monitoringEmail.trim().isEmpty() 
-                    ? String.format(" (BCC: %s)", monitoringEmail) : "";
+                String bccInfo = bccToUse != null && !bccToUse.trim().isEmpty() 
+                    ? String.format(" (BCC: %s)", bccToUse) : "";
                 databaseLoggerService.logBusinessEvent("EMAIL_SENT",
                         String.format("Email sent to: %s%s, Subject: %s (took %dms)", recipientsStr, bccInfo, subject, duration),
                         null);

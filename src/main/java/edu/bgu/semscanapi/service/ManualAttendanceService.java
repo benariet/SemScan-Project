@@ -51,6 +51,9 @@ public class ManualAttendanceService {
     @Autowired
     private GlobalConfig globalConfig;
     
+    @Autowired(required = false)
+    private AppConfigService appConfigService;
+    
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     // Business rules
@@ -97,9 +100,13 @@ public class ManualAttendanceService {
                 throw new IllegalArgumentException(errorMsg);
             }
             
-            // Use configurable window values from GlobalConfig
-            int windowBeforeMinutes = globalConfig.getManualAttendanceWindowBeforeMinutes();
-            int windowAfterMinutes = globalConfig.getManualAttendanceWindowAfterMinutes();
+            // Use configurable window values from AppConfigService (fallback to GlobalConfig)
+            int windowBeforeMinutes = appConfigService != null 
+                    ? appConfigService.getIntegerConfig("student_attendance_window_before_minutes", 5)
+                    : globalConfig.getManualAttendanceWindowBeforeMinutes();
+            int windowAfterMinutes = appConfigService != null 
+                    ? appConfigService.getIntegerConfig("student_attendance_window_after_minutes", 10)
+                    : globalConfig.getManualAttendanceWindowAfterMinutes();
             
             LocalDateTime windowStart = sessionStart.minusMinutes(windowBeforeMinutes);
             
@@ -475,9 +482,13 @@ public class ManualAttendanceService {
                 LocalDateTime now = nowIsrael();
                 LocalDateTime sessionStart = session.getStartTime();
                 
-                // Use configurable window values from GlobalConfig
-                int windowBeforeMinutes = globalConfig.getManualAttendanceWindowBeforeMinutes();
-                int windowAfterMinutes = globalConfig.getManualAttendanceWindowAfterMinutes();
+                // Use configurable window values from AppConfigService (fallback to GlobalConfig)
+                int windowBeforeMinutes = appConfigService != null 
+                        ? appConfigService.getIntegerConfig("student_attendance_window_before_minutes", 5)
+                        : globalConfig.getManualAttendanceWindowBeforeMinutes();
+                int windowAfterMinutes = appConfigService != null 
+                        ? appConfigService.getIntegerConfig("student_attendance_window_after_minutes", 10)
+                        : globalConfig.getManualAttendanceWindowAfterMinutes();
                 
                 LocalDateTime windowStart = sessionStart.minusMinutes(windowBeforeMinutes);
                 

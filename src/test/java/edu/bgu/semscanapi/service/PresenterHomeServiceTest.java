@@ -16,6 +16,7 @@ import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
+import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,6 +66,21 @@ class PresenterHomeServiceTest {
     @Mock
     private DatabaseLoggerService databaseLoggerService;
 
+    @Mock
+    private RegistrationApprovalService approvalService;
+
+    @Mock
+    private WaitingListService waitingListService;
+
+    @Mock
+    private MailService mailService;
+
+    @Mock
+    private AppConfigService appConfigService;
+
+    @Mock
+    private WaitingListPromotionRepository waitingListPromotionRepository;
+
     @InjectMocks
     private PresenterHomeService presenterHomeService;
 
@@ -76,6 +92,11 @@ class PresenterHomeServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Setup default mocks for services
+        lenient().when(approvalService.sendApprovalEmail(any(SeminarSlotRegistration.class))).thenReturn(true);
+        lenient().when(appConfigService.getIntegerConfig(anyString(), anyInt())).thenReturn(15);
+        lenient().when(waitingListService.isOnWaitingList(anyLong(), anyString())).thenReturn(false);
+        
         // Setup test presenter
         testPresenter = new User();
         testPresenter.setBguUsername("testuser");
@@ -185,8 +206,11 @@ class PresenterHomeServiceTest {
         when(registrationRepository.existsByIdSlotIdAndIdPresenterUsername(1L, "testuser")).thenReturn(false);
         when(seminarSlotRepository.findById(1L)).thenReturn(Optional.of(testSlot));
         when(registrationRepository.findByIdSlotId(1L)).thenReturn(Collections.emptyList());
+        when(registrationRepository.findByIdPresenterUsername("testuser")).thenReturn(Collections.emptyList());
         when(registrationRepository.save(any(SeminarSlotRegistration.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(seminarSlotRepository.save(any(SeminarSlot.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(approvalService.sendApprovalEmail(any(SeminarSlotRegistration.class))).thenReturn(true);
+        lenient().when(appConfigService.getIntegerConfig(anyString(), anyInt())).thenReturn(15);
 
         // When
         PresenterSlotRegistrationResponse response = presenterHomeService.registerForSlot("testuser", 1L, request);
@@ -243,8 +267,10 @@ class PresenterHomeServiceTest {
         when(registrationRepository.existsByIdSlotIdAndIdPresenterUsername(1L, "testuser")).thenReturn(false);
         when(seminarSlotRepository.findById(1L)).thenReturn(Optional.of(testSlot));
         when(registrationRepository.findByIdSlotId(1L)).thenReturn(Collections.emptyList());
+        when(registrationRepository.findByIdPresenterUsername("testuser")).thenReturn(Collections.emptyList());
         when(registrationRepository.save(any(SeminarSlotRegistration.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(seminarSlotRepository.save(any(SeminarSlot.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(approvalService.sendApprovalEmail(any(SeminarSlotRegistration.class))).thenReturn(true);
         // Mock email service - use lenient to handle null topic parameter
         lenient().when(emailService.sendSupervisorNotificationEmail(
                 eq("supervisor@example.com"),
@@ -403,6 +429,7 @@ class PresenterHomeServiceTest {
         when(registrationRepository.existsByIdSlotIdAndIdPresenterUsername(1L, "testuser")).thenReturn(true);
         // findOpenSessions is not called when too early, so use lenient to avoid unnecessary stubbing warning
         lenient().when(sessionRepository.findOpenSessions()).thenReturn(Collections.emptyList());
+        lenient().when(appConfigService.getIntegerConfig(anyString(), anyInt())).thenReturn(15);
 
         // When
         PresenterOpenAttendanceResponse response = presenterHomeService.openAttendance("testuser", 1L);
@@ -427,6 +454,7 @@ class PresenterHomeServiceTest {
         when(registrationRepository.existsByIdSlotIdAndIdPresenterUsername(1L, "testuser")).thenReturn(true);
         // findOpenSessions is not called when too late, so use lenient to avoid unnecessary stubbing warning
         lenient().when(sessionRepository.findOpenSessions()).thenReturn(Collections.emptyList());
+        lenient().when(appConfigService.getIntegerConfig(anyString(), anyInt())).thenReturn(15);
 
         // When
         PresenterOpenAttendanceResponse response = presenterHomeService.openAttendance("testuser", 1L);
@@ -654,6 +682,7 @@ class PresenterHomeServiceTest {
         when(seminarSlotRepository.findBySlotDateGreaterThanEqualOrderBySlotDateAscStartTimeAsc(any(LocalDate.class)))
                 .thenReturn(Collections.singletonList(testSlot));
         when(registrationRepository.findByIdSlotIdIn(anyList())).thenReturn(Collections.emptyList());
+        lenient().when(appConfigService.getIntegerConfig(anyString(), anyInt())).thenReturn(15);
 
         // When
         List<PresenterHomeResponse.SlotCard> slots = presenterHomeService.getAllSlots();

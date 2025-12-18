@@ -48,7 +48,9 @@ logs/
 !README.md
 !DEPLOYMENT.md
 !README-SECURITY.md
-
+!diagram/*
+!docs/*
+!scripts/*
 ### Archives ###
 *.zip
 *.tar

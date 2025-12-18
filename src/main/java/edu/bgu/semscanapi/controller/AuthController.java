@@ -39,7 +39,7 @@ public class AuthController {
         LoggerUtil.generateAndSetCorrelationId();
         String endpoint = "/api/v1/auth/login";
 
-        String sanitizedRequest = String.format("{\"username\":\"%s\"}", request.getUsername());
+        String sanitizedRequest = String.format("{\"username\":\"%s\"}", request != null ? request.getUsername() : "null");
         LoggerUtil.logApiRequest(logger, "POST", endpoint, sanitizedRequest);
 
         try {

@@ -1,14 +1,26 @@
 package edu.bgu.semscanapi.config;
 
+import edu.bgu.semscanapi.service.AppConfigService;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
  * Global Configuration Class for SemScan API
  * Centralizes all application-wide configuration settings
+ * 
+ * NOTE: For email and time window settings, this class now integrates with AppConfigService
+ * to read from the app_config database table, with fallback to @Value properties for backward compatibility.
  */
 @Component
 public class GlobalConfig {
+    
+    @Autowired(required = false)
+    private AppConfigService appConfigService;
+    
+    @Autowired(required = false)
+    private DatabaseLoggerService databaseLoggerService;
 
     // =============================================
     // SERVER CONFIGURATION
@@ -69,12 +81,14 @@ public class GlobalConfig {
     // =============================================
     // MANUAL ATTENDANCE CONFIGURATION
     // =============================================
+    // NOTE: These values are now primarily managed via app_config table (student_attendance_window_before_minutes,
+    // student_attendance_window_after_minutes). The @Value defaults below are fallbacks for backward compatibility.
     
     @Value("${app.attendance.manual.window-before-minutes:10}")
-    private int manualAttendanceWindowBeforeMinutes;
+    private int manualAttendanceWindowBeforeMinutesDefault;
     
     @Value("${app.attendance.manual.window-after-minutes:15}")
-    private int manualAttendanceWindowAfterMinutes;
+    private int manualAttendanceWindowAfterMinutesDefault;
     
     @Value("${app.attendance.manual.auto-approve-cap-percentage:5}")
     private int manualAttendanceAutoApproveCapPercentage;
@@ -201,12 +215,71 @@ public class GlobalConfig {
     }
     
     // Manual Attendance Configuration
+    // These methods now read from AppConfigService first, with fallback to @Value defaults
     public int getManualAttendanceWindowBeforeMinutes() {
-        return manualAttendanceWindowBeforeMinutes;
+        if (appConfigService != null) {
+            try {
+                int value = appConfigService.getIntegerConfig("student_attendance_window_before_minutes", 
+                        manualAttendanceWindowBeforeMinutesDefault);
+                if (databaseLoggerService != null) {
+                    databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_READ_FROM_APP_CONFIG",
+                            String.format("Read student_attendance_window_before_minutes=%d from app_config table", value),
+                            null, String.format("configKey=student_attendance_window_before_minutes,value=%d", value));
+                }
+                return value;
+            } catch (Exception e) {
+                // Fallback to default if config service fails
+                if (databaseLoggerService != null) {
+                    databaseLoggerService.logError("GLOBAL_CONFIG_FALLBACK_TO_DEFAULT",
+                            String.format("Failed to read student_attendance_window_before_minutes from app_config, using default: %d. Error: %s",
+                                    manualAttendanceWindowBeforeMinutesDefault, e.getMessage()),
+                            e, null, String.format("configKey=student_attendance_window_before_minutes,defaultValue=%d", 
+                                    manualAttendanceWindowBeforeMinutesDefault));
+                }
+            }
+        } else {
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_APP_CONFIG_SERVICE_UNAVAILABLE",
+                        String.format("AppConfigService not available, using default for student_attendance_window_before_minutes: %d",
+                                manualAttendanceWindowBeforeMinutesDefault),
+                        null, String.format("configKey=student_attendance_window_before_minutes,defaultValue=%d",
+                                manualAttendanceWindowBeforeMinutesDefault));
+            }
+        }
+        return manualAttendanceWindowBeforeMinutesDefault;
     }
     
     public int getManualAttendanceWindowAfterMinutes() {
-        return manualAttendanceWindowAfterMinutes;
+        if (appConfigService != null) {
+            try {
+                int value = appConfigService.getIntegerConfig("student_attendance_window_after_minutes", 
+                        manualAttendanceWindowAfterMinutesDefault);
+                if (databaseLoggerService != null) {
+                    databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_READ_FROM_APP_CONFIG",
+                            String.format("Read student_attendance_window_after_minutes=%d from app_config table", value),
+                            null, String.format("configKey=student_attendance_window_after_minutes,value=%d", value));
+                }
+                return value;
+            } catch (Exception e) {
+                // Fallback to default if config service fails
+                if (databaseLoggerService != null) {
+                    databaseLoggerService.logError("GLOBAL_CONFIG_FALLBACK_TO_DEFAULT",
+                            String.format("Failed to read student_attendance_window_after_minutes from app_config, using default: %d. Error: %s",
+                                    manualAttendanceWindowAfterMinutesDefault, e.getMessage()),
+                            e, null, String.format("configKey=student_attendance_window_after_minutes,defaultValue=%d",
+                                    manualAttendanceWindowAfterMinutesDefault));
+                }
+            }
+        } else {
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_APP_CONFIG_SERVICE_UNAVAILABLE",
+                        String.format("AppConfigService not available, using default for student_attendance_window_after_minutes: %d",
+                                manualAttendanceWindowAfterMinutesDefault),
+                        null, String.format("configKey=student_attendance_window_after_minutes,defaultValue=%d",
+                                manualAttendanceWindowAfterMinutesDefault));
+            }
+        }
+        return manualAttendanceWindowAfterMinutesDefault;
     }
     
     public int getManualAttendanceAutoApproveCapPercentage() {
@@ -354,7 +427,7 @@ public class GlobalConfig {
             "🗄️ Database: %s\n" +
             "🔐 Security: API Key Header: %s\n" +
             "📊 Environment: %s\n" +
-            "⏰ Manual Attendance Window: -%d to +%d minutes\n" +
+            "⏰ Manual Attendance Window: -%d to +%d minutes (from %s)\n" +
             "📁 Max Export Size: %d MB\n" +
             "📝 Request Logging: %s",
             applicationName,
@@ -363,8 +436,9 @@ public class GlobalConfig {
             getApiBaseUrl(),
             databaseUrl,
             getEnvironment(),
-            manualAttendanceWindowBeforeMinutes,
-            manualAttendanceWindowAfterMinutes,
+            getManualAttendanceWindowBeforeMinutes(),
+            getManualAttendanceWindowAfterMinutes(),
+            appConfigService != null ? "app_config table" : "application.properties",
             maxExportFileSizeMb,
             enableRequestLogging ? "Enabled" : "Disabled"
         );

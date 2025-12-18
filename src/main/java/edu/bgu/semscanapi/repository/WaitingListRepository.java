@@ -28,5 +28,11 @@ public interface WaitingListRepository extends JpaRepository<WaitingListEntry, L
     @Modifying
     @Query("DELETE FROM WaitingListEntry w WHERE w.slotId = :slotId AND w.presenterUsername = :presenterUsername")
     void deleteBySlotIdAndPresenterUsername(@Param("slotId") Long slotId, @Param("presenterUsername") String presenterUsername);
+
+    // Check if user is on any waiting list (across all slots)
+    boolean existsByPresenterUsername(String presenterUsername);
+
+    // Get all waiting list entries for a user (across all slots)
+    List<WaitingListEntry> findByPresenterUsername(String presenterUsername);
 }
 

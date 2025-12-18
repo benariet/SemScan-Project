@@ -19,11 +19,13 @@ import edu.bgu.semscanapi.entity.SeminarSlotRegistrationId;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.entity.WaitingListEntry;
+import edu.bgu.semscanapi.entity.WaitingListPromotion;
 import edu.bgu.semscanapi.repository.SeminarRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
+import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
@@ -62,6 +64,8 @@ public class PresenterHomeService {
     private final RegistrationApprovalService approvalService;
     private final WaitingListService waitingListService;
     private final MailService mailService;
+    private final AppConfigService appConfigService;
+    private final WaitingListPromotionRepository waitingListPromotionRepository;
 
     public PresenterHomeService(UserRepository userRepository,
                                 SeminarSlotRepository seminarSlotRepository,
@@ -73,7 +77,9 @@ public class PresenterHomeService {
                                 DatabaseLoggerService databaseLoggerService,
                                 RegistrationApprovalService approvalService,
                                 WaitingListService waitingListService,
-                                MailService mailService) {
+                                MailService mailService,
+                                AppConfigService appConfigService,
+                                WaitingListPromotionRepository waitingListPromotionRepository) {
         this.userRepository = userRepository;
         this.seminarSlotRepository = seminarSlotRepository;
         this.registrationRepository = registrationRepository;
@@ -85,6 +91,8 @@ public class PresenterHomeService {
         this.approvalService = approvalService;
         this.waitingListService = waitingListService;
         this.mailService = mailService;
+        this.appConfigService = appConfigService;
+        this.waitingListPromotionRepository = waitingListPromotionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -134,9 +142,10 @@ public class PresenterHomeService {
         return response;
     }
 
-    @Transactional(timeout = 10, isolation = Isolation.READ_COMMITTED) 
+    @Transactional(timeout = 60, isolation = Isolation.READ_COMMITTED) 
     // READ_COMMITTED reduces lock contention vs REPEATABLE_READ
-    // Timeout prevents long-running transactions that hold locks
+    // Timeout set to 60 seconds to handle multiple database queries and potential locks
+    // This method performs: user lookup, registration checks, slot loading, capacity checks, and saves
     public PresenterSlotRegistrationResponse registerForSlot(String presenterUsernameParam,
                                                              Long slotId,
                                                              PresenterSlotRegistrationRequest request) {
@@ -217,8 +226,10 @@ public class PresenterHomeService {
             }
             
             // NOTE: Registration limits are already enforced above (PhD: max 1 approved + 1 pending, MSc: max 1 approved + 2 pending)
-            // Being on a waiting list for another slot does NOT prevent registration for other slots
-            // Only actual registrations (approved/pending) count towards the limits
+            // CRITICAL BUSINESS RULE: Being on a waiting list for another slot does NOT prevent registration for other slots
+            // Users can register for available/empty slots even if they're on a waiting list for a different slot
+            // Only actual registrations (approved/pending) count towards the limits, NOT waiting list entries
+            // The "only one waiting list" restriction applies only when JOINING a waiting list, not when registering
             
             // Load ALL registrations for this slot (APPROVED + PENDING) to check capacity
             // CRITICAL: Both approved AND pending registrations count towards capacity
@@ -471,14 +482,29 @@ public class PresenterHomeService {
                                     presenterUsername, slotId),
                             presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
                     
-                    approvalService.sendApprovalEmail(registration);
+                    boolean emailSent = approvalService.sendApprovalEmail(registration);
+                    logger.info("📧 [PresenterHomeService] sendApprovalEmail() returned: {} for presenter {} and slot {} to supervisor {}", 
+                            emailSent, presenterUsername, slotId, supervisorEmail);
+                    databaseLoggerService.logAction("INFO", "EMAIL_APPROVAL_SERVICE_RETURNED",
+                            String.format("sendApprovalEmail() returned: %s for presenter %s and slot %s", emailSent, presenterUsername, slotId),
+                            presenterUsername, String.format("slotId=%d,supervisorEmail=%s,sent=%s", slotId, supervisorEmail, emailSent));
                     
-                    logger.info("📧 ✅ Approval email send completed (check logs for success/failure) for presenter {} and slot {} to supervisor {}", 
-                            presenterUsername, slotId, supervisorEmail);
-                    databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_ATTEMPTED",
-                            String.format("Attempted to send approval email for presenter %s and slot %s to supervisor %s",
-                                    presenterUsername, slotId, supervisorEmail),
-                            presenterUsername);
+                    if (emailSent) {
+                        logger.info("📧 ✅ Approval email sent successfully for presenter {} and slot {} to supervisor {}", 
+                                presenterUsername, slotId, supervisorEmail);
+                        databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT",
+                                String.format("Approval email sent successfully for presenter %s and slot %s to supervisor %s",
+                                        presenterUsername, slotId, supervisorEmail),
+                                presenterUsername);
+                    } else {
+                        logger.error("📧 ❌ Approval email FAILED to send for presenter {} and slot {} to supervisor {} - check logs for details", 
+                                presenterUsername, slotId, supervisorEmail);
+                        databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_FAILED",
+                                String.format("Approval email FAILED to send for presenter %s and slot %s to supervisor %s",
+                                        presenterUsername, slotId, supervisorEmail),
+                                null, presenterUsername,
+                                String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
+                    }
                 }
             } catch (Exception e) {
                 logger.error("📧 ❌ Failed to send approval email for presenter {} and slot {} to supervisor {} - Exception: {}",
@@ -771,11 +797,12 @@ public class PresenterHomeService {
     }
 
     /**
-     * Promote next user from waiting list after an approved registration is cancelled
-     * Creates a PENDING registration and sends approval email to supervisor
+     * Promote next user from waiting list after a registration is cancelled
+     * Creates a PENDING registration and sends student confirmation email
+     * Can be called from other services (e.g., when student declines promotion)
      */
     @Transactional
-    private Optional<WaitingListEntry> promoteFromWaitingListAfterCancellation(Long slotId, SeminarSlot slot) {
+    public Optional<WaitingListEntry> promoteFromWaitingListAfterCancellation(Long slotId, SeminarSlot slot) {
         logger.info("Attempting to promote from waiting list for slot {} after cancellation", slotId);
         
         // Get next person on waiting list
@@ -832,19 +859,36 @@ public class PresenterHomeService {
         // Remove from waiting list
         waitingListService.removeFromWaitingList(slotId, promotedUsername);
         
-        logger.info("Promoted user {} from waiting list for slot {} - created PENDING registration", 
-                promotedUsername, slotId);
+        // Create WaitingListPromotion record with expiration time
+        LocalDateTime promotedAt = LocalDateTime.now();
+        Integer approvalWindowHours = appConfigService != null 
+                ? appConfigService.getIntegerConfig("waiting_list_approval_window_hours", 24) 
+                : 24;
+        LocalDateTime expiresAt = promotedAt.plusHours(approvalWindowHours);
+        
+        WaitingListPromotion promotion = new WaitingListPromotion();
+        promotion.setSlotId(slotId);
+        promotion.setPresenterUsername(promotedUsername);
+        promotion.setRegistrationSlotId(slotId);
+        promotion.setRegistrationPresenterUsername(promotedUsername);
+        promotion.setPromotedAt(promotedAt);
+        promotion.setExpiresAt(expiresAt);
+        promotion.setStatus(WaitingListPromotion.PromotionStatus.PENDING);
+        waitingListPromotionRepository.save(promotion);
+        
+        logger.info("Promoted user {} from waiting list for slot {} - created PENDING registration with promotion record (expires at {})", 
+                promotedUsername, slotId, expiresAt);
         databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTED_AFTER_CANCELLATION",
-                String.format("User %s promoted from waiting list for slot %d after cancellation (PENDING registration created)",
-                        promotedUsername, slotId),
+                String.format("User %s promoted from waiting list for slot %d after cancellation (PENDING registration created, expires at %s, approval window: %d hours)",
+                        promotedUsername, slotId, expiresAt, approvalWindowHours),
                 promotedUsername);
         
-        // Send approval email to supervisor (outside transaction to avoid holding locks)
+        // Send student confirmation email (student must confirm before supervisor approval email is sent)
         try {
-            approvalService.sendApprovalEmail(newRegistration);
-            logger.info("Approval email sent to supervisor for promoted user {} in slot {}", promotedUsername, slotId);
+            approvalService.sendStudentConfirmationEmail(newRegistration);
+            logger.info("Student confirmation email sent to promoted user {} in slot {}", promotedUsername, slotId);
         } catch (Exception e) {
-            logger.error("Failed to send approval email for promoted user {} in slot {}: {}", 
+            logger.error("Failed to send student confirmation email for promoted user {} in slot {}: {}", 
                     promotedUsername, slotId, e.getMessage(), e);
             // Don't fail promotion if email fails
         }
@@ -985,21 +1029,32 @@ public class PresenterHomeService {
         }
 
         LocalDateTime end = toSlotEnd(slot);
-        LocalDateTime openWindow = start.minusMinutes(10);
+        
+        // Get configurable window values from AppConfigService (read from MOBILE or BOTH, default: 30 minutes before)
+        Integer windowBeforeMinutes = appConfigService != null 
+                ? appConfigService.getIntegerConfig("presenter_slot_open_window_before_minutes", 30)
+                : 30;
+        Integer windowAfterMinutes = appConfigService != null 
+                ? appConfigService.getIntegerConfig("presenter_slot_open_window_after_minutes", 15)
+                : 15;
+        
+        LocalDateTime openWindow = start.minusMinutes(windowBeforeMinutes);
+        LocalDateTime closeWindow = end != null ? end.plusMinutes(windowAfterMinutes) : null;
         
         // Log time comparison for debugging - CRITICAL for diagnosing timezone issues
         long minutesUntilOpen = Duration.between(now, openWindow).toMinutes();
         String systemTimezone = java.util.TimeZone.getDefault().getID();
         LocalDateTime nowUtc = LocalDateTime.now(); // For logging comparison
-        logger.info("⏰⏰⏰ CRITICAL TIME CHECK - Slot: {}, System Timezone: {}, Now (UTC): {}, Now (Israel): {}, Slot Start: {}, Open Window: {}, Minutes until open: {}, Can open: {}", 
-            slotId, systemTimezone, nowUtc, now, start, openWindow, minutesUntilOpen, !now.isBefore(openWindow));
+        logger.info("⏰⏰⏰ CRITICAL TIME CHECK - Slot: {}, System Timezone: {}, Now (UTC): {}, Now (Israel): {}, Slot Start: {}, Open Window: {} ({} min before), Minutes until open: {}, Can open: {}", 
+            slotId, systemTimezone, nowUtc, now, start, openWindow, windowBeforeMinutes, minutesUntilOpen, !now.isBefore(openWindow));
         
-        // Check if too early (before 10 minutes before start)
-        // Allow opening during the slot time (from 10 minutes before start until slot ends, or indefinitely if no end time)
+        // Check if too early (before configured window before start)
+        // Allow opening during the slot time (from windowBeforeMinutes before start until slot ends + windowAfterMinutes, or indefinitely if no end time)
         if (now.isBefore(openWindow)) {
             String openWindowStr = DATE_TIME_FORMAT.format(openWindow);
             long minutesDiff = Duration.between(now, openWindow).toMinutes();
-            String errorMsg = String.format("Cannot start session. Attendance can only be opened 10 minutes before the slot start time (at %s)", openWindowStr);
+            String errorMsg = String.format("Cannot start session. Attendance can only be opened %d minutes before the slot start time (at %s)", 
+                    windowBeforeMinutes, openWindowStr);
             logger.error("❌ TOO_EARLY - Slot: {}, Now: {}, OpenWindow: {}, Start: {}, Minutes difference: {} (negative = too early)", 
                 slotId, now, openWindow, start, minutesDiff);
             databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
@@ -1010,16 +1065,18 @@ public class PresenterHomeService {
         
         logger.info("✅ Time check passed - Slot: {} can be opened (Now: {} >= OpenWindow: {})", slotId, now, openWindow);
         
-        // Check if too late (after slot ends) - only if slot has an end time
-        if (end != null && now.isAfter(end)) {
-            String errorMsg = String.format("Too late: Slot has ended at %s", DATE_TIME_FORMAT.format(end));
+        // Check if too late (after slot ends + windowAfterMinutes) - only if slot has an end time
+        if (closeWindow != null && now.isAfter(closeWindow)) {
+            String errorMsg = String.format("Too late: Attendance window closed. Slot ended at %s, attendance can be opened up to %d minutes after (closed at %s)", 
+                    DATE_TIME_FORMAT.format(end), windowAfterMinutes, DATE_TIME_FORMAT.format(closeWindow));
             databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
-                String.format("slotId=%s,reason=TOO_LATE,now=%s,end=%s", slotId, DATE_TIME_FORMAT.format(now), DATE_TIME_FORMAT.format(end)));
+                String.format("slotId=%s,reason=TOO_LATE,now=%s,end=%s,closeWindow=%s,windowAfterMinutes=%d", 
+                    slotId, DATE_TIME_FORMAT.format(now), DATE_TIME_FORMAT.format(end), DATE_TIME_FORMAT.format(closeWindow), windowAfterMinutes));
             return new PresenterOpenAttendanceResponse(false, errorMsg, "TOO_LATE", null, null, null, null, null);
         }
         
-        // Allow opening if: now >= openWindow (10 minutes before start) AND (end is null OR now <= end)
-        // This covers both: 10 minutes before start AND during the slot time
+        // Allow opening if: now >= openWindow (windowBeforeMinutes before start) AND (closeWindow is null OR now <= closeWindow)
+        // This covers both: windowBeforeMinutes before start AND during the slot time + windowAfterMinutes
 
         // CRITICAL: Get fresh list of open sessions to ensure we see all current sessions
         // This is important to catch sessions that were just opened by other presenters
@@ -1049,9 +1106,14 @@ public class PresenterHomeService {
                 sessionOpenedAt = sessionSlot.get().getAttendanceOpenedAt();
                 sessionClosesAt = sessionSlot.get().getAttendanceClosesAt();
             }
-            // If slot doesn't have timing info, use session start time + 15 minutes
+            // If slot doesn't have timing info, use session start time + configured close duration
             if (sessionClosesAt == null && thisPresenterOpenSession.getStartTime() != null) {
-                sessionClosesAt = thisPresenterOpenSession.getStartTime().plusMinutes(15);
+                Integer sessionCloseDurationMinutes = appConfigService != null 
+                        ? appConfigService.getIntegerConfig("presenter_close_session_duration_minutes", 15)
+                        : 15;
+                sessionClosesAt = thisPresenterOpenSession.getStartTime().plusMinutes(sessionCloseDurationMinutes);
+                logger.info("📧 Calculated session closes at: {} (session close duration: {} minutes from start)", 
+                        sessionClosesAt, sessionCloseDurationMinutes);
             }
             if (sessionOpenedAt == null && thisPresenterOpenSession.getStartTime() != null) {
                 sessionOpenedAt = thisPresenterOpenSession.getStartTime();
@@ -1143,7 +1205,14 @@ public class PresenterHomeService {
         // Use the 'now' variable already defined at the start of the method
         slot.setLegacySessionId(newSession.getSessionId());
         slot.setAttendanceOpenedAt(now);
-        slot.setAttendanceClosesAt(now.plusMinutes(15));
+        
+        // Get configurable session close duration from app_config (default: 15 minutes)
+        Integer sessionCloseDurationMinutes = appConfigService != null 
+                ? appConfigService.getIntegerConfig("presenter_close_session_duration_minutes", 15)
+                : 15;
+        slot.setAttendanceClosesAt(now.plusMinutes(sessionCloseDurationMinutes));
+        logger.info("📧 Set attendance closes at: {} (session close duration: {} minutes from now)", 
+                slot.getAttendanceClosesAt(), sessionCloseDurationMinutes);
         slot.setAttendanceOpenedBy(presenterUsername);
         seminarSlotRepository.save(slot);
         logger.info("Updated slot {} to track session {}", slotId, newSession.getSessionId());
