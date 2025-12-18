@@ -221,29 +221,44 @@ public class GlobalConfig {
             try {
                 int value = appConfigService.getIntegerConfig("student_attendance_window_before_minutes", 
                         manualAttendanceWindowBeforeMinutesDefault);
+                // Logging should never break the main flow - wrap in try-catch
                 if (databaseLoggerService != null) {
-                    databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_READ_FROM_APP_CONFIG",
-                            String.format("Read student_attendance_window_before_minutes=%d from app_config table", value),
-                            null, String.format("configKey=student_attendance_window_before_minutes,value=%d", value));
+                    try {
+                        databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_READ_FROM_APP_CONFIG",
+                                String.format("Read student_attendance_window_before_minutes=%d from app_config table", value),
+                                null, String.format("configKey=student_attendance_window_before_minutes,value=%d", value));
+                    } catch (Exception logEx) {
+                        // Ignore logging exceptions - don't break main flow
+                    }
                 }
                 return value;
             } catch (Exception e) {
                 // Fallback to default if config service fails
+                // Logging should never break the main flow - wrap in try-catch
                 if (databaseLoggerService != null) {
-                    databaseLoggerService.logError("GLOBAL_CONFIG_FALLBACK_TO_DEFAULT",
-                            String.format("Failed to read student_attendance_window_before_minutes from app_config, using default: %d. Error: %s",
-                                    manualAttendanceWindowBeforeMinutesDefault, e.getMessage()),
-                            e, null, String.format("configKey=student_attendance_window_before_minutes,defaultValue=%d", 
-                                    manualAttendanceWindowBeforeMinutesDefault));
+                    try {
+                        databaseLoggerService.logError("GLOBAL_CONFIG_FALLBACK_TO_DEFAULT",
+                                String.format("Failed to read student_attendance_window_before_minutes from app_config, using default: %d. Error: %s",
+                                        manualAttendanceWindowBeforeMinutesDefault, e.getMessage()),
+                                e, null, String.format("configKey=student_attendance_window_before_minutes,defaultValue=%d", 
+                                        manualAttendanceWindowBeforeMinutesDefault));
+                    } catch (Exception logEx) {
+                        // Ignore logging exceptions - don't break main flow
+                    }
                 }
             }
         } else {
+            // Logging should never break the main flow - wrap in try-catch
             if (databaseLoggerService != null) {
-                databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_APP_CONFIG_SERVICE_UNAVAILABLE",
-                        String.format("AppConfigService not available, using default for student_attendance_window_before_minutes: %d",
-                                manualAttendanceWindowBeforeMinutesDefault),
-                        null, String.format("configKey=student_attendance_window_before_minutes,defaultValue=%d",
-                                manualAttendanceWindowBeforeMinutesDefault));
+                try {
+                    databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_APP_CONFIG_SERVICE_UNAVAILABLE",
+                            String.format("AppConfigService not available, using default for student_attendance_window_before_minutes: %d",
+                                    manualAttendanceWindowBeforeMinutesDefault),
+                            null, String.format("configKey=student_attendance_window_before_minutes,defaultValue=%d",
+                                    manualAttendanceWindowBeforeMinutesDefault));
+                } catch (Exception logEx) {
+                    // Ignore logging exceptions - don't break main flow
+                }
             }
         }
         return manualAttendanceWindowBeforeMinutesDefault;
@@ -254,29 +269,44 @@ public class GlobalConfig {
             try {
                 int value = appConfigService.getIntegerConfig("student_attendance_window_after_minutes", 
                         manualAttendanceWindowAfterMinutesDefault);
+                // Logging should never break the main flow - wrap in try-catch
                 if (databaseLoggerService != null) {
-                    databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_READ_FROM_APP_CONFIG",
-                            String.format("Read student_attendance_window_after_minutes=%d from app_config table", value),
-                            null, String.format("configKey=student_attendance_window_after_minutes,value=%d", value));
+                    try {
+                        databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_READ_FROM_APP_CONFIG",
+                                String.format("Read student_attendance_window_after_minutes=%d from app_config table", value),
+                                null, String.format("configKey=student_attendance_window_after_minutes,value=%d", value));
+                    } catch (Exception logEx) {
+                        // Ignore logging exceptions - don't break main flow
+                    }
                 }
                 return value;
             } catch (Exception e) {
                 // Fallback to default if config service fails
+                // Logging should never break the main flow - wrap in try-catch
                 if (databaseLoggerService != null) {
-                    databaseLoggerService.logError("GLOBAL_CONFIG_FALLBACK_TO_DEFAULT",
-                            String.format("Failed to read student_attendance_window_after_minutes from app_config, using default: %d. Error: %s",
-                                    manualAttendanceWindowAfterMinutesDefault, e.getMessage()),
-                            e, null, String.format("configKey=student_attendance_window_after_minutes,defaultValue=%d",
-                                    manualAttendanceWindowAfterMinutesDefault));
+                    try {
+                        databaseLoggerService.logError("GLOBAL_CONFIG_FALLBACK_TO_DEFAULT",
+                                String.format("Failed to read student_attendance_window_after_minutes from app_config, using default: %d. Error: %s",
+                                        manualAttendanceWindowAfterMinutesDefault, e.getMessage()),
+                                e, null, String.format("configKey=student_attendance_window_after_minutes,defaultValue=%d",
+                                        manualAttendanceWindowAfterMinutesDefault));
+                    } catch (Exception logEx) {
+                        // Ignore logging exceptions - don't break main flow
+                    }
                 }
             }
         } else {
+            // Logging should never break the main flow - wrap in try-catch
             if (databaseLoggerService != null) {
-                databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_APP_CONFIG_SERVICE_UNAVAILABLE",
-                        String.format("AppConfigService not available, using default for student_attendance_window_after_minutes: %d",
-                                manualAttendanceWindowAfterMinutesDefault),
-                        null, String.format("configKey=student_attendance_window_after_minutes,defaultValue=%d",
-                                manualAttendanceWindowAfterMinutesDefault));
+                try {
+                    databaseLoggerService.logAction("INFO", "GLOBAL_CONFIG_APP_CONFIG_SERVICE_UNAVAILABLE",
+                            String.format("AppConfigService not available, using default for student_attendance_window_after_minutes: %d",
+                                    manualAttendanceWindowAfterMinutesDefault),
+                            null, String.format("configKey=student_attendance_window_after_minutes,defaultValue=%d",
+                                    manualAttendanceWindowAfterMinutesDefault));
+                } catch (Exception logEx) {
+                    // Ignore logging exceptions - don't break main flow
+                }
             }
         }
         return manualAttendanceWindowAfterMinutesDefault;
