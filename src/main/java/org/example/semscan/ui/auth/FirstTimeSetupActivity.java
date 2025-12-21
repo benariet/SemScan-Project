@@ -462,10 +462,11 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         Logger.i(Logger.TAG_UI, "Creating user profile with username: " + username);
         // Use the email from the input field, or fallback to username + domain if empty
         String emailDomain = ConfigManager.getInstance(this).getEmailDomain();
-        String finalEmail = email;
-        if (TextUtils.isEmpty(finalEmail) && username != null) {
-            finalEmail = username + emailDomain;
+        String emailToUse = email;
+        if (TextUtils.isEmpty(emailToUse) && username != null) {
+            emailToUse = username + emailDomain;
         }
+        final String finalEmail = emailToUse;
 
         ApiService.UserProfileUpdateRequest request = new ApiService.UserProfileUpdateRequest(
                 username,
