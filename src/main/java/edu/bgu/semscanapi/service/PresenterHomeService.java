@@ -95,6 +95,32 @@ public class PresenterHomeService {
         this.waitingListPromotionRepository = waitingListPromotionRepository;
     }
 
+    /**
+     * Calculate effective capacity usage for a slot.
+     * PhD students count as 2 toward capacity, MSc students count as 1.
+     * This is configurable via app_config (phd.capacity.weight, default=2).
+     */
+    private int calculateEffectiveCapacityUsage(List<SeminarSlotRegistration> registrations) {
+        int phdWeight = appConfigService.getIntegerConfig("phd.capacity.weight", 2);
+        int effectiveUsage = 0;
+        for (SeminarSlotRegistration reg : registrations) {
+            if (reg.getDegree() == User.Degree.PhD) {
+                effectiveUsage += phdWeight;
+            } else {
+                effectiveUsage += 1;
+            }
+        }
+        return effectiveUsage;
+    }
+
+    /**
+     * Determine slot state based on effective capacity usage.
+     * Delegates to determineState since the logic is the same.
+     */
+    private SlotState determineStateByEffectiveUsage(Integer capacity, int effectiveUsage) {
+        return determineState(capacity, effectiveUsage);
+    }
+
     @Transactional(readOnly = true)
     public PresenterHomeResponse getPresenterHome(String presenterUsernameParam) {
         String normalizedUsername = normalizeUsername(presenterUsernameParam);
@@ -263,20 +289,30 @@ public class PresenterHomeService {
                         return new IllegalArgumentException(errorMsg);
                     });
             
-            // Check slot capacity for non-PhD students: PhD students automatically take entire slot (capacity = 1)
+            // Check slot capacity using effective capacity (PhD counts as 2, MSc counts as 1)
             // CRITICAL FIX: Count BOTH approved AND pending registrations against capacity
             int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
-            int totalRegistrations = approvedRegistrations.size() + pendingRegistrations.size();
             
-            if (presenterDegree != User.Degree.PhD && totalRegistrations >= capacity) {
+            // Combine approved and pending for effective usage calculation
+            List<SeminarSlotRegistration> allActiveRegistrations = new ArrayList<>();
+            allActiveRegistrations.addAll(approvedRegistrations);
+            allActiveRegistrations.addAll(pendingRegistrations);
+            int effectiveUsage = calculateEffectiveCapacityUsage(allActiveRegistrations);
+            
+            // Calculate what the new total would be if this registration is added
+            int phdWeight = appConfigService.getIntegerConfig("phd.capacity.weight", 2);
+            int newRegistrationWeight = (presenterDegree == User.Degree.PhD) ? phdWeight : 1;
+            int projectedUsage = effectiveUsage + newRegistrationWeight;
+            
+            if (projectedUsage > capacity) {
                 updateSlotStatus(slot, SlotState.FULL);
-                String errorMsg = String.format("Slot is already full (capacity: %d, approved: %d, pending: %d)", 
-                        capacity, approvedRegistrations.size(), pendingRegistrations.size());
-                logger.warn("Slot {} is full - capacity: {}, approved: {}, pending: {}", 
-                        slotId, capacity, approvedRegistrations.size(), pendingRegistrations.size());
+                String errorMsg = String.format("Slot is already full (capacity: %d, effective usage: %d, your weight: %d)", 
+                        capacity, effectiveUsage, newRegistrationWeight);
+                logger.warn("Slot {} is full - capacity: {}, effective usage: {}, projected: {}", 
+                        slotId, capacity, effectiveUsage, projectedUsage);
                 databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                    String.format("slotId=%s,reason=SLOT_FULL,capacity=%d,approved=%d,pending=%d,total=%d", 
-                            slotId, capacity, approvedRegistrations.size(), pendingRegistrations.size(), totalRegistrations));
+                    String.format("slotId=%s,reason=SLOT_FULL,capacity=%d,effectiveUsage=%d,projectedUsage=%d,degree=%s", 
+                            slotId, capacity, effectiveUsage, projectedUsage, presenterDegree));
                 return new PresenterSlotRegistrationResponse(false, "Slot is already full", "SLOT_FULL");
             }
 
@@ -311,6 +347,11 @@ public class PresenterHomeService {
             registration.setId(new SeminarSlotRegistrationId(slotId, presenterUsername));
             registration.setDegree(presenter.getDegree());
             registration.setTopic(normalizeTopic(request.getTopic()));
+            // Use abstract from request if provided, otherwise fall back to user profile
+            String finalAbstract = (request.getSeminarAbstract() != null && !request.getSeminarAbstract().trim().isEmpty())
+                    ? request.getSeminarAbstract()
+                    : presenter.getSeminarAbstract();
+            registration.setSeminarAbstract(finalAbstract);
             registration.setSupervisorName(finalSupervisorName);
             registration.setSupervisorEmail(finalSupervisorEmail);
             registration.setRegisteredAt(LocalDateTime.now());
@@ -338,12 +379,12 @@ public class PresenterHomeService {
             }
 
             // PhD registration: slot becomes FULL immediately (PhD takes entire slot, no other presenters allowed)
-            // Non-PhD registration: update slot state based on current capacity vs total registrations (approved + pending)
+            // Non-PhD registration: update slot state based on effective capacity usage (PhD=2, MSc=1)
             boolean slotNowHasPhd = presenterDegree == User.Degree.PhD;
-            int newTotalRegistrations = totalRegistrations + 1; // Include this new pending registration
+            int newEffectiveUsage = effectiveUsage + newRegistrationWeight; // Include this new registration
             SlotState updatedState = slotNowHasPhd
                     ? SlotState.FULL
-                    : determineState(slot.getCapacity(), newTotalRegistrations);
+                    : determineStateByEffectiveUsage(slot.getCapacity(), newEffectiveUsage);
 
             if (slotNowHasPhd) {
                 // PhD registration: close attendance window (PhD takes whole slot, no attendance needed)
@@ -684,13 +725,15 @@ public class PresenterHomeService {
                         presenterUsername, slotId, approvalStatusStr, remaining, approvedRemaining),
                 presenterUsername);
         
-        boolean remainingPhd = remainingRegistrations.stream()
-                .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
+        // Calculate effective capacity usage (PhD=2, MSc=1) for state determination
+        List<SeminarSlotRegistration> activeRemainingRegs = remainingRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED || 
+                               reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .collect(java.util.stream.Collectors.toList());
+        int effectiveUsageRemaining = calculateEffectiveCapacityUsage(activeRemainingRegs);
 
-        // If PhD remains, slot stays FULL; otherwise update based on capacity
-        SlotState newState = remainingPhd
-                ? SlotState.FULL
-                : determineState(slot.getCapacity(), (int) remaining);
+        // Determine new state based on effective capacity usage
+        SlotState newState = determineState(slot.getCapacity(), effectiveUsageRemaining);
         updateSlotStatus(slot, newState);
 
         String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
@@ -714,6 +757,19 @@ public class PresenterHomeService {
                 if (promotedEntry.isPresent()) {
                     logger.info("Successfully promoted user {} from waiting list for slot {} after cancellation", 
                             promotedEntry.get().getPresenterUsername(), slotId);
+                    
+                    // CRITICAL FIX: Recalculate and update slot state AFTER promotion
+                    // New PENDING registrations were created, so state needs to be updated
+                    List<SeminarSlotRegistration> updatedRegistrations = registrationRepository.findByIdSlotId(slotId);
+                    int effectiveUsage = calculateEffectiveCapacityUsage(updatedRegistrations.stream()
+                            .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED || 
+                                           reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                            .collect(java.util.stream.Collectors.toList()));
+                    SlotState stateAfterPromotion = determineState(slot.getCapacity(), effectiveUsage);
+                    updateSlotStatus(slot, stateAfterPromotion);
+                    seminarSlotRepository.save(slot);
+                    logger.info("Updated slot {} state to {} after promotion (effectiveUsage={})", 
+                            slotId, stateAfterPromotion, effectiveUsage);
                 }
             } catch (Exception e) {
                 logger.error("Failed to promote from waiting list after cancellation for slot {}: {}", slotId, e.getMessage(), e);
@@ -841,104 +897,140 @@ public class PresenterHomeService {
     }
 
     /**
-     * Promote next user from waiting list after a registration is cancelled
-     * Creates a PENDING registration and sends student confirmation email
+     * Promote users from waiting list after a registration is cancelled
+     * Promotes as many people as available capacity allows (PhD counts as 2)
+     * Creates PENDING registrations and sends student confirmation emails
      * Can be called from other services (e.g., when student declines promotion)
      */
     @Transactional
     public Optional<WaitingListEntry> promoteFromWaitingListAfterCancellation(Long slotId, SeminarSlot slot) {
         logger.info("Attempting to promote from waiting list for slot {} after cancellation", slotId);
-        
-        // Get next person on waiting list
+
+        // Get waiting list
         List<WaitingListEntry> waitingList = waitingListService.getWaitingList(slotId);
         if (waitingList.isEmpty()) {
             logger.debug("No one on waiting list for slot {}", slotId);
             return Optional.empty();
         }
-        
-        WaitingListEntry nextEntry = waitingList.get(0);
-        String promotedUsername = nextEntry.getPresenterUsername();
-        
-        // Check if slot has capacity (count both approved and pending)
+
+        // Calculate current effective usage (PhD=2, MSc=1)
         List<SeminarSlotRegistration> allRegistrations = registrationRepository.findByIdSlotId(slotId);
-        long approvedCount = allRegistrations.stream()
-                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
-                .count();
-        long pendingCount = allRegistrations.stream()
-                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
-                .count();
-        int totalRegistrations = (int) (approvedCount + pendingCount);
+        List<SeminarSlotRegistration> activeRegistrations = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED ||
+                               reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .collect(Collectors.toList());
+        int currentEffectiveUsage = calculateEffectiveCapacityUsage(activeRegistrations);
         int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
-        
-        if (totalRegistrations >= capacity && capacity > 0) {
-            logger.info("Cannot promote user {} from waiting list - slot {} is still full (capacity: {}, total: {})",
-                    promotedUsername, slotId, capacity, totalRegistrations);
+        int availableCapacity = capacity - currentEffectiveUsage;
+
+        if (availableCapacity <= 0) {
+            logger.info("Cannot promote from waiting list - slot {} is full (capacity: {}, effectiveUsage: {})",
+                    slotId, capacity, currentEffectiveUsage);
             return Optional.empty();
         }
-        
-        // Get user details
-        User promotedUser = userRepository.findByBguUsername(promotedUsername)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + promotedUsername));
-        
-        // Check if user already registered (shouldn't happen, but safety check)
-        if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, promotedUsername)) {
-            logger.warn("User {} already registered for slot {} - removing from waiting list without promotion",
-                    promotedUsername, slotId);
-            waitingListService.removeFromWaitingList(slotId, promotedUsername);
-            return Optional.empty();
-        }
-        
-        // Create PENDING registration (not APPROVED - supervisor must approve)
-        SeminarSlotRegistration newRegistration = new SeminarSlotRegistration();
-        newRegistration.setId(new SeminarSlotRegistrationId(slotId, promotedUsername));
-        newRegistration.setDegree(promotedUser.getDegree());
-        newRegistration.setTopic(nextEntry.getTopic());
-        newRegistration.setSupervisorName(nextEntry.getSupervisorName());
-        newRegistration.setSupervisorEmail(nextEntry.getSupervisorEmail());
-        newRegistration.setRegisteredAt(LocalDateTime.now());
-        newRegistration.setApprovalStatus(ApprovalStatus.PENDING);
-        
-        registrationRepository.save(newRegistration);
-        
-        // Remove from waiting list
-        waitingListService.removeFromWaitingList(slotId, promotedUsername);
-        
-        // Create WaitingListPromotion record with expiration time
-        LocalDateTime promotedAt = LocalDateTime.now();
-        Integer approvalWindowHours = appConfigService != null 
-                ? appConfigService.getIntegerConfig("waiting_list_approval_window_hours", 24) 
+
+        logger.info("Slot {} has {} available capacity, attempting to promote from waiting list", slotId, availableCapacity);
+
+        int phdWeight = appConfigService.getIntegerConfig("phd.capacity.weight", 2);
+        Integer approvalWindowHours = appConfigService != null
+                ? appConfigService.getIntegerConfig("waiting_list_approval_window_hours", 24)
                 : 24;
-        LocalDateTime expiresAt = promotedAt.plusHours(approvalWindowHours);
-        
-        WaitingListPromotion promotion = new WaitingListPromotion();
-        promotion.setSlotId(slotId);
-        promotion.setPresenterUsername(promotedUsername);
-        promotion.setRegistrationSlotId(slotId);
-        promotion.setRegistrationPresenterUsername(promotedUsername);
-        promotion.setPromotedAt(promotedAt);
-        promotion.setExpiresAt(expiresAt);
-        promotion.setStatus(WaitingListPromotion.PromotionStatus.PENDING);
-        waitingListPromotionRepository.save(promotion);
-        
-        logger.info("Promoted user {} from waiting list for slot {} - created PENDING registration with promotion record (expires at {})", 
-                promotedUsername, slotId, expiresAt);
-        databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTED_AFTER_CANCELLATION",
-                String.format("User %s promoted from waiting list for slot %d after cancellation (PENDING registration created, expires at %s, approval window: %d hours)",
-                        promotedUsername, slotId, expiresAt, approvalWindowHours),
-                promotedUsername);
-        
-        // Send student confirmation email (student must confirm before supervisor approval email is sent)
-        try {
-            approvalService.sendStudentConfirmationEmail(newRegistration);
-            logger.info("Student confirmation email sent to promoted user {} in slot {}", promotedUsername, slotId);
-        } catch (Exception e) {
-            logger.error("Failed to send student confirmation email for promoted user {} in slot {}: {}", 
-                    promotedUsername, slotId, e.getMessage(), e);
-            // Don't fail promotion if email fails
+
+        WaitingListEntry firstPromoted = null;
+        int usedCapacity = 0;
+
+        // Promote as many people as capacity allows
+        for (WaitingListEntry entry : waitingList) {
+            String promotedUsername = entry.getPresenterUsername();
+
+            // Get user details to determine their degree/weight
+            Optional<User> userOpt = userRepository.findByBguUsername(promotedUsername);
+            if (userOpt.isEmpty()) {
+                logger.warn("User {} not found, skipping", promotedUsername);
+                continue;
+            }
+            User promotedUser = userOpt.get();
+
+            // Calculate weight for this user
+            int userWeight = (promotedUser.getDegree() == User.Degree.PhD) ? phdWeight : 1;
+
+            // Check if we have enough capacity for this user
+            if (usedCapacity + userWeight > availableCapacity) {
+                logger.info("Not enough capacity for user {} (needs {}, available {}), stopping promotion",
+                        promotedUsername, userWeight, availableCapacity - usedCapacity);
+                break;
+            }
+
+            // Check if user already registered (safety check)
+            if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, promotedUsername)) {
+                logger.warn("User {} already registered for slot {} - removing from waiting list without promotion",
+                        promotedUsername, slotId);
+                waitingListService.removeFromWaitingList(slotId, promotedUsername);
+                continue;
+            }
+
+            // Create PENDING registration
+            SeminarSlotRegistration newRegistration = new SeminarSlotRegistration();
+            newRegistration.setId(new SeminarSlotRegistrationId(slotId, promotedUsername));
+            newRegistration.setDegree(promotedUser.getDegree());
+            newRegistration.setTopic(entry.getTopic());
+            // Get abstract from user profile (not waiting list entry)
+            newRegistration.setSeminarAbstract(promotedUser.getSeminarAbstract());
+            newRegistration.setSupervisorName(entry.getSupervisorName());
+            newRegistration.setSupervisorEmail(entry.getSupervisorEmail());
+            newRegistration.setRegisteredAt(LocalDateTime.now());
+            newRegistration.setApprovalStatus(ApprovalStatus.PENDING);
+            registrationRepository.save(newRegistration);
+
+            // Remove from waiting list
+            waitingListService.removeFromWaitingList(slotId, promotedUsername);
+
+            // Create WaitingListPromotion record
+            LocalDateTime promotedAt = LocalDateTime.now();
+            LocalDateTime expiresAt = promotedAt.plusHours(approvalWindowHours);
+
+            WaitingListPromotion promotion = new WaitingListPromotion();
+            promotion.setSlotId(slotId);
+            promotion.setPresenterUsername(promotedUsername);
+            promotion.setRegistrationSlotId(slotId);
+            promotion.setRegistrationPresenterUsername(promotedUsername);
+            promotion.setPromotedAt(promotedAt);
+            promotion.setExpiresAt(expiresAt);
+            promotion.setStatus(WaitingListPromotion.PromotionStatus.PENDING);
+            waitingListPromotionRepository.save(promotion);
+
+            usedCapacity += userWeight;
+
+            logger.info("Promoted user {} from waiting list for slot {} (weight: {}, total used: {}/{})",
+                    promotedUsername, slotId, userWeight, usedCapacity, availableCapacity);
+            databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTED_AFTER_CANCELLATION",
+                    String.format("User %s promoted from waiting list for slot %d (degree: %s, weight: %d, expires at %s)",
+                            promotedUsername, slotId, promotedUser.getDegree(), userWeight, expiresAt),
+                    promotedUsername);
+
+            // Send student confirmation email
+            try {
+                approvalService.sendStudentConfirmationEmail(newRegistration);
+                logger.info("Student confirmation email sent to promoted user {} in slot {}", promotedUsername, slotId);
+            } catch (Exception e) {
+                logger.error("Failed to send student confirmation email for promoted user {} in slot {}: {}",
+                        promotedUsername, slotId, e.getMessage(), e);
+            }
+
+            if (firstPromoted == null) {
+                firstPromoted = entry;
+            }
         }
-        
-        return Optional.of(nextEntry);
+
+        if (firstPromoted != null) {
+            logger.info("Promoted {} capacity worth of users from waiting list for slot {}", usedCapacity, slotId);
+        }
+
+        return Optional.ofNullable(firstPromoted);
     }
+
+    /**
+     * Send supervisor notification email
 
     /**
      * Send supervisor notification email for an existing registration
@@ -1503,9 +1595,18 @@ public class PresenterHomeService {
         boolean slotLockedByPhd = registrations.stream()
                 .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
 
-        // CRITICAL FIX: Calculate total registrations (approved + pending) to determine if slot is actually full
-        int totalRegistrations = (int) (approvedCount + pendingCount);
-        boolean slotOverCapacity = totalRegistrations >= capacity && capacity > 0;
+        // CRITICAL FIX: Calculate effective capacity usage (PhD=2, MSc=1) to determine if slot is actually full
+        List<SeminarSlotRegistration> allActiveRegs = new ArrayList<>();
+        allActiveRegs.addAll(registrations); // approved
+        // Add pending registrations for effective usage calculation
+        List<SeminarSlotRegistration> pendingRegs = registrationRepository.findByIdSlotId(slot.getSlotId())
+                .stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .filter(reg -> reg.getApprovalTokenExpiresAt() == null || now.isBefore(reg.getApprovalTokenExpiresAt()))
+                .collect(Collectors.toList());
+        allActiveRegs.addAll(pendingRegs);
+        int effectiveCapacityUsage = calculateEffectiveCapacityUsage(allActiveRegs);
+        boolean slotOverCapacity = effectiveCapacityUsage >= capacity && capacity > 0;
 
         // Check if attendance was closed - if session exists and is CLOSED, slot is no longer available
         boolean attendanceClosed = false;
@@ -1522,23 +1623,23 @@ public class PresenterHomeService {
             logger.debug("Slot {} attendance window has closed at {}, marking as unavailable", slot.getSlotId(), slot.getAttendanceClosesAt());
         }
 
-        // Calculate available count: capacity minus total registrations (approved + pending)
-        // If pending registrations exceed capacity, available should be 0 or negative
-        int available = Math.max(capacity - totalRegistrations, 0);
+        // Calculate available count: capacity minus effective usage (PhD=2, MSc=1)
+        // If effective usage meets or exceeds capacity, available should be 0
+        int available = Math.max(capacity - effectiveCapacityUsage, 0);
         
-        // Determine slot state: if total registrations (approved + pending) >= capacity, slot is FULL
+        // Determine slot state: if effective usage >= capacity, slot is FULL
         SlotState state;
         if (slotLockedByPhd) {
             state = SlotState.FULL;
             available = 0;
         } else if (slotOverCapacity) {
-            // Slot is over capacity due to pending registrations
+            // Slot is over capacity
             state = SlotState.FULL;
             available = 0;
-            logger.warn("Slot {} is over capacity: capacity={}, approved={}, pending={}, total={}",
-                    slot.getSlotId(), capacity, approvedCount, pendingCount, totalRegistrations);
+            logger.warn("Slot {} is over capacity: capacity={}, effectiveUsage={}, approved={}, pending={}",
+                    slot.getSlotId(), capacity, effectiveCapacityUsage, approvedCount, pendingCount);
         } else {
-            state = determineState(capacity, totalRegistrations);
+            state = determineState(capacity, effectiveCapacityUsage);
         }
         
         // NOTE: Do NOT change available count or state when attendance is closed
@@ -1591,12 +1692,73 @@ public class PresenterHomeService {
         }
         
         // Set new fields for mobile compatibility
-        card.setApprovedCount((int) approvedCount);
-        card.setPendingCount((int) pendingCount);
+        // IMPORTANT: Send EFFECTIVE capacity usage, not just registration counts
+        // PhD = 2 slots, MSc = 1 slot
+        int approvedEffectiveUsage = calculateEffectiveCapacityUsage(registrations);
+        int pendingEffectiveUsage = calculateEffectiveCapacityUsage(pendingRegs);
+        card.setApprovedCount(approvedEffectiveUsage);
+        card.setPendingCount(pendingEffectiveUsage);
         card.setApprovalStatus(userApprovalStatus);
         card.setOnWaitingList(onWaitingList);
         card.setWaitingListCount((int) waitingListCount);
         card.setWaitingListUserName(waitingListUserName);
+        
+        // Load users for pending registrations (they may not be in registeredUsers which only has approved)
+        Set<String> pendingUsernames = pendingRegs.stream()
+                .map(SeminarSlotRegistration::getPresenterUsername)
+                .filter(Objects::nonNull)
+                .map(this::normalizeUsername)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<String, User> allUsers = new HashMap<>(registeredUsers);
+        if (!pendingUsernames.isEmpty()) {
+            List<User> pendingUsers = userRepository.findByBguUsernameIn(new ArrayList<>(pendingUsernames));
+            for (User user : pendingUsers) {
+                String normalizedName = normalizeUsername(user.getBguUsername());
+                if (normalizedName != null && !allUsers.containsKey(normalizedName)) {
+                    allUsers.put(normalizedName, user);
+                }
+            }
+        }
+
+        // Set pending presenters list (with names)
+        List<RegisteredPresenter> pendingPresenters = pendingRegs.stream()
+                .map(reg -> toRegisteredPresenter(reg, allUsers))
+                .collect(Collectors.toList());
+        card.setPendingPresenters(pendingPresenters);
+        
+        // Set waiting list entries (with names) - also load users for WL entries
+        List<WaitingListEntry> waitingListEntries = waitingListService.getWaitingList(slot.getSlotId());
+        // Load users for waiting list entries
+        Set<String> wlUsernames = waitingListEntries.stream()
+                .map(WaitingListEntry::getPresenterUsername)
+                .filter(Objects::nonNull)
+                .map(this::normalizeUsername)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (!wlUsernames.isEmpty()) {
+            List<User> wlUsers = userRepository.findByBguUsernameIn(new ArrayList<>(wlUsernames));
+            for (User user : wlUsers) {
+                String normalizedName = normalizeUsername(user.getBguUsername());
+                if (normalizedName != null && !allUsers.containsKey(normalizedName)) {
+                    allUsers.put(normalizedName, user);
+                }
+            }
+        }
+        List<RegisteredPresenter> waitingListPresenters = waitingListEntries.stream()
+                .map(entry -> {
+                    RegisteredPresenter presenter = new RegisteredPresenter();
+                    String username = entry.getPresenterUsername();
+                    User user = username != null ? allUsers.get(normalizeUsername(username)) : null;
+                    presenter.setName(user != null ? formatName(user) : username);
+                    if (entry.getDegree() != null) {
+                        presenter.setDegree(entry.getDegree().name());
+                    }
+                    presenter.setTopic(entry.getTopic());
+                    return presenter;
+                })
+                .collect(Collectors.toList());
+        card.setWaitingListEntries(waitingListPresenters);
         
         // Set session status fields for client-side filtering
         card.setAttendanceOpenedAt(slot.getAttendanceOpenedAt() != null ? DATE_TIME_FORMAT.format(slot.getAttendanceOpenedAt()) : null);

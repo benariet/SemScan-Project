@@ -13,6 +13,8 @@ public class UserProfileResponse {
     private String lastName;
     private String degree;
     private UserProfileUpdateRequest.ParticipationPreference participationPreference;
+    private String nationalIdNumber;
+    private String seminarAbstract;
 
     public static UserProfileResponse success(String bguUsername, String message) {
         UserProfileResponse response = new UserProfileResponse();
@@ -35,6 +37,33 @@ public class UserProfileResponse {
         response.setLastName(lastName);
         response.setDegree(degree);
         response.setParticipationPreference(participationPreference);
+        return response;
+    }
+
+    public static UserProfileResponse success(String bguUsername,
+                                              String message,
+                                              String email,
+                                              String firstName,
+                                              String lastName,
+                                              String degree,
+                                              UserProfileUpdateRequest.ParticipationPreference participationPreference,
+                                              String nationalIdNumber) {
+        UserProfileResponse response = success(bguUsername, message, email, firstName, lastName, degree, participationPreference);
+        response.setNationalIdNumber(nationalIdNumber);
+        return response;
+    }
+
+    public static UserProfileResponse success(String bguUsername,
+                                              String message,
+                                              String email,
+                                              String firstName,
+                                              String lastName,
+                                              String degree,
+                                              UserProfileUpdateRequest.ParticipationPreference participationPreference,
+                                              String nationalIdNumber,
+                                              String seminarAbstract) {
+        UserProfileResponse response = success(bguUsername, message, email, firstName, lastName, degree, participationPreference, nationalIdNumber);
+        response.setSeminarAbstract(seminarAbstract);
         return response;
     }
 
@@ -107,6 +136,22 @@ public class UserProfileResponse {
 
     public void setParticipationPreference(UserProfileUpdateRequest.ParticipationPreference participationPreference) {
         this.participationPreference = participationPreference;
+    }
+
+    public String getNationalIdNumber() {
+        return nationalIdNumber;
+    }
+
+    public void setNationalIdNumber(String nationalIdNumber) {
+        this.nationalIdNumber = nationalIdNumber;
+    }
+
+    public String getSeminarAbstract() {
+        return seminarAbstract;
+    }
+
+    public void setSeminarAbstract(String seminarAbstract) {
+        this.seminarAbstract = seminarAbstract;
     }
 }
 

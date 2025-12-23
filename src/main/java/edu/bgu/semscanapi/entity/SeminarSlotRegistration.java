@@ -18,6 +18,9 @@ public class SeminarSlotRegistration {
     @Column(name = "topic")
     private String topic;
 
+    @Column(name = "seminar_abstract", columnDefinition = "TEXT")
+    private String seminarAbstract;
+
     @Column(name = "supervisor_name")
     private String supervisorName;
 
@@ -78,6 +81,14 @@ public class SeminarSlotRegistration {
 
     public void setTopic(String topic) {
         this.topic = topic;
+    }
+
+    public String getSeminarAbstract() {
+        return seminarAbstract;
+    }
+
+    public void setSeminarAbstract(String seminarAbstract) {
+        this.seminarAbstract = seminarAbstract;
     }
 
     public String getSupervisorName() {

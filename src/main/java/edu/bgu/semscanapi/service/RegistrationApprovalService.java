@@ -938,60 +938,91 @@ public class RegistrationApprovalService {
     /**
      * Generate HTML email content for approval request
      */
-    private String generateApprovalEmailHtml(SeminarSlotRegistration registration, SeminarSlot slot, 
+    private String generateApprovalEmailHtml(SeminarSlotRegistration registration, SeminarSlot slot,
                                              String approveUrl, String declineUrl, LocalDateTime expiresAt) {
         return String.format("""
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
-                <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }
-                    .content { padding: 20px; background-color: #f9f9f9; }
-                    .button { display: inline-block; padding: 12px 24px; margin: 10px 5px; text-decoration: none; 
-                             border-radius: 5px; font-weight: bold; }
-                    .button-approve { background-color: #4CAF50; color: white; }
-                    .button-decline { background-color: #f44336; color: white; }
-                    .info-box { background-color: #e3f2fd; padding: 15px; margin: 15px 0; border-left: 4px solid #2196F3; }
-                    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-                </style>
             </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <h1>SemScan - Approval Required</h1>
-                    </div>
-                    <div class="content">
-                        <p>Dear %s,</p>
-                        <p>Your student <strong>%s</strong> has requested to register for a seminar slot and requires your approval.</p>
-                        
-                        <div class="info-box">
-                            <h3>Registration Details:</h3>
-                            <p><strong>Student:</strong> %s</p>
-                            <p><strong>Slot Date:</strong> %s</p>
-                            <p><strong>Time:</strong> %s - %s</p>
-                            <p><strong>Topic:</strong> %s</p>
-                            <p><strong>Degree:</strong> %s</p>
-                        </div>
-                        
-                        <p>Please review the registration and choose one of the following options:</p>
-                        
-                        <div style="text-align: center; margin: 30px 0;">
-                            <a href="%s" class="button button-approve">Approve Registration</a>
-                            <a href="%s" class="button button-decline">Decline Registration</a>
-                        </div>
-                        
-                        <p style="color: #666; font-size: 12px;">
-                            <strong>Note:</strong> This approval link will expire on %s.
-                        </p>
-                    </div>
-                    <div class="footer">
-                        <p>This is an automated message from SemScan Attendance System.</p>
-                        <p>If you did not expect this email, please ignore it.</p>
-                    </div>
-                </div>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+                <table width="100%%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                        <td align="center">
+                            <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
+                                <!-- Header -->
+                                <tr>
+                                    <td style="background-color: #4CAF50; color: white; padding: 20px; text-align: center;">
+                                        <h1 style="margin: 0; font-size: 24px;">SemScan - Approval Required</h1>
+                                    </td>
+                                </tr>
+                                <!-- Content -->
+                                <tr>
+                                    <td style="padding: 20px; background-color: #f9f9f9;">
+                                        <p>Dear %s,</p>
+                                        <p>Your student <strong>%s</strong> has requested to register for a seminar slot and requires your approval.</p>
+
+                                        <!-- Info Box -->
+                                        <table width="100%%" cellpadding="15" cellspacing="0" border="0" style="background-color: #e3f2fd; margin: 15px 0; border-left: 4px solid #2196F3;">
+                                            <tr>
+                                                <td>
+                                                    <h3 style="margin-top: 0;">Registration Details:</h3>
+                                                    <p style="margin: 5px 0;"><strong>Student:</strong> %s</p>
+                                                    <p style="margin: 5px 0;"><strong>Slot Date:</strong> %s</p>
+                                                    <p style="margin: 5px 0;"><strong>Time:</strong> %s - %s</p>
+                                                    <p style="margin: 5px 0;"><strong>Topic:</strong> %s</p>
+                                                    <p style="margin: 5px 0;"><strong>Degree:</strong> %s</p>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <!-- Abstract Box -->
+                                        <table width="100%%" cellpadding="15" cellspacing="0" border="0" style="background-color: #fff3e0; margin: 15px 0; border-left: 4px solid #FF9800;">
+                                            <tr>
+                                                <td>
+                                                    <h3 style="margin-top: 0;">Seminar Abstract:</h3>
+                                                    <p style="margin: 5px 0; white-space: pre-wrap;">%s</p>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <p>Please review the registration and choose one of the following options:</p>
+
+                                        <!-- Buttons -->
+                                        <table width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                            <tr>
+                                                <td align="center">
+                                                    <table cellpadding="0" cellspacing="0" border="0">
+                                                        <tr>
+                                                            <td style="padding: 0 10px;">
+                                                                <a href="%s" style="display: inline-block; padding: 14px 28px; background-color: #4CAF50; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">✓ Approve</a>
+                                                            </td>
+                                                            <td style="padding: 0 10px;">
+                                                                <a href="%s" style="display: inline-block; padding: 14px 28px; background-color: #f44336; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">✗ Decline</a>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <p style="color: #666; font-size: 12px;">
+                                            <strong>Note:</strong> This approval link will expire on %s.
+                                        </p>
+                                    </td>
+                                </tr>
+                                <!-- Footer -->
+                                <tr>
+                                    <td style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
+                                        <p style="margin: 5px 0;">This is an automated message from SemScan Attendance System.</p>
+                                        <p style="margin: 5px 0;">If you did not expect this email, please ignore it.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
             </body>
             </html>
             """,
@@ -1003,6 +1034,7 @@ public class RegistrationApprovalService {
             slot.getEndTime().toString(),
             registration.getTopic() != null ? registration.getTopic() : "Not specified",
             registration.getDegree().toString(),
+            registration.getSeminarAbstract() != null ? registration.getSeminarAbstract() : "Not provided",
             approveUrl,
             declineUrl,
             expiresAt.toString()

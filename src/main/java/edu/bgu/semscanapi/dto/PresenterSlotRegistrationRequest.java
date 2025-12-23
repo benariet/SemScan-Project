@@ -5,6 +5,8 @@ public class PresenterSlotRegistrationRequest {
 
     private String topic;
 
+    private String seminarAbstract;
+
     private String supervisorName;
 
     @Email(message = "supervisorEmail must be a valid email")
@@ -16,6 +18,14 @@ public class PresenterSlotRegistrationRequest {
 
     public void setTopic(String topic) {
         this.topic = topic;
+    }
+
+    public String getSeminarAbstract() {
+        return seminarAbstract;
+    }
+
+    public void setSeminarAbstract(String seminarAbstract) {
+        this.seminarAbstract = seminarAbstract;
     }
 
     public String getSupervisorName() {

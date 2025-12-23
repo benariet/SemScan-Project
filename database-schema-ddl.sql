@@ -29,6 +29,7 @@ CREATE TABLE users (
     is_participant BOOLEAN DEFAULT FALSE,
     national_id_number VARCHAR(50),
     supervisor_id BIGINT NULL,
+    seminar_abstract TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_users_supervisor
@@ -275,9 +276,9 @@ INSERT IGNORE INTO app_config (config_key, config_value, config_type, category, 
 ('test_email_recipient', 'talbnwork@gmail.com', 'STRING', 'EMAIL', 'BOTH', 'Test email recipient address - MUST be same for mobile and API'),
 
 -- MOBILE: Only for mobile app
-('connection_timeout_seconds', '10', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP connection timeout in seconds - mobile app only'),
-('read_timeout_seconds', '10', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP read timeout in seconds - mobile app only'),
-('write_timeout_seconds', '10', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP write timeout in seconds - mobile app only'),
+('connection_timeout_seconds', '30', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP connection timeout in seconds - mobile app only'),
+('read_timeout_seconds', '30', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP read timeout in seconds - mobile app only'),
+('write_timeout_seconds', '30', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP write timeout in seconds - mobile app only'),
 ('manual_attendance_window_before_minutes', '10', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes before session start for manual attendance - mobile app only'),
 ('manual_attendance_window_after_minutes', '15', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes after session start for manual attendance - mobile app only'),
 ('max_export_file_size_mb', '50', 'INTEGER', 'EXPORT', 'MOBILE', 'Maximum export file size in MB - mobile app only'),
@@ -291,10 +292,17 @@ INSERT IGNORE INTO app_config (config_key, config_value, config_type, category, 
 ('student_attendance_window_after_minutes', '10', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes after session start for student attendance - mobile app only'),
 
 -- BOTH: Must be identical for mobile and API
-('waiting_list_approval_window_hours', '24', 'INTEGER', 'WAITING_LIST', 'BOTH', 'Hours user has to approve waiting list slot - MUST be same for mobile and API'),
+('waiting_list_approval_window_hours', '168', 'INTEGER', 'WAITING_LIST', 'BOTH', 'Hours user has to approve waiting list slot - MUST be same for mobile and API'),
 ('email_from_name', 'SemScan System', 'STRING', 'EMAIL', 'BOTH', 'Email sender display name - MUST be same for mobile and API'),
 ('email_reply_to', 'noreply@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'Email reply-to address - MUST be same for mobile and API'),
-('email_bcc_list', 'admin@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'BCC recipients for emails (comma-separated) - MUST be same for mobile and API');
+('email_bcc_list', 'admin@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'BCC recipients for emails (comma-separated) - MUST be same for mobile and API'),
+
+-- REGISTRATION: Slot registration limits
+('waiting.list.limit.per.slot', '2', 'INTEGER', 'REGISTRATION', 'BOTH', 'Maximum number of users on waiting list per slot - MUST be same for mobile and API'),
+('phd.capacity.weight', '2', 'INTEGER', 'REGISTRATION', 'BOTH', 'How many capacity slots a PhD registration counts as - MUST be same for mobile and API'),
+
+-- APP: Application metadata
+('APP_VERSION', '1.0.0', 'STRING', 'APP', 'MOBILE', 'Current mobile app version number');
 
 -- =====================================================================
 --  ATTENDANCE

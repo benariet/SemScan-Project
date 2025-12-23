@@ -42,6 +42,9 @@ public class User {
     @JoinColumn(name = "supervisor_id")
     private Supervisor supervisor;
 
+    @Column(name = "seminar_abstract", columnDefinition = "TEXT")
+    private String seminarAbstract;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -154,6 +157,14 @@ public class User {
 
     public void setSupervisor(Supervisor supervisor) {
         this.supervisor = supervisor;
+    }
+
+    public String getSeminarAbstract() {
+        return seminarAbstract;
+    }
+
+    public void setSeminarAbstract(String seminarAbstract) {
+        this.seminarAbstract = seminarAbstract;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -9,9 +9,11 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import java.util.TimeZone;
+
 /**
  * Main Spring Boot Application class for SemScan API
- * 
+ *
  * This application provides REST API endpoints for the SemScan QR Attendance System.
  */
 @SpringBootApplication
@@ -23,7 +25,13 @@ public class SemScanApiApplication {
     private static final Logger logger = LoggerUtil.getLogger(SemScanApiApplication.class);
 
     public static void main(String[] args) {
+        // CRITICAL: Set JVM default timezone to Israel BEFORE Spring Boot starts
+        // This ensures all LocalTime/LocalDateTime values from database are interpreted correctly
+        // Without this, JDBC reads times as UTC and converts them, causing 2-hour offset
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Jerusalem"));
+
         logger.info("Starting SemScan API Application...");
+        logger.info("JVM Timezone set to: {}", TimeZone.getDefault().getID());
         
         try {
             ConfigurableApplicationContext context = SpringApplication.run(SemScanApiApplication.class, args);

@@ -77,9 +77,11 @@ public class WaitingListService {
         logger.info("Attempting to add user {} to waiting list for slotId={}", presenterUsername, slotId);
         databaseLoggerService.logAction("INFO", "WAITING_LIST_ADD_ATTEMPT",
                 String.format("Attempting to add user %s to waiting list for slotId=%d (topic=%s, supervisor=%s)",
-                        presenterUsername, slotId, topic != null ? topic : "null", supervisorName != null ? supervisorName : "null"),
+                        presenterUsername, slotId, topic != null ? topic : "null", 
+                        supervisorName != null ? supervisorName : "null"),
                 presenterUsername,
-                String.format("slotId=%d,topic=%s,supervisorName=%s,supervisorEmail=%s", slotId, topic, supervisorName, supervisorEmail));
+                String.format("slotId=%d,topic=%s,supervisorName=%s,supervisorEmail=%s", 
+                        slotId, topic, supervisorName, supervisorEmail));
 
         // Validate slotId and presenterUsername are not null/empty before processing waiting list addition
         if (slotId == null) {
@@ -196,8 +198,20 @@ public class WaitingListService {
             throw new IllegalStateException("Supervisor information is required. Please complete account setup first.");
         }
 
-        // Calculate position: new entries are added at the end (position = current count + 1)
+        // Check waiting list capacity limit per slot (configurable, default=2)
         long currentCount = waitingListRepository.countBySlotId(slotId);
+        int waitingListLimit = appConfigService.getIntegerConfig("waiting.list.limit.per.slot", 2);
+        
+        if (currentCount >= waitingListLimit) {
+            String errorMsg = String.format("Waiting list for slot %d is full (limit: %d)", slotId, waitingListLimit);
+            logger.warn("{} - presenterUsername={}, currentCount={}", errorMsg, normalizedUsername, currentCount);
+            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
+                    String.format("slotId=%d,presenterUsername=%s,currentCount=%d,limit=%d,reason=WAITING_LIST_FULL", 
+                            slotId, normalizedUsername, currentCount, waitingListLimit));
+            throw new IllegalStateException("Waiting list is full. Please try again later.");
+        }
+        
+        // Calculate position: new entries are added at the end (position = current count + 1)
         int position = (int) currentCount + 1;
 
         // Create new waiting list entry with calculated position and user details
@@ -472,6 +486,8 @@ public class WaitingListService {
         newRegistration.setId(new SeminarSlotRegistrationId(slotId, promotedUsername));
         newRegistration.setDegree(promotedUser.getDegree());
         newRegistration.setTopic(nextEntry.getTopic());
+        // Get abstract from user profile (not waiting list entry)
+        newRegistration.setSeminarAbstract(promotedUser.getSeminarAbstract());
         newRegistration.setSupervisorName(nextEntry.getSupervisorName());
         newRegistration.setSupervisorEmail(nextEntry.getSupervisorEmail());
         newRegistration.setRegisteredAt(LocalDateTime.now());

@@ -83,7 +83,8 @@ public class UserController {
                     user.getFirstName(),
                     user.getLastName(),
                     user.getDegree() != null ? user.getDegree().name() : null,
-                    deriveParticipationPreference(user));
+                    deriveParticipationPreference(user),
+                    user.getNationalIdNumber());
 
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), response.getMessage());
             return ResponseEntity.ok(response);
@@ -151,6 +152,16 @@ public class UserController {
                 logger.info("Updating national ID number for user {}: {} -> {}", 
                     user.getBguUsername(), user.getNationalIdNumber(), trimmed);
                 user.setNationalIdNumber(trimmed);
+                changed = true;
+            }
+        }
+
+        // Handle seminar abstract update
+        if (request.getSeminarAbstract() != null) {
+            String trimmed = request.getSeminarAbstract().trim();
+            if (!trimmed.equals(user.getSeminarAbstract())) {
+                logger.info("Updating seminar abstract for user {}", user.getBguUsername());
+                user.setSeminarAbstract(trimmed.isEmpty() ? null : trimmed);
                 changed = true;
             }
         }
@@ -248,7 +259,9 @@ public class UserController {
                     user.getFirstName(),
                     user.getLastName(),
                     user.getDegree() != null ? user.getDegree().name() : null,
-                    deriveParticipationPreference(user));
+                    deriveParticipationPreference(user),
+                    user.getNationalIdNumber(),
+                    user.getSeminarAbstract());
 
             LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(), "Profile fetched");
             return ResponseEntity.ok(response);

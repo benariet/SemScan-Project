@@ -30,6 +30,8 @@ public class UserProfileUpdateRequest {
 
     private String nationalIdNumber;
 
+    private String seminarAbstract;
+
     public String getBguUsername() {
         return bguUsername;
     }
@@ -84,6 +86,14 @@ public class UserProfileUpdateRequest {
 
     public void setNationalIdNumber(String nationalIdNumber) {
         this.nationalIdNumber = nationalIdNumber;
+    }
+
+    public String getSeminarAbstract() {
+        return seminarAbstract;
+    }
+
+    public void setSeminarAbstract(String seminarAbstract) {
+        this.seminarAbstract = seminarAbstract;
     }
 
     public enum ParticipationPreference {

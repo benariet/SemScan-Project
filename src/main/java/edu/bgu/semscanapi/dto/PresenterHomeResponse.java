@@ -238,6 +238,8 @@ public class PresenterHomeResponse {
         private boolean onWaitingList; // Is current user on waiting list
         private int waitingListCount; // Total number of people on waiting list for this slot (MUST be included for all slots)
         private String waitingListUserName; // Username of first person on waiting list (or null)
+        private List<RegisteredPresenter> pendingPresenters = new ArrayList<>(); // List of pending registrations with names
+        private List<RegisteredPresenter> waitingListEntries = new ArrayList<>(); // List of waiting list entries with names
 
         public Long getSlotId() {
             return slotId;
@@ -421,6 +423,22 @@ public class PresenterHomeResponse {
 
         public void setWaitingListUserName(String waitingListUserName) {
             this.waitingListUserName = waitingListUserName;
+        }
+
+        public List<RegisteredPresenter> getPendingPresenters() {
+            return pendingPresenters;
+        }
+
+        public void setPendingPresenters(List<RegisteredPresenter> pendingPresenters) {
+            this.pendingPresenters = pendingPresenters;
+        }
+
+        public List<RegisteredPresenter> getWaitingListEntries() {
+            return waitingListEntries;
+        }
+
+        public void setWaitingListEntries(List<RegisteredPresenter> waitingListEntries) {
+            this.waitingListEntries = waitingListEntries;
         }
     }
 

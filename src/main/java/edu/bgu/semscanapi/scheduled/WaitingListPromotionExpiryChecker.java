@@ -1,11 +1,15 @@
 package edu.bgu.semscanapi.scheduled;
 
 import edu.bgu.semscanapi.entity.ApprovalStatus;
+import edu.bgu.semscanapi.entity.SeminarSlot;
 import edu.bgu.semscanapi.entity.SeminarSlotRegistration;
+import edu.bgu.semscanapi.entity.WaitingListEntry;
 import edu.bgu.semscanapi.entity.WaitingListPromotion;
+import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
+import edu.bgu.semscanapi.service.PresenterHomeService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Scheduled job to check and expire waiting list promotions
@@ -30,6 +35,12 @@ public class WaitingListPromotionExpiryChecker {
 
     @Autowired
     private SeminarSlotRegistrationRepository registrationRepository;
+
+    @Autowired
+    private SeminarSlotRepository slotRepository;
+
+    @Autowired
+    private PresenterHomeService presenterHomeService;
 
     @Autowired(required = false)
     private DatabaseLoggerService databaseLoggerService;
@@ -80,14 +91,18 @@ public class WaitingListPromotionExpiryChecker {
                                 promotion.getRegistrationPresenterUsername()))
                         .orElse(null);
 
+                Long slotId = promotion.getRegistrationSlotId();
+                boolean wasPending = false;
+                
                 if (registration != null && registration.getApprovalStatus() == ApprovalStatus.PENDING) {
                     // Auto-decline the registration
                     registration.setApprovalStatus(ApprovalStatus.EXPIRED);
                     registrationRepository.save(registration);
+                    wasPending = true;
 
                     logger.info("Auto-declined expired registration for user {} in slot {}",
                             promotion.getRegistrationPresenterUsername(),
-                            promotion.getRegistrationSlotId());
+                            slotId);
                 }
 
                 // Update promotion status to EXPIRED
@@ -99,14 +114,50 @@ public class WaitingListPromotionExpiryChecker {
                     databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_EXPIRED",
                             String.format("Waiting list promotion expired for user %s, slotId=%d (expired at %s)",
                                     promotion.getRegistrationPresenterUsername(),
-                                    promotion.getRegistrationSlotId(),
+                                    slotId,
                                     promotion.getExpiresAt()),
                             promotion.getRegistrationPresenterUsername());
                 }
 
                 logger.info("Marked promotion as EXPIRED for user {} in slot {}",
                         promotion.getRegistrationPresenterUsername(),
-                        promotion.getRegistrationSlotId());
+                        slotId);
+
+                // CRITICAL: If a PENDING registration expired, it freed up capacity - promote next from waiting list
+                // This ensures slots don't remain unfilled when promoted users don't respond
+                if (wasPending) {
+                    try {
+                        Optional<SeminarSlot> slotOpt = slotRepository.findById(slotId);
+                        if (slotOpt.isPresent()) {
+                            SeminarSlot slot = slotOpt.get();
+                            Optional<WaitingListEntry> promotedEntry = presenterHomeService.promoteFromWaitingListAfterCancellation(slotId, slot);
+                            if (promotedEntry.isPresent()) {
+                                logger.info("Successfully promoted next user {} from waiting list for slot {} after expiration",
+                                        promotedEntry.get().getPresenterUsername(), slotId);
+                                if (databaseLoggerService != null) {
+                                    databaseLoggerService.logBusinessEvent("WAITING_LIST_AUTO_PROMOTED_AFTER_EXPIRY",
+                                            String.format("Next person %s automatically promoted from waiting list for slotId=%d after previous promotion expired",
+                                                    promotedEntry.get().getPresenterUsername(), slotId),
+                                            promotedEntry.get().getPresenterUsername());
+                                }
+                            } else {
+                                logger.debug("No one to promote from waiting list for slot {} after expiration (waiting list empty or slot full)", slotId);
+                            }
+                        } else {
+                            logger.warn("Slot {} not found when attempting to promote after expiration", slotId);
+                        }
+                    } catch (Exception e) {
+                        logger.error("Failed to promote next person from waiting list for slot {} after expiration: {}",
+                                slotId, e.getMessage(), e);
+                        if (databaseLoggerService != null) {
+                            databaseLoggerService.logError("WAITING_LIST_AUTO_PROMOTE_AFTER_EXPIRY_FAILED",
+                                    String.format("Failed to automatically promote next person from waiting list for slotId=%d after promotion expired: %s",
+                                            slotId, e.getMessage()),
+                                    e, promotion.getRegistrationPresenterUsername(), String.format("slotId=%d", slotId));
+                        }
+                        // Don't fail the expiry operation if promotion fails
+                    }
+                }
 
             } catch (Exception e) {
                 logger.error("Error processing expired promotion for user {} in slot {}: {}",
