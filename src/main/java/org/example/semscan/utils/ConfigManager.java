@@ -455,5 +455,34 @@ public class ConfigManager {
         }
         return "admin@bgu.ac.il"; // Fallback
     }
+
+    public String getAppVersion() {
+        if (cachedConfig != null && cachedConfig.appVersion != null && !cachedConfig.appVersion.trim().isEmpty()) {
+            return cachedConfig.appVersion.trim();
+        }
+        return "1.0"; // Fallback to default version
+    }
+    
+    /**
+     * Get the maximum number of users allowed on waiting list per slot
+     * Default is 2 if not configured
+     */
+    public int getWaitingListLimitPerSlot() {
+        if (cachedConfig != null && cachedConfig.waitingListLimitPerSlot > 0) {
+            return cachedConfig.waitingListLimitPerSlot;
+        }
+        return 2; // Fallback default
+    }
+    
+    /**
+     * Get the capacity weight for PhD students (how many slots a PhD counts as)
+     * Default is 2 if not configured
+     */
+    public int getPhdCapacityWeight() {
+        if (cachedConfig != null && cachedConfig.phdCapacityWeight > 0) {
+            return cachedConfig.phdCapacityWeight;
+        }
+        return 2; // Fallback default
+    }
 }
 

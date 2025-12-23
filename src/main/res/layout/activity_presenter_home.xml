@@ -15,7 +15,7 @@
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
         app:title="@string/presenter_home_title"
         app:titleTextColor="@color/white"
-        app:navigationIcon="?attr/homeAsUpIndicator" />
+        app:navigationIcon="@drawable/ic_menu" />
 
     <!-- Main Content -->
     <ScrollView
@@ -51,9 +51,11 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <include layout="@layout/card_presenter_action_start_session" />
+                <include layout="@layout/card_presenter_action_presentation_details" />
 
                 <include layout="@layout/card_presenter_action_enroll_slot" />
+
+                <include layout="@layout/card_presenter_action_start_session" />
 
                 <include layout="@layout/card_presenter_action_my_slot" />
 

@@ -1,6 +1,7 @@
 package org.example.semscan.ui.teacher;
 
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Patterns;
@@ -8,6 +9,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,12 +30,14 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import org.example.semscan.R;
+import org.example.semscan.ui.SettingsActivity;
 import org.example.semscan.constants.ApiConstants;
 import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
 import org.example.semscan.utils.ErrorMessageHelper;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
+import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.ServerLogger;
 
 import retrofit2.Call;
@@ -363,17 +368,29 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             serverLogger.userAction("Join Waiting List", "User clicked join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
         }
         
-        // Check waiting list limit before showing dialog
-        int waitingListCount = 0;
+        // Check waiting list limit before showing dialog (user can only be on 1 waiting list at a time)
+        int userWaitingListCount = 0;
         for (ApiService.SlotCard s : currentSlots) {
             if (s.onWaitingList) {
-                waitingListCount++;
+                userWaitingListCount++;
             }
         }
-        if (waitingListCount >= 1) {
+        // User can only be on 1 waiting list at a time (business rule, not configurable)
+        if (userWaitingListCount >= 1) {
             Toast.makeText(this, 
                 "You can only be on 1 waiting list at once. " +
                 "Please cancel your current waiting list position first.",
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        
+        // Check if this slot's waiting list is full (per-slot limit from config)
+        ConfigManager configManager = ConfigManager.getInstance(this);
+        int waitingListLimitPerSlot = configManager.getWaitingListLimitPerSlot();
+        if (slot.waitingListCount >= waitingListLimitPerSlot) {
+            Toast.makeText(this, 
+                "The waiting list for this slot is full (max " + waitingListLimitPerSlot + "). " +
+                "Please try another slot.",
                 Toast.LENGTH_LONG).show();
             return;
         }
@@ -401,24 +418,57 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
     }
 
     /**
-     * Show dialog to confirm joining waiting list
+     * Join waiting list using topic and abstract from Settings.
+     * No dialog is shown - values must be set in Settings first.
      */
     private void joinWaitingList(ApiService.SlotCard slot) {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.presenter_slot_waiting_list_title)
-                .setMessage(R.string.presenter_slot_waiting_list_message)
-                .setPositiveButton(R.string.presenter_slot_join_waiting_list, (d, which) -> {
-                    performJoinWaitingList(slot);
-                })
-                .setNegativeButton(R.string.cancel, null)
-                .show();
+        // Get topic and abstract from Settings
+        String savedTopic = preferencesManager.getPresentationTopic();
+        String savedAbstract = preferencesManager.getSeminarAbstract();
+
+        boolean hasTopic = savedTopic != null && !savedTopic.trim().isEmpty();
+        boolean hasAbstract = savedAbstract != null && !savedAbstract.trim().isEmpty();
+
+        // Check if both topic and abstract are filled in Settings
+        if (hasTopic && hasAbstract) {
+            // Both filled - proceed directly without dialog
+            Logger.i(Logger.TAG_UI, "Joining waiting list with settings: topic=" + savedTopic.trim() +
+                ", abstractLength=" + savedAbstract.trim().length());
+            if (serverLogger != null) {
+                serverLogger.i(ServerLogger.TAG_UI, "Joining waiting list with settings for slot=" +
+                    (slot != null ? slot.slotId : "null"));
+            }
+            performJoinWaitingList(slot, savedTopic.trim());
+        } else {
+            // Missing topic or abstract - redirect to Settings
+            String missing = "";
+            if (!hasTopic && !hasAbstract) {
+                missing = "topic and abstract";
+            } else if (!hasTopic) {
+                missing = "topic";
+            } else {
+                missing = "abstract";
+            }
+
+            Logger.w(Logger.TAG_UI, "Cannot join waiting list - missing " + missing + " in Settings");
+            if (serverLogger != null) {
+                serverLogger.w(ServerLogger.TAG_UI, "Cannot join waiting list - missing " + missing +
+                    " in Settings, slot=" + (slot != null ? slot.slotId : "null"));
+            }
+
+            Toast.makeText(this,
+                "Please fill in your presentation " + missing + " in Settings first.",
+                Toast.LENGTH_LONG).show();
+            startActivity(new Intent(this, SettingsActivity.class));
+        }
     }
 
     /**
-     * Call API to join waiting list
+     * Call API to join waiting list with topic and abstract
      */
-    private void performJoinWaitingList(ApiService.SlotCard slot) {
-        Logger.userAction("Join Waiting List", "Starting join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+    private void performJoinWaitingList(ApiService.SlotCard slot, String topic) {
+        Logger.userAction("Join Waiting List", "Starting join waiting list for slot=" + (slot != null ? slot.slotId : "null") + 
+                ", topic=" + (topic != null ? topic : "null"));
         if (serverLogger != null) {
             serverLogger.userAction("Join Waiting List", "Starting join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
         }
@@ -442,12 +492,28 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             return;
         }
 
+        // Get supervisor info from settings
+        String supervisorName = preferencesManager.getSupervisorName();
+        String supervisorEmail = preferencesManager.getSupervisorEmail();
+
+        // Validate supervisor info is set in settings
+        if (TextUtils.isEmpty(supervisorName) || TextUtils.isEmpty(supervisorEmail)) {
+            Logger.e(Logger.TAG_UI, "Join waiting list failed - supervisor info missing. Name=" + supervisorName + ", Email=" + supervisorEmail);
+            if (serverLogger != null) {
+                serverLogger.e(ServerLogger.TAG_UI, "Join waiting list failed - supervisor info missing. Name=" + supervisorName + ", Email=" + supervisorEmail);
+            }
+            Toast.makeText(this, R.string.presenter_home_supervisor_info_required, Toast.LENGTH_LONG).show();
+            startActivity(new Intent(this, SettingsActivity.class));
+            return;
+        }
+
         final String normalizedUsername = username.trim().toLowerCase(Locale.US);
-        ApiService.WaitingListRequest request = new ApiService.WaitingListRequest();
-        request.username = normalizedUsername;
+        // Include topic and supervisor info in request (abstract is stored in user profile)
+        ApiService.WaitingListRequest request = new ApiService.WaitingListRequest(
+                normalizedUsername, topic, supervisorName.trim(), supervisorEmail.trim());
 
         String apiEndpoint = "api/v1/slots/" + slot.slotId + "/waiting-list";
-        String apiMessage = "Joining waiting list for slot=" + slot.slotId;
+        String apiMessage = "Joining waiting list for slot=" + slot.slotId + ", topic=" + topic + ", supervisorName=" + supervisorName + ", supervisorEmail=" + supervisorEmail;
         Logger.api("POST", apiEndpoint, apiMessage);
         if (serverLogger != null) {
             serverLogger.api("POST", apiEndpoint, apiMessage);
@@ -667,75 +733,63 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
     }
     
     private void showRegistrationDialog(ApiService.SlotCard slot) {
-        Logger.i(Logger.TAG_UI, "Showing registration dialog for slot=" + (slot != null ? slot.slotId : "null"));
+        Logger.i(Logger.TAG_UI, "Showing registration confirmation dialog for slot=" + (slot != null ? slot.slotId : "null"));
         if (serverLogger != null) {
-            serverLogger.i(ServerLogger.TAG_UI, "Showing registration dialog for slot=" + (slot != null ? slot.slotId : "null"));
+            serverLogger.i(ServerLogger.TAG_UI, "Showing registration confirmation dialog for slot=" + (slot != null ? slot.slotId : "null"));
         }
-        View dialogView = getLayoutInflater().inflate(R.layout.view_register_slot_dialog, null);
-        TextInputLayout layoutTopic = dialogView.findViewById(R.id.input_layout_topic);
-        TextInputEditText inputTopic = dialogView.findViewById(R.id.input_topic);
-        
-        // Show supervisor fields - required for registration
-        TextInputLayout layoutSupervisorName = dialogView.findViewById(R.id.input_layout_supervisor_name);
-        TextInputLayout layoutSupervisorEmail = dialogView.findViewById(R.id.input_layout_supervisor_email);
-        TextInputEditText inputSupervisorName = dialogView.findViewById(R.id.input_supervisor_name);
-        TextInputEditText inputSupervisorEmail = dialogView.findViewById(R.id.input_supervisor_email);
-        layoutSupervisorName.setVisibility(View.VISIBLE);
-        layoutSupervisorEmail.setVisibility(View.VISIBLE);
-        
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(R.string.presenter_home_register_title)
-                .setMessage(R.string.presenter_home_register_description)
-                .setView(dialogView)
-                .setPositiveButton(R.string.presenter_slot_register_button, null)
-                .setNegativeButton(R.string.cancel, (d, which) -> d.dismiss())
-                .create();
-        
-        dialog.setOnShowListener(d -> {
-            final Button button = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
-            button.setOnClickListener(v -> {
-                String topic = inputTopic.getText() != null ? inputTopic.getText().toString().trim() : null;
-                String supervisorName = inputSupervisorName.getText() != null ? 
-                    inputSupervisorName.getText().toString().trim() : null;
-                String supervisorEmail = inputSupervisorEmail.getText() != null ? 
-                    inputSupervisorEmail.getText().toString().trim() : null;
-                
-                // Clear previous errors
-                layoutTopic.setError(null);
-                layoutSupervisorName.setError(null);
-                layoutSupervisorEmail.setError(null);
-                
-                // Topic is optional, so we can proceed with null or empty topic
-                // But if user entered something, use it
-                if (topic != null && topic.isEmpty()) {
-                    topic = null; // Convert empty string to null
-                }
-                
-                // Validate supervisor name (required)
-                if (TextUtils.isEmpty(supervisorName)) {
-                    layoutSupervisorName.setError(getString(R.string.presenter_home_supervisor_name_required));
-                    return;
-                }
-                
-                // Validate supervisor email (required)
-                if (TextUtils.isEmpty(supervisorEmail)) {
-                    layoutSupervisorEmail.setError(getString(R.string.presenter_home_supervisor_email_required));
-                    return;
-                }
-                
-                // Validate email format
-                if (!Patterns.EMAIL_ADDRESS.matcher(supervisorEmail).matches()) {
-                    layoutSupervisorEmail.setError(getString(R.string.presenter_home_supervisor_email_invalid));
-                    return;
-                }
-                
-                // All validated - proceed with registration
-                dialog.dismiss();
-                performRegistration(slot, topic, supervisorName, supervisorEmail);
-            });
-        });
-        
-        dialog.show();
+
+        // Get all presentation details from saved preferences
+        String topic = preferencesManager.getPresentationTopic();
+        String seminarAbstract = preferencesManager.getSeminarAbstract();
+        String supervisorName = preferencesManager.getSupervisorName();
+        String supervisorEmail = preferencesManager.getSupervisorEmail();
+
+        // Validate all required fields are filled
+        boolean hasTopic = !TextUtils.isEmpty(topic);
+        boolean hasAbstract = !TextUtils.isEmpty(seminarAbstract);
+        boolean hasSupervisorName = !TextUtils.isEmpty(supervisorName);
+        boolean hasSupervisorEmail = !TextUtils.isEmpty(supervisorEmail) &&
+                Patterns.EMAIL_ADDRESS.matcher(supervisorEmail).matches();
+
+        if (!hasTopic || !hasAbstract || !hasSupervisorName || !hasSupervisorEmail) {
+            // Presentation details not complete - redirect to home to fill them
+            Toast.makeText(this, R.string.registration_details_incomplete, Toast.LENGTH_LONG).show();
+            Logger.w(Logger.TAG_UI, "Registration blocked - presentation details incomplete: " +
+                    "topic=" + hasTopic + ", abstract=" + hasAbstract +
+                    ", supervisorName=" + hasSupervisorName + ", supervisorEmail=" + hasSupervisorEmail);
+            if (serverLogger != null) {
+                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked - presentation details incomplete");
+            }
+            // Go back to home to fill in details
+            finish();
+            return;
+        }
+
+        // Capture values for use in lambda
+        final String finalTopic = topic.trim();
+        final String finalAbstract = seminarAbstract.trim();
+        final String finalSupervisorName = supervisorName.trim();
+        final String finalSupervisorEmail = supervisorEmail.trim();
+
+        // Build confirmation message
+        String message = getString(R.string.registration_confirm_message,
+                finalSupervisorName, finalSupervisorEmail, finalTopic);
+
+        // Show simple confirmation dialog
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.registration_confirm_title)
+                .setMessage(message)
+                .setPositiveButton(R.string.registration_confirm_button, (dialog, which) -> {
+                    // Proceed with registration using saved details
+                    performRegistration(slot, finalAbstract, finalTopic, finalSupervisorName, finalSupervisorEmail);
+                })
+                .setNegativeButton(R.string.registration_review_button, (dialog, which) -> {
+                    // Go back to home to review/edit details
+                    dialog.dismiss();
+                    finish();
+                })
+                .setNeutralButton(R.string.cancel, (dialog, which) -> dialog.dismiss())
+                .show();
     }
 
     /**
@@ -904,6 +958,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
     }
 
     private void performRegistration(ApiService.SlotCard slot,
+                                     @Nullable String seminarAbstract,
                                      @Nullable String topic,
                                      @NonNull String supervisorName,
                                      @NonNull String supervisorEmail) {
@@ -962,12 +1017,14 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         final String normalizedUsername = username.trim().toLowerCase(Locale.US);
         // Make topic final for use in lambda
         final String finalTopic = topic;
+        final String finalAbstract = seminarAbstract;
         
         // Normalize email addresses and names for use in lambda and callbacks
         final String normalizedSupervisorEmail = supervisorEmail != null ? supervisorEmail.trim() : null;
         final String normalizedSupervisorName = supervisorName != null ? supervisorName.trim() : null;
         final String normalizedPresenterEmail = presenterEmail != null ? presenterEmail.trim() : null;
         final String normalizedTopic = finalTopic != null ? finalTopic.trim() : null;
+        final String normalizedAbstract = finalAbstract != null ? finalAbstract.trim() : null;
         
         // Double-check slot capacity before proceeding (defense in depth)
         // NOTE: Backend now properly enforces capacity limits, but we check here to provide
@@ -995,7 +1052,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         checkRegistrationLimits(slot, () -> {
             // Supervisor info is now required (using normalized values from outer scope)
             ApiService.PresenterRegisterRequest request = new ApiService.PresenterRegisterRequest(
-                normalizedTopic, normalizedSupervisorName, normalizedSupervisorEmail, normalizedPresenterEmail);
+                normalizedTopic, normalizedAbstract, normalizedSupervisorName, normalizedSupervisorEmail, normalizedPresenterEmail);
 
             // Log email addresses and registration details for debugging email issues
             String emailLogMsg = String.format("Registration email details - slot=%d, presenterEmail=%s, supervisorEmail=%s, supervisorName=%s, topic=%s",
@@ -1142,17 +1199,6 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             // - EMAIL_AUTH_FAILED: SMTP authentication failed
                             // - EMAIL_SEND_FAILED: Email send failed
                             // - REGISTRATION_NOT_FOUND_AFTER_SAVE: Registration not persisted
-                            if (regResponse.ok && (regResponse.code != null && 
-                                (regResponse.code.equals("PENDING_APPROVAL") || regResponse.code.equals("REGISTERED")))) {
-                                String backendEmailNote = "Backend should have attempted to send email. Check app_logs for: " +
-                                    "EMAIL_MAILSENDER_NULL, REGISTRATION_NO_SUPERVISOR_EMAIL, REGISTRATION_INVALID_EMAIL_FORMAT, " +
-                                    "EMAIL_AUTH_FAILED, EMAIL_SEND_FAILED, REGISTRATION_NOT_FOUND_AFTER_SAVE";
-                                Logger.i("EMAIL_" + Logger.TAG_API, backendEmailNote);
-                                if (serverLogger != null) {
-                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, backendEmailNote + ", slot=" + slotId + 
-                                        ", supervisorEmail=" + normalizedSupervisorEmail);
-                                }
-                            }
                         }
                         
                         // Handle unsuccessful HTTP responses (non-200 status codes)
@@ -1316,8 +1362,6 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                         slot.slotId, normalizedSupervisorEmail, normalizedSupervisorName, normalizedPresenterEmail);
                                     Logger.i("EMAIL_" + Logger.TAG_API, emailExpectedLog);
                                     serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailExpectedLog);
-                                    // Note: If email is not received, check backend logs for email service errors
-                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, "NOTE: If supervisor did not receive email, check backend email service configuration and logs");
                                 }
                                 Toast.makeText(PresenterSlotSelectionActivity.this, 
                                     "Registration submitted. Waiting for supervisor approval.",
@@ -1335,8 +1379,6 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                         slot.slotId, normalizedSupervisorEmail, normalizedSupervisorName, normalizedPresenterEmail);
                                     Logger.i("EMAIL_" + Logger.TAG_API, emailExpectedLog);
                                     serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailExpectedLog);
-                                    // Note: If email is not received, check backend logs for email service errors
-                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, "NOTE: If supervisor did not receive email, check backend email service configuration and logs");
                                 }
                                 Toast.makeText(PresenterSlotSelectionActivity.this, R.string.presenter_home_register_success, Toast.LENGTH_LONG).show();
                                 

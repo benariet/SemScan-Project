@@ -119,6 +119,15 @@ public class ErrorMessageHelper {
             return "Cannot join waiting list. You may already be registered or on another waiting list.";
         }
         
+        // Supervisor info errors
+        if (lower.contains("supervisor") && (lower.contains("required") || lower.contains("missing"))) {
+            return "Supervisor information is required. Please set your supervisor details in Settings first.";
+        }
+        
+        if (lower.contains("supervisor") && lower.contains("email") && lower.contains("invalid")) {
+            return "Invalid supervisor email. Please check your supervisor email in Settings.";
+        }
+        
         // Validation errors
         if (lower.contains("invalid") && lower.contains("session")) {
             return "Invalid session. Please scan the QR code again or contact your presenter.";
@@ -197,6 +206,15 @@ public class ErrorMessageHelper {
             
             if (lower.contains("slot not found") || lower.contains("slot does not exist")) {
                 return "This slot is no longer available.";
+            }
+            
+            // Supervisor info errors
+            if (lower.contains("supervisor") && (lower.contains("required") || lower.contains("missing"))) {
+                return "Please set your supervisor details in Settings before joining the waiting list.";
+            }
+            
+            if (lower.contains("supervisor") && lower.contains("email") && lower.contains("invalid")) {
+                return "Invalid supervisor email. Please check your supervisor email in Settings.";
             }
         }
         

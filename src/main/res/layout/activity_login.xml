@@ -1,92 +1,143 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="@color/background_light">
+    android:orientation="vertical"
+    android:background="@drawable/bg_gradient_main">
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
-        <TextView
-            android:id="@+id/text_login_title"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/login_title"
-            android:textColor="@color/gray_900"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:gravity="center" />
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="60dp"
+            android:paddingBottom="24dp">
 
-        <TextView
-            android:id="@+id/text_login_subtitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/login_subtitle"
-            android:textColor="@color/gray_600"
-            android:textSize="14sp"
-            android:gravity="center" />
+            <!-- Logo -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_marginBottom="30dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="8dp"
+                app:strokeWidth="0dp">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/input_layout_username"
-            style="@style/SemScanInputLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:hint="@string/login_username_hint">
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/ic_logo"
+                    android:contentDescription="@string/app_name"
+                    android:scaleType="centerCrop" />
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/edit_username"
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Title Text -->
+            <TextView
+                android:id="@+id/text_login_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:textColor="@color/purple_500"
+                android:layout_marginBottom="10dp" />
+
+            <!-- Subtitle Text -->
+            <TextView
+                android:id="@+id/text_login_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/login_subtitle"
+                android:textSize="16sp"
+                android:textColor="@color/gray_600"
+                android:layout_marginBottom="40dp" />
+
+            <!-- Login Card -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textEmailAddress"
-                android:textColor="@color/gray_900"
-                android:textColorHint="@color/gray_600" />
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/white">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="24dp">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/input_layout_password"
-            style="@style/SemScanInputLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="@string/login_password_hint">
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/input_layout_username"
+                        style="@style/SemScanInputLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/login_username_hint"
+                        app:startIconDrawable="@drawable/ic_person"
+                        app:startIconTint="@color/gray_600">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/edit_password"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPassword"
-                android:textColor="@color/gray_900"
-                android:textColorHint="@color/gray_600" />
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/edit_username"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textEmailAddress"
+                            android:textColor="@color/gray_900"
+                            android:textColorHint="@color/gray_600" />
 
-        </com.google.android.material.textfield.TextInputLayout>
+                    </com.google.android.material.textfield.TextInputLayout>
 
-        <CheckBox
-            android:id="@+id/checkbox_remember_me"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/login_remember_me"
-            android:textColor="@color/gray_700"
-            android:textSize="14sp" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/input_layout_password"
+                        style="@style/SemScanInputLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:hint="@string/login_password_hint"
+                        app:passwordToggleEnabled="true"
+                        app:startIconDrawable="@drawable/ic_lock"
+                        app:startIconTint="@color/gray_600">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_login"
-            style="@style/SemScanButtonPrimary"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/login_button" />
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/edit_password"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textPassword"
+                            android:textColor="@color/gray_900"
+                            android:textColorHint="@color/gray_600" />
 
-    </LinearLayout>
+                    </com.google.android.material.textfield.TextInputLayout>
 
-</ScrollView>
+                    <CheckBox
+                        android:id="@+id/checkbox_remember_me"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/login_remember_me"
+                        android:textColor="@color/gray_700"
+                        android:textSize="14sp" />
 
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_login"
+                        style="@style/SemScanButtonPrimary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:text="@string/login_button" />
 
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>

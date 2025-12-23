@@ -4,11 +4,19 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/bg_gradient_main"
-    android:paddingStart="24dp"
-    android:paddingEnd="24dp">
+    android:background="@drawable/bg_gradient_main">
+
+    <!-- Toolbar with Hamburger Menu -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@android:color/transparent"
+        app:navigationIcon="@drawable/ic_menu_dark" />
 
     <androidx.core.widget.NestedScrollView
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -21,27 +29,23 @@
             android:gravity="center_horizontal"
             android:paddingTop="60dp">
 
-            <!-- Logo Container with Gradient and Shadow -->
-            <FrameLayout
+            <!-- Logo -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="120dp"
                 android:layout_height="120dp"
-                android:layout_marginBottom="30dp">
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/bg_logo_gradient"
-                    android:elevation="8dp" />
+                android:layout_marginBottom="30dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="8dp"
+                app:strokeWidth="0dp">
 
                 <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_qr_scanner_white"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/ic_logo"
                     android:contentDescription="@string/app_name"
-                    android:scaleType="fitCenter" />
+                    android:scaleType="centerCrop" />
 
-            </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Title Text -->
             <TextView
@@ -191,28 +195,5 @@
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
-
-    <!-- Settings Button -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_settings"
-        style="@style/Widget.MaterialComponents.Button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="40dp"
-        android:text="@string/settings"
-        android:textSize="16sp"
-        android:textColor="@color/white"
-        app:icon="@drawable/ic_settings"
-        app:iconGravity="textStart"
-        app:iconPadding="8dp"
-        app:iconTint="@color/white"
-        android:paddingStart="30dp"
-        android:paddingEnd="30dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="12dp"
-        android:backgroundTint="@color/primary_blue"
-        android:elevation="3dp"
-        app:cornerRadius="30dp" />
 
 </LinearLayout>

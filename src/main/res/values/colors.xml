@@ -53,6 +53,7 @@
     <color name="button_orange_end">#FFFFAF60</color>
     <color name="icon_blue">#FF2E5BFF</color>
     <color name="welcome_text_color">#FF102A68</color>
+    <color name="button_save_green">#FF43A047</color>
     
     <!-- QR Scanner colors -->
     <color name="result_view">#FF00FF00</color>

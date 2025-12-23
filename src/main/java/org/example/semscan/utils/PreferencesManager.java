@@ -3,10 +3,16 @@ package org.example.semscan.utils;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKey;
+
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.Locale;
 
 public class PreferencesManager {
     private static final String PREFS_NAME = "semscan_prefs";
+    private static final String ENCRYPTED_PREFS_NAME = "semscan_secure_prefs";
     private static final String KEY_USER_ROLE = "user_role";
     private static final String KEY_USERNAME = "bgu_username";
     private static final String KEY_FIRST_NAME = "first_name";
@@ -15,19 +21,50 @@ public class PreferencesManager {
     private static final String KEY_DEGREE = "user_degree";
     private static final String KEY_PARTICIPATION = "participation_preference";
     private static final String KEY_SETUP_COMPLETED = "initial_setup_completed";
-    
+    private static final String KEY_NATIONAL_ID = "national_id";
+    private static final String KEY_SUPERVISOR_NAME = "supervisor_name";
+    private static final String KEY_SUPERVISOR_EMAIL = "supervisor_email";
+    private static final String KEY_SEMINAR_ABSTRACT = "seminar_abstract";
+    private static final String KEY_PRESENTATION_TOPIC = "presentation_topic";
+    private static final String KEY_LAST_SEEN_ANNOUNCEMENT_VERSION = "last_seen_announcement_version";
+
     // Remember Me credentials
     private static final String KEY_SAVED_USERNAME = "saved_username";
-    private static final String KEY_SAVED_PASSWORD = "saved_password";
+    private static final String KEY_SAVED_PASSWORD = "saved_password"; // Stored encrypted
     private static final String KEY_REMEMBER_ME = "remember_me_enabled";
-    
+
     private static PreferencesManager instance;
     private SharedPreferences prefs;
-    
+    private SharedPreferences encryptedPrefs;
+    private Context appContext;
+
     private PreferencesManager(Context context) {
+        this.appContext = context.getApplicationContext();
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        initEncryptedPrefs(context);
     }
-    
+
+    private void initEncryptedPrefs(Context context) {
+        try {
+            MasterKey masterKey = new MasterKey.Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build();
+
+            encryptedPrefs = EncryptedSharedPreferences.create(
+                    context,
+                    ENCRYPTED_PREFS_NAME,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            );
+            Logger.i(Logger.TAG_UI, "EncryptedSharedPreferences initialized successfully");
+        } catch (GeneralSecurityException | IOException e) {
+            Logger.e(Logger.TAG_UI, "Failed to initialize EncryptedSharedPreferences", e);
+            // Fallback: don't store password if encryption fails
+            encryptedPrefs = null;
+        }
+    }
+
     public static synchronized PreferencesManager getInstance(Context context) {
         if (instance == null) {
             instance = new PreferencesManager(context.getApplicationContext());
@@ -128,8 +165,67 @@ public class PreferencesManager {
     public boolean hasCompletedInitialSetup() {
         return prefs.getBoolean(KEY_SETUP_COMPLETED, false);
     }
-    
-    
+
+    // National ID
+    public void setNationalId(String nationalId) {
+        Logger.prefs(KEY_NATIONAL_ID, nationalId);
+        prefs.edit().putString(KEY_NATIONAL_ID, nationalId).apply();
+    }
+
+    public String getNationalId() {
+        return prefs.getString(KEY_NATIONAL_ID, null);
+    }
+
+    // Supervisor Name
+    public void setSupervisorName(String supervisorName) {
+        Logger.prefs(KEY_SUPERVISOR_NAME, supervisorName);
+        prefs.edit().putString(KEY_SUPERVISOR_NAME, supervisorName).apply();
+    }
+
+    public String getSupervisorName() {
+        return prefs.getString(KEY_SUPERVISOR_NAME, null);
+    }
+
+    // Supervisor Email
+    public void setSupervisorEmail(String supervisorEmail) {
+        Logger.prefs(KEY_SUPERVISOR_EMAIL, supervisorEmail);
+        prefs.edit().putString(KEY_SUPERVISOR_EMAIL, supervisorEmail).apply();
+    }
+
+    public String getSupervisorEmail() {
+        return prefs.getString(KEY_SUPERVISOR_EMAIL, null);
+    }
+
+    // Seminar Abstract
+    public void setSeminarAbstract(String seminarAbstract) {
+        Logger.prefs(KEY_SEMINAR_ABSTRACT, seminarAbstract);
+        prefs.edit().putString(KEY_SEMINAR_ABSTRACT, seminarAbstract).apply();
+    }
+
+    public String getSeminarAbstract() {
+        return prefs.getString(KEY_SEMINAR_ABSTRACT, null);
+    }
+
+    // Presentation Topic
+    public void setPresentationTopic(String topic) {
+        Logger.prefs(KEY_PRESENTATION_TOPIC, topic);
+        prefs.edit().putString(KEY_PRESENTATION_TOPIC, topic).apply();
+    }
+
+    public String getPresentationTopic() {
+        return prefs.getString(KEY_PRESENTATION_TOPIC, null);
+    }
+
+    // Announcement Version Tracking
+    public void setLastSeenAnnouncementVersion(int version) {
+        Logger.prefs(KEY_LAST_SEEN_ANNOUNCEMENT_VERSION, String.valueOf(version));
+        prefs.edit().putInt(KEY_LAST_SEEN_ANNOUNCEMENT_VERSION, version).apply();
+    }
+
+    public int getLastSeenAnnouncementVersion() {
+        return prefs.getInt(KEY_LAST_SEEN_ANNOUNCEMENT_VERSION, 0);
+    }
+
     // Clear all preferences
     public void clearAll() {
         prefs.edit().clear().apply();
@@ -163,25 +259,6 @@ public class PreferencesManager {
         return prefs.getString(KEY_SAVED_USERNAME, null);
     }
     
-    /**
-     * Save password for "Remember Me" functionality
-     * WARNING: Storing passwords in SharedPreferences is not secure.
-     * For production apps, consider using Android Keystore or token-based authentication.
-     */
-    public void setSavedPassword(String password) {
-        Logger.prefs(KEY_SAVED_PASSWORD, password != null ? "***" : null);
-        if (password == null || password.isEmpty()) {
-            prefs.edit().remove(KEY_SAVED_PASSWORD).apply();
-        } else {
-            // Note: In production, encrypt this password using Android Keystore
-            prefs.edit().putString(KEY_SAVED_PASSWORD, password).apply();
-        }
-    }
-    
-    public String getSavedPassword() {
-        return prefs.getString(KEY_SAVED_PASSWORD, null);
-    }
-    
     public void setRememberMeEnabled(boolean enabled) {
         Logger.prefs(KEY_REMEMBER_ME, String.valueOf(enabled));
         prefs.edit().putBoolean(KEY_REMEMBER_ME, enabled).apply();
@@ -190,16 +267,69 @@ public class PreferencesManager {
     public boolean isRememberMeEnabled() {
         return prefs.getBoolean(KEY_REMEMBER_ME, false);
     }
-    
+
     /**
-     * Clear all saved credentials (username and password)
+     * Save password securely using EncryptedSharedPreferences
+     */
+    public void setSavedPassword(String password) {
+        if (encryptedPrefs == null) {
+            Logger.w(Logger.TAG_UI, "Cannot save password: EncryptedSharedPreferences not available");
+            logToServer("Cannot save password: EncryptedSharedPreferences not available");
+            return;
+        }
+        if (password == null || password.isEmpty()) {
+            encryptedPrefs.edit().remove(KEY_SAVED_PASSWORD).apply();
+            Logger.i(Logger.TAG_UI, "Cleared saved password");
+            logToServer("Cleared saved password (encrypted storage)");
+        } else {
+            encryptedPrefs.edit().putString(KEY_SAVED_PASSWORD, password).apply();
+            Logger.i(Logger.TAG_UI, "Password saved securely");
+            logToServer("Password saved securely (AES256-GCM encrypted)");
+        }
+    }
+
+    /**
+     * Get saved password from EncryptedSharedPreferences
+     */
+    public String getSavedPassword() {
+        if (encryptedPrefs == null) {
+            Logger.w(Logger.TAG_UI, "Cannot retrieve password: EncryptedSharedPreferences not available");
+            return null;
+        }
+        String password = encryptedPrefs.getString(KEY_SAVED_PASSWORD, null);
+        if (password != null && !password.isEmpty()) {
+            logToServer("Password loaded from encrypted storage");
+        }
+        return password;
+    }
+
+    /**
+     * Clear saved username, password and remember me setting
      */
     public void clearSavedCredentials() {
         prefs.edit()
                 .remove(KEY_SAVED_USERNAME)
-                .remove(KEY_SAVED_PASSWORD)
                 .remove(KEY_REMEMBER_ME)
                 .apply();
+        // Also clear encrypted password
+        if (encryptedPrefs != null) {
+            encryptedPrefs.edit().remove(KEY_SAVED_PASSWORD).apply();
+        }
         Logger.i(Logger.TAG_UI, "Cleared saved credentials");
+        logToServer("Cleared saved credentials (username, password, remember me)");
+    }
+
+    /**
+     * Helper method to log security events to ServerLogger
+     */
+    private void logToServer(String message) {
+        try {
+            ServerLogger serverLogger = ServerLogger.getInstance(appContext);
+            if (serverLogger != null) {
+                serverLogger.security("CredentialStorage", message);
+            }
+        } catch (Exception e) {
+            // Ignore - avoid circular dependency or initialization issues
+        }
     }
 }

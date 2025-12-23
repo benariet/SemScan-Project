@@ -278,6 +278,8 @@ public interface ApiService {
         // This field should show the total number of people on the waiting list, visible to everyone
         public int waitingListCount;      // Total number of people on waiting list (defaults to 0 if backend doesn't send it)
         public String waitingListUserName; // Name of user on waiting list (if current user is on it)
+        public List<PresenterCoPresenter> pendingPresenters;  // List of pending registrations with names
+        public List<PresenterCoPresenter> waitingListEntries; // List of waiting list entries with names
     }
 
     enum SlotState {
@@ -300,14 +302,16 @@ public interface ApiService {
 
     class PresenterRegisterRequest {
         public String topic;
+        public String seminarAbstract;
         public String supervisorName;
         public String supervisorEmail;
         public String presenterEmail; // Presenter's email for sending notification
 
         public PresenterRegisterRequest() {}
 
-        public PresenterRegisterRequest(String topic, String supervisorName, String supervisorEmail, String presenterEmail) {
+        public PresenterRegisterRequest(String topic, String seminarAbstract, String supervisorName, String supervisorEmail, String presenterEmail) {
             this.topic = topic;
+            this.seminarAbstract = seminarAbstract;
             this.supervisorName = supervisorName;
             this.supervisorEmail = supervisorEmail;
             this.presenterEmail = presenterEmail;
@@ -401,6 +405,8 @@ public interface ApiService {
         public String lastName;
         public String degree;
         public String participationPreference;
+        public String nationalIdNumber;
+        public String seminarAbstract;
     }
 
     class UserExistsRequest {
@@ -520,11 +526,28 @@ public interface ApiService {
 
     class WaitingListRequest {
         public String username;
+        public String topic;
+        public String supervisorName;
+        public String supervisorEmail;
 
         public WaitingListRequest() {}
 
         public WaitingListRequest(String username) {
             this.username = username;
+        }
+
+        public WaitingListRequest(String username, String supervisorName, String supervisorEmail) {
+            this.username = username;
+            this.supervisorName = supervisorName;
+            this.supervisorEmail = supervisorEmail;
+        }
+
+        public WaitingListRequest(String username, String topic, 
+                                  String supervisorName, String supervisorEmail) {
+            this.username = username;
+            this.topic = topic;
+            this.supervisorName = supervisorName;
+            this.supervisorEmail = supervisorEmail;
         }
     }
 
@@ -569,5 +592,36 @@ public interface ApiService {
         public String emailFromName;
         public String emailReplyTo;
         public String emailBccList;
+        public String appVersion;
+        public int waitingListLimitPerSlot;
+        public int phdCapacityWeight;
+    }
+
+    // =============================
+    // Announcements
+    // =============================
+
+    @GET("api/announcement")
+    Call<AnnouncementResponse> getAnnouncement();
+
+    /**
+     * Announcement configuration response
+     * Used to show popup messages to users after login
+     */
+    class AnnouncementResponse {
+        @SerializedName("isActive")
+        public boolean isActive;
+
+        @SerializedName("version")
+        public int version;
+
+        @SerializedName("title")
+        public String title;
+
+        @SerializedName("message")
+        public String message;
+
+        @SerializedName("isBlocking")
+        public boolean isBlocking;
     }
 }

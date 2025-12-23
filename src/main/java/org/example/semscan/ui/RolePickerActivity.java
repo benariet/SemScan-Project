@@ -3,9 +3,12 @@ package org.example.semscan.ui;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.PopupMenu;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -21,7 +24,6 @@ public class RolePickerActivity extends AppCompatActivity {
     
     private MaterialCardView cardPresenter;
     private MaterialCardView cardStudent;
-    private MaterialButton btnSettings;
     private PreferencesManager preferencesManager;
     
     @Override
@@ -34,6 +36,7 @@ public class RolePickerActivity extends AppCompatActivity {
         preferencesManager = PreferencesManager.getInstance(this);
         
         initializeViews();
+        setupToolbar();
         setupClickListeners();
         
         // Check if user already has a role selected
@@ -63,7 +66,67 @@ public class RolePickerActivity extends AppCompatActivity {
     private void initializeViews() {
         cardPresenter = findViewById(R.id.card_presenter);
         cardStudent = findViewById(R.id.card_student);
-        btnSettings = findViewById(R.id.btn_settings);
+    }
+
+    private void setupToolbar() {
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(false);
+            getSupportActionBar().setDisplayShowTitleEnabled(false);
+        }
+
+        // Explicitly set hamburger icon
+        toolbar.setNavigationIcon(R.drawable.ic_menu_dark);
+
+        // Set up hamburger menu click
+        toolbar.setNavigationOnClickListener(v -> showHamburgerMenu(toolbar));
+    }
+
+    private void showHamburgerMenu(View anchor) {
+        PopupMenu popup = new PopupMenu(this, anchor);
+        popup.getMenuInflater().inflate(R.menu.menu_hamburger, popup.getMenu());
+
+        popup.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.action_settings) {
+                openSettings();
+                return true;
+            } else if (id == R.id.action_logout) {
+                showLogoutDialog();
+                return true;
+            }
+            return false;
+        });
+
+        popup.show();
+    }
+
+    private void showLogoutDialog() {
+        Logger.userAction("Logout", "User tapped logout from role picker menu");
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.logout_confirm_title)
+                .setMessage(R.string.logout_confirm_message)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    performLogout();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void performLogout() {
+        Logger.i(Logger.TAG_UI, "Performing logout from role picker");
+        preferencesManager.clearUserData();
+        preferencesManager.clearSavedCredentials();
+
+        Toast.makeText(this, R.string.logout_success, Toast.LENGTH_SHORT).show();
+
+        Intent intent = new Intent(this, LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
     
     private void setupClickListeners() {
@@ -78,13 +141,6 @@ public class RolePickerActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 selectRole("PARTICIPANT");
-            }
-        });
-        
-        btnSettings.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                openSettings();
             }
         });
     }

@@ -6,20 +6,21 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.text.TextUtils;
+import android.widget.PopupMenu;
 import android.widget.Toast;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.cardview.widget.CardView;
-import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
 
 import org.example.semscan.R;
 import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
 import org.example.semscan.data.model.Session;
 import org.example.semscan.ui.RolePickerActivity;
+import org.example.semscan.ui.SettingsActivity;
 import org.example.semscan.ui.auth.LoginActivity;
 import org.example.semscan.ui.qr.ModernQRScannerActivity;
 import org.example.semscan.utils.Logger;
@@ -33,10 +34,9 @@ import retrofit2.Response;
 
 public class StudentHomeActivity extends AppCompatActivity {
 
-    private CardView cardScanAttendance;
-    private CardView cardManualAttendance;
-    private MaterialButton btnChangeRole;
-    private MaterialButton btnLogout;
+    private MaterialCardView cardScanAttendance;
+    private MaterialCardView cardManualAttendance;
+    private MaterialCardView btnChangeRole;
     private TextView textWelcomeMessage;
     private PreferencesManager preferencesManager;
     private ApiService apiService;
@@ -82,28 +82,36 @@ public class StudentHomeActivity extends AppCompatActivity {
         cardScanAttendance = findViewById(R.id.card_scan_attendance);
         cardManualAttendance = findViewById(R.id.card_manual_attendance);
         btnChangeRole = findViewById(R.id.btn_change_role);
-        btnLogout = findViewById(R.id.btn_logout);
         textWelcomeMessage = findViewById(R.id.text_welcome_message);
-        
+
         // Set personalized welcome message
         updateWelcomeMessage();
-        cardScanAttendance.setBackgroundResource(R.drawable.card_dashboard_background);
-        cardManualAttendance.setBackgroundResource(R.drawable.card_dashboard_background);
     }
     
     private void updateWelcomeMessage() {
-        String username = preferencesManager.getUserName();
+        String firstName = preferencesManager.getFirstName();
+        String lastName = preferencesManager.getLastName();
 
-        if (TextUtils.isEmpty(username)) {
+        String displayName = "";
+        if (!TextUtils.isEmpty(firstName) && !TextUtils.isEmpty(lastName)) {
+            displayName = firstName + " " + lastName;
+        } else if (!TextUtils.isEmpty(firstName)) {
+            displayName = firstName;
+        } else {
+            // Fallback to username if no name is set
+            displayName = preferencesManager.getUserName();
+        }
+
+        if (TextUtils.isEmpty(displayName)) {
             textWelcomeMessage.setText("Welcome, Student!");
-            Logger.w(Logger.TAG_UI, "No username found, using generic welcome message");
+            Logger.w(Logger.TAG_UI, "No name found, using generic welcome message");
             return;
         }
 
-        textWelcomeMessage.setText(getString(R.string.welcome_user, username));
-        Logger.i(Logger.TAG_UI, "Welcome message set with username: " + username);
+        textWelcomeMessage.setText(getString(R.string.welcome_user, displayName));
+        Logger.i(Logger.TAG_UI, "Welcome message set with name: " + displayName);
         if (serverLogger != null) {
-            serverLogger.i(ServerLogger.TAG_UI, "Student resolved to username: " + username);
+            serverLogger.i(ServerLogger.TAG_UI, "Student resolved to name: " + displayName);
         }
     }
     
@@ -113,6 +121,40 @@ public class StudentHomeActivity extends AppCompatActivity {
 
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(false);
+        }
+
+        // Explicitly set hamburger icon
+        toolbar.setNavigationIcon(R.drawable.ic_menu);
+
+        // Set up hamburger menu click
+        toolbar.setNavigationOnClickListener(v -> showHamburgerMenu(toolbar));
+    }
+
+    private void showHamburgerMenu(View anchor) {
+        PopupMenu popup = new PopupMenu(this, anchor);
+        popup.getMenuInflater().inflate(R.menu.menu_hamburger, popup.getMenu());
+
+        popup.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.action_settings) {
+                openSettings();
+                return true;
+            } else if (id == R.id.action_logout) {
+                showLogoutDialog();
+                return true;
+            }
+            return false;
+        });
+
+        popup.show();
+    }
+
+    private void openSettings() {
+        Intent intent = new Intent(this, SettingsActivity.class);
+        startActivity(intent);
+        Logger.userAction("Navigate", "Opened SettingsActivity from student home");
+        if (serverLogger != null) {
+            serverLogger.userAction("Navigate", "Opened SettingsActivity from student home");
         }
     }
 
@@ -147,17 +189,6 @@ public class StudentHomeActivity extends AppCompatActivity {
                     serverLogger.userAction("Change Role", "Student clicked change role button");
                 }
                 changeRole();
-            }
-        });
-
-        btnLogout.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Logger.userAction("Logout", "Student clicked logout button");
-                if (serverLogger != null) {
-                    serverLogger.userAction("Logout", "Student clicked logout button");
-                }
-                showLogoutDialog();
             }
         });
     }

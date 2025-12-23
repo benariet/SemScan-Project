@@ -117,7 +117,8 @@
     <string name="save">Save</string>
     <string name="delete">Delete</string>
     <string name="edit">Edit</string>
-    
+    <string name="use_saved_abstract_question">You have a saved seminar abstract in your settings. Would you like to use it?</string>
+
     <!-- User-friendly error messages -->
     <string name="error_network_connection">Unable to connect. Check your internet and try again.</string>
     <string name="error_network_timeout">Request timed out. Check your connection and try again.</string>
@@ -194,6 +195,8 @@
 
     <!-- Presenter Home (revamped) -->
     <string name="presenter_home_welcome_default">Welcome, Presenter!</string>
+    <string name="presenter_select_slot_first">Please select a presentation slot first</string>
+    <string name="presenter_home_supervisor_required_in_settings">Please set your supervisor info in Settings first</string>
     <string name="welcome_user">Welcome, %1$s!</string>
     <string name="presenter_home_enroll_title">Select a presentation slot</string>
     <string name="presenter_home_enroll_description">Browse upcoming seminar dates and enroll yourself.</string>
@@ -211,6 +214,7 @@
     <string name="presenter_my_slot_intro">Review your registered slot. To switch, return to available slots.</string>
     <string name="presenter_my_slot_empty">Not registered to any slot yet.</string>
     <string name="presenter_my_slot_change_button">Browse available slots</string>
+    <string name="presenter_my_slot_change_button_short">Browse slots</string>
     <string name="presenter_my_slot_cancel_button">Cancel registration</string>
     <string name="presenter_my_slot_cancel_success">Your registration was cancelled.</string>
     <string name="presenter_my_slot_cancel_error">Could not cancel registration. Please try again.</string>
@@ -248,12 +252,16 @@
     <string name="presenter_home_slot_state_full">Full</string>
     <string name="presenter_home_register_title">Invite a Supervisor</string>
     <string name="presenter_home_register_description">Enter your supervisor details to register for this slot.</string>
-    <string name="presenter_home_topic_hint">Presentation topic (optional)</string>
+    <string name="presenter_home_topic_hint">Presentation topic</string>
+    <string name="presenter_home_abstract_hint">Seminar abstract</string>
+    <string name="presenter_home_abstract_helper">Paste or type your seminar abstract. Required for supervisor approval.</string>
+    <string name="presenter_home_abstract_required">Abstract is required for registration</string>
     <string name="presenter_home_supervisor_name_hint">Supervisor full name (required)</string>
     <string name="presenter_home_supervisor_email_hint">Supervisor email (required)</string>
     <string name="presenter_home_supervisor_name_required">Supervisor name is required</string>
     <string name="presenter_home_supervisor_email_required">Supervisor email is required</string>
     <string name="presenter_home_supervisor_email_invalid">Enter a valid supervisor email address</string>
+    <string name="presenter_home_supervisor_info_required">Please set your supervisor name and email in Settings first</string>
     <string name="presenter_home_presenter_email_required">Email required for supervisor notification. Update in Settings.</string>
     <string name="presenter_home_register_success">Registered for this slot.</string>
     <string name="presenter_home_register_already">Already registered for this slot.</string>
@@ -312,6 +320,10 @@
 
     <!-- Dialog / misc -->
     <string name="presenter_slot_register_button">Register now</string>
+    <string name="presenter_slot_status_approved">Approved</string>
+    <string name="presenter_slot_status_pending">Pending</string>
+    <string name="presenter_slot_status_registered">Registered</string>
+    <string name="presenter_slot_status_full">Full</string>
     <string name="presenter_slot_registered_badge">Registered</string>
     <string name="presenter_slot_full_badge">Full</string>
 
@@ -323,6 +335,8 @@
     <string name="login_remember_me">Remember me</string>
     <string name="login_button">Log in</string>
     <string name="login_button_loading">Logging in...</string>
+    <string name="login_invalid_credentials">Invalid username or password</string>
+    <string name="login_server_error">Server error. Please try again later.</string>
     <string name="login_skip_auth_button">Skip auth (test)</string>
     <string name="login_username_required">Please enter your username</string>
     <string name="login_password_required">Please enter your password</string>
@@ -344,4 +358,37 @@
     <string name="camera_permission_required">Camera permission required for QR scanning</string>
     <string name="permission_denied">Permission denied</string>
     <string name="go_to_settings">Go to Settings</string>
+
+    <!-- Presentation Details Card -->
+    <string name="presentation_details_title">Presentation Details</string>
+    <string name="presentation_details_status_incomplete">Tap to fill in your details</string>
+    <string name="presentation_details_status_complete">Details saved</string>
+    <string name="presentation_topic_hint">Presentation Topic</string>
+    <string name="seminar_abstract_hint">Seminar Abstract</string>
+    <string name="supervisor_name_hint">Supervisor Name</string>
+    <string name="supervisor_email_hint">Supervisor Email</string>
+    <string name="save_presentation_details">Save Details</string>
+    <string name="expand">Expand</string>
+    <string name="presentation_details_saved">Presentation details saved</string>
+    <string name="presentation_details_required">Please fill in all presentation details</string>
+    <string name="presentation_details_topic_required">Presentation topic is required</string>
+    <string name="presentation_details_abstract_required">Seminar abstract is required</string>
+    <string name="presentation_details_supervisor_name_required">Supervisor name is required</string>
+    <string name="presentation_details_supervisor_email_required">Supervisor email is required</string>
+    <string name="presentation_details_supervisor_email_invalid">Please enter a valid email address</string>
+    
+    <!-- My Time Slot Card -->
+    <string name="presenter_home_my_time_slot_card_title">My Time Slot</string>
+    <string name="presenter_home_cancel_slot">Cancel Slot</string>
+
+    <!-- Registration Confirmation Dialog -->
+    <string name="registration_confirm_title">Confirm Registration</string>
+    <string name="registration_confirm_message">An invitation email will be sent to your supervisor for approval.
+
+Supervisor: %1$s
+Email: %2$s
+Topic: %3$s</string>
+    <string name="registration_confirm_button">Register</string>
+    <string name="registration_review_button">Review Details</string>
+    <string name="registration_details_incomplete">Please fill in all presentation details first</string>
 </resources>

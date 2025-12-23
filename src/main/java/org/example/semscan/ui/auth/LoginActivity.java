@@ -6,6 +6,7 @@ import android.text.TextUtils;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.widget.CheckBox;
@@ -229,28 +230,32 @@ public class LoginActivity extends AppCompatActivity {
                         Logger.w(Logger.TAG_API, "=== LOGIN API RESPONSE FAILED ===");
                         Logger.w(Logger.TAG_API, "Response is not successful OR body is null");
                         Logger.w(Logger.TAG_API, "Response code: " + response.code() + ", body is null: " + (response.body() == null));
-                        
+
                         // Authentication failed - show error and stop
                         btnLogin.setEnabled(true);
                         btnLogin.setText(getString(R.string.login_button));
-                        String errorMsg = "Invalid username or password";
+
+                        // Show user-friendly error message based on status code
+                        String errorMsg;
+                        if (response.code() == 401 || response.code() == 403) {
+                            errorMsg = getString(R.string.login_invalid_credentials);
+                        } else if (response.code() >= 500) {
+                            errorMsg = getString(R.string.login_server_error);
+                        } else {
+                            errorMsg = getString(R.string.login_invalid_credentials);
+                        }
+
+                        // Log the actual error body for debugging
                         try {
                             if (response.errorBody() != null) {
-                                Logger.i(Logger.TAG_API, "Reading error body from response...");
                                 String errorBody = response.errorBody().string();
-                                if (errorBody.length() > 0) {
-                                    errorMsg = errorBody.length() > 100 ? errorBody.substring(0, 100) : errorBody;
-                                    Logger.w(Logger.TAG_API, "Error body content: " + errorMsg);
-                                } else {
-                                    Logger.w(Logger.TAG_API, "Error body is empty");
-                                }
-                            } else {
-                                Logger.w(Logger.TAG_API, "Error body is null");
+                                Logger.w(Logger.TAG_API, "Error body content: " + errorBody);
                             }
                         } catch (Exception e) {
-                            Logger.e(Logger.TAG_API, "Failed to read error body: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
+                            Logger.e(Logger.TAG_API, "Failed to read error body: " + e.getMessage(), e);
                         }
-                        Logger.w(Logger.TAG_API, "Authentication failed, code=" + response.code() + ", final error message=" + errorMsg);
+
+                        Logger.w(Logger.TAG_API, "Authentication failed, code=" + response.code());
                         Toast.makeText(LoginActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                     }
                 } catch (Exception e) {
@@ -519,21 +524,92 @@ public class LoginActivity extends AppCompatActivity {
             Logger.e(Logger.TAG_UI, "Continuing with navigation despite config refresh failure");
         }
         
-        Intent intent;
-        if (preferencesManager.hasCompletedInitialSetup()) {
-            Logger.i(Logger.TAG_UI, "User has completed initial setup - navigating to RolePickerActivity");
-            intent = new Intent(this, RolePickerActivity.class);
-        } else {
-            Logger.i(Logger.TAG_UI, "User has NOT completed initial setup - navigating to FirstTimeSetupActivity");
-            intent = new Intent(this, FirstTimeSetupActivity.class);
+        // Check for announcements before navigating
+        checkAndShowAnnouncement(() -> {
+            Intent intent;
+            if (preferencesManager.hasCompletedInitialSetup()) {
+                Logger.i(Logger.TAG_UI, "User has completed initial setup - navigating to RolePickerActivity");
+                intent = new Intent(this, RolePickerActivity.class);
+            } else {
+                Logger.i(Logger.TAG_UI, "User has NOT completed initial setup - navigating to FirstTimeSetupActivity");
+                intent = new Intent(this, FirstTimeSetupActivity.class);
+            }
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            Logger.i(Logger.TAG_UI, "Starting activity: " + intent.getComponent().getClassName());
+            startActivity(intent);
+            Logger.i(Logger.TAG_UI, "Activity started, finishing LoginActivity");
+            finish();
+            Logger.i(Logger.TAG_UI, "=== NAVIGATE AFTER LOGIN COMPLETE ===");
+            Logger.i(Logger.TAG_UI, "=== LOGIN FLOW END ===");
+        });
+    }
+
+    /**
+     * Check for announcements and show dialog if there's an active one with a new version.
+     * @param onComplete Callback to run after announcement is dismissed or if no announcement
+     */
+    private void checkAndShowAnnouncement(Runnable onComplete) {
+        Logger.i(Logger.TAG_UI, "Checking for announcements...");
+
+        ApiService apiService = ApiClient.getInstance(this).getApiService();
+        apiService.getAnnouncement().enqueue(new Callback<ApiService.AnnouncementResponse>() {
+            @Override
+            public void onResponse(Call<ApiService.AnnouncementResponse> call, Response<ApiService.AnnouncementResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    ApiService.AnnouncementResponse announcement = response.body();
+                    int lastSeenVersion = preferencesManager.getLastSeenAnnouncementVersion();
+
+                    Logger.i(Logger.TAG_UI, "Announcement: isActive=" + announcement.isActive +
+                            ", version=" + announcement.version + ", lastSeen=" + lastSeenVersion);
+
+                    if (announcement.isActive && announcement.version > lastSeenVersion) {
+                        // Show announcement dialog
+                        runOnUiThread(() -> showAnnouncementDialog(announcement, onComplete));
+                    } else {
+                        // No new announcement, proceed
+                        runOnUiThread(onComplete);
+                    }
+                } else {
+                    Logger.w(Logger.TAG_UI, "Failed to fetch announcement: " + response.code());
+                    runOnUiThread(onComplete);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiService.AnnouncementResponse> call, Throwable t) {
+                Logger.e(Logger.TAG_UI, "Error fetching announcement", t);
+                runOnUiThread(onComplete);
+            }
+        });
+    }
+
+    /**
+     * Show the announcement dialog
+     */
+    private void showAnnouncementDialog(ApiService.AnnouncementResponse announcement, Runnable onComplete) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle(announcement.title != null && !announcement.title.isEmpty() ? announcement.title : "Announcement")
+                .setMessage(announcement.message)
+                .setPositiveButton(R.string.ok, (dialog, which) -> {
+                    // Mark as seen
+                    preferencesManager.setLastSeenAnnouncementVersion(announcement.version);
+                    dialog.dismiss();
+                    onComplete.run();
+                });
+
+        // If not blocking, allow dismissing by clicking outside
+        AlertDialog dialog = builder.create();
+        dialog.setCancelable(!announcement.isBlocking);
+        dialog.setCanceledOnTouchOutside(!announcement.isBlocking);
+
+        if (!announcement.isBlocking) {
+            dialog.setOnCancelListener(d -> {
+                preferencesManager.setLastSeenAnnouncementVersion(announcement.version);
+                onComplete.run();
+            });
         }
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        Logger.i(Logger.TAG_UI, "Starting activity: " + intent.getComponent().getClassName());
-        startActivity(intent);
-        Logger.i(Logger.TAG_UI, "Activity started, finishing LoginActivity");
-        finish();
-        Logger.i(Logger.TAG_UI, "=== NAVIGATE AFTER LOGIN COMPLETE ===");
-        Logger.i(Logger.TAG_UI, "=== LOGIN FLOW END ===");
+
+        dialog.show();
     }
 
     private void handleSkipAuth() {
@@ -614,43 +690,45 @@ public class LoginActivity extends AppCompatActivity {
     }
     
     /**
-     * Load saved credentials if "Remember Me" was previously checked
+     * Load saved credentials if "Remember Me" was previously checked.
+     * Username is stored in regular SharedPreferences.
+     * Password is stored securely using EncryptedSharedPreferences.
      */
     private void loadSavedCredentials() {
         String savedUsername = preferencesManager.getSavedUsername();
         String savedPassword = preferencesManager.getSavedPassword();
         boolean rememberMeChecked = preferencesManager.isRememberMeEnabled();
-        
+
         if (rememberMeChecked && savedUsername != null && !savedUsername.isEmpty()) {
             // Pre-fill username
             if (editUsername != null) {
                 editUsername.setText(savedUsername);
             }
-            
-            // Pre-fill password if available (optional - for security, you might want to skip this)
+
+            // Pre-fill password if available (stored encrypted)
             if (savedPassword != null && !savedPassword.isEmpty() && editPassword != null) {
                 editPassword.setText(savedPassword);
             }
-            
+
             // Check the "Remember Me" checkbox
             if (checkboxRememberMe != null) {
                 checkboxRememberMe.setChecked(true);
             }
-            
-            Logger.i(Logger.TAG_UI, "Loaded saved credentials for: " + savedUsername);
+
+            Logger.i(Logger.TAG_UI, "Loaded saved credentials for username: " + savedUsername);
         }
     }
-    
+
     /**
-     * Save credentials when "Remember Me" is checked
-     * Note: Storing passwords in SharedPreferences is not secure for production apps.
-     * Consider using Android Keystore or token-based authentication instead.
+     * Save credentials when "Remember Me" is checked.
+     * Username is stored in regular SharedPreferences.
+     * Password is stored securely using EncryptedSharedPreferences (AES256-GCM encryption).
      */
     private void saveCredentials(String username, String password) {
         preferencesManager.setSavedUsername(username);
         preferencesManager.setSavedPassword(password);
         preferencesManager.setRememberMeEnabled(true);
-        Logger.i(Logger.TAG_UI, "Saved credentials for: " + username);
+        Logger.i(Logger.TAG_UI, "Saved credentials securely for username: " + username);
     }
     
     /**

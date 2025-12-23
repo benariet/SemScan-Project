@@ -18,6 +18,7 @@ import com.google.android.material.button.MaterialButton;
 
 import org.example.semscan.R;
 import org.example.semscan.data.api.ApiService;
+import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.ServerLogger;
@@ -37,6 +38,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
 
     private final List<ApiService.SlotCard> items = new ArrayList<>();
     private final SlotActionListener listener;
+    private boolean userHasApprovedRegistration = false;
 
     PresenterSlotsAdapter(@NonNull SlotActionListener listener) {
         this.listener = listener;
@@ -61,8 +63,15 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
 
     void submitList(List<ApiService.SlotCard> slots) {
         items.clear();
+        userHasApprovedRegistration = false;
         if (slots != null) {
             items.addAll(slots);
+            for (ApiService.SlotCard slot : slots) {
+                if ("APPROVED".equals(slot.approvalStatus)) {
+                    userHasApprovedRegistration = true;
+                    break;
+                }
+            }
         }
         notifyDataSetChanged();
     }
@@ -141,12 +150,16 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             title.setText(titleText);
             
             // Calculate slot capacity info early (needed for onClick handler)
-            // NOTE: Backend now properly calculates capacity including pending registrations
-            // Use enrolledCount as fallback if approvedCount is not available
-            int approved = (slot.enrolledCount > slot.approvedCount) ? slot.enrolledCount : slot.approvedCount;
-            int pending = slot.pendingCount;
+            // Backend sends EFFECTIVE capacity usage (PhD=2, MSc=1)
+            int approved = slot.approvedCount; // Effective capacity used by approved registrations
+            int pending = slot.pendingCount;   // Effective capacity used by pending registrations
+            
+            // For COLOR: Only APPROVED counts as "full" - pending might get declined
+            boolean isFull = (approved >= slot.capacity);
+            
+            // For BUTTON visibility: Both approved AND pending block new registrations
             int totalOccupied = approved + pending;
-            boolean isFull = (totalOccupied >= slot.capacity);
+            boolean slotAtCapacity = (totalOccupied >= slot.capacity);
             
             // Log capacity calculation for debugging
             if (slot.slotId != null && totalOccupied > 0) {
@@ -160,21 +173,55 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             }
             
             // Set gradient background and status text based on slot state
-            String statusTextStr = "";
+            StringBuilder statusBuilder = new StringBuilder();
             int gradientResId = R.drawable.bg_slot_green_gradient; // Default to green (available)
             
             if (isFull) {
                 // Red gradient for full slots
                 gradientResId = R.drawable.bg_slot_red_gradient;
-                statusTextStr = "Full - Join Waiting List";
-            } else if (pending > 0) {
-                // Yellow gradient for pending slots
+            } else if (approved > 0 || pending > 0) {
+                // Yellow gradient for partially filled slots (has approved or pending but not full)
                 gradientResId = R.drawable.bg_slot_yellow_gradient;
-                statusTextStr = context.getString(R.string.presenter_home_slot_pending_line, pending);
             } else {
-                // Green gradient for available slots
+                // Green gradient for empty/available slots
                 gradientResId = R.drawable.bg_slot_green_gradient;
-                statusTextStr = context.getString(R.string.presenter_home_slot_state_available);
+            }
+            
+            // Build multi-line status text showing approved, pending, and waiting list names
+            // Line 1: Approved presenter names
+            String approvedNames = formatNamesForDisplay(slot.registered, 5);
+            if (approvedNames != null && !approvedNames.isEmpty()) {
+                statusBuilder.append("Approved: ").append(approvedNames);
+            }
+            
+            // Line 2: Pending presenter names (if any)
+            String pendingNames = formatNamesForDisplay(slot.pendingPresenters, 5);
+            if (pendingNames != null && !pendingNames.isEmpty()) {
+                if (statusBuilder.length() > 0) {
+                    statusBuilder.append("\n");
+                }
+                statusBuilder.append("Pending: ").append(pendingNames);
+            }
+            
+            // Line 3: Waiting list names (if any)
+            String wlNames = formatNamesForDisplay(slot.waitingListEntries, 5);
+            if (wlNames != null && !wlNames.isEmpty()) {
+                if (statusBuilder.length() > 0) {
+                    statusBuilder.append("\n");
+                }
+                statusBuilder.append("Waiting List: ").append(wlNames);
+            }
+            
+            // If no names at all, show default status
+            String statusTextStr;
+            if (statusBuilder.length() == 0) {
+                if (isFull) {
+                    statusTextStr = "Full - Join Waiting List";
+                } else {
+                    statusTextStr = context.getString(R.string.presenter_home_slot_state_available);
+                }
+            } else {
+                statusTextStr = statusBuilder.toString();
             }
             
             // Apply gradient background
@@ -233,8 +280,8 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
                 }
             });
 
-            // Show/hide register button (isFull already declared above)
-            if (!slot.canRegister || slot.alreadyRegistered || isFull) {
+            // Show/hide register button - use slotAtCapacity for button visibility
+            if (!slot.canRegister || slot.alreadyRegistered || slotAtCapacity || userHasApprovedRegistration) {
                 registerButton.setVisibility(View.GONE);
             } else {
                 registerButton.setVisibility(View.VISIBLE);
@@ -255,7 +302,9 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             
             // Waiting list capacity is 1 (max 1 person can be on waiting list)
             int wlCount = slot.waitingListCount > 0 ? slot.waitingListCount : (slot.onWaitingList ? 1 : 0);
-            boolean isWaitingListFull = wlCount >= 1;
+            // Get configurable waiting list limit
+            int waitingListLimit = ConfigManager.getInstance(context).getWaitingListLimitPerSlot();
+            boolean isWaitingListFull = wlCount >= waitingListLimit;
             
             // Log waiting list status for debugging
             if (slot.onWaitingList) {
@@ -273,7 +322,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             // 2. User is already registered in this slot
             // 3. Slot is not full
             // 4. Waiting list is full (capacity is 1)
-            if (isFull && !isUserRegisteredInThisSlot && !slot.onWaitingList && !isWaitingListFull) {
+            if (slotAtCapacity && !isUserRegisteredInThisSlot && !slot.onWaitingList && !isWaitingListFull && !userHasApprovedRegistration) {
                 waitingListButton.setVisibility(View.VISIBLE);
                 waitingListButton.setOnClickListener(v -> {
                     Logger.userAction("Join Waiting List", "Attempting to join waiting list for slot=" + slot.slotId);

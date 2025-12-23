@@ -86,6 +86,9 @@ dependencies {
     
     // Preferences
     implementation("androidx.preference:preference:1.2.1")
+
+    // Security - EncryptedSharedPreferences for secure credential storage
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     
     // SwipeRefreshLayout
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
