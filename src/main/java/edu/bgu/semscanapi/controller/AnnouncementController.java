@@ -46,11 +46,17 @@ public class AnnouncementController {
                 logger.info("Created default announcement config");
             }
 
-            response.put("isActive", config.getIsActive());
+            // Use isCurrentlyActive() to check both is_active flag AND schedule (start_at/end_at)
+            boolean isActive = config.isCurrentlyActive();
+
+            response.put("isActive", isActive);
             response.put("version", config.getVersion());
             response.put("title", config.getTitle());
             response.put("message", config.getMessage());
             response.put("isBlocking", config.getIsBlocking());
+
+            logger.info("Announcement config: isActive={}, version={}, scheduled=({} to {})",
+                    isActive, config.getVersion(), config.getStartAt(), config.getEndAt());
 
             return ResponseEntity.ok(response);
 

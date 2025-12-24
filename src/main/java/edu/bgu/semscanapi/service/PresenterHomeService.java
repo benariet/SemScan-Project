@@ -66,6 +66,7 @@ public class PresenterHomeService {
     private final MailService mailService;
     private final AppConfigService appConfigService;
     private final WaitingListPromotionRepository waitingListPromotionRepository;
+    private final EmailQueueService emailQueueService;
 
     public PresenterHomeService(UserRepository userRepository,
                                 SeminarSlotRepository seminarSlotRepository,
@@ -79,7 +80,8 @@ public class PresenterHomeService {
                                 WaitingListService waitingListService,
                                 MailService mailService,
                                 AppConfigService appConfigService,
-                                WaitingListPromotionRepository waitingListPromotionRepository) {
+                                WaitingListPromotionRepository waitingListPromotionRepository,
+                                EmailQueueService emailQueueService) {
         this.userRepository = userRepository;
         this.seminarSlotRepository = seminarSlotRepository;
         this.registrationRepository = registrationRepository;
@@ -93,6 +95,7 @@ public class PresenterHomeService {
         this.mailService = mailService;
         this.appConfigService = appConfigService;
         this.waitingListPromotionRepository = waitingListPromotionRepository;
+        this.emailQueueService = emailQueueService;
     }
 
     /**
@@ -524,21 +527,29 @@ public class PresenterHomeService {
                     presenterUsername, String.format("slotId=%d,requestEmail=%s", slotId, supervisorEmail));
         }
         
-        // Validate email format before attempting to send
-        if (supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
-            supervisorEmail = supervisorEmail.trim();
-            
-            // Basic email validation
-            if (!supervisorEmail.contains("@") || supervisorEmail.length() < 5) {
-                String errorMsg = String.format("Invalid supervisor email format: %s", supervisorEmail);
-                logger.error("📧 ❌ {}", errorMsg);
-                databaseLoggerService.logError("EMAIL_REGISTRATION_INVALID_EMAIL_FORMAT", errorMsg, null,
-                        presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
-                supervisorEmail = null; // Treat as missing
-            } else {
-                logger.info("📧 Supervisor email found and validated: {} - proceeding with email send", supervisorEmail);
-            }
+        // CRITICAL: Validate supervisor email BEFORE proceeding with registration
+        // If supervisor email is invalid or missing, REJECT the registration with a clear error
+        EmailQueueService.EmailValidationResult emailValidation = emailQueueService.validateSupervisorEmail(
+            supervisorEmail, presenterUsername);
+
+        if (!emailValidation.isValid()) {
+            // Registration REJECTED due to invalid/missing supervisor email
+            String errorMsg = emailValidation.getErrorMessage();
+            String errorCode = emailValidation.getErrorCode();
+
+            logger.error("📧 ❌ REGISTRATION REJECTED - Supervisor email validation failed: {}", errorMsg);
+            databaseLoggerService.logError("EMAIL_SUPERVISOR_VALIDATION_REJECTED",
+                String.format("Registration rejected for %s on slot %d - %s",
+                    presenterUsername, slotId, errorMsg),
+                null, presenterUsername, String.format("slotId=%d,errorCode=%s", slotId, errorCode));
+
+            // Return error to user with clear instructions
+            return new PresenterSlotRegistrationResponse(false, errorMsg, errorCode);
         }
+
+        // Supervisor email validated successfully
+        supervisorEmail = supervisorEmail.trim();
+        logger.info("📧 Supervisor email validated successfully: {} - proceeding with registration", supervisorEmail);
         
         if (supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
             try {

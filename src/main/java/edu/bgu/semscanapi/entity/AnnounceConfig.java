@@ -26,6 +26,12 @@ public class AnnounceConfig {
     @Column(name = "is_blocking", nullable = false)
     private Boolean isBlocking = false;
 
+    @Column(name = "start_at")
+    private LocalDateTime startAt;
+
+    @Column(name = "end_at")
+    private LocalDateTime endAt;
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
@@ -90,5 +96,47 @@ public class AnnounceConfig {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public LocalDateTime getStartAt() {
+        return startAt;
+    }
+
+    public void setStartAt(LocalDateTime startAt) {
+        this.startAt = startAt;
+    }
+
+    public LocalDateTime getEndAt() {
+        return endAt;
+    }
+
+    public void setEndAt(LocalDateTime endAt) {
+        this.endAt = endAt;
+    }
+
+    /**
+     * Check if announcement is currently active based on is_active flag and schedule.
+     * Returns true if:
+     * - is_active is true AND
+     * - Current time is within start_at and end_at (if they are set)
+     */
+    public boolean isCurrentlyActive() {
+        if (!Boolean.TRUE.equals(isActive)) {
+            return false;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // Check start_at constraint
+        if (startAt != null && now.isBefore(startAt)) {
+            return false;
+        }
+
+        // Check end_at constraint
+        if (endAt != null && now.isAfter(endAt)) {
+            return false;
+        }
+
+        return true;
     }
 }

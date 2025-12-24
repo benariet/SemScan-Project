@@ -7,11 +7,13 @@ import edu.bgu.semscanapi.entity.SeminarSlotRegistration;
 import edu.bgu.semscanapi.entity.SeminarSlotRegistrationId;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.entity.WaitingListPromotion;
+import edu.bgu.semscanapi.entity.EmailQueue;
 import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
+import edu.bgu.semscanapi.service.EmailQueueService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +37,7 @@ public class RegistrationApprovalService {
     private final SeminarSlotRepository slotRepository;
     private final UserRepository userRepository;
     private final MailService mailService;
+    private final EmailQueueService emailQueueService;
     private final GlobalConfig globalConfig;
     private final DatabaseLoggerService databaseLoggerService;
     private final PresenterHomeService presenterHomeService; // For promoting next person when student declines
@@ -56,6 +59,7 @@ public class RegistrationApprovalService {
             SeminarSlotRepository slotRepository,
             UserRepository userRepository,
             MailService mailService,
+            EmailQueueService emailQueueService,
             GlobalConfig globalConfig,
             DatabaseLoggerService databaseLoggerService,
             @Lazy PresenterHomeService presenterHomeService,
@@ -64,6 +68,7 @@ public class RegistrationApprovalService {
         this.slotRepository = slotRepository;
         this.userRepository = userRepository;
         this.mailService = mailService;
+        this.emailQueueService = emailQueueService;
         this.globalConfig = globalConfig;
         this.databaseLoggerService = databaseLoggerService;
         this.presenterHomeService = presenterHomeService;
@@ -150,26 +155,24 @@ public class RegistrationApprovalService {
         String htmlContent = generateStudentConfirmationEmailHtml(registration, slot, confirmUrl, declineUrl, expiresAt, student);
         logger.info("📧 [RegistrationApprovalService] Student confirmation HTML email content generated (length: {} chars)", htmlContent.length());
         
-        // Send email to student
-        logger.info("📧 [RegistrationApprovalService] Calling mailService.sendHtmlEmail() - to: {}, subject: {}", studentEmail, subject);
-        boolean sent = mailService.sendHtmlEmail(studentEmail, subject, htmlContent);
-        
-        if (sent) {
-            logger.info("📧 ✅ [RegistrationApprovalService] Student confirmation email sent successfully to {} for registration slotId={}, presenter={}",
-                    studentEmail, registration.getSlotId(), registration.getPresenterUsername());
-            databaseLoggerService.logBusinessEvent("EMAIL_STUDENT_CONFIRMATION_EMAIL_SENT",
-                    String.format("Student confirmation email sent to %s for registration slotId=%d, presenter=%s",
-                            studentEmail, registration.getSlotId(), registration.getPresenterUsername()),
-                    registration.getPresenterUsername());
-        } else {
-            logger.error("📧 ❌ [RegistrationApprovalService] Failed to send student confirmation email to {} for registration slotId={}, presenter={}",
-                    studentEmail, registration.getSlotId(), registration.getPresenterUsername());
-            databaseLoggerService.logError("EMAIL_STUDENT_CONFIRMATION_EMAIL_FAILED",
-                    String.format("Failed to send student confirmation email to %s for registration slotId=%d, presenter=%s",
-                            studentEmail, registration.getSlotId(), registration.getPresenterUsername()),
-                    null, registration.getPresenterUsername(),
-                    String.format("slotId=%d,studentEmail=%s", registration.getSlotId(), studentEmail));
-        }
+        // Queue email to student (with retry support)
+        logger.info("📧 [RegistrationApprovalService] Queueing student confirmation email - to: {}, subject: {}", studentEmail, subject);
+        emailQueueService.queueEmail(
+            EmailQueue.EmailType.STUDENT_CONFIRMATION,
+            studentEmail,
+            subject,
+            htmlContent,
+            null,
+            registration.getSlotId(),
+            registration.getPresenterUsername()
+        );
+
+        logger.info("📧 ✅ [RegistrationApprovalService] Student confirmation email queued for {} for registration slotId={}, presenter={}",
+                studentEmail, registration.getSlotId(), registration.getPresenterUsername());
+        databaseLoggerService.logBusinessEvent("EMAIL_STUDENT_CONFIRMATION_EMAIL_QUEUED",
+                String.format("Student confirmation email queued for %s for registration slotId=%d, presenter=%s",
+                        studentEmail, registration.getSlotId(), registration.getPresenterUsername()),
+                registration.getPresenterUsername());
     }
     
     /**
@@ -511,54 +514,45 @@ public class RegistrationApprovalService {
                 String.format("HTML email content generated (length: %d chars)", htmlContent.length()),
                 registration.getPresenterUsername(), String.format("slotId=%d,contentLength=%d", registration.getSlotId(), htmlContent.length()));
         
-        // Send email to supervisor's email address via MailService
-        logger.info("📧 [RegistrationApprovalService] Calling mailService.sendHtmlEmail() - to: {}, subject: {}", 
+        // Queue email to supervisor (with retry support)
+        logger.info("📧 [RegistrationApprovalService] Queueing supervisor approval email - to: {}, subject: {}",
                 registration.getSupervisorEmail(), subject);
-        databaseLoggerService.logAction("INFO", "EMAIL_CALLING_MAILSERVICE",
-                String.format("Calling mailService.sendHtmlEmail() to: %s", registration.getSupervisorEmail()),
+        databaseLoggerService.logAction("INFO", "EMAIL_QUEUEING_SUPERVISOR_APPROVAL",
+                String.format("Queueing supervisor approval email to: %s", registration.getSupervisorEmail()),
                 registration.getPresenterUsername(), String.format("slotId=%d,supervisorEmail=%s", registration.getSlotId(), registration.getSupervisorEmail()));
-        
-        boolean sent = false;
+
         try {
-            sent = mailService.sendHtmlEmail(registration.getSupervisorEmail(), subject, htmlContent);
-            logger.info("📧 [RegistrationApprovalService] mailService.sendHtmlEmail() returned: {} for supervisor {}",
-                    sent, registration.getSupervisorEmail());
-            databaseLoggerService.logAction("INFO", "EMAIL_MAILSERVICE_RETURNED",
-                    String.format("mailService.sendHtmlEmail() returned: %s for supervisor %s", sent, registration.getSupervisorEmail()),
-                    registration.getPresenterUsername(), 
-                    String.format("slotId=%d,supervisorEmail=%s,sent=%s", registration.getSlotId(), registration.getSupervisorEmail(), sent));
-            
-            if (sent) {
-                logger.info("📧 ✅ [RegistrationApprovalService] Approval email sent successfully to supervisor {} for registration slotId={}, presenter={}",
-                        registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername());
-                databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT",
-                        String.format("Approval email sent to supervisor %s for registration slotId=%d, presenter=%s",
-                                registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername()),
-                        registration.getPresenterUsername());
-            } else {
-                logger.error("📧 ❌ [RegistrationApprovalService] Failed to send approval email to supervisor {} for registration slotId={}, presenter={}",
-                        registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername());
-                databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_FAILED",
-                        String.format("Failed to send approval email to supervisor %s for registration slotId=%d, presenter=%s",
-                                registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername()),
-                        null, registration.getPresenterUsername(),
-                        String.format("slotId=%d,supervisorEmail=%s", registration.getSlotId(), registration.getSupervisorEmail()));
-            }
+            emailQueueService.queueEmail(
+                EmailQueue.EmailType.SUPERVISOR_APPROVAL,
+                registration.getSupervisorEmail(),
+                subject,
+                htmlContent,
+                null,
+                registration.getSlotId(),
+                registration.getPresenterUsername()
+            );
+
+            logger.info("📧 ✅ [RegistrationApprovalService] Supervisor approval email queued for {} for registration slotId={}, presenter={}",
+                    registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername());
+            databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_QUEUED",
+                    String.format("Supervisor approval email queued for %s for registration slotId=%d, presenter=%s",
+                            registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername()),
+                    registration.getPresenterUsername());
+
+            logger.info("📧 [RegistrationApprovalService] sendApprovalEmail() completed - slotId: {}, presenter: {}, queued: true",
+                    registration.getSlotId(), registration.getPresenterUsername());
+
+            return true;
         } catch (Exception e) {
-            sent = false;
-            logger.error("📧 ❌ [RegistrationApprovalService] Exception while sending approval email to supervisor {} for registration slotId={}, presenter={}: {}",
+            logger.error("📧 ❌ [RegistrationApprovalService] Exception while queueing approval email to supervisor {} for registration slotId={}, presenter={}: {}",
                     registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername(), e.getMessage(), e);
-            databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_EXCEPTION",
-                    String.format("Exception while sending approval email to supervisor %s for registration slotId=%d, presenter=%s: %s",
+            databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_QUEUE_EXCEPTION",
+                    String.format("Exception while queueing approval email to supervisor %s for registration slotId=%d, presenter=%s: %s",
                             registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername(), e.getMessage()),
                     e, registration.getPresenterUsername(),
                     String.format("slotId=%d,supervisorEmail=%s,exception=%s", registration.getSlotId(), registration.getSupervisorEmail(), e.getClass().getName()));
+            return false;
         }
-        
-        logger.info("📧 [RegistrationApprovalService] sendApprovalEmail() completed - slotId: {}, presenter: {}, sent: {}",
-                registration.getSlotId(), registration.getPresenterUsername(), sent);
-        
-        return sent;
     }
 
     /**
@@ -1072,24 +1066,23 @@ public class RegistrationApprovalService {
         String subject = "SemScan: Your Seminar Slot Registration Has Been Approved";
         String htmlContent = generateApprovalNotificationEmailHtml(registration, slot, presenterName);
 
-        // Send email
-        boolean sent = mailService.sendHtmlEmail(presenterEmail, subject, htmlContent);
-        if (sent) {
-            logger.info("Approval notification email sent to presenter {} ({}) for registration slotId={}",
-                    registration.getPresenterUsername(), presenterEmail, registration.getSlotId());
-            databaseLoggerService.logBusinessEvent("REGISTRATION_APPROVAL_NOTIFICATION_SENT",
-                    String.format("Approval notification email sent to presenter %s (%s) for registration slotId=%d",
-                            registration.getPresenterUsername(), presenterEmail, registration.getSlotId()),
-                    registration.getPresenterUsername());
-        } else {
-            logger.error("Failed to send approval notification email to presenter {} ({}) for registration slotId={}",
-                    registration.getPresenterUsername(), presenterEmail, registration.getSlotId());
-            databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_NOTIFICATION_EMAIL_FAILED",
-                    String.format("Failed to send approval notification email to presenter %s (%s) for registration slotId=%d",
-                            registration.getPresenterUsername(), presenterEmail, registration.getSlotId()),
-                    null, registration.getPresenterUsername(),
-                    String.format("slotId=%d,presenterEmail=%s", registration.getSlotId(), presenterEmail));
-        }
+        // Queue email (with retry support)
+        emailQueueService.queueEmail(
+            EmailQueue.EmailType.APPROVAL_NOTIFICATION,
+            presenterEmail,
+            subject,
+            htmlContent,
+            null,
+            registration.getSlotId(),
+            registration.getPresenterUsername()
+        );
+
+        logger.info("Approval notification email queued for presenter {} ({}) for registration slotId={}",
+                registration.getPresenterUsername(), presenterEmail, registration.getSlotId());
+        databaseLoggerService.logBusinessEvent("REGISTRATION_APPROVAL_NOTIFICATION_QUEUED",
+                String.format("Approval notification email queued for presenter %s (%s) for registration slotId=%d",
+                        registration.getPresenterUsername(), presenterEmail, registration.getSlotId()),
+                registration.getPresenterUsername());
     }
 
     /**

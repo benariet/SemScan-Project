@@ -422,9 +422,57 @@ public class GlobalConfig {
     }
 
     // =============================================
+    // EMAIL QUEUE CONFIGURATION
+    // =============================================
+
+    public int getEmailQueueMaxRetries() {
+        if (appConfigService != null) {
+            try {
+                return appConfigService.getIntegerConfig("email_queue_max_retries", 3);
+            } catch (Exception e) {
+                // Fallback to default
+            }
+        }
+        return 3;
+    }
+
+    public int getEmailQueueInitialBackoffMinutes() {
+        if (appConfigService != null) {
+            try {
+                return appConfigService.getIntegerConfig("email_queue_initial_backoff_minutes", 5);
+            } catch (Exception e) {
+                // Fallback to default
+            }
+        }
+        return 5;
+    }
+
+    public int getEmailQueueBackoffMultiplier() {
+        if (appConfigService != null) {
+            try {
+                return appConfigService.getIntegerConfig("email_queue_backoff_multiplier", 3);
+            } catch (Exception e) {
+                // Fallback to default
+            }
+        }
+        return 3;
+    }
+
+    public int getEmailQueueBatchSize() {
+        if (appConfigService != null) {
+            try {
+                return appConfigService.getIntegerConfig("email_queue_batch_size", 50);
+            } catch (Exception e) {
+                // Fallback to default
+            }
+        }
+        return 50;
+    }
+
+    // =============================================
     // UTILITY METHODS
     // =============================================
-    
+
     public boolean isDevelopmentMode() {
         // Check server address to determine environment (avoids circular dependency with getServerUrl)
         // Development typically binds to localhost/127.0.0.1, production binds to 0.0.0.0 (all interfaces)
