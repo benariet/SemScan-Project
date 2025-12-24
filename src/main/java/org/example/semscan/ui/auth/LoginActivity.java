@@ -713,6 +713,12 @@ public class LoginActivity extends AppCompatActivity {
         String savedPassword = preferencesManager.getSavedPassword();
         boolean rememberMeChecked = preferencesManager.isRememberMeEnabled();
 
+        // Always set checkbox based on preference (defaults to true)
+        if (checkboxRememberMe != null) {
+            checkboxRememberMe.setChecked(rememberMeChecked);
+        }
+
+        // Pre-fill credentials if Remember Me was enabled and we have saved data
         if (rememberMeChecked && savedUsername != null && !savedUsername.isEmpty()) {
             // Pre-fill username
             if (editUsername != null) {
@@ -722,11 +728,6 @@ public class LoginActivity extends AppCompatActivity {
             // Pre-fill password if available (stored encrypted)
             if (savedPassword != null && !savedPassword.isEmpty() && editPassword != null) {
                 editPassword.setText(savedPassword);
-            }
-
-            // Check the "Remember Me" checkbox
-            if (checkboxRememberMe != null) {
-                checkboxRememberMe.setChecked(true);
             }
 
             Logger.i(Logger.TAG_UI, "Loaded saved credentials for username: " + savedUsername);

@@ -391,4 +391,7 @@ Topic: %3$s</string>
     <string name="registration_confirm_button">Register</string>
     <string name="registration_review_button">Review Details</string>
     <string name="registration_details_incomplete">Please fill in all presentation details first</string>
+
+    <!-- WiFi Warning -->
+    <string name="wifi_warning">This app works only on BGU-WIFI network!</string>
 </resources>

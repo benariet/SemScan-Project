@@ -103,7 +103,7 @@
                             android:src="@drawable/ic_role_presenter"
                             android:contentDescription="@string/presenter"
                             android:padding="12dp"
-                            android:tint="@color/white" />
+                            app:tint="@color/white" />
 
                     </com.google.android.material.card.MaterialCardView>
 
@@ -122,7 +122,7 @@
                         android:layout_height="20dp"
                         android:src="@drawable/ic_arrow_forward"
                         android:contentDescription="@string/next"
-                        android:tint="@color/gray_700"
+                        app:tint="@color/gray_700"
                         android:layout_marginStart="8dp" />
 
                 </LinearLayout>
@@ -166,7 +166,7 @@
                             android:src="@drawable/ic_role_student"
                             android:contentDescription="@string/participant"
                             android:padding="12dp"
-                            android:tint="@color/white" />
+                            app:tint="@color/white" />
 
                     </com.google.android.material.card.MaterialCardView>
 
@@ -185,7 +185,7 @@
                         android:layout_height="20dp"
                         android:src="@drawable/ic_arrow_forward"
                         android:contentDescription="@string/next"
-                        android:tint="@color/gray_700"
+                        app:tint="@color/gray_700"
                         android:layout_marginStart="8dp" />
 
                 </LinearLayout>

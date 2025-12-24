@@ -87,7 +87,7 @@
                 android:layout_height="72dp"
                 android:src="@drawable/ic_calendar_add"
                 android:contentDescription="@string/presenter_slot_selection_title"
-                android:tint="@color/gray_400" />
+                app:tint="@color/gray_400" />
 
             <TextView
                 android:id="@+id/text_empty_title"

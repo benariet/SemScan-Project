@@ -64,7 +64,7 @@
             android:layout_height="32dp"
             android:contentDescription="@string/next"
             android:src="@drawable/ic_arrow_forward"
-            android:tint="@color/white" />
+            app:tint="@color/white" />
     </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>

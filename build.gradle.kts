@@ -46,6 +46,22 @@ android {
     lint {
         abortOnError = false
         checkReleaseBuilds = false
+        disable += setOf(
+            "MissingTranslation",      // App is English-only, no need for translations
+            "OldTargetApi",            // Target SDK is intentional
+            "GradleDependency",        // We control dependency versions
+            "NewerVersionAvailable",   // We control dependency versions
+            "AndroidGradlePluginVersion", // We control plugin version
+            "LocaleFolder",            // English-only app
+            "DefaultLocale",           // App uses US locale consistently
+            "MissingSuperCall",        // onBackPressed doesn't require super in our use cases
+            "UnsafeOptInUsageError",   // CameraX experimental API usage is intentional
+            "PermissionImpliesUnsupportedChromeOsHardware", // App requires camera, Chrome OS not supported
+            "LockedOrientationActivity", // Portrait lock is intentional
+            "DiscouragedApi",          // Some deprecated APIs are still needed for compatibility
+            "QueryPermissionsNeeded",  // Package visibility handled properly
+            "VectorRaster"             // Vector to raster conversion is acceptable
+        )
     }
     
     // 16 KB page size compatibility - ensure native libraries are properly aligned

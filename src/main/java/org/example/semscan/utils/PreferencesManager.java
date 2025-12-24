@@ -242,6 +242,7 @@ public class PreferencesManager {
                 .remove(KEY_DEGREE)
                 .remove(KEY_PARTICIPATION)
                 .remove(KEY_SETUP_COMPLETED)
+                .remove(KEY_LAST_SEEN_ANNOUNCEMENT_VERSION)  // Clear so new user sees announcements
                 .apply();
     }
     
@@ -265,7 +266,7 @@ public class PreferencesManager {
     }
     
     public boolean isRememberMeEnabled() {
-        return prefs.getBoolean(KEY_REMEMBER_ME, false);
+        return prefs.getBoolean(KEY_REMEMBER_ME, true);  // Default to true - Remember Me is ON by default
     }
 
     /**

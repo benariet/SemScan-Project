@@ -58,7 +58,7 @@
             android:layout_height="64dp"
             android:src="@drawable/ic_attendance"
             android:contentDescription="@string/no_attendance_data"
-            android:tint="@color/gray_400"
+            app:tint="@color/gray_400"
             android:layout_marginBottom="16dp" />
 
         <TextView

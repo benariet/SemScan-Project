@@ -57,7 +57,7 @@
             android:layout_height="24dp"
             android:src="@drawable/ic_arrow_forward"
             android:contentDescription="@string/next"
-            android:tint="@color/gray_400" />
+            app:tint="@color/gray_400" />
 
     </LinearLayout>
 

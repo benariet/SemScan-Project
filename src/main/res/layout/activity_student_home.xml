@@ -88,7 +88,7 @@
                                 android:src="@drawable/ic_qr_scanner"
                                 android:contentDescription="@string/scan_attendance"
                                 android:padding="14dp"
-                                android:tint="@color/icon_blue" />
+                                app:tint="@color/icon_blue" />
 
                         </com.google.android.material.card.MaterialCardView>
 
@@ -122,7 +122,7 @@
                             android:layout_height="24dp"
                             android:src="@drawable/ic_arrow_forward"
                             android:contentDescription="@string/next"
-                            android:tint="@color/white" />
+                            app:tint="@color/white" />
 
                     </LinearLayout>
 
@@ -165,7 +165,7 @@
                                 android:src="@drawable/ic_edit"
                                 android:contentDescription="@string/manual_attendance_request"
                                 android:padding="14dp"
-                                android:tint="@color/icon_blue" />
+                                app:tint="@color/icon_blue" />
 
                         </com.google.android.material.card.MaterialCardView>
 
@@ -199,7 +199,7 @@
                             android:layout_height="24dp"
                             android:src="@drawable/ic_arrow_forward"
                             android:contentDescription="@string/next"
-                            android:tint="@color/white" />
+                            app:tint="@color/white" />
 
                     </LinearLayout>
 
@@ -248,7 +248,7 @@
                             android:src="@drawable/ic_swap_horiz"
                             android:contentDescription="@string/change_role"
                             android:padding="12dp"
-                            android:tint="@color/icon_blue" />
+                            app:tint="@color/icon_blue" />
 
                     </com.google.android.material.card.MaterialCardView>
 
@@ -266,7 +266,7 @@
                         android:layout_height="24dp"
                         android:src="@drawable/ic_arrow_forward"
                         android:contentDescription="@string/next"
-                        android:tint="@color/white" />
+                        app:tint="@color/white" />
 
                 </LinearLayout>
 

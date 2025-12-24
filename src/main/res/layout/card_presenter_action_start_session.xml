@@ -38,7 +38,7 @@
                 android:src="@drawable/ic_qr_scanner"
                 android:contentDescription="@string/start_session_show_qr"
                 android:padding="12dp"
-                android:tint="@color/icon_blue"
+                app:tint="@color/icon_blue"
                 android:scaleType="fitCenter" />
 
         </com.google.android.material.card.MaterialCardView>
@@ -60,7 +60,7 @@
             android:layout_height="32dp"
             android:src="@drawable/ic_arrow_forward"
             android:contentDescription="@string/next"
-            android:tint="@color/white" />
+            app:tint="@color/white" />
 
     </LinearLayout>
 

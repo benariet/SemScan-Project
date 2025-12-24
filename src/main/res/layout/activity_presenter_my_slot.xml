@@ -120,7 +120,7 @@
                         android:layout_width="96dp"
                         android:layout_height="96dp"
                         android:src="@drawable/ic_calendar_add"
-                        android:tint="@color/gray_300"
+                        app:tint="@color/gray_300"
                         android:contentDescription="@string/presenter_my_slot_screen_title" />
 
                     <TextView
