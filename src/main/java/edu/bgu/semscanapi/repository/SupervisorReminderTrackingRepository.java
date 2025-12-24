@@ -12,16 +12,17 @@ public interface SupervisorReminderTrackingRepository extends JpaRepository<Supe
 
     /**
      * Check if reminder was already sent today for this registration
+     * Uses slotId + presenterUsername to uniquely identify registrations
      */
-    boolean existsByRegistrationIdAndReminderDate(Long registrationId, LocalDate reminderDate);
+    boolean existsBySlotIdAndPresenterUsernameAndReminderDate(Long slotId, String presenterUsername, LocalDate reminderDate);
 
     /**
      * Find reminder tracking record
      */
-    Optional<SupervisorReminderTracking> findByRegistrationIdAndReminderDate(Long registrationId, LocalDate reminderDate);
+    Optional<SupervisorReminderTracking> findBySlotIdAndPresenterUsernameAndReminderDate(Long slotId, String presenterUsername, LocalDate reminderDate);
 
     /**
      * Count reminders sent for a registration
      */
-    long countByRegistrationId(Long registrationId);
+    long countBySlotIdAndPresenterUsername(Long slotId, String presenterUsername);
 }

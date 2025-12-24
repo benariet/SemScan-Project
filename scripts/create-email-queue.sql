@@ -47,12 +47,13 @@ CREATE TABLE IF NOT EXISTS email_log (
 
 CREATE TABLE IF NOT EXISTS supervisor_reminder_tracking (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    registration_id BIGINT NOT NULL,
+    slot_id BIGINT NOT NULL,
+    presenter_username VARCHAR(100) NOT NULL,
     supervisor_email VARCHAR(255) NOT NULL,
     reminder_date DATE NOT NULL,
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_reminder (registration_id, reminder_date),
-    INDEX idx_registration_id (registration_id),
+    UNIQUE KEY unique_reminder (slot_id, presenter_username, reminder_date),
+    INDEX idx_slot_presenter (slot_id, presenter_username),
     INDEX idx_reminder_date (reminder_date)
 );
 

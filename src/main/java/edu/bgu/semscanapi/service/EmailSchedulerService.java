@@ -113,11 +113,12 @@ public class EmailSchedulerService {
 
             for (SeminarSlotRegistration reg : pendingApprovals) {
                 try {
-                    // Use slotId for tracking since registrations use composite keys
                     Long slotId = reg.getSlotId();
+                    String presenterUsername = reg.getPresenterUsername();
 
-                    // Check if reminder already sent today for this slot
-                    if (slotId != null && reminderTrackingRepository.existsByRegistrationIdAndReminderDate(slotId, today)) {
+                    // Check if reminder already sent today for this specific registration (slotId + presenterUsername)
+                    if (slotId != null && presenterUsername != null &&
+                        reminderTrackingRepository.existsBySlotIdAndPresenterUsernameAndReminderDate(slotId, presenterUsername, today)) {
                         skipped++;
                         continue;
                     }
@@ -126,16 +127,17 @@ public class EmailSchedulerService {
                     String supervisorEmail = reg.getSupervisorEmail();
                     if (supervisorEmail == null || supervisorEmail.isEmpty()) {
                         logger.warn(logPrefix + "Skipping registration slotId={}, presenter={} - no supervisor email",
-                            slotId, reg.getPresenterUsername());
+                            slotId, presenterUsername);
                         continue;
                     }
 
                     // Queue reminder email
                     queueSupervisorReminderEmail(reg);
 
-                    // Track that we sent reminder today (using slotId as registration identifier)
+                    // Track that we sent reminder today (using slotId + presenterUsername to uniquely identify)
                     SupervisorReminderTracking tracking = new SupervisorReminderTracking();
-                    tracking.setRegistrationId(slotId);
+                    tracking.setSlotId(slotId);
+                    tracking.setPresenterUsername(presenterUsername);
                     tracking.setSupervisorEmail(supervisorEmail);
                     tracking.setReminderDate(today);
                     reminderTrackingRepository.save(tracking);
@@ -248,9 +250,10 @@ public class EmailSchedulerService {
             LocalDateTime now = LocalDateTime.now();
             LocalDateTime expiresWithin24Hours = now.plusHours(24);
 
-            // Find registrations with tokens expiring in next 24 hours
+            // Find PENDING registrations with tokens expiring in next 24 hours
+            // Only sends to pending registrations - approved ones don't need warnings
             List<SeminarSlotRegistration> expiringRegistrations = registrationRepository
-                .findByApprovalTokenIsNotNullAndApprovalTokenExpiresAtBetween(now, expiresWithin24Hours);
+                .findPendingByApprovalTokenExpiresAtBetween(ApprovalStatus.PENDING, now, expiresWithin24Hours);
 
             int warningsSent = 0;
 

@@ -57,13 +57,13 @@ public interface SeminarSlotRegistrationRepository extends JpaRepository<Seminar
         @Param("status") String status, @Param("now") LocalDateTime now);
 
     /**
-     * Find registrations with tokens expiring within a time window
-     * Used for expiration warning emails
+     * Find PENDING registrations with tokens expiring within a time window
+     * Used for expiration warning emails - only sends to pending registrations
      */
-    @Query("SELECT r FROM SeminarSlotRegistration r WHERE r.approvalToken IS NOT NULL " +
-           "AND r.approvalTokenExpiresAt BETWEEN :start AND :end")
-    List<SeminarSlotRegistration> findByApprovalTokenIsNotNullAndApprovalTokenExpiresAtBetween(
-        @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    @Query("SELECT r FROM SeminarSlotRegistration r WHERE r.approvalStatus = :status " +
+           "AND r.approvalToken IS NOT NULL AND r.approvalTokenExpiresAt BETWEEN :start AND :end")
+    List<SeminarSlotRegistration> findPendingByApprovalTokenExpiresAtBetween(
+        @Param("status") ApprovalStatus status, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
 
 

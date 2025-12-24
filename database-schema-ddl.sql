@@ -84,11 +84,12 @@ CREATE TABLE email_log (
 
 CREATE TABLE supervisor_reminder_tracking (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    registration_id BIGINT NOT NULL,
+    slot_id BIGINT NOT NULL,
+    presenter_username VARCHAR(100) NOT NULL,
     supervisor_email VARCHAR(255) NOT NULL,
     reminder_date DATE NOT NULL,
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_reminder (registration_id, reminder_date)
+    UNIQUE KEY unique_reminder (slot_id, presenter_username, reminder_date)
 );
 
 -- =====================================================================
@@ -300,7 +301,7 @@ CREATE INDEX idx_email_log_status ON email_log(status);
 CREATE INDEX idx_email_log_created_at ON email_log(created_at);
 CREATE INDEX idx_email_log_registration_id ON email_log(registration_id);
 
-CREATE INDEX idx_reminder_tracking_registration_id ON supervisor_reminder_tracking(registration_id);
+CREATE INDEX idx_reminder_tracking_slot_presenter ON supervisor_reminder_tracking(slot_id, presenter_username);
 CREATE INDEX idx_reminder_tracking_reminder_date ON supervisor_reminder_tracking(reminder_date);
 
 CREATE INDEX idx_users_degree ON users(degree);

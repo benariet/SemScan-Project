@@ -7,18 +7,22 @@ import java.time.LocalDateTime;
 /**
  * Entity to track daily supervisor reminders.
  * Prevents sending duplicate reminders on the same day.
+ * Uses slotId + presenterUsername to uniquely identify registrations (composite key).
  */
 @Entity
 @Table(name = "supervisor_reminder_tracking",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"registration_id", "reminder_date"}))
+       uniqueConstraints = @UniqueConstraint(columnNames = {"slot_id", "presenter_username", "reminder_date"}))
 public class SupervisorReminderTracking {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "registration_id", nullable = false)
-    private Long registrationId;
+    @Column(name = "slot_id", nullable = false)
+    private Long slotId;
+
+    @Column(name = "presenter_username", nullable = false)
+    private String presenterUsername;
 
     @Column(name = "supervisor_email", nullable = false)
     private String supervisorEmail;
@@ -45,12 +49,20 @@ public class SupervisorReminderTracking {
         this.id = id;
     }
 
-    public Long getRegistrationId() {
-        return registrationId;
+    public Long getSlotId() {
+        return slotId;
     }
 
-    public void setRegistrationId(Long registrationId) {
-        this.registrationId = registrationId;
+    public void setSlotId(Long slotId) {
+        this.slotId = slotId;
+    }
+
+    public String getPresenterUsername() {
+        return presenterUsername;
+    }
+
+    public void setPresenterUsername(String presenterUsername) {
+        this.presenterUsername = presenterUsername;
     }
 
     public String getSupervisorEmail() {
