@@ -61,9 +61,10 @@ public abstract class BaseActivity extends AppCompatActivity {
     protected void onPause() {
         try {
             onPauseSafe();
-            super.onPause();
         } catch (Exception e) {
             Logger.e(TAG, "Error in onPause: " + getClass().getSimpleName(), e);
+        } finally {
+            super.onPause();
         }
     }
 
@@ -71,19 +72,23 @@ public abstract class BaseActivity extends AppCompatActivity {
     protected void onStop() {
         try {
             onStopSafe();
-            super.onStop();
         } catch (Exception e) {
             Logger.e(TAG, "Error in onStop: " + getClass().getSimpleName(), e);
+        } finally {
+            super.onStop();
         }
     }
 
     @Override
     protected void onDestroy() {
         try {
+            // Clear all pending handler callbacks to prevent memory leaks
+            mainHandler.removeCallbacksAndMessages(null);
             onDestroySafe();
-            super.onDestroy();
         } catch (Exception e) {
             Logger.e(TAG, "Error in onDestroy: " + getClass().getSimpleName(), e);
+        } finally {
+            super.onDestroy();
         }
     }
 
