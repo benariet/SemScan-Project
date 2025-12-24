@@ -272,15 +272,6 @@ public class AppLogService {
     public long getLogCountByLevel(String level) {
         return appLogRepository.countByLevel(level);
     }
-    
-    /**
-     * Clean up old logs
-     */
-    @Transactional
-    public int cleanupOldLogs(int daysToKeep) {
-        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(daysToKeep);
-        return appLogRepository.deleteOldLogs(cutoffDate);
-    }
 
     private LocalDateTime toLocalDateTime(Long epochMillis) {
         if (epochMillis == null) {

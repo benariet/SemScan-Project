@@ -97,30 +97,27 @@ public class AttendanceService {
             }
             
             logger.debug("Student found: {}", student.get().getBguUsername());
-            
-            // Prevent duplicate attendance: check if student already recorded attendance for this session (case-insensitive)
+
+            // Prevent duplicate attendance: Use single query to find existing record
+            // RACE CONDITION FIX: Instead of check-then-act (existsBy + findBy), use single findBy
+            // This reduces the window for race conditions where two requests could both pass the check
             String normalizedUsername = attendance.getStudentUsername();
-            boolean alreadyAttended = attendanceRepository.existsBySessionIdAndStudentUsernameIgnoreCase(
+            Optional<Attendance> existingAttendance = attendanceRepository.findBySessionIdAndStudentUsernameIgnoreCase(
                 attendance.getSessionId(), normalizedUsername);
-            
-            logger.debug("Checking duplicate attendance - Session: {}, Student: {}, AlreadyAttended: {}", 
-                attendance.getSessionId(), normalizedUsername, alreadyAttended);
-            
-            if (alreadyAttended) {
-                // Get the existing attendance record for logging
-                Optional<Attendance> existingAttendance = attendanceRepository.findBySessionIdAndStudentUsernameIgnoreCase(
-                    attendance.getSessionId(), normalizedUsername);
-                if (existingAttendance.isPresent()) {
-                    String errorMsg = "Student already attended this session";
-                    logger.warn("Student already attended session: {} - {} (Attendance ID: {}, Username in DB: {})", 
-                        normalizedUsername, attendance.getSessionId(), 
-                        existingAttendance.get().getAttendanceId(),
-                        existingAttendance.get().getStudentUsername());
-                    databaseLoggerService.logError("ATTENDANCE_DUPLICATE", errorMsg, null, 
-                        normalizedUsername, String.format("sessionId=%s,existingAttendanceId=%s", 
-                            attendance.getSessionId(), existingAttendance.get().getAttendanceId()));
-                    throw new IllegalArgumentException(errorMsg);
-                }
+
+            logger.debug("Checking duplicate attendance - Session: {}, Student: {}, AlreadyAttended: {}",
+                attendance.getSessionId(), normalizedUsername, existingAttendance.isPresent());
+
+            if (existingAttendance.isPresent()) {
+                String errorMsg = "Student already attended this session";
+                logger.warn("Student already attended session: {} - {} (Attendance ID: {}, Username in DB: {})",
+                    normalizedUsername, attendance.getSessionId(),
+                    existingAttendance.get().getAttendanceId(),
+                    existingAttendance.get().getStudentUsername());
+                databaseLoggerService.logError("ATTENDANCE_DUPLICATE", errorMsg, null,
+                    normalizedUsername, String.format("sessionId=%s,existingAttendanceId=%s",
+                        attendance.getSessionId(), existingAttendance.get().getAttendanceId()));
+                throw new IllegalArgumentException(errorMsg);
             }
             
             // Default attendance time to current timestamp if not provided in request

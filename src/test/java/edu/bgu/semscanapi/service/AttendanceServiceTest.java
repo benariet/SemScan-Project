@@ -78,7 +78,7 @@ class AttendanceServiceTest {
         // Given
         when(sessionRepository.findById(1L)).thenReturn(Optional.of(testSession));
         when(userRepository.findByBguUsernameIgnoreCase("student1")).thenReturn(Optional.of(testStudent));
-        when(attendanceRepository.existsBySessionIdAndStudentUsernameIgnoreCase(1L, "student1")).thenReturn(false);
+        when(attendanceRepository.findBySessionIdAndStudentUsernameIgnoreCase(1L, "student1")).thenReturn(Optional.empty());
         when(attendanceRepository.save(any(Attendance.class))).thenAnswer(invocation -> {
             Attendance a = invocation.getArgument(0);
             a.setAttendanceId(1L);
@@ -152,7 +152,6 @@ class AttendanceServiceTest {
 
         when(sessionRepository.findById(1L)).thenReturn(Optional.of(testSession));
         when(userRepository.findByBguUsernameIgnoreCase("student1")).thenReturn(Optional.of(testStudent));
-        when(attendanceRepository.existsBySessionIdAndStudentUsernameIgnoreCase(1L, "student1")).thenReturn(true);
         when(attendanceRepository.findBySessionIdAndStudentUsernameIgnoreCase(1L, "student1"))
                 .thenReturn(Optional.of(existingAttendance));
 
@@ -160,7 +159,7 @@ class AttendanceServiceTest {
         assertThrows(IllegalArgumentException.class, () -> {
             attendanceService.recordAttendance(testAttendance);
         });
-        verify(databaseLoggerService).logError(eq("ATTENDANCE_DUPLICATE"), anyString(), isNull(), 
+        verify(databaseLoggerService).logError(eq("ATTENDANCE_DUPLICATE"), anyString(), isNull(),
             eq("student1"), anyString());
     }
 
@@ -184,7 +183,7 @@ class AttendanceServiceTest {
         testAttendance.setAttendanceTime(null);
         when(sessionRepository.findById(1L)).thenReturn(Optional.of(testSession));
         when(userRepository.findByBguUsernameIgnoreCase("student1")).thenReturn(Optional.of(testStudent));
-        when(attendanceRepository.existsBySessionIdAndStudentUsernameIgnoreCase(1L, "student1")).thenReturn(false);
+        when(attendanceRepository.findBySessionIdAndStudentUsernameIgnoreCase(1L, "student1")).thenReturn(Optional.empty());
         when(attendanceRepository.save(any(Attendance.class))).thenAnswer(invocation -> {
             Attendance a = invocation.getArgument(0);
             a.setAttendanceId(1L);
@@ -205,7 +204,7 @@ class AttendanceServiceTest {
         testAttendance.setMethod(null);
         when(sessionRepository.findById(1L)).thenReturn(Optional.of(testSession));
         when(userRepository.findByBguUsernameIgnoreCase("student1")).thenReturn(Optional.of(testStudent));
-        when(attendanceRepository.existsBySessionIdAndStudentUsernameIgnoreCase(1L, "student1")).thenReturn(false);
+        when(attendanceRepository.findBySessionIdAndStudentUsernameIgnoreCase(1L, "student1")).thenReturn(Optional.empty());
         when(attendanceRepository.save(any(Attendance.class))).thenAnswer(invocation -> {
             Attendance a = invocation.getArgument(0);
             a.setAttendanceId(1L);
@@ -224,7 +223,7 @@ class AttendanceServiceTest {
         // Given
         when(sessionRepository.findById(1L)).thenReturn(Optional.of(testSession));
         when(userRepository.findByBguUsernameIgnoreCase("student1")).thenReturn(Optional.of(testStudent));
-        when(attendanceRepository.existsBySessionIdAndStudentUsernameIgnoreCase(1L, "student1")).thenReturn(false);
+        when(attendanceRepository.findBySessionIdAndStudentUsernameIgnoreCase(1L, "student1")).thenReturn(Optional.empty());
         when(attendanceRepository.save(any(Attendance.class))).thenAnswer(invocation -> {
             Attendance a = invocation.getArgument(0);
             a.setAttendanceId(1L);
@@ -236,7 +235,7 @@ class AttendanceServiceTest {
         assertThrows(IllegalStateException.class, () -> {
             attendanceService.recordAttendance(testAttendance);
         });
-        verify(databaseLoggerService).logError(eq("ATTENDANCE_SAVED_WRONG_SESSION_ID"), anyString(), isNull(), 
+        verify(databaseLoggerService).logError(eq("ATTENDANCE_SAVED_WRONG_SESSION_ID"), anyString(), isNull(),
             eq("student1"), anyString());
     }
 

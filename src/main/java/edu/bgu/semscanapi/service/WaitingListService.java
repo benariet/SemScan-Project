@@ -481,26 +481,33 @@ public class WaitingListService {
             return Optional.empty();
         }
         
-        // CRITICAL: Create registration BEFORE removing from waiting list to prevent data loss
+        // RACE CONDITION FIX: Remove from waiting list FIRST to prevent duplicate promotions
+        // If another process is also trying to promote, only one will succeed in deleting
+        // Store the data we need before deleting
+        int position = nextEntry.getPosition();
+        String topic = nextEntry.getTopic();
+        String supervisorName = nextEntry.getSupervisorName();
+        String supervisorEmail = nextEntry.getSupervisorEmail();
+
+        // Delete from waiting list FIRST (atomically prevents other processes from promoting same user)
+        waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, promotedUsername);
+
+        // Decrement positions of remaining entries
+        waitingListRepository.decrementPositionsAfter(slotId, position);
+
+        // Now create the registration (waiting list entry is already gone, so no race)
         SeminarSlotRegistration newRegistration = new SeminarSlotRegistration();
         newRegistration.setId(new SeminarSlotRegistrationId(slotId, promotedUsername));
         newRegistration.setDegree(promotedUser.getDegree());
-        newRegistration.setTopic(nextEntry.getTopic());
+        newRegistration.setTopic(topic);
         // Get abstract from user profile (not waiting list entry)
         newRegistration.setSeminarAbstract(promotedUser.getSeminarAbstract());
-        newRegistration.setSupervisorName(nextEntry.getSupervisorName());
-        newRegistration.setSupervisorEmail(nextEntry.getSupervisorEmail());
+        newRegistration.setSupervisorName(supervisorName);
+        newRegistration.setSupervisorEmail(supervisorEmail);
         newRegistration.setRegisteredAt(LocalDateTime.now());
         newRegistration.setApprovalStatus(ApprovalStatus.PENDING);
-        
+
         registrationRepository.save(newRegistration);
-        
-        // Remove from waiting list after successful registration creation
-        int position = nextEntry.getPosition();
-        waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, promotedUsername);
-        
-        // Decrement positions of all waiting list entries that were after this one (maintains queue order)
-        waitingListRepository.decrementPositionsAfter(slotId, position);
         
         // Create WaitingListPromotion record with expiration time
         LocalDateTime promotedAt = LocalDateTime.now();
