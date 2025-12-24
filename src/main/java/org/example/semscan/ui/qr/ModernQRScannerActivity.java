@@ -249,22 +249,35 @@ public class ModernQRScannerActivity extends AppCompatActivity {
     }
     
     private void analyzeImage(ImageProxy image) {
-        if (!isScanning) {
+        if (image == null) return;
+
+        if (!isScanning || isFinishing() || isDestroyed()) {
             image.close();
             return;
         }
-        
-        InputImage inputImage = InputImage.fromMediaImage(
-                image.getImage(), 
-                image.getImageInfo().getRotationDegrees()
-        );
-        
-        barcodeScanner.process(inputImage)
+
+        try {
+            if (image.getImage() == null) {
+                image.close();
+                return;
+            }
+
+            InputImage inputImage = InputImage.fromMediaImage(
+                    image.getImage(),
+                    image.getImageInfo().getRotationDegrees()
+            );
+
+            if (barcodeScanner == null) {
+                image.close();
+                return;
+            }
+
+            barcodeScanner.process(inputImage)
                 .addOnSuccessListener(barcodes -> {
-                    if (!barcodes.isEmpty() && isScanning) {
+                    if (!barcodes.isEmpty() && isScanning && !isFinishing() && !isDestroyed()) {
                         Barcode barcode = barcodes.get(0);
                         String qrContent = barcode.getRawValue();
-                        
+
                         if (qrContent != null) {
                             runOnUiThread(() -> handleQRResult(qrContent));
                         }
@@ -273,7 +286,19 @@ public class ModernQRScannerActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Logger.e(TAG, "Barcode scanning failed", e);
                 })
-                .addOnCompleteListener(task -> image.close());
+                .addOnCompleteListener(task -> {
+                    try {
+                        image.close();
+                    } catch (Exception e) {
+                        Logger.e(TAG, "Error closing image", e);
+                    }
+                });
+        } catch (Exception e) {
+            Logger.e(TAG, "Error analyzing image", e);
+            try {
+                image.close();
+            } catch (Exception ignored) {}
+        }
     }
     
     private void handleQRResult(String qrContent) {
@@ -493,7 +518,11 @@ public class ModernQRScannerActivity extends AppCompatActivity {
                         Logger.attendance("Attendance Success", "Session: " + sessionId + ", Username: " + studentUsername);
                         
                         // Return to previous screen after delay
-                        new android.os.Handler().postDelayed(() -> finish(), 2000);
+                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                            if (!isFinishing() && !isDestroyed()) {
+                                finish();
+                            }
+                        }, 2000);
                     } else {
                         Logger.e(TAG, "=== Error: Response body is NULL ===");
                         Logger.e(TAG, "Response Code: " + response.code());
@@ -703,9 +732,11 @@ public class ModernQRScannerActivity extends AppCompatActivity {
     }
     
     private void resumeScanning() {
-        new android.os.Handler().postDelayed(() -> {
-            isScanning = true;
-            updateStatus("Ready to scan", R.color.success_green);
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (!isFinishing() && !isDestroyed()) {
+                isScanning = true;
+                updateStatus("Ready to scan", R.color.success_green);
+            }
         }, 2000);
     }
     
@@ -812,12 +843,45 @@ public class ModernQRScannerActivity extends AppCompatActivity {
     
     @Override
     protected void onDestroy() {
-        super.onDestroy();
-        if (barcodeScanner != null) {
-            barcodeScanner.close();
-        }
-        if (cameraExecutor != null) {
-            cameraExecutor.shutdown();
+        try {
+            // Stop scanning first
+            isScanning = false;
+
+            // Close barcode scanner
+            if (barcodeScanner != null) {
+                try {
+                    barcodeScanner.close();
+                } catch (Exception e) {
+                    Logger.e(TAG, "Error closing barcode scanner", e);
+                }
+                barcodeScanner = null;
+            }
+
+            // Unbind camera
+            if (cameraProvider != null) {
+                try {
+                    cameraProvider.unbindAll();
+                } catch (Exception e) {
+                    Logger.e(TAG, "Error unbinding camera", e);
+                }
+                cameraProvider = null;
+            }
+
+            // Shutdown executor
+            if (cameraExecutor != null) {
+                try {
+                    cameraExecutor.shutdown();
+                } catch (Exception e) {
+                    Logger.e(TAG, "Error shutting down camera executor", e);
+                }
+                cameraExecutor = null;
+            }
+
+            camera = null;
+        } catch (Exception e) {
+            Logger.e(TAG, "Error in onDestroy", e);
+        } finally {
+            super.onDestroy();
         }
     }
 }

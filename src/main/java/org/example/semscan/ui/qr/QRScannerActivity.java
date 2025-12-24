@@ -110,24 +110,39 @@ public class QRScannerActivity extends AppCompatActivity {
     }
     
     private void startScanning() {
-        Logger.qr("Scanner Started", "QR scanner started");
-        barcodeView.resume();
+        if (barcodeView == null || isFinishing() || isDestroyed()) return;
+        try {
+            Logger.qr("Scanner Started", "QR scanner started");
+            barcodeView.resume();
+        } catch (Exception e) {
+            Logger.e("QRScanner", "Error starting scanner", e);
+        }
     }
-    
+
     private void stopScanning() {
-        Logger.qr("Scanner Stopped", "QR scanner stopped");
-        barcodeView.pause();
+        if (barcodeView == null) return;
+        try {
+            Logger.qr("Scanner Stopped", "QR scanner stopped");
+            barcodeView.pause();
+        } catch (Exception e) {
+            Logger.e("QRScanner", "Error stopping scanner", e);
+        }
     }
-    
+
     private void toggleFlashlight() {
-        if (isFlashlightOn) {
-            barcodeView.setTorchOff();
-            isFlashlightOn = false;
-            Logger.qr("Flashlight", "Flashlight turned off");
-        } else {
-            barcodeView.setTorchOn();
-            isFlashlightOn = true;
-            Logger.qr("Flashlight", "Flashlight turned on");
+        if (barcodeView == null) return;
+        try {
+            if (isFlashlightOn) {
+                barcodeView.setTorchOff();
+                isFlashlightOn = false;
+                Logger.qr("Flashlight", "Flashlight turned off");
+            } else {
+                barcodeView.setTorchOn();
+                isFlashlightOn = true;
+                Logger.qr("Flashlight", "Flashlight turned on");
+            }
+        } catch (Exception e) {
+            Logger.e("QRScanner", "Error toggling flashlight", e);
         }
     }
     
@@ -342,24 +357,28 @@ public class QRScannerActivity extends AppCompatActivity {
     
     private void showSuccess(String message) {
         ToastUtils.showSuccess(this, message);
-        
+
         // Return to student home after a delay
-        new android.os.Handler().postDelayed(new Runnable() {
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
-                finish();
+                if (!isFinishing() && !isDestroyed()) {
+                    finish();
+                }
             }
         }, 2000);
     }
-    
+
     private void showError(String message) {
         ToastUtils.showError(this, message);
-        
+
         // Resume scanning after error
-        new android.os.Handler().postDelayed(new Runnable() {
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
-                startScanning();
+                if (!isFinishing() && !isDestroyed()) {
+                    startScanning();
+                }
             }
         }, 2000);
     }
@@ -395,29 +414,56 @@ public class QRScannerActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
-            == PackageManager.PERMISSION_GRANTED) {
-            startScanning();
+        try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED) {
+                startScanning();
+            }
+        } catch (Exception e) {
+            Logger.e("QRScanner", "Error in onResume", e);
         }
     }
-    
+
     @Override
     protected void onPause() {
+        try {
+            stopScanning();
+        } catch (Exception e) {
+            Logger.e("QRScanner", "Error in onPause", e);
+        }
         super.onPause();
-        stopScanning();
     }
-    
+
     @Override
     public boolean onSupportNavigateUp() {
-        finish();
+        try {
+            finish();
+        } catch (Exception e) {
+            Logger.e("QRScanner", "Error in onSupportNavigateUp", e);
+        }
         return true;
     }
-    
+
     @Override
     protected void onDestroy() {
-        if (serverLogger != null) {
-            serverLogger.flushLogs();
+        try {
+            if (barcodeView != null) {
+                try {
+                    barcodeView.pause();
+                } catch (Exception ignored) {}
+                barcodeView = null;
+            }
+
+            if (serverLogger != null) {
+                try {
+                    serverLogger.flushLogs();
+                } catch (Exception ignored) {}
+                serverLogger = null;
+            }
+        } catch (Exception e) {
+            Logger.e("QRScanner", "Error in onDestroy", e);
+        } finally {
+            super.onDestroy();
         }
-        super.onDestroy();
     }
 }

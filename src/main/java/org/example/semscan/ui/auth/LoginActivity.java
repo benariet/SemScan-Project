@@ -140,9 +140,15 @@ public class LoginActivity extends AppCompatActivity {
         apiService.login(loginRequest).enqueue(new Callback<ApiService.LoginResponse>() {
             @Override
             public void onResponse(Call<ApiService.LoginResponse> call, Response<ApiService.LoginResponse> response) {
+                // Check if activity is still valid before processing
+                if (isFinishing() || isDestroyed()) {
+                    Logger.w(Logger.TAG_API, "Login response - Activity destroyed, ignoring");
+                    return;
+                }
+
                 Logger.i(Logger.TAG_API, "=== LOGIN API RESPONSE RECEIVED ===");
                 Logger.i(Logger.TAG_API, "Response code: " + response.code() + ", isSuccessful: " + response.isSuccessful());
-                
+
                 try {
                     if (response.isSuccessful() && response.body() != null) {
                         Logger.i(Logger.TAG_API, "Response is successful and body is not null");
@@ -282,14 +288,22 @@ public class LoginActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<ApiService.LoginResponse> call, Throwable t) {
+                // Check if activity is still valid before updating UI
+                if (isFinishing() || isDestroyed()) {
+                    Logger.w(Logger.TAG_API, "Login failure callback - Activity destroyed, ignoring");
+                    return;
+                }
+
                 Logger.e(Logger.TAG_API, "=== LOGIN API CALL FAILURE ===");
                 Logger.e(Logger.TAG_API, "Network/API call failed - Exception type: " + t.getClass().getSimpleName());
                 Logger.e(Logger.TAG_API, "Exception message: " + t.getMessage());
                 Logger.e(Logger.TAG_API, "Stack trace:", t);
-                
+
                 try {
-                    btnLogin.setEnabled(true);
-                    btnLogin.setText(getString(R.string.login_button));
+                    if (btnLogin != null) {
+                        btnLogin.setEnabled(true);
+                        btnLogin.setText(getString(R.string.login_button));
+                    }
                     Logger.e(Logger.TAG_API, "Login button re-enabled after network failure");
                     
                     // Log network error to ServerLogger with full exception details
