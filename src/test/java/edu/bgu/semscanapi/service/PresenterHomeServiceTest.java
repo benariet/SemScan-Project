@@ -81,6 +81,9 @@ class PresenterHomeServiceTest {
     @Mock
     private WaitingListPromotionRepository waitingListPromotionRepository;
 
+    @Mock
+    private EmailQueueService emailQueueService;
+
     @InjectMocks
     private PresenterHomeService presenterHomeService;
 
@@ -96,6 +99,9 @@ class PresenterHomeServiceTest {
         lenient().when(approvalService.sendApprovalEmail(any(SeminarSlotRegistration.class))).thenReturn(true);
         lenient().when(appConfigService.getIntegerConfig(anyString(), anyInt())).thenReturn(15);
         lenient().when(waitingListService.isOnWaitingList(anyLong(), anyString())).thenReturn(false);
+        // Mock email queue validation to always return valid
+        lenient().when(emailQueueService.validateSupervisorEmail(anyString(), anyString()))
+            .thenReturn(new EmailQueueService.EmailValidationResult(true, null, null));
         
         // Setup test presenter
         testPresenter = new User();
@@ -201,6 +207,8 @@ class PresenterHomeServiceTest {
         // Given
         PresenterSlotRegistrationRequest request = new PresenterSlotRegistrationRequest();
         request.setTopic("Test Topic");
+        request.setSupervisorEmail("supervisor@example.com");
+        request.setSupervisorName("Dr. Supervisor");
 
         when(userRepository.findByBguUsernameIgnoreCase("testuser")).thenReturn(Optional.of(testPresenter));
         when(registrationRepository.existsByIdSlotIdAndIdPresenterUsername(1L, "testuser")).thenReturn(false);
@@ -215,9 +223,9 @@ class PresenterHomeServiceTest {
         // When
         PresenterSlotRegistrationResponse response = presenterHomeService.registerForSlot("testuser", 1L, request);
 
-        // Then
+        // Then - with supervisor email, registration goes through approval flow
         assertTrue(response.isSuccess());
-        assertEquals("REGISTERED", response.getCode());
+        assertEquals("PENDING_APPROVAL", response.getCode());
         verify(registrationRepository).save(any(SeminarSlotRegistration.class));
         verify(seminarSlotRepository, atLeastOnce()).save(any(SeminarSlot.class));
     }
