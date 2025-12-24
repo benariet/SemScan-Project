@@ -38,6 +38,32 @@ public interface SeminarSlotRegistrationRepository extends JpaRepository<Seminar
     List<SeminarSlotRegistration> findByIdSlotIdAndApprovalStatus(Long slotId, ApprovalStatus approvalStatus);
 
     long countByIdSlotIdAndApprovalStatus(Long slotId, ApprovalStatus approvalStatus);
+
+    /**
+     * Find registrations pending supervisor approval with valid tokens
+     * Used for daily supervisor reminder emails
+     */
+    @Query("SELECT r FROM SeminarSlotRegistration r WHERE r.approvalStatus = :status " +
+           "AND r.approvalToken IS NOT NULL AND r.approvalTokenExpiresAt > :now")
+    List<SeminarSlotRegistration> findByApprovalStatusAndApprovalTokenIsNotNullAndApprovalTokenExpiresAtAfter(
+        @Param("status") ApprovalStatus status, @Param("now") LocalDateTime now);
+
+    /**
+     * Find registrations pending supervisor approval with valid tokens (string version for scheduler)
+     */
+    @Query("SELECT r FROM SeminarSlotRegistration r WHERE CAST(r.approvalStatus AS string) = :status " +
+           "AND r.approvalToken IS NOT NULL AND r.approvalTokenExpiresAt > :now")
+    List<SeminarSlotRegistration> findByApprovalStatusStringAndApprovalTokenIsNotNullAndApprovalTokenExpiresAtAfter(
+        @Param("status") String status, @Param("now") LocalDateTime now);
+
+    /**
+     * Find registrations with tokens expiring within a time window
+     * Used for expiration warning emails
+     */
+    @Query("SELECT r FROM SeminarSlotRegistration r WHERE r.approvalToken IS NOT NULL " +
+           "AND r.approvalTokenExpiresAt BETWEEN :start AND :end")
+    List<SeminarSlotRegistration> findByApprovalTokenIsNotNullAndApprovalTokenExpiresAtBetween(
+        @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
 
 
