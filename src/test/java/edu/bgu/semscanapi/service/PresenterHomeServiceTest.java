@@ -147,6 +147,23 @@ class PresenterHomeServiceTest {
         // Setup global config mocks (lenient since not all tests use them)
         lenient().when(globalConfig.getServerUrl()).thenReturn("http://localhost:8080");
         lenient().when(globalConfig.getApiBaseUrl()).thenReturn("http://localhost:8080/api/v1");
+
+        // Setup seminar repository mocks for legacy seminar handling
+        lenient().when(seminarRepository.findByPresenterUsername(anyString())).thenReturn(Collections.singletonList(testSeminar));
+        lenient().when(seminarRepository.save(any(Seminar.class))).thenAnswer(invocation -> {
+            Seminar s = invocation.getArgument(0);
+            if (s.getSeminarId() == null) s.setSeminarId(1L);
+            return s;
+        });
+
+        // Setup session repository mocks
+        lenient().when(sessionRepository.save(any(Session.class))).thenAnswer(invocation -> {
+            Session s = invocation.getArgument(0);
+            if (s.getSessionId() == null) s.setSessionId(1L);
+            return s;
+        });
+        lenient().when(sessionRepository.findOpenSessions()).thenReturn(Collections.emptyList());
+        lenient().when(sessionRepository.findById(anyLong())).thenReturn(Optional.of(testSession));
     }
 
     // ==================== getPresenterHome Tests ====================
@@ -265,7 +282,7 @@ class PresenterHomeServiceTest {
     }
 
     @Test
-    void registerForSlot_WithSupervisorEmail_SendsEmail() {
+    void registerForSlot_WithSupervisorEmail_SendsApprovalEmail() {
         // Given
         PresenterSlotRegistrationRequest request = new PresenterSlotRegistrationRequest();
         request.setSupervisorEmail("supervisor@example.com");
@@ -279,30 +296,15 @@ class PresenterHomeServiceTest {
         when(registrationRepository.save(any(SeminarSlotRegistration.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(seminarSlotRepository.save(any(SeminarSlot.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(approvalService.sendApprovalEmail(any(SeminarSlotRegistration.class))).thenReturn(true);
-        // Mock email service - use lenient to handle null topic parameter
-        lenient().when(emailService.sendSupervisorNotificationEmail(
-                eq("supervisor@example.com"),
-                eq("Supervisor Name"),
-                anyString(), // presenterName
-                eq("testuser"), // presenterUsername
-                eq("MSc"), // presenterDegree
-                anyString(), // slotDate
-                anyString(), // slotStartTime
-                anyString(), // slotEndTime
-                eq("Building 37"), // building
-                eq("Room 201"), // room
-                any() // topic (can be null)
-        )).thenReturn(EmailService.EmailResult.success());
 
         // When
         PresenterSlotRegistrationResponse response = presenterHomeService.registerForSlot("testuser", 1L, request);
 
-        // Then
+        // Then - with supervisor email, goes through approval flow
         assertTrue(response.isSuccess());
-        // Note: getHasSupervisorEmail() indicates if email was sent, not if supervisor email exists
-        // The response should indicate success
-        verify(emailService, atLeastOnce()).sendSupervisorNotificationEmail(anyString(), anyString(), anyString(), anyString(), 
-                anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), any()); // topic can be null
+        assertEquals("PENDING_APPROVAL", response.getCode());
+        // Verify approval email is sent via approvalService
+        verify(approvalService, atLeastOnce()).sendApprovalEmail(any(SeminarSlotRegistration.class));
     }
 
     // ==================== unregisterFromSlot Tests ====================
@@ -426,11 +428,11 @@ class PresenterHomeServiceTest {
     @Test
     void openAttendance_WhenTooEarly_ReturnsTooEarly() {
         // Given
-        // Set slot start time to 15 minutes from now (too early - window opens 10 min before)
+        // Set slot start time to 30 minutes from now (too early - window opens 15 min before)
         LocalDateTime now = LocalDateTime.now();
         testSlot.setSlotDate(now.toLocalDate());
-        testSlot.setStartTime(now.toLocalTime().plusMinutes(15)); // Start in 15 minutes (too early)
-        testSlot.setEndTime(now.toLocalTime().plusHours(1));
+        testSlot.setStartTime(now.toLocalTime().plusMinutes(30)); // Start in 30 minutes (too early with 15 min window)
+        testSlot.setEndTime(now.toLocalTime().plusHours(1).plusMinutes(30));
 
         when(userRepository.findByBguUsernameIgnoreCase("testuser")).thenReturn(Optional.of(testPresenter));
         when(seminarSlotRepository.findById(1L)).thenReturn(Optional.of(testSlot));
@@ -451,11 +453,11 @@ class PresenterHomeServiceTest {
     @Test
     void openAttendance_WhenTooLate_ReturnsTooLate() {
         // Given
-        // Set slot to today with end time in the past
+        // Set slot to today with end time more than 15 minutes in the past (window after is 15 min)
         LocalDateTime now = LocalDateTime.now();
         testSlot.setSlotDate(now.toLocalDate());
         testSlot.setStartTime(now.toLocalTime().minusHours(2)); // Start was 2 hours ago
-        testSlot.setEndTime(now.toLocalTime().minusMinutes(1)); // End was 1 minute ago (too late)
+        testSlot.setEndTime(now.toLocalTime().minusMinutes(20)); // End was 20 minutes ago (too late with 15 min window)
 
         when(userRepository.findByBguUsernameIgnoreCase("testuser")).thenReturn(Optional.of(testPresenter));
         when(seminarSlotRepository.findById(1L)).thenReturn(Optional.of(testSlot));

@@ -94,11 +94,11 @@ class AttendanceControllerTest {
             }
             """;
 
-        // When & Then - JSON parsing will fail (500 Internal Server Error from controller)
+        // When & Then - Invalid JSON format returns Bad Request
         mockMvc.perform(post("/api/v1/attendance")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(invalidJson))
-                .andExpect(status().isInternalServerError()); // Controller returns 500 for JSON parsing errors
+                .andExpect(status().isBadRequest()); // Controller returns 400 for invalid input
     }
 
     @Test
@@ -177,12 +177,11 @@ class AttendanceControllerTest {
             }
             """;
 
-        // When & Then - JSON deserialization will fail, causing 500 Internal Server Error
-        // (Controller catches all exceptions and returns 500)
+        // When & Then - Malformed JSON returns Bad Request
         mockMvc.perform(post("/api/v1/attendance")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(malformedJson))
-                .andExpect(status().isInternalServerError()); // Controller returns 500 for JSON parsing errors
+                .andExpect(status().isBadRequest()); // Controller returns 400 for invalid input
     }
 
     @Test

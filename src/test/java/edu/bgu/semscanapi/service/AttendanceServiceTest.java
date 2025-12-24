@@ -139,20 +139,8 @@ class AttendanceServiceTest {
             eq("student1"), anyString());
     }
 
-    @Test
-    void recordAttendance_WithNonParticipant_ThrowsException() {
-        // Given
-        testStudent.setIsParticipant(false);
-        when(sessionRepository.findById(1L)).thenReturn(Optional.of(testSession));
-        when(userRepository.findByBguUsernameIgnoreCase("student1")).thenReturn(Optional.of(testStudent));
-
-        // When & Then
-        assertThrows(IllegalArgumentException.class, () -> {
-            attendanceService.recordAttendance(testAttendance);
-        });
-        verify(databaseLoggerService).logError(eq("ATTENDANCE_NOT_PARTICIPANT"), anyString(), isNull(), 
-            eq("student1"), anyString());
-    }
+    // Note: isParticipant check was removed from AttendanceService
+    // The system now allows any user to record attendance
 
     @Test
     void recordAttendance_WithDuplicateAttendance_ThrowsException() {
