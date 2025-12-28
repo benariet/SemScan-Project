@@ -2099,34 +2099,59 @@ public class PresenterHomeService {
      * Only checks sessions that were explicitly linked to this slot via legacy_session_id
      */
     private Session findPresenterClosedSessionForSlot(String presenterUsername, Long slotId, SeminarSlot slot) {
-        // Simple approach: check if slot references a closed session for THIS presenter
-        // This is more accurate than time/location matching which can have false positives
+        // Find ANY closed session for this presenter and slot
+        // Must search by seminar (presenter's seminar for this slot), not just slot.legacySessionId
+        // because legacySessionId gets cleared after session closes
+
+        // First, find the presenter's seminar for this slot
+        Optional<Seminar> presenterSeminar = seminarRepository.findByPresenterUsername(presenterUsername)
+            .stream()
+            .filter(sem -> {
+                // Match seminar to slot by checking if seminar name contains slot date/time
+                String slotDate = slot.getSlotDate() != null ? slot.getSlotDate().toString() : null;
+                return sem.getSeminarName() != null && slotDate != null && sem.getSeminarName().contains(slotDate);
+            })
+            .findFirst();
+
+        if (presenterSeminar.isEmpty()) {
+            // Also check by slot's legacySeminarId if set
+            if (slot.getLegacySeminarId() != null) {
+                Optional<Seminar> slotSeminar = seminarRepository.findById(slot.getLegacySeminarId());
+                if (slotSeminar.isPresent() &&
+                    Objects.equals(normalizeUsername(slotSeminar.get().getPresenterUsername()), presenterUsername)) {
+                    presenterSeminar = slotSeminar;
+                }
+            }
+        }
+
+        if (presenterSeminar.isEmpty()) {
+            logger.debug("No seminar found for presenter {} on slot {}", presenterUsername, slotId);
+            return null;
+        }
+
+        // Now find any CLOSED session for this seminar
+        Long seminarId = presenterSeminar.get().getSeminarId();
+        List<Session> closedSessions = sessionRepository.findBySeminarIdAndStatus(seminarId, Session.SessionStatus.CLOSED);
+
+        if (!closedSessions.isEmpty()) {
+            Session closedSession = closedSessions.get(0); // Return the most recent (or any) closed session
+            logger.info("Found closed session {} for presenter {} on slot {} (seminarId: {})",
+                closedSession.getSessionId(), presenterUsername, slotId, seminarId);
+            return closedSession;
+        }
+
+        // Fallback: also check slot's direct reference
         Long slotSessionId = slot.getLegacySessionId();
-        if (slotSessionId == null) {
-            // No session linked to this slot - no closed session to block
-            return null;
-        }
-
-        Optional<Session> sessionOpt = sessionRepository.findById(slotSessionId);
-        if (sessionOpt.isEmpty()) {
-            return null;
-        }
-
-        Session session = sessionOpt.get();
-
-        // Only block if session is CLOSED
-        if (session.getStatus() != Session.SessionStatus.CLOSED) {
-            return null;
-        }
-
-        // Verify the session belongs to THIS presenter
-        Optional<Seminar> seminar = seminarRepository.findById(session.getSeminarId());
-        if (seminar.isPresent()) {
-            String seminarPresenter = normalizeUsername(seminar.get().getPresenterUsername());
-            if (Objects.equals(seminarPresenter, presenterUsername)) {
-                logger.info("Found closed session {} for presenter {} on slot {}",
-                    session.getSessionId(), presenterUsername, slotId);
-                return session;
+        if (slotSessionId != null) {
+            Optional<Session> sessionOpt = sessionRepository.findById(slotSessionId);
+            if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == Session.SessionStatus.CLOSED) {
+                Optional<Seminar> seminar = seminarRepository.findById(sessionOpt.get().getSeminarId());
+                if (seminar.isPresent() &&
+                    Objects.equals(normalizeUsername(seminar.get().getPresenterUsername()), presenterUsername)) {
+                    logger.info("Found closed session {} via slot reference for presenter {} on slot {}",
+                        sessionOpt.get().getSessionId(), presenterUsername, slotId);
+                    return sessionOpt.get();
+                }
             }
         }
 
