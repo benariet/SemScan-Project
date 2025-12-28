@@ -38,6 +38,15 @@ public class WaitingListEntry {
     @Column(name = "added_at", nullable = false)
     private LocalDateTime addedAt;
 
+    @Column(name = "promotion_token")
+    private String promotionToken;
+
+    @Column(name = "promotion_token_expires_at")
+    private LocalDateTime promotionTokenExpiresAt;
+
+    @Column(name = "promotion_offered_at")
+    private LocalDateTime promotionOfferedAt;
+
     @PrePersist
     public void onCreate() {
         if (this.addedAt == null) {
@@ -115,6 +124,35 @@ public class WaitingListEntry {
 
     public void setAddedAt(LocalDateTime addedAt) {
         this.addedAt = addedAt;
+    }
+
+    public String getPromotionToken() {
+        return promotionToken;
+    }
+
+    public void setPromotionToken(String promotionToken) {
+        this.promotionToken = promotionToken;
+    }
+
+    public LocalDateTime getPromotionTokenExpiresAt() {
+        return promotionTokenExpiresAt;
+    }
+
+    public void setPromotionTokenExpiresAt(LocalDateTime promotionTokenExpiresAt) {
+        this.promotionTokenExpiresAt = promotionTokenExpiresAt;
+    }
+
+    public LocalDateTime getPromotionOfferedAt() {
+        return promotionOfferedAt;
+    }
+
+    public void setPromotionOfferedAt(LocalDateTime promotionOfferedAt) {
+        this.promotionOfferedAt = promotionOfferedAt;
+    }
+
+    public boolean hasPromotionPending() {
+        return promotionToken != null && promotionTokenExpiresAt != null
+               && promotionTokenExpiresAt.isAfter(LocalDateTime.now());
     }
 }
 

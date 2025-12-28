@@ -55,23 +55,31 @@ public class UserController {
                 userOptional = userRepository.findByBguUsernameIgnoreCase(sanitizedUsername);
             }
 
-            if (userOptional.isEmpty()) {
-                logger.warn("User not found for profile update request: {}", sanitizedUsername);
-                UserProfileResponse response = UserProfileResponse.failure("User not found");
-                LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.NOT_FOUND.value(), response.getMessage());
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-            }
+            User user;
+            boolean isNewUser = false;
 
-            User user = userOptional.get();
+            if (userOptional.isEmpty()) {
+                // User doesn't exist - create new user (true upsert behavior)
+                logger.info("User not found for username: {}, creating new user", sanitizedUsername);
+                user = new User();
+                user.setBguUsername(normalizedUsername);
+                isNewUser = true;
+            } else {
+                user = userOptional.get();
+            }
             if (!normalizedUsername.equals(user.getBguUsername())) {
                 user.setBguUsername(normalizedUsername);
             }
 
             boolean updated = applyUpdates(user, request);
 
-            if (updated) {
+            if (updated || isNewUser) {
                 userRepository.save(user);
-                logger.info("Updated user profile for username {}", user.getBguUsername());
+                if (isNewUser) {
+                    logger.info("Created new user profile for username {}", user.getBguUsername());
+                } else {
+                    logger.info("Updated user profile for username {}", user.getBguUsername());
+                }
             } else {
                 logger.info("No profile changes detected for user username {}", user.getBguUsername());
             }

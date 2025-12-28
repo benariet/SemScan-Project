@@ -10,6 +10,7 @@ import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.PresenterHomeService;
+import edu.bgu.semscanapi.service.WaitingListService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,9 @@ public class WaitingListPromotionExpiryChecker {
 
     @Autowired
     private PresenterHomeService presenterHomeService;
+
+    @Autowired
+    private WaitingListService waitingListService;
 
     @Autowired(required = false)
     private DatabaseLoggerService databaseLoggerService;
@@ -183,11 +187,51 @@ public class WaitingListPromotionExpiryChecker {
         }
 
         logger.info("Completed checking expired waiting list promotions. Processed {} promotion(s)", expiredPromotions.size());
-        
+
         if (databaseLoggerService != null) {
             databaseLoggerService.logAction("INFO", "WAITING_LIST_PROMOTION_EXPIRY_CHECK_COMPLETED",
                     String.format("Scheduled job completed: processed %d expired waiting list promotion(s)", expiredPromotions.size()),
                     null, String.format("processedCount=%d", expiredPromotions.size()));
         }
+    }
+
+    /**
+     * Check for expired promotion OFFERS (where user didn't respond to "Do you want this slot?" email)
+     * Runs every hour (3600000 milliseconds) with 30 minute offset from the other check
+     *
+     * This handles the new confirmation flow where:
+     * 1. Spot opens up -> User gets email asking if they want it
+     * 2. User has 24 hours to click "Yes" or "No"
+     * 3. If they don't respond, we remove them from waiting list and offer to next person
+     */
+    @Scheduled(fixedRate = 3600000, initialDelay = 1800000) // 1 hour, start 30 min after app startup
+    @Transactional
+    public void checkExpiredPromotionOffers() {
+        logger.info("Checking for expired promotion offers (unanswered 'Do you want this slot?' emails)...");
+
+        if (databaseLoggerService != null) {
+            databaseLoggerService.logAction("INFO", "WAITING_LIST_PROMOTION_OFFER_EXPIRY_CHECK_STARTED",
+                    "Scheduled job started: checking for expired promotion offers",
+                    null, "job=WaitingListPromotionOfferExpiryChecker");
+        }
+
+        try {
+            waitingListService.processExpiredPromotionOffers();
+
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logAction("INFO", "WAITING_LIST_PROMOTION_OFFER_EXPIRY_CHECK_COMPLETED",
+                        "Scheduled job completed: processed expired promotion offers",
+                        null, null);
+            }
+        } catch (Exception e) {
+            logger.error("Error processing expired promotion offers: {}", e.getMessage(), e);
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logError("WAITING_LIST_PROMOTION_OFFER_EXPIRY_ERROR",
+                        String.format("Error processing expired promotion offers: %s", e.getMessage()),
+                        e, null, null);
+            }
+        }
+
+        logger.info("Completed checking expired promotion offers");
     }
 }

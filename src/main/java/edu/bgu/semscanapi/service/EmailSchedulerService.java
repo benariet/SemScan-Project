@@ -63,6 +63,9 @@ public class EmailSchedulerService {
     @Autowired
     private GlobalConfig globalConfig;
 
+    @Autowired
+    private AppConfigService appConfigService;
+
     // ==================== PROCESS EMAIL QUEUE ====================
 
     /**
@@ -248,12 +251,13 @@ public class EmailSchedulerService {
 
         try {
             LocalDateTime now = LocalDateTime.now();
-            LocalDateTime expiresWithin24Hours = now.plusHours(24);
+            int expirationWarningHours = appConfigService.getIntegerConfig("expiration_warning_hours_before", 24);
+            LocalDateTime expiresWithinThreshold = now.plusHours(expirationWarningHours);
 
-            // Find PENDING registrations with tokens expiring in next 24 hours
+            // Find PENDING registrations with tokens expiring within threshold (default 24 hours)
             // Only sends to pending registrations - approved ones don't need warnings
             List<SeminarSlotRegistration> expiringRegistrations = registrationRepository
-                .findPendingByApprovalTokenExpiresAtBetween(ApprovalStatus.PENDING, now, expiresWithin24Hours);
+                .findPendingByApprovalTokenExpiresAtBetween(ApprovalStatus.PENDING, now, expiresWithinThreshold);
 
             int warningsSent = 0;
 

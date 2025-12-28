@@ -67,22 +67,28 @@ public class AuthController {
 
             logger.debug("BGU authentication succeeded for username: {}", request.getUsername());
 
-            User user = ensureLocalUser(request.getUsername());
-            logger.debug("Resolved local user: id={}, bguUsername={}, email={}, isPresenter={}, isParticipant={}, supervisor={}",
-                    user.getId(), user.getBguUsername(), user.getEmail(), user.getIsPresenter(), user.getIsParticipant(),
-                    user.getSupervisor() != null ? user.getSupervisor().getEmail() : "null");
+            // Check if user exists in database (don't auto-create)
+            String normalizedUsername = request.getUsername() != null ? request.getUsername().trim().toLowerCase(Locale.ROOT) : "";
+            String baseUsername = normalizedUsername.contains("@")
+                    ? normalizedUsername.substring(0, normalizedUsername.indexOf('@'))
+                    : normalizedUsername;
 
-            LoggerUtil.setBguUsername(user.getBguUsername());
+            Optional<User> existingUser = userRepository.findByBguUsername(baseUsername);
 
-            // Check if this is a first-time user (no supervisor linked)
-            boolean isFirstTime = user.getSupervisor() == null;
+            String bguUsername = baseUsername;
+            String email = normalizedUsername.contains("@") ? normalizedUsername : (baseUsername + "@bgu.ac.il");
+            boolean isFirstTime = existingUser.isEmpty();
+            boolean isPresenter = existingUser.map(u -> Boolean.TRUE.equals(u.getIsPresenter())).orElse(false);
+            boolean isParticipant = existingUser.map(u -> Boolean.TRUE.equals(u.getIsParticipant())).orElse(false);
+
+            LoggerUtil.setBguUsername(bguUsername);
 
             LoginResponse response = LoginResponse.success(
-                    user.getBguUsername(),
-                    user.getEmail(),
+                    bguUsername,
+                    email,
                     isFirstTime,
-                    Boolean.TRUE.equals(user.getIsPresenter()),
-                    Boolean.TRUE.equals(user.getIsParticipant()));
+                    isPresenter,
+                    isParticipant);
 
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), response.getMessage());
             return ResponseEntity.ok(response);

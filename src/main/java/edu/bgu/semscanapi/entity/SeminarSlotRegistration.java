@@ -49,6 +49,9 @@ public class SeminarSlotRegistration {
     @Column(name = "supervisor_declined_reason", columnDefinition = "TEXT")
     private String supervisorDeclinedReason;
 
+    @Column(name = "last_reminder_sent_at")
+    private LocalDateTime lastReminderSentAt;
+
     @PrePersist
     public void onCreate() {
         if (this.registeredAt == null) {
@@ -169,6 +172,14 @@ public class SeminarSlotRegistration {
 
     public void setSupervisorDeclinedReason(String supervisorDeclinedReason) {
         this.supervisorDeclinedReason = supervisorDeclinedReason;
+    }
+
+    public LocalDateTime getLastReminderSentAt() {
+        return lastReminderSentAt;
+    }
+
+    public void setLastReminderSentAt(LocalDateTime lastReminderSentAt) {
+        this.lastReminderSentAt = lastReminderSentAt;
     }
 }
 

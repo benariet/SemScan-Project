@@ -53,7 +53,10 @@ public class ManualAttendanceService {
     
     @Autowired(required = false)
     private AppConfigService appConfigService;
-    
+
+    @Autowired(required = false)
+    private EmailService emailService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     // Business rules
@@ -324,13 +327,15 @@ public class ManualAttendanceService {
             String studentName = student != null ? 
                 student.getFirstName() + " " + student.getLastName() : "Unknown Student";
             
-            logger.info("Manual attendance request approved successfully - ID: {}, Student: {}", 
+            logger.info("Manual attendance request approved successfully - ID: {}, Student: {}",
                        attendanceId, studentName);
-            
+
             // Log to database
-            databaseLoggerService.logAttendance("MANUAL_ATTENDANCE_APPROVED", 
+            databaseLoggerService.logAttendance("MANUAL_ATTENDANCE_APPROVED",
                 attendance.getStudentUsername(), attendance.getSessionId(), "MANUAL");
-            
+
+            // No email for approvals - only send email on rejection
+
             return new ManualAttendanceResponse(
                 attendance.getAttendanceId(),
                 attendance.getSessionId(),
@@ -390,13 +395,16 @@ public class ManualAttendanceService {
             String studentName = student != null ? 
                 student.getFirstName() + " " + student.getLastName() : "Unknown Student";
             
-            logger.info("Manual attendance request rejected - ID: {}, Student: {}", 
+            logger.info("Manual attendance request rejected - ID: {}, Student: {}",
                        attendanceId, studentName);
-            
+
             // Log to database
-            databaseLoggerService.logAttendance("MANUAL_ATTENDANCE_REJECTED", 
+            databaseLoggerService.logAttendance("MANUAL_ATTENDANCE_REJECTED",
                 attendance.getStudentUsername(), attendance.getSessionId(), "MANUAL_REQUEST");
-            
+
+            // Send email notification to student
+            sendAttendanceNotificationEmail(attendance, student, normalizedApprover, false);
+
             return new ManualAttendanceResponse(
                 attendance.getAttendanceId(),
                 attendance.getSessionId(),
@@ -543,5 +551,92 @@ public class ManualAttendanceService {
         }
         String trimmed = username.trim();
         return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Send email notification to student about their manual attendance request decision.
+     * Also sends a copy to the monitoring email (benariet@post.bgu.ac.il).
+     */
+    private void sendAttendanceNotificationEmail(Attendance attendance, User student,
+                                                  String approverUsername, boolean isApproved) {
+        if (emailService == null) {
+            logger.debug("Email service not configured, skipping notification");
+            return;
+        }
+
+        try {
+            // Get session details
+            Session session = sessionRepository.findById(attendance.getSessionId()).orElse(null);
+            String sessionDate = "N/A";
+            String sessionTime = "N/A";
+            String slotTitle = "Seminar Session";
+
+            if (session != null) {
+                if (session.getStartTime() != null) {
+                    java.time.format.DateTimeFormatter dateFormatter =
+                        java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                    java.time.format.DateTimeFormatter timeFormatter =
+                        java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+                    sessionDate = session.getStartTime().format(dateFormatter);
+                    sessionTime = session.getStartTime().format(timeFormatter);
+                    if (session.getEndTime() != null) {
+                        sessionTime += " - " + session.getEndTime().format(timeFormatter);
+                    }
+                }
+            }
+
+            // Get presenter name
+            String presenterName = "Presenter";
+            User approver = userRepository.findByBguUsername(approverUsername).orElse(null);
+            if (approver != null) {
+                presenterName = approver.getFirstName() + " " + approver.getLastName();
+            }
+
+            String studentName = student != null ? student.getFirstName() + " " + student.getLastName() : "Unknown Student";
+            String studentEmail = student != null ? student.getEmail() : null;
+            String studentUsername = attendance.getStudentUsername();
+
+            // 1. Send to student if they have an email
+            if (studentEmail != null && !studentEmail.trim().isEmpty()) {
+                EmailService.EmailResult result = emailService.sendManualAttendanceNotificationEmail(
+                    studentEmail, studentName, isApproved, sessionDate, sessionTime, slotTitle, presenterName
+                );
+
+                if (result.isSuccess()) {
+                    logger.info("Manual attendance notification email sent to {} ({})",
+                        studentName, studentEmail);
+                } else {
+                    logger.warn("Failed to send manual attendance notification email to {}: {}",
+                        studentEmail, result.getErrorMessage());
+                }
+            }
+
+            // 2. Send a copy to monitoring emails from config (export_email_recipients)
+            String monitoringEmails = appConfigService != null
+                ? appConfigService.getStringConfig("export_email_recipients", "benariet@bgu.ac.il")
+                : "benariet@bgu.ac.il";
+
+            // Send to each monitoring email
+            for (String monitoringEmail : monitoringEmails.split(",")) {
+                monitoringEmail = monitoringEmail.trim();
+                if (monitoringEmail.isEmpty()) continue;
+
+                EmailService.EmailResult monitorResult = emailService.sendManualAttendanceNotificationEmail(
+                    monitoringEmail, "SemScan Admin - Student: " + studentName, isApproved,
+                    sessionDate, sessionTime, slotTitle, presenterName
+                );
+
+                if (monitorResult.isSuccess()) {
+                    logger.info("Manual attendance monitoring email sent to {}", monitoringEmail);
+                } else {
+                    logger.warn("Failed to send monitoring email to {}: {}",
+                        monitoringEmail, monitorResult.getErrorMessage());
+                }
+            }
+
+        } catch (Exception e) {
+            // Don't fail the approval/rejection if email fails
+            logger.error("Error sending manual attendance notification email: {}", e.getMessage(), e);
+        }
     }
 }

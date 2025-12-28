@@ -293,40 +293,49 @@ public class AppDownloadController {
                 "<html>\n" +
                 "<head>\n" +
                 "    <meta charset=\"UTF-8\">\n" +
-                "    <style>\n" +
-                "        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n" +
-                "        .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n" +
-                "        .header { background-color: #007bff; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }\n" +
-                "        .content { background-color: #f9f9f9; padding: 30px; border-radius: 0 0 5px 5px; }\n" +
-                "        .button { display: inline-block; background-color: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }\n" +
-                "        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }\n" +
-                "    </style>\n" +
+                "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
                 "</head>\n" +
-                "<body>\n" +
-                "    <div class=\"container\">\n" +
-                "        <div class=\"header\">\n" +
-                "            <h1>SemScan App Available</h1>\n" +
-                "        </div>\n" +
-                "        <div class=\"content\">\n" +
-                "            <p>Hello,</p>\n" +
-                "            <p>The SemScan app is now available for download!</p>\n" +
-                "            <p>Click the button below to download and install the app on your Android device:</p>\n" +
-                "            <div style=\"text-align: center;\">\n" +
-                "                <a href=\"" + downloadLink + "\" class=\"button\">⬇️ Download SemScan App</a>\n" +
-                "            </div>\n" +
-                "            <p><strong>Installation Instructions:</strong></p>\n" +
-                "            <ol>\n" +
-                "                <li>Click the download button above</li>\n" +
-                "                <li>If prompted, allow installation from unknown sources</li>\n" +
-                "                <li>Open the downloaded APK file</li>\n" +
-                "                <li>Follow the installation prompts</li>\n" +
-                "            </ol>\n" +
-                "            <p>If you have any questions or need assistance, please contact the system administrator.</p>\n" +
-                "        </div>\n" +
-                "        <div class=\"footer\">\n" +
-                "            <p>This is an automated message from SemScan Attendance System</p>\n" +
-                "        </div>\n" +
-                "    </div>\n" +
+                "<body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;\">\n" +
+                "    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n" +
+                "        <tr>\n" +
+                "            <td align=\"center\">\n" +
+                "                <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"max-width: 600px;\">\n" +
+                "                    <tr>\n" +
+                "                        <td style=\"background-color: #007bff; color: white; padding: 20px; text-align: center;\">\n" +
+                "                            <h1 style=\"margin: 0; font-size: 24px;\">SemScan App Available</h1>\n" +
+                "                        </td>\n" +
+                "                    </tr>\n" +
+                "                    <tr>\n" +
+                "                        <td style=\"padding: 30px; background-color: #f9f9f9;\">\n" +
+                "                            <p>Hello,</p>\n" +
+                "                            <p>The SemScan app is now available for download!</p>\n" +
+                "                            <p>Click the button below to download and install the app on your Android device:</p>\n" +
+                "                            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin: 25px 0;\">\n" +
+                "                                <tr>\n" +
+                "                                    <td align=\"center\">\n" +
+                "                                        <a href=\"" + downloadLink + "\" style=\"display: inline-block; padding: 15px 30px; background-color: #007bff; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;\">Download SemScan App</a>\n" +
+                "                                    </td>\n" +
+                "                                </tr>\n" +
+                "                            </table>\n" +
+                "                            <p><strong>Installation Instructions:</strong></p>\n" +
+                "                            <ol style=\"padding-left: 20px;\">\n" +
+                "                                <li>Click the download button above</li>\n" +
+                "                                <li>If prompted, allow installation from unknown sources</li>\n" +
+                "                                <li>Open the downloaded APK file</li>\n" +
+                "                                <li>Follow the installation prompts</li>\n" +
+                "                            </ol>\n" +
+                "                            <p>If you have any questions or need assistance, please contact the system administrator.</p>\n" +
+                "                        </td>\n" +
+                "                    </tr>\n" +
+                "                    <tr>\n" +
+                "                        <td style=\"text-align: center; padding: 20px; color: #666; font-size: 12px;\">\n" +
+                "                            <p style=\"margin: 5px 0;\">This is an automated message from SemScan Attendance System</p>\n" +
+                "                        </td>\n" +
+                "                    </tr>\n" +
+                "                </table>\n" +
+                "            </td>\n" +
+                "        </tr>\n" +
+                "    </table>\n" +
                 "</body>\n" +
                 "</html>";
     }

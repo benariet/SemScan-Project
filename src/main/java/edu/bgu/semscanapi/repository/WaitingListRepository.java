@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,5 +35,20 @@ public interface WaitingListRepository extends JpaRepository<WaitingListEntry, L
 
     // Get all waiting list entries for a user (across all slots)
     List<WaitingListEntry> findByPresenterUsername(String presenterUsername);
+
+    // Find by promotion token
+    Optional<WaitingListEntry> findByPromotionToken(String promotionToken);
+
+    // Find entries with expired promotion offers (token expired but still on waiting list)
+    @Query("SELECT w FROM WaitingListEntry w WHERE w.promotionToken IS NOT NULL AND w.promotionTokenExpiresAt < :now")
+    List<WaitingListEntry> findExpiredPromotionOffers(@Param("now") LocalDateTime now);
+
+    // Find entries that have a pending promotion offer (not expired)
+    @Query("SELECT w FROM WaitingListEntry w WHERE w.promotionToken IS NOT NULL AND w.promotionTokenExpiresAt > :now")
+    List<WaitingListEntry> findPendingPromotionOffers(@Param("now") LocalDateTime now);
+
+    // Find next entry without pending promotion (for promoting next person)
+    @Query("SELECT w FROM WaitingListEntry w WHERE w.slotId = :slotId AND (w.promotionToken IS NULL OR w.promotionTokenExpiresAt < :now) ORDER BY w.position ASC")
+    List<WaitingListEntry> findAvailableForPromotion(@Param("slotId") Long slotId, @Param("now") LocalDateTime now);
 }
 
