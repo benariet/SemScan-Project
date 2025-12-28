@@ -54,6 +54,14 @@
     <color name="icon_blue">#FF2E5BFF</color>
     <color name="welcome_text_color">#FF102A68</color>
     <color name="button_save_green">#FF43A047</color>
+
+    <!-- Card Icon Container Colors (matching pastel cards) -->
+    <color name="icon_container_purple">#FF9C27B0</color>
+    <color name="icon_container_blue">#FF2196F3</color>
+    <color name="icon_container_green">#FF4CAF50</color>
+    <color name="icon_container_orange">#FFFF9800</color>
+    <color name="icon_container_pink">#FFE91E63</color>
+    <color name="icon_container_disabled">#FF9E9E9E</color>
     
     <!-- QR Scanner colors -->
     <color name="result_view">#FF00FF00</color>

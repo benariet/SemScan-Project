@@ -40,12 +40,24 @@ import retrofit2.Response;
 
 public class PresenterStartSessionActivity extends AppCompatActivity {
 
+    private static final int REQUEST_CODE_QR_ACTIVITY = 1001;
+
     private TextView textSlotTitle;
     private TextView textSlotWindow;
     private TextView textSlotLocation;
     private TextView textSessionStatus;
     private TextView textEmptyState;
     private View cardSlotDetails;
+    private View cardSessionSuccess;
+    private View cardSessionCanceled;
+    private View layoutEmptyState;
+    private View layoutBottomButton;
+    private View layoutLocation;
+    private TextView textSuccessOpenedAt;
+    private TextView textSuccessClosedAt;
+    private TextView textSuccessAttendees;
+    private MaterialButton btnGoHome;
+    private MaterialButton btnGoHomeCanceled;
     private ProgressBar progressBar;
     private MaterialButton btnStartSession;
 
@@ -56,6 +68,13 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
     private ApiService.MySlotSummary currentSlot;
     private ApiService.AttendancePanel currentAttendance;
     private String normalizedUsername;
+
+    // Track if we should show the success/canceled state
+    private boolean showSessionSuccess = false;
+    private boolean showSessionCanceled = false;
+    private String successOpenedAt;
+    private String successClosedAt;
+    private int successAttendeeCount = -1;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -97,10 +116,28 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         cardSlotDetails = findViewById(R.id.card_slot_details);
         progressBar = findViewById(R.id.progress_bar);
         btnStartSession = findViewById(R.id.btn_start_session);
+
+        // Layout views
+        layoutEmptyState = findViewById(R.id.layout_empty_state);
+        layoutBottomButton = findViewById(R.id.layout_bottom_button);
+        layoutLocation = findViewById(R.id.layout_location);
+
+        // Success card views
+        cardSessionSuccess = findViewById(R.id.card_session_success);
+        textSuccessOpenedAt = findViewById(R.id.text_success_opened_at);
+        textSuccessClosedAt = findViewById(R.id.text_success_closed_at);
+        textSuccessAttendees = findViewById(R.id.text_success_attendees);
+        btnGoHome = findViewById(R.id.btn_go_home);
+
+        // Canceled card views
+        cardSessionCanceled = findViewById(R.id.card_session_canceled);
+        btnGoHomeCanceled = findViewById(R.id.btn_go_home_canceled);
     }
 
     private void setupInteractions() {
         btnStartSession.setOnClickListener(v -> attemptOpenSession());
+        btnGoHome.setOnClickListener(v -> finish());
+        btnGoHomeCanceled.setOnClickListener(v -> finish());
     }
 
     private void setLoading(boolean loading) {
@@ -149,8 +186,23 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
             return;
         }
 
+        // Check if we should show success state instead
+        if (showSessionSuccess) {
+            showSuccessState();
+            return;
+        }
+
+        // Check if we should show canceled state instead
+        if (showSessionCanceled) {
+            showCanceledState();
+            return;
+        }
+
         cardSlotDetails.setVisibility(View.VISIBLE);
-        textEmptyState.setVisibility(View.GONE);
+        cardSessionSuccess.setVisibility(View.GONE);
+        cardSessionCanceled.setVisibility(View.GONE);
+        layoutEmptyState.setVisibility(View.GONE);
+        layoutBottomButton.setVisibility(View.VISIBLE);
 
         textSlotTitle.setText(getString(R.string.presenter_home_slot_title_format,
                 safe(currentSlot.dayOfWeek), safe(currentSlot.date)));
@@ -158,14 +210,16 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
 
         String location = buildLocation();
         textSlotLocation.setText(location);
-        textSlotLocation.setVisibility(TextUtils.isEmpty(location) ? View.GONE : View.VISIBLE);
+        layoutLocation.setVisibility(TextUtils.isEmpty(location) ? View.GONE : View.VISIBLE);
 
         if (currentAttendance != null && !TextUtils.isEmpty(currentAttendance.warning)) {
             textSessionStatus.setText(currentAttendance.warning);
+            textSessionStatus.setVisibility(View.VISIBLE);
         } else if (currentAttendance != null && currentAttendance.alreadyOpen) {
             textSessionStatus.setText(R.string.presenter_start_session_status_open);
+            textSessionStatus.setVisibility(View.VISIBLE);
         } else {
-            textSessionStatus.setText("");
+            textSessionStatus.setVisibility(View.GONE);
         }
 
         if (currentAttendance != null && currentAttendance.alreadyOpen) {
@@ -177,10 +231,47 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         btnStartSession.setEnabled(true);
     }
 
+    private void showSuccessState() {
+        cardSlotDetails.setVisibility(View.GONE);
+        cardSessionSuccess.setVisibility(View.VISIBLE);
+        cardSessionCanceled.setVisibility(View.GONE);
+        layoutEmptyState.setVisibility(View.GONE);
+        layoutBottomButton.setVisibility(View.GONE);
+
+        // Populate success card with session details
+        if (successOpenedAt != null) {
+            textSuccessOpenedAt.setText(successOpenedAt);
+        } else {
+            textSuccessOpenedAt.setText("-");
+        }
+
+        if (successClosedAt != null) {
+            textSuccessClosedAt.setText(successClosedAt);
+        } else {
+            textSuccessClosedAt.setText("-");
+        }
+
+        if (successAttendeeCount >= 0) {
+            textSuccessAttendees.setText(String.valueOf(successAttendeeCount));
+        } else {
+            textSuccessAttendees.setText("-");
+        }
+    }
+
+    private void showCanceledState() {
+        cardSlotDetails.setVisibility(View.GONE);
+        cardSessionSuccess.setVisibility(View.GONE);
+        cardSessionCanceled.setVisibility(View.VISIBLE);
+        layoutEmptyState.setVisibility(View.GONE);
+        layoutBottomButton.setVisibility(View.GONE);
+    }
+
     private void showEmptyState() {
         cardSlotDetails.setVisibility(View.GONE);
-        textEmptyState.setVisibility(View.VISIBLE);
-        btnStartSession.setEnabled(false);
+        cardSessionSuccess.setVisibility(View.GONE);
+        cardSessionCanceled.setVisibility(View.GONE);
+        layoutEmptyState.setVisibility(View.VISIBLE);
+        layoutBottomButton.setVisibility(View.GONE);
     }
 
     private void attemptOpenSession() {
@@ -546,7 +637,42 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         intent.putExtra(PresenterAttendanceQrActivity.EXTRA_SESSION_ID, sessionId);
         intent.putExtra(PresenterAttendanceQrActivity.EXTRA_SLOT_ID, currentSlot != null ? currentSlot.slotId : null);
         intent.putExtra(PresenterAttendanceQrActivity.EXTRA_USERNAME, normalizedUsername);
-        startActivity(intent);
+        startActivityForResult(intent, REQUEST_CODE_QR_ACTIVITY);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_CODE_QR_ACTIVITY) {
+            if (resultCode == PresenterAttendanceQrActivity.RESULT_CODE_SESSION_CLOSED) {
+                if (data != null && data.getBooleanExtra(PresenterAttendanceQrActivity.RESULT_EXTRA_SESSION_CLOSED, false)) {
+                    // Session was closed successfully - show success state
+                    showSessionSuccess = true;
+                    showSessionCanceled = false;
+                    successOpenedAt = data.getStringExtra(PresenterAttendanceQrActivity.RESULT_EXTRA_OPENED_AT);
+                    successClosedAt = data.getStringExtra(PresenterAttendanceQrActivity.RESULT_EXTRA_CLOSED_AT);
+                    successAttendeeCount = data.getIntExtra(PresenterAttendanceQrActivity.RESULT_EXTRA_ATTENDEE_COUNT, -1);
+
+                    Logger.i(Logger.TAG_UI, "Session closed successfully - showing success state. " +
+                        "Opened: " + successOpenedAt + ", Closed: " + successClosedAt + ", Attendees: " + successAttendeeCount);
+
+                    // Show success state
+                    showSuccessState();
+                }
+            } else if (resultCode == PresenterAttendanceQrActivity.RESULT_CODE_SESSION_CANCELED) {
+                if (data != null && data.getBooleanExtra(PresenterAttendanceQrActivity.RESULT_EXTRA_SESSION_CANCELED, false)) {
+                    // Session was canceled - show canceled state
+                    showSessionSuccess = false;
+                    showSessionCanceled = true;
+
+                    Logger.i(Logger.TAG_UI, "Session canceled - showing canceled state");
+
+                    // Show canceled state
+                    showCanceledState();
+                }
+            }
+        }
     }
 
     private String buildLocation() {
@@ -621,25 +747,31 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
     /**
      * Converts ISO 8601 datetime string to readable format.
      * Example: "2025-11-16T15:00:00" -> "November 16, 2025 at 3:00 PM"
+     * Note: Server timestamps are in Israel timezone (Asia/Jerusalem)
      */
     private String formatIsoDateTime(String isoDateTime) {
         try {
+            // Server sends timestamps in Israel timezone
+            java.util.TimeZone israelTz = java.util.TimeZone.getTimeZone("Asia/Jerusalem");
+
             // Parse ISO 8601 format
-            java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault());
+            java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+            isoFormat.setTimeZone(israelTz);
             // Try with milliseconds if needed
             if (isoDateTime.contains(".")) {
-                isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", java.util.Locale.getDefault());
+                isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", java.util.Locale.US);
+                isoFormat.setTimeZone(israelTz);
             }
-            
+
             java.util.Date date = isoFormat.parse(isoDateTime);
-            
-            // Format to readable date and time
+
+            // Format to readable date and time (display in device's local timezone)
             java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("MMMM d, yyyy", java.util.Locale.getDefault());
             java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault());
-            
+
             String formattedDate = dateFormat.format(date);
             String formattedTime = timeFormat.format(date);
-            
+
             return formattedDate + " at " + formattedTime;
         } catch (Exception e) {
             Logger.w(Logger.TAG_UI, "Failed to format datetime: " + isoDateTime + " - " + e.getMessage());

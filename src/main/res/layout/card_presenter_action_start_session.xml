@@ -3,8 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/card_start_session"
     android:layout_width="match_parent"
-    android:layout_height="110dp"
-    android:layout_marginBottom="20dp"
+    android:layout_height="80dp"
+    android:layout_marginBottom="16dp"
     app:cardCornerRadius="24dp"
     app:cardElevation="8dp"
     app:strokeWidth="0dp"
@@ -18,18 +18,18 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="horizontal"
-        android:background="@drawable/bg_button_orange_gradient"
-        android:paddingStart="28dp"
-        android:paddingEnd="28dp"
+        android:background="@drawable/bg_card_orange_light_gradient"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
         android:gravity="center_vertical">
 
-        <!-- White Circular Icon Container -->
+        <!-- Green Circular Icon Container -->
         <com.google.android.material.card.MaterialCardView
-            android:layout_width="55dp"
-            android:layout_height="55dp"
-            android:layout_marginEnd="24dp"
-            app:cardCornerRadius="27.5dp"
-            app:cardBackgroundColor="@color/white"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="16dp"
+            app:cardCornerRadius="24dp"
+            app:cardBackgroundColor="@color/icon_container_orange"
             app:cardElevation="0dp">
 
             <ImageView
@@ -38,7 +38,7 @@
                 android:src="@drawable/ic_qr_scanner"
                 android:contentDescription="@string/start_session_show_qr"
                 android:padding="12dp"
-                app:tint="@color/icon_blue"
+                app:tint="@color/white"
                 android:scaleType="fitCenter" />
 
         </com.google.android.material.card.MaterialCardView>
@@ -51,7 +51,7 @@
             android:text="@string/start_session_show_qr"
             android:textSize="19sp"
             android:textStyle="bold"
-            android:textColor="@color/white"
+            android:textColor="@color/gray_900"
             android:lineSpacingMultiplier="1.2" />
 
         <!-- Arrow Icon -->
@@ -60,7 +60,7 @@
             android:layout_height="32dp"
             android:src="@drawable/ic_arrow_forward"
             android:contentDescription="@string/next"
-            app:tint="@color/white" />
+            app:tint="@color/gray_700" />
 
     </LinearLayout>
 

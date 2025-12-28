@@ -103,7 +103,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
     }
     
     /**
-     * Format names from registered list for display (e.g., "Name1, Name2")
+     * Format names from registered list for display - each name on its own indented line
      * Returns null if no names available
      */
     private String formatNamesForDisplay(List<ApiService.PresenterCoPresenter> registered, int maxCount) {
@@ -115,13 +115,15 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
         for (int i = 0; i < count; i++) {
             ApiService.PresenterCoPresenter presenter = registered.get(i);
             if (presenter != null && presenter.name != null && !presenter.name.trim().isEmpty()) {
-                names.add(presenter.name.trim());
+                // Add indent before each name
+                names.add("    " + presenter.name.trim());
             }
         }
         if (names.isEmpty()) {
             return null;
         }
-        return TextUtils.join(", ", names);
+        // Each name on its own line
+        return TextUtils.join("\n", names);
     }
 
     class SlotViewHolder extends RecyclerView.ViewHolder {
@@ -145,7 +147,8 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
 
         void bind(final ApiService.SlotCard slot) {
             Context context = itemView.getContext();
-            String titleText = context.getString(R.string.presenter_home_slot_title_format,
+            // Add slot ID for testing (TODO: remove later)
+            String titleText = "[" + slot.slotId + "] " + context.getString(R.string.presenter_home_slot_title_format,
                     safe(slot.dayOfWeek), safe(slot.date));
             title.setText(titleText);
             
@@ -188,40 +191,46 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             }
             
             // Build multi-line status text showing approved, pending, and waiting list names
-            // Line 1: Approved presenter names
+            // Each section has label on its own line, then indented names below
             String approvedNames = formatNamesForDisplay(slot.registered, 5);
             if (approvedNames != null && !approvedNames.isEmpty()) {
-                statusBuilder.append("Approved: ").append(approvedNames);
+                statusBuilder.append("Approved:\n").append(approvedNames);
             }
-            
-            // Line 2: Pending presenter names (if any)
+
+            // Pending presenter names (if any)
             String pendingNames = formatNamesForDisplay(slot.pendingPresenters, 5);
             if (pendingNames != null && !pendingNames.isEmpty()) {
                 if (statusBuilder.length() > 0) {
                     statusBuilder.append("\n");
                 }
-                statusBuilder.append("Pending: ").append(pendingNames);
+                statusBuilder.append("Pending:\n").append(pendingNames);
             }
-            
-            // Line 3: Waiting list names (if any)
+
+            // Waiting list names (if any)
             String wlNames = formatNamesForDisplay(slot.waitingListEntries, 5);
             if (wlNames != null && !wlNames.isEmpty()) {
                 if (statusBuilder.length() > 0) {
                     statusBuilder.append("\n");
                 }
-                statusBuilder.append("Waiting List: ").append(wlNames);
+                statusBuilder.append("Waiting List:\n").append(wlNames);
             }
             
-            // If no names at all, show default status
+            // Calculate available spots for display
+            int availableSpots = slot.capacity - approved;
+            if (availableSpots < 0) availableSpots = 0;
+            String capacityText = String.format(Locale.getDefault(), "%d/%d", availableSpots, slot.capacity);
+
+            // Build final status text with capacity info
             String statusTextStr;
             if (statusBuilder.length() == 0) {
                 if (isFull) {
-                    statusTextStr = "Full - Join Waiting List";
+                    statusTextStr = "Full (0/" + slot.capacity + ") - Join Waiting List";
                 } else {
-                    statusTextStr = context.getString(R.string.presenter_home_slot_state_available);
+                    statusTextStr = context.getString(R.string.presenter_home_slot_state_available) + " (" + capacityText + ")";
                 }
             } else {
-                statusTextStr = statusBuilder.toString();
+                // Prepend capacity info to the names
+                statusTextStr = capacityText + " Available\n" + statusBuilder.toString();
             }
             
             // Apply gradient background
@@ -281,7 +290,8 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             });
 
             // Show/hide register button - use slotAtCapacity for button visibility
-            if (!slot.canRegister || slot.alreadyRegistered || slotAtCapacity || userHasApprovedRegistration) {
+            // Also hide if user is on waiting list for this slot
+            if (!slot.canRegister || slot.alreadyRegistered || slotAtCapacity || userHasApprovedRegistration || slot.onWaitingList) {
                 registerButton.setVisibility(View.GONE);
             } else {
                 registerButton.setVisibility(View.VISIBLE);

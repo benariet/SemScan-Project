@@ -50,7 +50,6 @@ public class PresenterHomeActivity extends AppCompatActivity {
     private LinearLayout cardStartSessionInner;
     private LinearLayout cardMySlotInner;
     private LinearLayout cardEnrollSlotInner;
-    private TextView textWelcomeMessage;
     private PreferencesManager preferencesManager;
     private ApiService apiService;
     private ServerLogger serverLogger;
@@ -89,7 +88,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
         setupPresentationDetailsCard();
         setupClickListeners();
         loadPresentationDetails();
-        updateWelcomeMessage();
+        checkRegistrationStatus();
         Logger.userAction("Open Presenter Home", "Presenter home screen opened");
         if (serverLogger != null) serverLogger.userAction("Open Presenter Home", "Presenter home screen opened");
     }
@@ -101,7 +100,6 @@ public class PresenterHomeActivity extends AppCompatActivity {
         cardChangeRole = findViewById(R.id.card_change_role);
         cardStartSessionInner = findViewById(R.id.card_start_session_inner);
         cardMySlotInner = findViewById(R.id.card_my_slot_inner);
-        textWelcomeMessage = findViewById(R.id.text_welcome_message);
         if (cardEnrollSlot != null) {
             for (int i = 0; i < cardEnrollSlot.getChildCount(); i++) {
                 View child = cardEnrollSlot.getChildAt(i);
@@ -210,17 +208,14 @@ public class PresenterHomeActivity extends AppCompatActivity {
         if (cardEnrollSlot == null) return;
         if (hasPresentationDetails) {
             cardEnrollSlot.setClickable(true); cardEnrollSlot.setFocusable(true); cardEnrollSlot.setAlpha(1.0f);
-            if (cardEnrollSlotInner != null) cardEnrollSlotInner.setBackgroundResource(R.drawable.bg_button_orange_gradient);
+            if (cardEnrollSlotInner != null) cardEnrollSlotInner.setBackgroundResource(R.drawable.bg_card_orange_light_gradient);
         } else {
             cardEnrollSlot.setClickable(true); cardEnrollSlot.setFocusable(true); cardEnrollSlot.setAlpha(0.6f);
             if (cardEnrollSlotInner != null) cardEnrollSlotInner.setBackgroundResource(R.drawable.bg_card_disabled);
         }
     }
 
-    private void updateWelcomeMessage() {
-        final String cachedName = preferencesManager.getUserName();
-        if (!TextUtils.isEmpty(cachedName)) textWelcomeMessage.setText(getString(R.string.welcome_user, cachedName.trim()));
-        else textWelcomeMessage.setText(R.string.presenter_home_welcome_default);
+    private void checkRegistrationStatus() {
         final String username = preferencesManager.getUserName();
         if (username == null || username.trim().isEmpty()) { Logger.w(Logger.TAG_UI, "No username cached"); return; }
         final String normalizedUsername = username.trim().toLowerCase(Locale.US);
@@ -228,8 +223,6 @@ public class PresenterHomeActivity extends AppCompatActivity {
             @Override public void onResponse(Call<ApiService.PresenterHomeResponse> call, Response<ApiService.PresenterHomeResponse> response) {
                 if (!response.isSuccessful() || response.body() == null || response.body().presenter == null) return;
                 ApiService.PresenterHomeResponse body = response.body();
-                String name = body.presenter.name;
-                if (name != null && !name.trim().isEmpty()) textWelcomeMessage.setText(getString(R.string.welcome_user, name.trim()));
                 hasRegisteredSlot = body.mySlot != null && body.mySlot.slotId != null;
                 setCardsEnabled(hasRegisteredSlot);
             }
@@ -264,7 +257,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
 
     private void performLogout() {
         preferencesManager.clearUserData();
-        preferencesManager.clearSavedCredentials();
+        // Note: Do NOT clear saved credentials here - "Remember Me" should persist after logout
         Toast.makeText(this, R.string.logout_success, Toast.LENGTH_SHORT).show();
         Intent intent = new Intent(this, LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -294,12 +287,12 @@ public class PresenterHomeActivity extends AppCompatActivity {
 
     private void setCardsEnabled(boolean enabled) {
         cardStartSession.setClickable(enabled); cardStartSession.setFocusable(enabled); cardStartSession.setAlpha(enabled ? 1.0f : 0.6f);
-        if (cardStartSessionInner != null) cardStartSessionInner.setBackgroundResource(enabled ? R.drawable.bg_button_orange_gradient : R.drawable.bg_card_disabled);
+        if (cardStartSessionInner != null) cardStartSessionInner.setBackgroundResource(enabled ? R.drawable.bg_card_orange_light_gradient : R.drawable.bg_card_disabled);
         cardMySlot.setClickable(enabled); cardMySlot.setFocusable(enabled); cardMySlot.setAlpha(enabled ? 1.0f : 0.6f);
-        if (cardMySlotInner != null) cardMySlotInner.setBackgroundResource(enabled ? R.drawable.bg_button_orange_gradient : R.drawable.bg_card_disabled);
+        if (cardMySlotInner != null) cardMySlotInner.setBackgroundResource(enabled ? R.drawable.bg_card_orange_light_gradient : R.drawable.bg_card_disabled);
     }
 
-    @Override protected void onResume() { super.onResume(); loadPresentationDetails(); updateWelcomeMessage(); }
+    @Override protected void onResume() { super.onResume(); loadPresentationDetails(); checkRegistrationStatus(); }
 
     private void openStartSession() { startActivity(new Intent(this, PresenterStartSessionActivity.class)); }
     private void openSlotSelection(boolean s) { Intent i = new Intent(this, PresenterSlotSelectionActivity.class); i.putExtra(PresenterSlotSelectionActivity.EXTRA_SCROLL_TO_MY_SLOT, s); startActivity(i); }

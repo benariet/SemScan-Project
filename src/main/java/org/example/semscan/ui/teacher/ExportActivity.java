@@ -61,16 +61,50 @@ public class ExportActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_export);
-        
+
         Logger.i(Logger.TAG_UI, "ExportActivity created");
-        
+
         preferencesManager = PreferencesManager.getInstance(this);
         apiService = ApiClient.getInstance(this).getApiService();
-        
+
         initializeViews();
         setupToolbar();
         setupClickListeners();
         setupRequestAdapter();
+
+        // Auto-check for pending requests when page opens
+        checkPendingRequestsOnOpen();
+    }
+
+    /**
+     * Check for pending requests when the Export page opens.
+     * If there are pending requests, show the review modal immediately.
+     */
+    private void checkPendingRequestsOnOpen() {
+        if (currentSessionId == null || currentSessionId <= 0) {
+            return;
+        }
+
+        Logger.i(Logger.TAG_UI, "Auto-checking for pending requests on Export page open");
+
+        apiService.getPendingManualRequests(currentSessionId).enqueue(new Callback<List<ManualAttendanceResponse>>() {
+            @Override
+            public void onResponse(Call<List<ManualAttendanceResponse>> call,
+                                   Response<List<ManualAttendanceResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+                    List<ManualAttendanceResponse> pendingRequests = response.body();
+                    Logger.i(Logger.TAG_UI, "Found " + pendingRequests.size() + " pending requests - showing review modal");
+                    showReviewModal(pendingRequests);
+                } else {
+                    Logger.i(Logger.TAG_UI, "No pending requests found on page open");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
+                Logger.w(Logger.TAG_UI, "Failed to check pending requests on open: " + t.getMessage());
+            }
+        });
     }
     
     private void initializeViews() {

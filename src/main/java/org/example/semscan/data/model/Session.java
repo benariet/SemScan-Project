@@ -17,8 +17,13 @@ public class Session {
     
     // Custom deserializer for timestamp fields that can be either long or ISO 8601 string
     public static class TimestampDeserializer implements JsonDeserializer<Long> {
-        private static final SimpleDateFormat ISO_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
-        
+        // Server sends timestamps in Israel timezone (Asia/Jerusalem)
+        private static final SimpleDateFormat ISO_FORMAT;
+        static {
+            ISO_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+            ISO_FORMAT.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Jerusalem"));
+        }
+
         @Override
         public Long deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
             if (json.isJsonPrimitive()) {

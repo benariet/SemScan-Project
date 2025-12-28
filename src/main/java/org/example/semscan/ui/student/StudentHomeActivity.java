@@ -37,7 +37,6 @@ public class StudentHomeActivity extends AppCompatActivity {
     private MaterialCardView cardScanAttendance;
     private MaterialCardView cardManualAttendance;
     private MaterialCardView btnChangeRole;
-    private TextView textWelcomeMessage;
     private PreferencesManager preferencesManager;
     private ApiService apiService;
     private ServerLogger serverLogger;
@@ -82,39 +81,8 @@ public class StudentHomeActivity extends AppCompatActivity {
         cardScanAttendance = findViewById(R.id.card_scan_attendance);
         cardManualAttendance = findViewById(R.id.card_manual_attendance);
         btnChangeRole = findViewById(R.id.btn_change_role);
-        textWelcomeMessage = findViewById(R.id.text_welcome_message);
-
-        // Set personalized welcome message
-        updateWelcomeMessage();
     }
-    
-    private void updateWelcomeMessage() {
-        String firstName = preferencesManager.getFirstName();
-        String lastName = preferencesManager.getLastName();
 
-        String displayName = "";
-        if (!TextUtils.isEmpty(firstName) && !TextUtils.isEmpty(lastName)) {
-            displayName = firstName + " " + lastName;
-        } else if (!TextUtils.isEmpty(firstName)) {
-            displayName = firstName;
-        } else {
-            // Fallback to username if no name is set
-            displayName = preferencesManager.getUserName();
-        }
-
-        if (TextUtils.isEmpty(displayName)) {
-            textWelcomeMessage.setText("Welcome, Student!");
-            Logger.w(Logger.TAG_UI, "No name found, using generic welcome message");
-            return;
-        }
-
-        textWelcomeMessage.setText(getString(R.string.welcome_user, displayName));
-        Logger.i(Logger.TAG_UI, "Welcome message set with name: " + displayName);
-        if (serverLogger != null) {
-            serverLogger.i(ServerLogger.TAG_UI, "Student resolved to name: " + displayName);
-        }
-    }
-    
     private void setupToolbar() {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -360,7 +328,7 @@ public class StudentHomeActivity extends AppCompatActivity {
             serverLogger.userAction("Logout", "Student logged out");
         }
         preferencesManager.clearUserData();
-        preferencesManager.clearSavedCredentials(); // Clear "Remember Me" credentials
+        // Note: Do NOT clear saved credentials here - "Remember Me" should persist after logout
 
         Toast.makeText(this, R.string.logout_success, Toast.LENGTH_SHORT).show();
 

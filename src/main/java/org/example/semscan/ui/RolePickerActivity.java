@@ -10,6 +10,9 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import android.text.TextUtils;
+import android.widget.TextView;
+
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
@@ -21,9 +24,10 @@ import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 
 public class RolePickerActivity extends AppCompatActivity {
-    
+
     private MaterialCardView cardPresenter;
     private MaterialCardView cardStudent;
+    private TextView textWelcomeMessage;
     private PreferencesManager preferencesManager;
     
     @Override
@@ -66,6 +70,31 @@ public class RolePickerActivity extends AppCompatActivity {
     private void initializeViews() {
         cardPresenter = findViewById(R.id.card_presenter);
         cardStudent = findViewById(R.id.card_student);
+        textWelcomeMessage = findViewById(R.id.text_welcome_message);
+        updateWelcomeMessage();
+    }
+
+    private void updateWelcomeMessage() {
+        String firstName = preferencesManager.getFirstName();
+        String lastName = preferencesManager.getLastName();
+
+        String displayName = "";
+        if (!TextUtils.isEmpty(firstName) && !TextUtils.isEmpty(lastName)) {
+            displayName = firstName + " " + lastName;
+        } else if (!TextUtils.isEmpty(firstName)) {
+            displayName = firstName;
+        } else {
+            // Fallback to username if no name is set
+            displayName = preferencesManager.getUserName();
+        }
+
+        if (TextUtils.isEmpty(displayName)) {
+            textWelcomeMessage.setText(R.string.welcome_default);
+            return;
+        }
+
+        textWelcomeMessage.setText(getString(R.string.welcome_user, displayName));
+        Logger.i(Logger.TAG_UI, "Welcome message set for: " + displayName);
     }
 
     private void setupToolbar() {
@@ -119,7 +148,7 @@ public class RolePickerActivity extends AppCompatActivity {
     private void performLogout() {
         Logger.i(Logger.TAG_UI, "Performing logout from role picker");
         preferencesManager.clearUserData();
-        preferencesManager.clearSavedCredentials();
+        // Note: Do NOT clear saved credentials here - "Remember Me" should persist after logout
 
         Toast.makeText(this, R.string.logout_success, Toast.LENGTH_SHORT).show();
 
