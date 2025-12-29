@@ -697,9 +697,12 @@ public class PresenterHomeService {
         }
         seminarSlotRepository.save(slot);
 
-        // CRITICAL: If an APPROVED registration was cancelled and slot now has capacity, promote next from waiting list
-        // Only count APPROVED registrations for capacity check - PENDING may be declined, DECLINED/EXPIRED don't take capacity
-        if (registration.getApprovalStatus() == ApprovalStatus.APPROVED && approvedRemaining < slot.getCapacity()) {
+        // CRITICAL: If a registration was cancelled and slot now has capacity, promote next from waiting list
+        // Trigger promotion when APPROVED or PENDING is cancelled - either frees up actual or potential capacity
+        boolean wasActiveRegistration = registration.getApprovalStatus() == ApprovalStatus.APPROVED ||
+                                        registration.getApprovalStatus() == ApprovalStatus.PENDING;
+        boolean hasAvailableCapacity = effectiveUsageRemaining < slot.getCapacity();
+        if (wasActiveRegistration && hasAvailableCapacity) {
             try {
                 Optional<WaitingListEntry> promotedEntry = promoteFromWaitingListAfterCancellation(slotId, slot);
                 if (promotedEntry.isPresent()) {
@@ -904,9 +907,9 @@ public class PresenterHomeService {
 
             // Check if we have enough capacity for this user
             if (usedCapacity + userWeight > availableCapacity) {
-                logger.info("Not enough capacity for user {} (needs {}, available {}), stopping promotion",
+                logger.info("Not enough capacity for user {} (needs {}, available {}), skipping to try next person",
                         promotedUsername, userWeight, availableCapacity - usedCapacity);
-                break;
+                continue;  // Skip this person, try next one who might fit
             }
 
             // Check if user already registered (safety check)

@@ -146,14 +146,15 @@ public class WaitingListService {
             throw new IllegalStateException("You can only be on 1 waiting list at once. Please wait for notification or cancel your current waiting list entry.");
         }
 
-        // Prevent adding to waiting list if user already has an approved/pending registration for this slot
-        boolean alreadyRegistered = registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, normalizedUsername);
-        if (alreadyRegistered) {
-            String errorMsg = String.format("User is already registered for slotId=%d", slotId);
+        // Prevent adding to waiting list if user already has an ACTIVE registration (PENDING or APPROVED) for this slot
+        // DECLINED and EXPIRED registrations should NOT block joining the waiting list
+        boolean hasActiveRegistration = registrationRepository.existsActiveRegistration(slotId, normalizedUsername);
+        if (hasActiveRegistration) {
+            String errorMsg = String.format("User has active registration (PENDING/APPROVED) for slotId=%d", slotId);
             logger.warn("{} - presenterUsername={}", errorMsg, normalizedUsername);
             databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
                     String.format("slotId=%d,presenterUsername=%s", slotId, normalizedUsername));
-            throw new IllegalStateException("User is already registered for this slot");
+            throw new IllegalStateException("User already has an active registration for this slot");
         }
 
         // Retrieve user record to determine degree (PhD/MSc) which affects waiting list position and promotion logic

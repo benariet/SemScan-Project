@@ -40,6 +40,15 @@ public interface SeminarSlotRegistrationRepository extends JpaRepository<Seminar
     long countByIdSlotIdAndApprovalStatus(Long slotId, ApprovalStatus approvalStatus);
 
     /**
+     * Check if user has an active registration (PENDING or APPROVED) for a slot.
+     * DECLINED and EXPIRED registrations are NOT considered active.
+     */
+    @Query("SELECT COUNT(r) > 0 FROM SeminarSlotRegistration r WHERE r.id.slotId = :slotId " +
+           "AND r.id.presenterUsername = :presenterUsername " +
+           "AND r.approvalStatus IN (edu.bgu.semscanapi.entity.ApprovalStatus.PENDING, edu.bgu.semscanapi.entity.ApprovalStatus.APPROVED)")
+    boolean existsActiveRegistration(@Param("slotId") Long slotId, @Param("presenterUsername") String presenterUsername);
+
+    /**
      * Find registrations pending supervisor approval with valid tokens
      * Used for daily supervisor reminder emails
      */

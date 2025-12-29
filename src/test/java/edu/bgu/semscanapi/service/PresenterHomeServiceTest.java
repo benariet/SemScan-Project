@@ -232,7 +232,7 @@ class PresenterHomeServiceTest {
         when(seminarSlotRepository.findById(1L)).thenReturn(Optional.of(testSlot));
         when(registrationRepository.findByIdSlotId(1L)).thenReturn(Collections.emptyList());
         when(registrationRepository.findByIdPresenterUsername("testuser")).thenReturn(Collections.emptyList());
-        when(registrationRepository.save(any(SeminarSlotRegistration.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(registrationRepository.saveAndFlush(any(SeminarSlotRegistration.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(seminarSlotRepository.save(any(SeminarSlot.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(approvalService.sendApprovalEmail(any(SeminarSlotRegistration.class))).thenReturn(true);
         lenient().when(appConfigService.getIntegerConfig(anyString(), anyInt())).thenReturn(15);
@@ -243,7 +243,7 @@ class PresenterHomeServiceTest {
         // Then - with supervisor email, registration goes through approval flow
         assertTrue(response.isSuccess());
         assertEquals("PENDING_APPROVAL", response.getCode());
-        verify(registrationRepository).save(any(SeminarSlotRegistration.class));
+        verify(registrationRepository).saveAndFlush(any(SeminarSlotRegistration.class));
         verify(seminarSlotRepository, atLeastOnce()).save(any(SeminarSlot.class));
     }
 
@@ -293,7 +293,7 @@ class PresenterHomeServiceTest {
         when(seminarSlotRepository.findById(1L)).thenReturn(Optional.of(testSlot));
         when(registrationRepository.findByIdSlotId(1L)).thenReturn(Collections.emptyList());
         when(registrationRepository.findByIdPresenterUsername("testuser")).thenReturn(Collections.emptyList());
-        when(registrationRepository.save(any(SeminarSlotRegistration.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(registrationRepository.saveAndFlush(any(SeminarSlotRegistration.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(seminarSlotRepository.save(any(SeminarSlot.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(approvalService.sendApprovalEmail(any(SeminarSlotRegistration.class))).thenReturn(true);
 
@@ -398,13 +398,16 @@ class PresenterHomeServiceTest {
     @Test
     void openAttendance_WhenAlreadyOpen_ReturnsAlreadyOpen() {
         // Given
+        // Use Israel timezone to match service's time handling
+        java.time.ZoneId israelTz = java.time.ZoneId.of("Asia/Jerusalem");
+        LocalDateTime nowIsrael = java.time.ZonedDateTime.now(israelTz).toLocalDateTime();
+
         // Set slot and session to match by time and location
-        LocalDateTime now = LocalDateTime.now();
-        testSlot.setSlotDate(now.toLocalDate());
-        testSlot.setStartTime(now.toLocalTime().minusMinutes(15)); // Start was 15 minutes ago
-        testSlot.setEndTime(now.toLocalTime().plusHours(1));
+        testSlot.setSlotDate(nowIsrael.toLocalDate());
+        testSlot.setStartTime(nowIsrael.toLocalTime().minusMinutes(5)); // Start was 5 minutes ago (within 15-min window)
+        testSlot.setEndTime(nowIsrael.toLocalTime().plusHours(1));
         testSlot.setLegacySessionId(1L);
-        
+
         testSession.setStartTime(LocalDateTime.of(testSlot.getSlotDate(), testSlot.getStartTime()));
         testSession.setLocation("Building 37 Room 201");
         
@@ -413,7 +416,8 @@ class PresenterHomeServiceTest {
         when(registrationRepository.existsByIdSlotIdAndIdPresenterUsername(1L, "testuser")).thenReturn(true);
         when(sessionRepository.findOpenSessions()).thenReturn(Collections.singletonList(testSession));
         when(seminarRepository.findById(1L)).thenReturn(Optional.of(testSeminar));
-        when(seminarSlotRepository.findByLegacySessionId(1L)).thenReturn(Optional.of(testSlot));
+        // Make lenient since findByLegacySessionId may not be called depending on how session is matched
+        lenient().when(seminarSlotRepository.findByLegacySessionId(1L)).thenReturn(Optional.of(testSlot));
 
         // When
         PresenterOpenAttendanceResponse response = presenterHomeService.openAttendance("testuser", 1L);
@@ -494,13 +498,15 @@ class PresenterHomeServiceTest {
     @Test
     void openAttendance_WhenOtherPresenterHasOpenSession_ReturnsInProgress() {
         // Given
-        // Set slot to today with start time 15 minutes ago (so we're within the 10-minute window)
-        // The window opens 10 minutes before start, so if start was 15 min ago, we're 5 min past start = valid
-        LocalDateTime now = LocalDateTime.now();
-        testSlot.setSlotDate(now.toLocalDate());
-        testSlot.setStartTime(now.toLocalTime().minusMinutes(15)); // Start was 15 minutes ago
-        testSlot.setEndTime(now.toLocalTime().plusHours(1)); // End is 1 hour from now
-        
+        // Use Israel timezone to match service's time handling
+        java.time.ZoneId israelTz = java.time.ZoneId.of("Asia/Jerusalem");
+        LocalDateTime nowIsrael = java.time.ZonedDateTime.now(israelTz).toLocalDateTime();
+
+        // Set slot to today with start time 5 minutes ago (well within the 15-minute session window)
+        testSlot.setSlotDate(nowIsrael.toLocalDate());
+        testSlot.setStartTime(nowIsrael.toLocalTime().minusMinutes(5)); // Start was 5 minutes ago
+        testSlot.setEndTime(nowIsrael.toLocalTime().plusHours(1)); // End is 1 hour from now
+
         User otherPresenter = new User();
         otherPresenter.setBguUsername("otheruser");
         otherPresenter.setFirstName("Other");
@@ -513,10 +519,11 @@ class PresenterHomeServiceTest {
         Session otherSession = new Session();
         otherSession.setSessionId(2L);
         otherSession.setSeminarId(2L);
+        // Session start time should match slot start time exactly
         otherSession.setStartTime(LocalDateTime.of(testSlot.getSlotDate(), testSlot.getStartTime()));
         otherSession.setStatus(Session.SessionStatus.OPEN);
         otherSession.setLocation("Building 37 Room 201");
-        
+
         // Ensure slot has location set to match session location for the blocking check
         // buildLocation() creates "Building {building} Room {room}", so building="37", room="201"
         testSlot.setBuilding("37");
@@ -730,7 +737,7 @@ class PresenterHomeServiceTest {
         when(emailService.sendSupervisorNotificationEmail(anyString(), anyString(), anyString(), anyString(),
                 anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(EmailService.EmailResult.success());
-        when(registrationRepository.save(any(SeminarSlotRegistration.class)))
+        lenient().when(registrationRepository.saveAndFlush(any(SeminarSlotRegistration.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
