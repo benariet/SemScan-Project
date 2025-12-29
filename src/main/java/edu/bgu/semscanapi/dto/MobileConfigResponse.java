@@ -48,10 +48,10 @@ public class MobileConfigResponse {
     public static MobileConfigResponse fromConfigList(List<AppConfig> configs) {
         MobileConfigResponse response = new MobileConfigResponse();
 
-        // Convert list to map for easy lookup
+        // Convert list to map for easy lookup (uppercase keys for case-insensitive matching)
         Map<String, String> configMap = configs.stream()
                 .collect(Collectors.toMap(
-                        AppConfig::getConfigKey,
+                        c -> c.getConfigKey().toUpperCase(),
                         c -> c.getConfigValue() != null ? c.getConfigValue() : "",
                         (existing, replacement) -> existing // keep first if duplicates
                 ));

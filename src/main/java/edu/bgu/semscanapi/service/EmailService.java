@@ -312,6 +312,147 @@ public class EmailService {
     }
 
     /**
+     * Send notification email to student when their manual attendance request is approved or rejected
+     *
+     * @param studentEmail The student's email address
+     * @param studentName The student's full name
+     * @param isApproved true if approved, false if rejected
+     * @param sessionDate The session date
+     * @param sessionTime The session time
+     * @param slotTitle The slot/seminar title
+     * @param presenterName The presenter who made the decision
+     * @return EmailResult with success status and error details
+     */
+    public EmailResult sendManualAttendanceNotificationEmail(String studentEmail, String studentName,
+                                                              boolean isApproved, String sessionDate,
+                                                              String sessionTime, String slotTitle,
+                                                              String presenterName) {
+        if (mailSender == null) {
+            String errorMsg = "JavaMailSender is not configured. Email notification cannot be sent.";
+            logger.warn("{} Manual attendance notification email cannot be sent to {}", errorMsg, studentEmail);
+            return EmailResult.failure(errorMsg, "EMAIL_NOT_CONFIGURED");
+        }
+
+        if (studentEmail == null || studentEmail.trim().isEmpty()) {
+            logger.debug("No student email provided. Skipping manual attendance notification.");
+            return EmailResult.failure("No student email provided", "NO_STUDENT_EMAIL");
+        }
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(studentEmail);
+
+            String status = isApproved ? "Approved" : "Rejected";
+            String subject = String.format("Manual Attendance Request %s - SemScan", status);
+            helper.setSubject(subject);
+
+            String greeting = studentName != null && !studentName.trim().isEmpty()
+                    ? String.format("Hi %s,", studentName)
+                    : "Hi,";
+
+            String resultMessage = isApproved
+                    ? "Your manual attendance request has been APPROVED. Your attendance has been recorded."
+                    : "Your manual attendance request has been REJECTED. If you believe this is an error, please contact your presenter.";
+
+            String body = String.format(
+                "%s\n\n" +
+                "%s\n\n" +
+                "Session Details:\n" +
+                "  • Seminar: %s\n" +
+                "  • Date: %s\n" +
+                "  • Time: %s\n" +
+                "  • Decision by: %s\n\n" +
+                "Best regards,\n" +
+                "SemScan System",
+                greeting,
+                resultMessage,
+                slotTitle != null ? slotTitle : "N/A",
+                sessionDate != null ? sessionDate : "N/A",
+                sessionTime != null ? sessionTime : "N/A",
+                presenterName != null ? presenterName : "Presenter"
+            );
+
+            String htmlBody = convertToHtmlWithStatus(body, isApproved);
+            helper.setText(htmlBody, true);
+
+            mailSender.send(message);
+            logger.info("Manual attendance {} notification email sent to {} for session on {}",
+                status.toLowerCase(), studentEmail, sessionDate);
+            return EmailResult.success();
+
+        } catch (AuthenticationFailedException e) {
+            String errorMsg = "Email server authentication failed: " + e.getMessage();
+            logger.error("Authentication failed when sending manual attendance notification to {}. Error: {}",
+                studentEmail, getFullErrorMessage(e), e);
+            return EmailResult.failure(errorMsg, "EMAIL_AUTH_FAILED");
+        } catch (MessagingException e) {
+            String errorMsg = "Failed to send email: " + e.getMessage();
+            logger.error("MessagingException when sending manual attendance notification to {}. Error: {}",
+                studentEmail, getFullErrorMessage(e), e);
+            return EmailResult.failure(errorMsg, "EMAIL_SEND_FAILED");
+        } catch (Exception e) {
+            String errorMsg = "Unexpected error sending email: " + e.getMessage();
+            logger.error("Unexpected error sending manual attendance notification to {}. Error: {}",
+                studentEmail, getFullErrorMessage(e), e);
+            return EmailResult.failure(errorMsg, "EMAIL_ERROR");
+        }
+    }
+
+    /**
+     * Convert plain text to HTML format with status-specific styling
+     */
+    private String convertToHtmlWithStatus(String plainText, boolean isApproved) {
+        if (plainText == null || plainText.trim().isEmpty()) {
+            return "";
+        }
+
+        String escaped = plainText
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
+
+        String withBreaks = escaped.replace("\n", "<br>");
+
+        String headerColor = isApproved ? "#4CAF50" : "#F44336"; // Green for approved, Red for rejected
+        String statusText = isApproved ? "Approved" : "Rejected";
+
+        return String.format(
+                "<!DOCTYPE html>\n" +
+                "<html>\n" +
+                "<head>\n" +
+                "    <meta charset=\"UTF-8\">\n" +
+                "    <style>\n" +
+                "        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n" +
+                "        .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n" +
+                "        .header { background-color: %s; color: white; padding: 15px; text-align: center; }\n" +
+                "        .content { padding: 20px; background-color: #f9f9f9; }\n" +
+                "        .footer { text-align: center; padding: 10px; color: #666; font-size: 12px; }\n" +
+                "    </style>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "    <div class=\"container\">\n" +
+                "        <div class=\"header\">\n" +
+                "            <h2>Manual Attendance Request %s</h2>\n" +
+                "        </div>\n" +
+                "        <div class=\"content\">\n" +
+                "            %s\n" +
+                "        </div>\n" +
+                "        <div class=\"footer\">\n" +
+                "            <p>This is an automated message from the SemScan Attendance System.</p>\n" +
+                "        </div>\n" +
+                "    </div>\n" +
+                "</body>\n" +
+                "</html>",
+                headerColor,
+                statusText,
+                withBreaks
+        );
+    }
+
+    /**
      * Convert plain text to HTML format
      *
      * @param plainText Plain text content

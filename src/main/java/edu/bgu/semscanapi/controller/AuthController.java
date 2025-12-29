@@ -67,22 +67,28 @@ public class AuthController {
 
             logger.debug("BGU authentication succeeded for username: {}", request.getUsername());
 
-            User user = ensureLocalUser(request.getUsername());
-            logger.debug("Resolved local user: id={}, bguUsername={}, email={}, isPresenter={}, isParticipant={}, supervisor={}",
-                    user.getId(), user.getBguUsername(), user.getEmail(), user.getIsPresenter(), user.getIsParticipant(),
-                    user.getSupervisor() != null ? user.getSupervisor().getEmail() : "null");
+            // Check if user exists in database (don't auto-create)
+            String normalizedUsername = request.getUsername() != null ? request.getUsername().trim().toLowerCase(Locale.ROOT) : "";
+            String baseUsername = normalizedUsername.contains("@")
+                    ? normalizedUsername.substring(0, normalizedUsername.indexOf('@'))
+                    : normalizedUsername;
 
-            LoggerUtil.setBguUsername(user.getBguUsername());
+            Optional<User> existingUser = userRepository.findByBguUsername(baseUsername);
 
-            // Check if this is a first-time user (no supervisor linked)
-            boolean isFirstTime = user.getSupervisor() == null;
+            String bguUsername = baseUsername;
+            String email = normalizedUsername.contains("@") ? normalizedUsername : (baseUsername + "@bgu.ac.il");
+            boolean isFirstTime = existingUser.isEmpty();
+            boolean isPresenter = existingUser.map(u -> Boolean.TRUE.equals(u.getIsPresenter())).orElse(false);
+            boolean isParticipant = existingUser.map(u -> Boolean.TRUE.equals(u.getIsParticipant())).orElse(false);
+
+            LoggerUtil.setBguUsername(bguUsername);
 
             LoginResponse response = LoginResponse.success(
-                    user.getBguUsername(),
-                    user.getEmail(),
+                    bguUsername,
+                    email,
                     isFirstTime,
-                    Boolean.TRUE.equals(user.getIsPresenter()),
-                    Boolean.TRUE.equals(user.getIsParticipant()));
+                    isPresenter,
+                    isParticipant);
 
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), response.getMessage());
             return ResponseEntity.ok(response);
@@ -94,138 +100,6 @@ public class AuthController {
         } finally {
             LoggerUtil.clearContext();
         }
-    }
-
-    private User ensureLocalUser(String username) {
-        String normalizedUsername = username != null ? username.trim() : "";
-        if (normalizedUsername.isEmpty()) {
-            throw new IllegalArgumentException("Username must not be empty");
-        }
-
-        String canonicalUsername = normalizedUsername.toLowerCase(Locale.ROOT);
-        String baseUsername = canonicalUsername.contains("@")
-                ? canonicalUsername.substring(0, canonicalUsername.indexOf('@'))
-                : canonicalUsername;
-
-        logger.debug("ensureLocalUser - normalized={}, canonical={}, base={} for original username={}"
-                +", checking repository...",
-                normalizedUsername, canonicalUsername, baseUsername, username);
-
-        Optional<User> existingUser = userRepository.findByBguUsername(canonicalUsername);
-        if (existingUser.isEmpty() && !canonicalUsername.equals(baseUsername)) {
-            existingUser = userRepository.findByBguUsername(baseUsername);
-        }
-        if (existingUser.isEmpty() && canonicalUsername.contains("@")) {
-            existingUser = userRepository.findByEmail(canonicalUsername);
-        }
-
-        if (existingUser.isPresent()) {
-            User user = existingUser.get();
-            boolean changed = false;
-
-            if (!baseUsername.equals(user.getBguUsername())) {
-                // Prevent username conflicts: verify baseUsername isn't already assigned to a different user
-                Optional<User> userWithBguUsername = userRepository.findByBguUsername(baseUsername);
-                if (userWithBguUsername.isPresent() && !userWithBguUsername.get().getId().equals(user.getId())) {
-                    // Username collision detected: another user already has this bguUsername - skip update to prevent data corruption
-                    logger.warn("Cannot update bguUsername to {} for user {} (id={}) - username already exists for user {} (id={}). Keeping existing bguUsername.",
-                            baseUsername, user.getEmail(), user.getId(),
-                            userWithBguUsername.get().getEmail(), userWithBguUsername.get().getId());
-                } else {
-                    // Safe to update bguUsername
-                    logger.debug("Updating bguUsername for user {} from {} to {}", user.getId(), user.getBguUsername(), baseUsername);
-                    user.setBguUsername(baseUsername);
-                    changed = true;
-                }
-            }
-            if (user.getEmail() == null || user.getEmail().isBlank()) {
-                String derivedEmail = deriveEmailFromUsername(normalizedUsername);
-                // Check if derived email already exists for another user
-                if (derivedEmail != null) {
-                    Optional<User> userWithEmail = userRepository.findByEmail(derivedEmail);
-                    if (userWithEmail.isPresent() && !userWithEmail.get().getId().equals(user.getId())) {
-                        logger.warn("Cannot set email to {} for user {} (id={}) - email already exists for user {} (id={}). Keeping null email.",
-                                derivedEmail, user.getBguUsername(), user.getId(),
-                                userWithEmail.get().getBguUsername(), userWithEmail.get().getId());
-                    } else {
-                        logger.debug("Setting missing email for user {} to {}", user.getId(), derivedEmail);
-                        user.setEmail(derivedEmail);
-                        changed = true;
-                    }
-                }
-            }
-
-            if (changed) {
-                user = userRepository.save(user);
-                logger.debug("Persisted updates for user {}", user.getId());
-            } else {
-                logger.debug("No changes detected for user {}", user.getId());
-            }
-            return user;
-        }
-
-        // Before creating new user: check if derived email (username@bgu.ac.il) already exists to prevent duplicates
-        String derivedEmail = deriveEmailFromUsername(normalizedUsername);
-        if (derivedEmail != null) {
-            Optional<User> existingUserByEmail = userRepository.findByEmail(derivedEmail);
-            if (existingUserByEmail.isPresent()) {
-                User userWithEmail = existingUserByEmail.get();
-                logger.info("User with email {} already exists (id={}, bguUsername={}). Checking if bguUsername update is needed.",
-                        derivedEmail, userWithEmail.getId(), userWithEmail.getBguUsername());
-                
-                // Only update bguUsername if it's different AND the new bguUsername doesn't already exist
-                if (!baseUsername.equals(userWithEmail.getBguUsername())) {
-                    // Prevent username conflicts: check if baseUsername is already assigned to a different user
-                    Optional<User> userWithBguUsername = userRepository.findByBguUsername(baseUsername);
-                    if (userWithBguUsername.isPresent() && !userWithBguUsername.get().getId().equals(userWithEmail.getId())) {
-                        // Username collision: another user already has this bguUsername - return existing user without update
-                        logger.warn("Cannot update bguUsername to {} for user {} (id={}) - username already exists for user {} (id={}). Returning existing user.",
-                                baseUsername, userWithEmail.getEmail(), userWithEmail.getId(),
-                                userWithBguUsername.get().getEmail(), userWithBguUsername.get().getId());
-                        return userWithEmail;
-                    }
-                    
-                    // No conflict: update existing user's bguUsername to normalized baseUsername
-                    userWithEmail.setBguUsername(baseUsername);
-                    userWithEmail = userRepository.save(userWithEmail);
-                    logger.debug("Updated bguUsername for existing user {} to {}", userWithEmail.getId(), baseUsername);
-                }
-                return userWithEmail;
-            }
-        }
-
-        // Final safety check before user creation: verify bguUsername doesn't already exist (prevents duplicate users)
-        Optional<User> checkBguUsername = userRepository.findByBguUsername(baseUsername);
-        if (checkBguUsername.isPresent()) {
-            logger.warn("User with bguUsername {} already exists (id={}, email={}). Returning existing user instead of creating duplicate.",
-                    baseUsername, checkBguUsername.get().getId(), checkBguUsername.get().getEmail());
-            return checkBguUsername.get();
-        }
-
-        User newUser = new User();
-        newUser.setBguUsername(baseUsername);
-        newUser.setFirstName("User");
-        newUser.setLastName(baseUsername);
-        newUser.setEmail(derivedEmail);
-        // Set default permissions: new users can be both presenter and participant (can be restricted later if needed)
-        newUser.setIsPresenter(true);
-        newUser.setIsParticipant(true);
-
-        User savedUser = userRepository.save(newUser);
-        logger.info("Provisioned new local user for username={}, stored as base={} (id={})", username, baseUsername, savedUser.getId());
-        return savedUser;
-    }
-
-    private String deriveEmailFromUsername(String username) {
-        if (username == null || username.isBlank()) {
-            return null;
-        }
-
-        String trimmed = username.trim();
-        if (trimmed.contains("@")) {
-            return trimmed.toLowerCase(Locale.ROOT);
-        }
-        return trimmed.toLowerCase(Locale.ROOT) + "@bgu.ac.il";
     }
 
     /**

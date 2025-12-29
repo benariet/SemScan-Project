@@ -147,6 +147,7 @@ CREATE TABLE slot_registration (
     supervisor_approved_at DATETIME,
     supervisor_declined_at DATETIME,
     supervisor_declined_reason TEXT,
+    last_reminder_sent_at DATETIME,
     PRIMARY KEY (slot_id, presenter_username),
     CONSTRAINT fk_slot_registration_slot
         FOREIGN KEY (slot_id) REFERENCES slots(slot_id)
@@ -166,6 +167,9 @@ CREATE TABLE waiting_list (
     supervisor_email VARCHAR(255),
     position INT NOT NULL,
     added_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    promotion_token VARCHAR(255) NULL,
+    promotion_token_expires_at DATETIME NULL,
+    promotion_offered_at DATETIME NULL,
     CONSTRAINT fk_waiting_list_slot
         FOREIGN KEY (slot_id) REFERENCES slots(slot_id)
         ON DELETE CASCADE,
@@ -362,9 +366,10 @@ INSERT INTO app_config (config_key, config_value, config_type, category, target_
 ('toast_duration_success', '5000', 'INTEGER', 'UI', 'MOBILE', 'Toast duration for success messages in milliseconds'),
 ('toast_duration_info', '6000', 'INTEGER', 'UI', 'MOBILE', 'Toast duration for info messages in milliseconds'),
 ('config_cache_ttl_hours', '24', 'INTEGER', 'SYSTEM', 'MOBILE', 'Configuration cache TTL in hours'),
-('presenter_slot_open_window_before_minutes', '30', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes before slot start when presenter can open'),
-('presenter_slot_open_window_after_minutes', '15', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes after slot start when presenter can still open'),
-('student_attendance_window_before_minutes', '5', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes before session start for student attendance'),
+('presenter_slot_open_window_before_minutes', '0', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes before slot start when presenter can open (0 = only at/after slot start)'),
+('presenter_slot_open_window_after_minutes', '999', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes after slot start when presenter can still open (999 = no limit)'),
+('presenter_close_session_duration_minutes', '10', 'INTEGER', 'ATTENDANCE', 'BOTH', 'Minutes after session opens before auto-close (attendance window duration)'),
+('student_attendance_window_before_minutes', '0', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes before session start for student attendance'),
 ('student_attendance_window_after_minutes', '10', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes after session start for student attendance'),
 ('waiting_list_approval_window_hours', '168', 'INTEGER', 'WAITING_LIST', 'BOTH', 'Hours user has to approve waiting list slot'),
 ('email_from_name', 'SemScan System', 'STRING', 'EMAIL', 'BOTH', 'Email sender display name'),
@@ -376,7 +381,11 @@ INSERT INTO app_config (config_key, config_value, config_type, category, target_
 ('email_queue_max_retries', '3', 'INTEGER', 'EMAIL', 'API', 'Maximum retry attempts for failed emails'),
 ('email_queue_initial_backoff_minutes', '5', 'INTEGER', 'EMAIL', 'API', 'Initial backoff time in minutes before first retry'),
 ('email_queue_backoff_multiplier', '3', 'INTEGER', 'EMAIL', 'API', 'Multiplier for exponential backoff'),
-('email_queue_batch_size', '50', 'INTEGER', 'EMAIL', 'API', 'Maximum emails to process per batch');
+('email_queue_batch_size', '50', 'INTEGER', 'EMAIL', 'API', 'Maximum emails to process per batch'),
+('approval_reminder_interval_days', '2', 'INTEGER', 'EMAIL', 'API', 'Days between supervisor reminder emails'),
+('approval_token_expiry_days', '14', 'INTEGER', 'EMAIL', 'API', 'Days until supervisor approval link expires'),
+('promotion_offer_expiry_hours', '48', 'INTEGER', 'WAITING_LIST', 'API', 'Hours until waiting list promotion offer expires'),
+('expiration_warning_hours_before', '48', 'INTEGER', 'EMAIL', 'API', 'Hours before expiry to send warning email to student');
 
 -- =====================================================================
 --  VERIFICATION

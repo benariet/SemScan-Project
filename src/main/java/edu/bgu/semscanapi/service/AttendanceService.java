@@ -1,9 +1,11 @@
 package edu.bgu.semscanapi.service;
 
 import edu.bgu.semscanapi.entity.Attendance;
+import edu.bgu.semscanapi.entity.SeminarSlot;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.AttendanceRepository;
+import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.util.LoggerUtil;
@@ -37,10 +39,16 @@ public class AttendanceService {
     
     @Autowired
     private DatabaseLoggerService databaseLoggerService;
-    
+
     @Autowired
     private UserRepository userRepository;
-    
+
+    @Autowired
+    private SeminarSlotRepository slotRepository;
+
+    @Autowired
+    private AppConfigService appConfigService;
+
     /**
      * Record attendance for a student in a session
      */
@@ -83,9 +91,39 @@ public class AttendanceService {
                 throw new IllegalArgumentException(errorMessage);
             }
             
-            logger.info("Session validation passed - SessionID: {} is OPEN, allowing attendance submission", 
+            logger.info("Session validation passed - SessionID: {} is OPEN, allowing attendance submission",
                 sessionEntity.getSessionId());
-            
+
+            // CRITICAL: Check if attendance window has closed (time-based validation)
+            // The session status might still be OPEN, but the attendance window could have expired
+            // NOTE: We calculate close time from SESSION start time, not from slot's attendance_closes_at
+            // because one slot can have multiple concurrent sessions (multiple presenters)
+            LocalDateTime sessionStartTime = sessionEntity.getStartTime();
+            if (sessionStartTime != null) {
+                Integer sessionCloseDurationMinutes = appConfigService != null
+                        ? appConfigService.getIntegerConfig("presenter_close_session_duration_minutes", 15)
+                        : 15;
+                LocalDateTime closesAt = sessionStartTime.plusMinutes(sessionCloseDurationMinutes);
+                // CRITICAL: Use Israel timezone explicitly to match how session times are stored
+                LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Jerusalem"));
+
+                logger.info("Attendance window check - SessionID: {}, SessionStartTime: {}, ClosesAt: {}, Now: {}, Duration: {} min",
+                    sessionEntity.getSessionId(), sessionStartTime, closesAt, now, sessionCloseDurationMinutes);
+
+                if (now.isAfter(closesAt)) {
+                    String errorMessage = String.format("Attendance window has closed at %s for session %d",
+                            closesAt, attendance.getSessionId());
+                    logger.error("Attendance window closed - SessionID: {}, ClosedAt: {}, CurrentTime: {}, Student: {}",
+                        sessionEntity.getSessionId(), closesAt, now, attendance.getStudentUsername());
+                    databaseLoggerService.logError("ATTENDANCE_WINDOW_CLOSED", errorMessage, null,
+                        attendance.getStudentUsername(), String.format("sessionId=%s,closesAt=%s,sessionStartTime=%s,now=%s",
+                            attendance.getSessionId(), closesAt, sessionStartTime, now));
+                    throw new IllegalArgumentException("Attendance window has closed. You can no longer scan for this session.");
+                }
+                logger.info("Attendance window check PASSED - SessionID: {}, ClosesAt: {}, CurrentTime: {}",
+                    sessionEntity.getSessionId(), closesAt, now);
+            }
+
             // Verify student exists in database using case-insensitive username lookup (handles username variations)
             Optional<User> student = userRepository.findByBguUsernameIgnoreCase(attendance.getStudentUsername());
             if (student.isEmpty()) {

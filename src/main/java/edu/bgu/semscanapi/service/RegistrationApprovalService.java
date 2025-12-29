@@ -42,14 +42,13 @@ public class RegistrationApprovalService {
     private final DatabaseLoggerService databaseLoggerService;
     private final PresenterHomeService presenterHomeService; // For promoting next person when student declines
     private final WaitingListPromotionRepository waitingListPromotionRepository;
-    
+    private final WaitingListService waitingListService; // For removing user from waiting lists on approval
+    private final AppConfigService appConfigService;
+
     // Self-injection to enable @Transactional on saveApprovalToken when called from within the class
     @Autowired
     @Lazy
     private RegistrationApprovalService self;
-
-    @Value("${app.registration.approval.token-expiration-hours:72}")
-    private int approvalTokenExpirationHours;
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
@@ -63,7 +62,9 @@ public class RegistrationApprovalService {
             GlobalConfig globalConfig,
             DatabaseLoggerService databaseLoggerService,
             @Lazy PresenterHomeService presenterHomeService,
-            WaitingListPromotionRepository waitingListPromotionRepository) {
+            WaitingListPromotionRepository waitingListPromotionRepository,
+            @Lazy WaitingListService waitingListService,
+            AppConfigService appConfigService) {
         this.registrationRepository = registrationRepository;
         this.slotRepository = slotRepository;
         this.userRepository = userRepository;
@@ -73,6 +74,8 @@ public class RegistrationApprovalService {
         this.databaseLoggerService = databaseLoggerService;
         this.presenterHomeService = presenterHomeService;
         this.waitingListPromotionRepository = waitingListPromotionRepository;
+        this.waitingListService = waitingListService;
+        this.appConfigService = appConfigService;
     }
 
     /**
@@ -114,9 +117,10 @@ public class RegistrationApprovalService {
                 String.format("Student email validated: %s", studentEmail),
                 registration.getPresenterUsername(), String.format("slotId=%d,studentEmail=%s", registration.getSlotId(), studentEmail));
         
-        // Generate student confirmation token (expires in configured hours)
+        // Generate student confirmation token (expires in configured days)
+        int expiryDays = appConfigService.getIntegerConfig("approval_token_expiry_days", 14);
         String confirmationToken = UUID.randomUUID().toString();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(approvalTokenExpirationHours);
+        LocalDateTime expiresAt = LocalDateTime.now().plusDays(expiryDays);
         logger.info("📧 [RegistrationApprovalService] Generated student confirmation token: {} (expires: {})", confirmationToken, expiresAt);
         databaseLoggerService.logAction("INFO", "EMAIL_STUDENT_CONFIRMATION_TOKEN_GENERATED",
                 String.format("Generated student confirmation token (expires: %s)", expiresAt),
@@ -334,61 +338,87 @@ public class RegistrationApprovalService {
             <html>
             <head>
                 <meta charset="UTF-8">
-                <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background-color: #2196F3; color: white; padding: 20px; text-align: center; }
-                    .content { padding: 20px; background-color: #f9f9f9; }
-                    .button { display: inline-block; padding: 12px 24px; margin: 10px 5px; text-decoration: none; 
-                             border-radius: 5px; font-weight: bold; }
-                    .button-confirm { background-color: #4CAF50; color: white; }
-                    .button-decline { background-color: #f44336; color: white; }
-                    .info-box { background-color: #e3f2fd; padding: 15px; margin: 15px 0; border-left: 4px solid #2196F3; }
-                    .warning-box { background-color: #fff3cd; padding: 15px; margin: 15px 0; border-left: 4px solid #ffc107; }
-                    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-                </style>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
             </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <h1>SemScan - Slot Available!</h1>
-                    </div>
-                    <div class="content">
-                        <p>Dear %s,</p>
-                        <p>Good news! A slot has become available and you've been promoted from the waiting list.</p>
-                        
-                        <div class="info-box">
-                            <h3>Slot Details:</h3>
-                            <p><strong>Date:</strong> %s</p>
-                            <p><strong>Time:</strong> %s - %s</p>
-                            <p><strong>Location:</strong> %s, Room %s</p>
-                            <p><strong>Topic:</strong> %s</p>
-                            <p><strong>Degree:</strong> %s</p>
-                        </div>
-                        
-                        <div class="warning-box">
-                            <h3>⚠️ Action Required</h3>
-                            <p>To proceed with this registration, you need to confirm. After your confirmation, your supervisor will receive an approval request email.</p>
-                            <p><strong>If you confirm:</strong> Your supervisor will be notified to approve your registration.</p>
-                            <p><strong>If you decline:</strong> Your registration will be cancelled and the slot will be offered to the next person on the waiting list.</p>
-                        </div>
-                        
-                        <p>Please choose one of the following options:</p>
-                        
-                        <div style="text-align: center; margin: 30px 0;">
-                            <a href="%s" class="button button-confirm">Yes, I Want This Slot</a>
-                            <a href="%s" class="button button-decline">No, Decline</a>
-                        </div>
-                        
-                        <p style="color: #666; font-size: 12px;">
-                            <strong>Note:</strong> This confirmation link will expire on %s.
-                        </p>
-                    </div>
-                    <div class="footer">
-                        <p>This is an automated message from SemScan Attendance System.</p>
-                        <p>If you did not expect this email, please ignore it.</p>
-                    </div>
-                </div>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+                <table width="100%%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                        <td align="center">
+                            <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
+                                <!-- Header -->
+                                <tr>
+                                    <td style="background-color: #2196F3; color: white; padding: 20px; text-align: center;">
+                                        <h1 style="margin: 0; font-size: 24px;">SemScan - Slot Available!</h1>
+                                    </td>
+                                </tr>
+                                <!-- Content -->
+                                <tr>
+                                    <td style="padding: 20px; background-color: #f9f9f9;">
+                                        <p>Dear %s,</p>
+                                        <p>Good news! A slot has become available and you've been promoted from the waiting list.</p>
+
+                                        <!-- Info Box -->
+                                        <table width="100%%" cellpadding="15" cellspacing="0" border="0" style="background-color: #e3f2fd; margin: 15px 0; border-left: 4px solid #2196F3;">
+                                            <tr>
+                                                <td>
+                                                    <h3 style="margin-top: 0;">Slot Details:</h3>
+                                                    <p style="margin: 5px 0;"><strong>Date:</strong> %s</p>
+                                                    <p style="margin: 5px 0;"><strong>Time:</strong> %s - %s</p>
+                                                    <p style="margin: 5px 0;"><strong>Location:</strong> %s, Room %s</p>
+                                                    <p style="margin: 5px 0;"><strong>Topic:</strong> %s</p>
+                                                    <p style="margin: 5px 0;"><strong>Degree:</strong> %s</p>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <!-- Warning Box -->
+                                        <table width="100%%" cellpadding="15" cellspacing="0" border="0" style="background-color: #fff3cd; margin: 15px 0; border-left: 4px solid #ffc107;">
+                                            <tr>
+                                                <td>
+                                                    <h3 style="margin-top: 0; color: #856404;">Action Required</h3>
+                                                    <p style="margin: 5px 0;">To proceed with this registration, you need to confirm. After your confirmation, your supervisor will receive an approval request email.</p>
+                                                    <p style="margin: 5px 0;"><strong>If you confirm:</strong> Your supervisor will be notified to approve your registration.</p>
+                                                    <p style="margin: 5px 0;"><strong>If you decline:</strong> Your registration will be cancelled and the slot will be offered to the next person on the waiting list.</p>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <p>Please choose one of the following options:</p>
+
+                                        <!-- Buttons -->
+                                        <table width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                            <tr>
+                                                <td align="center">
+                                                    <table cellpadding="0" cellspacing="0" border="0">
+                                                        <tr>
+                                                            <td style="padding: 0 10px;">
+                                                                <a href="%s" style="display: inline-block; padding: 14px 28px; background-color: #4CAF50; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">Yes, I Want This Slot</a>
+                                                            </td>
+                                                            <td style="padding: 0 10px;">
+                                                                <a href="%s" style="display: inline-block; padding: 14px 28px; background-color: #f44336; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">No, Decline</a>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <p style="color: #666; font-size: 12px;">
+                                            <strong>Note:</strong> This confirmation link will expire on %s.
+                                        </p>
+                                    </td>
+                                </tr>
+                                <!-- Footer -->
+                                <tr>
+                                    <td style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
+                                        <p style="margin: 5px 0;">This is an automated message from SemScan Attendance System.</p>
+                                        <p style="margin: 5px 0;">If you did not expect this email, please ignore it.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
             </body>
             </html>
             """,
@@ -432,9 +462,10 @@ public class RegistrationApprovalService {
                 String.format("Supervisor email validated: %s", registration.getSupervisorEmail()),
                 registration.getPresenterUsername(), String.format("slotId=%d,supervisorEmail=%s", registration.getSlotId(), registration.getSupervisorEmail()));
 
-        // Generate cryptographically secure UUID token for email approval link (expires in configured hours)
+        // Generate cryptographically secure UUID token for email approval link (expires in configured days)
+        int expiryDays = appConfigService.getIntegerConfig("approval_token_expiry_days", 14);
         String approvalToken = UUID.randomUUID().toString();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(approvalTokenExpirationHours);
+        LocalDateTime expiresAt = LocalDateTime.now().plusDays(expiryDays);
         logger.info("📧 [RegistrationApprovalService] Generated approval token: {} (expires: {})", approvalToken, expiresAt);
         databaseLoggerService.logAction("INFO", "EMAIL_APPROVAL_TOKEN_GENERATED",
                 String.format("Generated approval token (expires: %s)", expiresAt),
@@ -505,10 +536,22 @@ public class RegistrationApprovalService {
         logger.info("📧 [RegistrationApprovalService] Generated URLs - approve: {}, decline: {} (using token: {}...)", 
                 approveUrl, declineUrl, approvalToken.substring(0, Math.min(8, approvalToken.length())));
         
+        // Get student user to resolve full name
+        String studentFullName = registration.getPresenterUsername(); // Default to username
+        Optional<User> studentUser = userRepository.findByBguUsernameIgnoreCase(registration.getPresenterUsername());
+        if (studentUser.isPresent()) {
+            User student = studentUser.get();
+            if (student.getFirstName() != null && student.getLastName() != null) {
+                studentFullName = student.getFirstName() + " " + student.getLastName();
+            } else if (student.getFirstName() != null) {
+                studentFullName = student.getFirstName();
+            }
+        }
+
         // Generate HTML email with slot details, student info, and clickable approve/decline buttons
         String subject = "SemScan: Approval Required for Seminar Slot Registration";
         logger.info("📧 [RegistrationApprovalService] Generating HTML email content...");
-        String htmlContent = generateApprovalEmailHtml(registration, slot, approveUrl, declineUrl, expiresAt);
+        String htmlContent = generateApprovalEmailHtml(registration, slot, approveUrl, declineUrl, expiresAt, studentFullName);
         logger.info("📧 [RegistrationApprovalService] HTML email content generated (length: {} chars)", htmlContent.length());
         databaseLoggerService.logAction("INFO", "EMAIL_CONTENT_GENERATED",
                 String.format("HTML email content generated (length: %d chars)", htmlContent.length()),
@@ -640,7 +683,7 @@ public class RegistrationApprovalService {
             databaseLoggerService.logBusinessEvent("REGISTRATION_EXPIRED",
                     String.format("Registration expired for slotId=%d, presenter=%s (token expired)", slotId, presenterUsername),
                     presenterUsername);
-            throw new IllegalStateException("Approval token has expired");
+            throw new IllegalStateException("This approval link has expired. Please ask the student to register again.");
         }
 
         // Handle different approval statuses
@@ -702,6 +745,27 @@ public class RegistrationApprovalService {
                     String.format("User %s approved for slotId=%d. Automatically cancelled %d other pending registration(s)",
                             presenterUsername, slotId, otherPendingRegistrations.size()),
                     presenterUsername);
+        }
+
+        // BUSINESS RULE: Users can only have 1 approved registration at a time
+        // Automatically remove user from all waiting lists when approved
+        try {
+            Optional<edu.bgu.semscanapi.entity.WaitingListEntry> waitingListEntry =
+                    waitingListService.getWaitingListEntryForUser(presenterUsername);
+            if (waitingListEntry.isPresent()) {
+                edu.bgu.semscanapi.entity.WaitingListEntry entry = waitingListEntry.get();
+                // Remove from waiting list without sending cancellation email (user got approved elsewhere)
+                waitingListService.removeFromWaitingList(entry.getSlotId(), presenterUsername, false);
+                logger.info("Removed user {} from waiting list for slotId={} (user approved for slotId={})",
+                        presenterUsername, entry.getSlotId(), slotId);
+                databaseLoggerService.logBusinessEvent("WAITING_LIST_AUTO_REMOVED_ON_APPROVAL",
+                        String.format("User %s removed from waiting list for slotId=%d (approved for slotId=%d)",
+                                presenterUsername, entry.getSlotId(), slotId),
+                        presenterUsername);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to remove user {} from waiting lists after approval: {}", presenterUsername, e.getMessage(), e);
+            // Don't fail approval if waiting list removal fails
         }
 
         // Send approval notification email OUTSIDE transaction to prevent holding database locks during SMTP operations
@@ -875,7 +939,7 @@ public class RegistrationApprovalService {
             databaseLoggerService.logBusinessEvent("REGISTRATION_EXPIRED",
                     String.format("Registration expired for slotId=%d, presenter=%s (token expired)", slotId, presenterUsername),
                     presenterUsername);
-            throw new IllegalStateException("Approval token has expired");
+            throw new IllegalStateException("This approval link has expired. Please ask the student to register again.");
         }
 
         // Handle different approval statuses
@@ -903,7 +967,7 @@ public class RegistrationApprovalService {
         registration.setSupervisorDeclinedAt(LocalDateTime.now());
         registration.setSupervisorDeclinedReason(reason);
         registrationRepository.save(registration);
-        
+
         // Update WaitingListPromotion status to DECLINED if exists
         updateWaitingListPromotionStatus(slotId, presenterUsername, WaitingListPromotion.PromotionStatus.DECLINED);
 
@@ -911,6 +975,34 @@ public class RegistrationApprovalService {
         databaseLoggerService.logBusinessEvent("REGISTRATION_DECLINED",
                 String.format("Registration declined for slotId=%d, presenter=%s, reason=%s", slotId, presenterUsername, reason),
                 presenterUsername);
+
+        // CRITICAL: When a PENDING registration is declined, capacity is freed - promote next from waiting list
+        try {
+            SeminarSlot slot = slotRepository.findById(slotId)
+                    .orElse(null);
+            if (slot != null) {
+                Optional<edu.bgu.semscanapi.entity.WaitingListEntry> promotedEntry =
+                        presenterHomeService.promoteFromWaitingListAfterCancellation(slotId, slot);
+                if (promotedEntry.isPresent()) {
+                    logger.info("📧 ✅ Successfully promoted next person {} from waiting list for slot {} after supervisor declined",
+                            promotedEntry.get().getPresenterUsername(), slotId);
+                    databaseLoggerService.logBusinessEvent("WAITING_LIST_AUTO_PROMOTED_AFTER_DECLINE",
+                            String.format("Next person %s automatically promoted from waiting list for slotId=%d after supervisor declined previous registration",
+                                    promotedEntry.get().getPresenterUsername(), slotId),
+                            promotedEntry.get().getPresenterUsername());
+                } else {
+                    logger.info("📧 No one to promote from waiting list for slot {} after decline (waiting list empty or slot full)", slotId);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("📧 ❌ Failed to promote next person from waiting list for slot {} after decline: {}",
+                    slotId, e.getMessage(), e);
+            databaseLoggerService.logError("WAITING_LIST_AUTO_PROMOTE_AFTER_DECLINE_FAILED",
+                    String.format("Failed to automatically promote next person from waiting list for slotId=%d after decline: %s",
+                            slotId, e.getMessage()),
+                    e, presenterUsername, String.format("slotId=%d", slotId));
+            // Don't fail the decline operation if promotion fails
+        }
     }
     
     /**
@@ -933,7 +1025,8 @@ public class RegistrationApprovalService {
      * Generate HTML email content for approval request
      */
     private String generateApprovalEmailHtml(SeminarSlotRegistration registration, SeminarSlot slot,
-                                             String approveUrl, String declineUrl, LocalDateTime expiresAt) {
+                                             String approveUrl, String declineUrl, LocalDateTime expiresAt,
+                                             String studentFullName) {
         return String.format("""
             <!DOCTYPE html>
             <html>
@@ -1021,8 +1114,8 @@ public class RegistrationApprovalService {
             </html>
             """,
             registration.getSupervisorName() != null ? registration.getSupervisorName() : "Supervisor",
-            registration.getPresenterUsername(),
-            registration.getPresenterUsername(),
+            studentFullName,
+            studentFullName,
             slot.getSlotDate().toString(),
             slot.getStartTime().toString(),
             slot.getEndTime().toString(),

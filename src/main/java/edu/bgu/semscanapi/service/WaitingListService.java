@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class WaitingListService {
@@ -45,6 +46,10 @@ public class WaitingListService {
     @Value("${app.registration.phd.max-per-slot:1}")
     private int phdMaxPerSlot;
 
+    @Value("${app.server.base-url:http://132.72.50.53:8080}")
+    private String serverBaseUrl;
+
+    // Removed hardcoded PROMOTION_OFFER_EXPIRY_HOURS - now using config "promotion_offer_expiry_hours"
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -141,14 +146,15 @@ public class WaitingListService {
             throw new IllegalStateException("You can only be on 1 waiting list at once. Please wait for notification or cancel your current waiting list entry.");
         }
 
-        // Prevent adding to waiting list if user already has an approved/pending registration for this slot
-        boolean alreadyRegistered = registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, normalizedUsername);
-        if (alreadyRegistered) {
-            String errorMsg = String.format("User is already registered for slotId=%d", slotId);
+        // Prevent adding to waiting list if user already has an ACTIVE registration (PENDING or APPROVED) for this slot
+        // DECLINED and EXPIRED registrations should NOT block joining the waiting list
+        boolean hasActiveRegistration = registrationRepository.existsActiveRegistration(slotId, normalizedUsername);
+        if (hasActiveRegistration) {
+            String errorMsg = String.format("User has active registration (PENDING/APPROVED) for slotId=%d", slotId);
             logger.warn("{} - presenterUsername={}", errorMsg, normalizedUsername);
             databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
                     String.format("slotId=%d,presenterUsername=%s", slotId, normalizedUsername));
-            throw new IllegalStateException("User is already registered for this slot");
+            throw new IllegalStateException("User already has an active registration for this slot");
         }
 
         // Retrieve user record to determine degree (PhD/MSc) which affects waiting list position and promotion logic
@@ -248,6 +254,13 @@ public class WaitingListService {
      */
     @Transactional
     public WaitingListEntry removeFromWaitingList(Long slotId, String presenterUsername) {
+        return removeFromWaitingList(slotId, presenterUsername, true);
+    }
+
+    /**
+     * Remove user from waiting list with option to skip cancellation email (used during promotions)
+     */
+    public WaitingListEntry removeFromWaitingList(Long slotId, String presenterUsername, boolean sendCancellationEmail) {
         Optional<WaitingListEntry> entry = waitingListRepository.findBySlotIdAndPresenterUsername(slotId, presenterUsername);
         if (entry.isEmpty()) {
             throw new IllegalArgumentException("Not on waiting list for this slot");
@@ -255,27 +268,29 @@ public class WaitingListService {
 
         WaitingListEntry entryToRemove = entry.get();
         int position = entryToRemove.getPosition();
-        
+
         // Remove user from waiting list and decrement positions of all entries that were after this one
         waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, presenterUsername);
-        
+
         // Decrement positions of entries after this one
         waitingListRepository.decrementPositionsAfter(slotId, position);
-        
+
         logger.info("Removed user {} from waiting list for slotId={}", presenterUsername, slotId);
         databaseLoggerService.logBusinessEvent("WAITING_LIST_REMOVED",
                 String.format("User %s removed from waiting list for slotId=%d", presenterUsername, slotId),
                 presenterUsername);
-        
-        // Send cancellation email OUTSIDE transaction to prevent holding database locks during slow SMTP operations
-        try {
-            sendWaitingListCancellationEmail(entryToRemove);
-        } catch (Exception e) {
-            logger.error("Failed to send waiting list cancellation email for user {} and slot {}", 
-                    presenterUsername, slotId, e);
-            // Don't fail removal if email fails
+
+        // Send cancellation email only if requested (not during promotions)
+        if (sendCancellationEmail) {
+            try {
+                sendWaitingListCancellationEmail(entryToRemove);
+            } catch (Exception e) {
+                logger.error("Failed to send waiting list cancellation email for user {} and slot {}",
+                        presenterUsername, slotId, e);
+                // Don't fail removal if email fails
+            }
         }
-        
+
         return entryToRemove;
     }
 
@@ -431,112 +446,374 @@ public class WaitingListService {
     }
 
     /**
-     * Promote next user from waiting list when a slot becomes available
+     * Offer promotion to next user from waiting list when a slot becomes available.
+     * Instead of auto-promoting, this sends an email asking if they still want to register.
+     * User has 24 hours to confirm or decline.
+     *
+     * @return true if a promotion offer was sent, false if no one available
      */
     @Transactional
-    public Optional<SeminarSlotRegistration> promoteNextFromWaitingList(Long slotId) {
-        List<WaitingListEntry> waitingList = waitingListRepository.findBySlotIdOrderByPositionAsc(slotId);
-        if (waitingList.isEmpty()) {
-            return Optional.empty();
+    public boolean offerPromotionToNextFromWaitingList(Long slotId) {
+        // Find entries that don't already have a pending promotion offer
+        List<WaitingListEntry> availableEntries = waitingListRepository
+                .findAvailableForPromotion(slotId, LocalDateTime.now());
+
+        if (availableEntries.isEmpty()) {
+            logger.info("No one available for promotion on waiting list for slotId={}", slotId);
+            return false;
         }
 
-        // Count approved registrations to determine if slot has available capacity
-        // TODO: Enhance to check degree-specific capacity (PhD takes whole slot, MSc shares)
-        List<SeminarSlotRegistration> existingRegistrations = registrationRepository
-                .findByIdSlotIdAndApprovalStatus(slotId, ApprovalStatus.APPROVED);
-        long approvedCount = existingRegistrations.size();
+        WaitingListEntry nextEntry = availableEntries.get(0);
 
-        WaitingListEntry nextEntry = waitingList.get(0);
-        
-        // Load slot to check capacity before promoting
+        // Load slot to check capacity
         SeminarSlot slot = slotRepository.findById(slotId)
                 .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
-        
-        // Check capacity: count both APPROVED and PENDING registrations
+
+        // Check capacity before offering promotion
         List<SeminarSlotRegistration> allRegistrations = registrationRepository.findByIdSlotId(slotId);
+        long approvedCount = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
+                .count();
         long pendingCount = allRegistrations.stream()
                 .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
                 .count();
         int totalRegistrations = (int) (approvedCount + pendingCount);
         int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
-        
-        // Promote if slot has capacity: total registrations (approved + pending) must be less than capacity
+
         if (totalRegistrations >= capacity && capacity > 0) {
-            logger.info("Cannot promote user {} from waiting list - slot {} is full (capacity: {}, approved: {}, pending: {})",
-                    nextEntry.getPresenterUsername(), slotId, capacity, approvedCount, pendingCount);
+            logger.info("Cannot offer promotion - slot {} is full (capacity: {}, approved: {}, pending: {})",
+                    slotId, capacity, approvedCount, pendingCount);
+            return false;
+        }
+
+        String username = nextEntry.getPresenterUsername();
+
+        // Check if user already registered
+        if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, username)) {
+            logger.warn("User {} already registered for slot {} - removing from waiting list",
+                    username, slotId);
+            removeFromWaitingList(slotId, username, false);
+            // Try next person
+            return offerPromotionToNextFromWaitingList(slotId);
+        }
+
+        // Generate promotion token
+        String token = UUID.randomUUID().toString();
+        int promotionOfferExpiryHours = appConfigService.getIntegerConfig("promotion_offer_expiry_hours", 24);
+        LocalDateTime expiresAt = LocalDateTime.now().plusHours(promotionOfferExpiryHours);
+
+        // Update waiting list entry with promotion offer
+        nextEntry.setPromotionToken(token);
+        nextEntry.setPromotionTokenExpiresAt(expiresAt);
+        nextEntry.setPromotionOfferedAt(LocalDateTime.now());
+        waitingListRepository.save(nextEntry);
+
+        logger.info("Offering promotion to user {} for slotId={}, token expires at {}",
+                username, slotId, expiresAt);
+        databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_OFFERED",
+                String.format("Promotion offered to user %s for slotId=%d (expires at %s)",
+                        username, slotId, expiresAt),
+                username);
+
+        // Send promotion offer email
+        sendPromotionOfferEmail(nextEntry, slot, token);
+
+        return true;
+    }
+
+    /**
+     * Legacy method - now redirects to offerPromotionToNextFromWaitingList
+     * Returns Optional.empty() since registration is no longer created immediately
+     */
+    @Transactional
+    public Optional<SeminarSlotRegistration> promoteNextFromWaitingList(Long slotId) {
+        boolean offered = offerPromotionToNextFromWaitingList(slotId);
+        // Return empty since we don't create registration immediately anymore
+        // The registration will be created when user confirms
+        return Optional.empty();
+    }
+
+    /**
+     * Confirm promotion - user clicked "Yes, I want to register"
+     * Creates the PENDING registration and removes from waiting list
+     */
+    @Transactional
+    public Optional<SeminarSlotRegistration> confirmPromotion(String token) {
+        Optional<WaitingListEntry> entryOpt = waitingListRepository.findByPromotionToken(token);
+        if (entryOpt.isEmpty()) {
+            logger.warn("Promotion token not found: {}", token);
             return Optional.empty();
         }
-        
-        String promotedUsername = nextEntry.getPresenterUsername();
-        
+
+        WaitingListEntry entry = entryOpt.get();
+
+        // Check if token expired
+        if (entry.getPromotionTokenExpiresAt() == null ||
+            entry.getPromotionTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            logger.warn("Promotion token expired for user {} and slotId={}",
+                    entry.getPresenterUsername(), entry.getSlotId());
+            return Optional.empty();
+        }
+
+        Long slotId = entry.getSlotId();
+        String username = entry.getPresenterUsername();
+
         // Get user details
-        User promotedUser = userRepository.findByBguUsername(promotedUsername)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + promotedUsername));
-        
-        // Check if user already registered (shouldn't happen, but safety check)
-        if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, promotedUsername)) {
-            logger.warn("User {} already registered for slot {} - removing from waiting list without promotion",
-                    promotedUsername, slotId);
-            waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, promotedUsername);
+        User user = userRepository.findByBguUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+
+        // Load slot to check capacity again (may have changed)
+        SeminarSlot slot = slotRepository.findById(slotId)
+                .orElseThrow(() -> new IllegalArgumentException("Slot not found: " + slotId));
+
+        // Check capacity before creating registration
+        List<SeminarSlotRegistration> allRegistrations = registrationRepository.findByIdSlotId(slotId);
+        long approvedCount = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
+                .count();
+        long pendingCount = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .count();
+        int totalRegistrations = (int) (approvedCount + pendingCount);
+        int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
+
+        // Check PhD capacity requirement
+        int phdWeight = appConfigService.getIntegerConfig("phd.capacity.weight", 2);
+        int userWeight = (user.getDegree() == User.Degree.PhD) ? phdWeight : 1;
+        int effectiveUsage = 0;
+        for (SeminarSlotRegistration reg : allRegistrations) {
+            if (reg.getApprovalStatus() == ApprovalStatus.APPROVED ||
+                reg.getApprovalStatus() == ApprovalStatus.PENDING) {
+                effectiveUsage += (reg.getDegree() == User.Degree.PhD) ? phdWeight : 1;
+            }
+        }
+
+        if (effectiveUsage + userWeight > capacity && capacity > 0) {
+            logger.warn("Cannot confirm promotion - slot {} no longer has capacity for {} (capacity: {}, usage: {}, needed: {})",
+                    slotId, username, capacity, effectiveUsage, userWeight);
+            databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_FAILED",
+                    String.format("User %s confirmed promotion but slot %d is now full", username, slotId),
+                    username);
             return Optional.empty();
         }
-        
-        // RACE CONDITION FIX: Remove from waiting list FIRST to prevent duplicate promotions
-        // If another process is also trying to promote, only one will succeed in deleting
-        // Store the data we need before deleting
-        int position = nextEntry.getPosition();
-        String topic = nextEntry.getTopic();
-        String supervisorName = nextEntry.getSupervisorName();
-        String supervisorEmail = nextEntry.getSupervisorEmail();
 
-        // Delete from waiting list FIRST (atomically prevents other processes from promoting same user)
-        waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, promotedUsername);
+        // Check if user already registered
+        if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, username)) {
+            logger.warn("User {} already registered for slot {} during promotion confirmation", username, slotId);
+            removeFromWaitingList(slotId, username, false);
+            return Optional.empty();
+        }
 
-        // Decrement positions of remaining entries
+        // Store entry data before removing
+        int position = entry.getPosition();
+        String topic = entry.getTopic();
+        String supervisorName = entry.getSupervisorName();
+        String supervisorEmail = entry.getSupervisorEmail();
+
+        // Remove from waiting list
+        waitingListRepository.deleteBySlotIdAndPresenterUsername(slotId, username);
         waitingListRepository.decrementPositionsAfter(slotId, position);
 
-        // Now create the registration (waiting list entry is already gone, so no race)
+        // Create PENDING registration
         SeminarSlotRegistration newRegistration = new SeminarSlotRegistration();
-        newRegistration.setId(new SeminarSlotRegistrationId(slotId, promotedUsername));
-        newRegistration.setDegree(promotedUser.getDegree());
+        newRegistration.setId(new SeminarSlotRegistrationId(slotId, username));
+        newRegistration.setDegree(user.getDegree());
         newRegistration.setTopic(topic);
-        // Get abstract from user profile (not waiting list entry)
-        newRegistration.setSeminarAbstract(promotedUser.getSeminarAbstract());
+        newRegistration.setSeminarAbstract(user.getSeminarAbstract());
         newRegistration.setSupervisorName(supervisorName);
         newRegistration.setSupervisorEmail(supervisorEmail);
         newRegistration.setRegisteredAt(LocalDateTime.now());
         newRegistration.setApprovalStatus(ApprovalStatus.PENDING);
 
+        // Generate approval token for supervisor (expiry from config, default 14 days)
+        int expiryDays = appConfigService.getIntegerConfig("approval_token_expiry_days", 14);
+        String approvalToken = UUID.randomUUID().toString();
+        newRegistration.setApprovalToken(approvalToken);
+        newRegistration.setApprovalTokenExpiresAt(LocalDateTime.now().plusDays(expiryDays));
+
         registrationRepository.save(newRegistration);
-        
-        // Create WaitingListPromotion record with expiration time
-        LocalDateTime promotedAt = LocalDateTime.now();
-        Integer approvalWindowHours = appConfigService != null 
-                ? appConfigService.getIntegerConfig("waiting_list_approval_window_hours", 24) 
-                : 24;
-        LocalDateTime expiresAt = promotedAt.plusHours(approvalWindowHours);
-        
+
+        // Log promotion confirmation
+        logger.info("User {} confirmed promotion for slotId={} - PENDING registration created", username, slotId);
+        databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_CONFIRMED",
+                String.format("User %s confirmed promotion for slotId=%d - PENDING registration created", username, slotId),
+                username);
+
+        // Create promotion record
         WaitingListPromotion promotion = new WaitingListPromotion();
         promotion.setSlotId(slotId);
-        promotion.setPresenterUsername(promotedUsername);
+        promotion.setPresenterUsername(username);
         promotion.setRegistrationSlotId(slotId);
-        promotion.setRegistrationPresenterUsername(promotedUsername);
-        promotion.setPromotedAt(promotedAt);
-        promotion.setExpiresAt(expiresAt);
+        promotion.setRegistrationPresenterUsername(username);
+        promotion.setPromotedAt(LocalDateTime.now());
+        promotion.setExpiresAt(LocalDateTime.now().plusDays(expiryDays));
         promotion.setStatus(WaitingListPromotion.PromotionStatus.PENDING);
         waitingListPromotionRepository.save(promotion);
-        
-        logger.info("Promoted user {} from waiting list for slotId={} - created PENDING registration with promotion record (expires at {})", 
-                promotedUsername, slotId, expiresAt);
-        databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTED",
-                String.format("User %s promoted from waiting list for slotId=%d (PENDING registration created, expires at %s, approval window: %d hours)",
-                        promotedUsername, slotId, expiresAt, approvalWindowHours),
-                promotedUsername);
 
-        // NOTE: Student confirmation email should be sent by the caller using RegistrationApprovalService.sendStudentConfirmationEmail()
-        // to avoid circular dependencies and maintain proper transaction boundaries
-        // After student confirms, supervisor approval email will be sent automatically
         return Optional.of(newRegistration);
+    }
+
+    /**
+     * Decline promotion - user clicked "No thanks"
+     * Removes from waiting list and offers to next person
+     */
+    @Transactional
+    public void declinePromotion(String token) {
+        Optional<WaitingListEntry> entryOpt = waitingListRepository.findByPromotionToken(token);
+        if (entryOpt.isEmpty()) {
+            logger.warn("Promotion token not found for decline: {}", token);
+            return;
+        }
+
+        WaitingListEntry entry = entryOpt.get();
+        Long slotId = entry.getSlotId();
+        String username = entry.getPresenterUsername();
+
+        logger.info("User {} declined promotion for slotId={}", username, slotId);
+        databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_DECLINED",
+                String.format("User %s declined promotion for slotId=%d", username, slotId),
+                username);
+
+        // Remove from waiting list (don't send cancellation email - they chose to decline)
+        removeFromWaitingList(slotId, username, false);
+
+        // Offer to next person in line
+        offerPromotionToNextFromWaitingList(slotId);
+    }
+
+    /**
+     * Handle expired promotion offers - called by scheduler
+     * Removes expired entries from waiting list and offers to next person
+     */
+    @Transactional
+    public void processExpiredPromotionOffers() {
+        List<WaitingListEntry> expired = waitingListRepository.findExpiredPromotionOffers(LocalDateTime.now());
+
+        for (WaitingListEntry entry : expired) {
+            Long slotId = entry.getSlotId();
+            String username = entry.getPresenterUsername();
+
+            logger.info("Promotion offer expired for user {} and slotId={}", username, slotId);
+            databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_EXPIRED",
+                    String.format("Promotion offer expired for user %s and slotId=%d - removing from waiting list",
+                            username, slotId),
+                    username);
+
+            // Remove from waiting list
+            removeFromWaitingList(slotId, username, false);
+
+            // Offer to next person in line
+            offerPromotionToNextFromWaitingList(slotId);
+        }
+    }
+
+    /**
+     * Send email to user offering promotion from waiting list
+     */
+    private void sendPromotionOfferEmail(WaitingListEntry entry, SeminarSlot slot, String token) {
+        // Get user email
+        User user = userRepository.findByBguUsername(entry.getPresenterUsername()).orElse(null);
+        if (user == null || user.getEmail() == null) {
+            logger.error("Cannot send promotion offer email - user not found or no email: {}",
+                    entry.getPresenterUsername());
+            return;
+        }
+
+        String studentEmail = user.getEmail();
+        String studentName = user.getFirstName() != null && user.getLastName() != null
+                ? user.getFirstName() + " " + user.getLastName()
+                : entry.getPresenterUsername();
+
+        String confirmUrl = serverBaseUrl + "/api/waiting-list/confirm?token=" + token;
+        String declineUrl = serverBaseUrl + "/api/waiting-list/decline?token=" + token;
+
+        String subject = "SemScan - A Presentation Slot is Now Available!";
+        String htmlContent = generatePromotionOfferEmailHtml(entry, slot, studentName, confirmUrl, declineUrl);
+
+        boolean sent = mailService.sendHtmlEmail(studentEmail, subject, htmlContent);
+        if (sent) {
+            logger.info("Promotion offer email sent to {} for slotId={}", studentEmail, entry.getSlotId());
+            databaseLoggerService.logBusinessEvent("EMAIL_PROMOTION_OFFER_SENT",
+                    String.format("Promotion offer email sent to %s for slotId=%d", studentEmail, entry.getSlotId()),
+                    entry.getPresenterUsername());
+        } else {
+            logger.error("Failed to send promotion offer email to {}", studentEmail);
+        }
+    }
+
+    /**
+     * Generate HTML email for promotion offer
+     */
+    private String generatePromotionOfferEmailHtml(WaitingListEntry entry, SeminarSlot slot,
+            String studentName, String confirmUrl, String declineUrl) {
+        return String.format("""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+            </head>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background-color: #4CAF50; color: white; padding: 20px; text-align: center;">
+                        <h1 style="margin: 0;">Good News! A Slot is Available</h1>
+                    </div>
+                    <div style="padding: 20px; background-color: #f9f9f9;">
+                        <p>Dear %s,</p>
+
+                        <div style="background-color: #e8f5e9; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50;">
+                            <h3 style="margin-top: 0; color: #2e7d32;">🎉 A Presentation Slot Has Opened Up!</h3>
+                            <p>You were on the waiting list for this slot, and now there's space available for you.</p>
+                        </div>
+
+                        <div style="background-color: #e3f2fd; padding: 15px; margin: 15px 0; border-left: 4px solid #2196F3;">
+                            <h3>Slot Details:</h3>
+                            <p><strong>Date:</strong> %s</p>
+                            <p><strong>Time:</strong> %s - %s</p>
+                            <p><strong>Location:</strong> %s, Room %s</p>
+                            <p><strong>Your Topic:</strong> %s</p>
+                        </div>
+
+                        <div style="background-color: #fff3e0; padding: 15px; margin: 15px 0; border-left: 4px solid #ff9800;">
+                            <p><strong>⏰ You have 24 hours to respond.</strong></p>
+                            <p>If you don't respond in time, the slot will be offered to the next person on the waiting list.</p>
+                        </div>
+
+                        <p><strong>Do you still want to register for this slot?</strong></p>
+
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 20px 0;">
+                            <tr>
+                                <td style="padding-right: 15px;">
+                                    <a href="%s" style="display: inline-block; padding: 15px 30px; background-color: #4CAF50; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Yes, Register Me!</a>
+                                </td>
+                                <td>
+                                    <a href="%s" style="display: inline-block; padding: 15px 30px; background-color: #9e9e9e; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">No Thanks</a>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <p style="color: #666; font-size: 12px;">If the buttons don't work, copy and paste these links:</p>
+                        <p style="color: #666; font-size: 12px;">Yes: %s</p>
+                        <p style="color: #666; font-size: 12px;">No: %s</p>
+                    </div>
+                    <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
+                        <p>This is an automated message from SemScan Attendance System.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """,
+            studentName,
+            slot.getSlotDate() != null ? DATE_FORMAT.format(slot.getSlotDate()) : "N/A",
+            slot.getStartTime() != null ? TIME_FORMAT.format(slot.getStartTime()) : "N/A",
+            slot.getEndTime() != null ? TIME_FORMAT.format(slot.getEndTime()) : "N/A",
+            slot.getBuilding() != null ? slot.getBuilding() : "N/A",
+            slot.getRoom() != null ? slot.getRoom() : "N/A",
+            entry.getTopic() != null ? entry.getTopic() : "Not specified",
+            confirmUrl,
+            declineUrl,
+            confirmUrl,
+            declineUrl
+        );
     }
 
     /**

@@ -4,6 +4,7 @@ import edu.bgu.semscanapi.entity.Attendance;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.AttendanceRepository;
+import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,12 @@ class AttendanceServiceTest {
     @Mock
     private DatabaseLoggerService databaseLoggerService;
 
+    @Mock
+    private SeminarSlotRepository slotRepository;
+
+    @Mock
+    private AppConfigService appConfigService;
+
     @InjectMocks
     private AttendanceService attendanceService;
 
@@ -49,12 +56,12 @@ class AttendanceServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Setup test session
+        // Setup test session - starts now so attendance window is open
         testSession = new Session();
         testSession.setSessionId(1L);
         testSession.setSeminarId(1L);
-        testSession.setStartTime(LocalDateTime.now().minusHours(1));
-        testSession.setEndTime(LocalDateTime.now().plusHours(1));
+        testSession.setStartTime(LocalDateTime.now(java.time.ZoneId.of("Asia/Jerusalem")));
+        testSession.setEndTime(LocalDateTime.now(java.time.ZoneId.of("Asia/Jerusalem")).plusHours(1));
         testSession.setStatus(Session.SessionStatus.OPEN);
 
         // Setup test student
@@ -69,6 +76,10 @@ class AttendanceServiceTest {
         testAttendance.setSessionId(1L);
         testAttendance.setStudentUsername("student1");
         testAttendance.setMethod(Attendance.AttendanceMethod.QR_SCAN);
+
+        // Setup appConfigService to return default session duration (15 minutes)
+        lenient().when(appConfigService.getIntegerConfig(eq("presenter_close_session_duration_minutes"), anyInt()))
+                .thenReturn(15);
     }
 
     // ==================== recordAttendance Tests ====================
