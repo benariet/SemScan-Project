@@ -1,12 +1,12 @@
 digraph RegistrationFlow {
-      label="Registration Flow";
-      labelloc="t";
-      fontsize=20;
-      fontname="Arial Bold";
+    label="Registration Flow";
+    labelloc="t";
+    fontsize=20;
+    fontname="Arial Bold";
 
-      rankdir=TB;
-      splines=true;
-      nodesep=1.8;
+    rankdir=TB;
+    splines=true;
+    nodesep=1.8;
 
     node [
         shape=box,
@@ -25,6 +25,18 @@ digraph RegistrationFlow {
     // Start
     Home [label="Home Screen", fillcolor="#e8f5e9", color="#388e3c", penwidth=2];
 
+    // Presentation Details - Required before registration
+    subgraph cluster_details {
+        label="Required before registration";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#9c27b0";
+        bgcolor="#f3e5f522";
+
+        PresDetails [label="Press Presentation\nDetails button", fillcolor="#e1bee7", color="#9c27b0"];
+        DetailsForm [label="Fill in:\n-----------\n* Topic\n* Abstract\n* Supervisor Name\n* Supervisor Email", fillcolor="#e1bee7", color="#9c27b0", shape=note];
+    }
+
     // Browse Slots
     subgraph cluster_browse {
         label="Browse Available Slots";
@@ -34,7 +46,7 @@ digraph RegistrationFlow {
         bgcolor="#e3f2fd22";
 
         AvailableSlots [label="Available Slots", fillcolor="#bbdefb", color="#1976d2"];
-        SlotList [label="Slot List\n-----------\n* Date and Time\n* Location\n* Available Spots", fillcolor="#bbdefb", color="#1976d2", shape=note];
+        SlotList [label="Slot List\n-----------\n* Date and Time\n* Available Spots", fillcolor="#bbdefb", color="#1976d2", shape=note];
         RegisterBtn [label="Register for Slot", fillcolor="#bbdefb", color="#1976d2"];
     }
 
@@ -72,10 +84,12 @@ digraph RegistrationFlow {
     Approved [label="APPROVED\n+ Confirmation Email", fillcolor="#c8e6c9", color="#2e7d32"];
     Rejected [label="REJECTED\n+ Rejection Email", fillcolor="#ef9a9a", color="#b71c1c", shape=ellipse];
 
-    // Cancellation (simplified)
+    // Connections - Presentation Details
+    Home -> PresDetails;
+    PresDetails -> DetailsForm;
+    DetailsForm -> AvailableSlots [label="saved"];
 
     // Connections - Browse
-    Home -> AvailableSlots;
     AvailableSlots -> SlotList;
     SlotList -> RegisterBtn [label="tap slot"];
     RegisterBtn -> Pending [label="submit"];
