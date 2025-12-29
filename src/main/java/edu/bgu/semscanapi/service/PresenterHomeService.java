@@ -360,7 +360,7 @@ public class PresenterHomeService {
             registration.setRegisteredAt(LocalDateTime.now());
             registration.setApprovalStatus(ApprovalStatus.PENDING); // Default to PENDING
 
-            registrationRepository.save(registration);
+            registrationRepository.saveAndFlush(registration);
 
             // OPTION 1: "Safety Net" Logic - If user was on waiting list for THIS slot, remove them
             // (They got a spot, so they don't need to be on the waiting list anymore)
@@ -400,8 +400,6 @@ public class PresenterHomeService {
 
             updateSlotStatus(slot, updatedState);
             seminarSlotRepository.save(slot);
-            
-            // Transaction commits here: all database operations complete, locks released immediately to prevent contention
 
             logger.info("Presenter {} successfully registered to slot {}", presenterUsername, slotId);
             
@@ -428,73 +426,12 @@ public class PresenterHomeService {
             throw e;
         }
         
-        // Send supervisor approval email OUTSIDE transaction to prevent holding database locks during SMTP operations
+        // Send supervisor approval email (registration already flushed to DB via saveAndFlush)
         logger.info("📧 EMAIL SENDING FLOW START - presenter: {}, slotId: {}", presenterUsername, slotId);
         databaseLoggerService.logAction("INFO", "EMAIL_SENDING_FLOW_START",
                 String.format("Starting email sending flow for presenter %s and slot %s", presenterUsername, slotId),
                 presenterUsername, String.format("slotId=%d", slotId));
-        
-        // CRITICAL: Wait a moment for transaction to commit before refreshing registration
-        // This ensures the registration is fully persisted in the database
-        try {
-            Thread.sleep(100); // Small delay to ensure transaction commit
-            logger.info("📧 Waited 100ms for transaction commit before refreshing registration");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.warn("📧 Thread interrupted while waiting for transaction commit");
-        }
-        
-        // CRITICAL: Refresh registration from database to ensure all fields are persisted before sending email
-        if (registration != null && registration.getId() != null) {
-            logger.info("📧 Refreshing registration from database - registrationId: {}", registration.getId());
-            databaseLoggerService.logAction("INFO", "EMAIL_REGISTRATION_REFRESH_ATTEMPT",
-                    String.format("Refreshing registration from database for presenter %s and slot %s", presenterUsername, slotId),
-                    presenterUsername, String.format("slotId=%d,registrationId=%s", slotId, registration.getId()));
-            
-            // Try multiple times in case transaction hasn't committed yet
-            Optional<SeminarSlotRegistration> refreshedRegistration = Optional.empty();
-            for (int attempt = 1; attempt <= 3; attempt++) {
-                refreshedRegistration = registrationRepository.findById(registration.getId());
-                if (refreshedRegistration.isPresent()) {
-                    logger.info("📧 Registration found on attempt {}", attempt);
-                    break;
-                } else {
-                    logger.warn("📧 Registration not found on attempt {}, waiting 200ms before retry...", attempt);
-                    try {
-                        Thread.sleep(200);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-            }
-            
-            if (refreshedRegistration.isPresent()) {
-                registration = refreshedRegistration.get();
-                String dbEmail = registration.getSupervisorEmail() != null ? registration.getSupervisorEmail() : "null";
-                logger.info("📧 Registration refreshed - supervisorEmail in DB: {}", dbEmail);
-                databaseLoggerService.logAction("INFO", "EMAIL_REGISTRATION_REFRESHED",
-                        String.format("Registration refreshed from database - supervisorEmail: %s", dbEmail),
-                        presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, dbEmail));
-            } else {
-                logger.error("📧 CRITICAL: Registration not found in database after 3 attempts! registrationId: {}", registration.getId());
-                databaseLoggerService.logError("EMAIL_REGISTRATION_NOT_FOUND_AFTER_SAVE",
-                        String.format("Registration not found in database after save for presenter %s and slot %s (tried 3 times)",
-                                presenterUsername, slotId),
-                        null, presenterUsername, String.format("slotId=%d,registrationId=%s,attempts=3", slotId, registration.getId()));
-                // Continue anyway - use the registration object we have
-                logger.warn("📧 Continuing with original registration object (may not have supervisorEmail persisted)");
-            }
-        } else {
-            logger.error("📧 CRITICAL: Registration is null or has no ID! registration: {}, id: {}", 
-                    registration != null ? "not null" : "null",
-                    registration != null && registration.getId() != null ? registration.getId() : "null");
-            databaseLoggerService.logError("EMAIL_REGISTRATION_NULL_OR_NO_ID",
-                    String.format("Registration is null or has no ID for presenter %s and slot %s",
-                            presenterUsername, slotId),
-                    null, presenterUsername, String.format("slotId=%d", slotId));
-        }
-        
+
         // Get supervisor email: prefer User entity, then registration, then request (backward compatibility)
         String supervisorEmail = null;
         String supervisorName = null;
