@@ -4,7 +4,7 @@
     android:id="@+id/card_presentation_details"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="20dp"
+    android:layout_marginBottom="16dp"
     app:cardCornerRadius="24dp"
     app:cardElevation="8dp"
     app:strokeWidth="0dp"
@@ -15,28 +15,28 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@drawable/bg_button_orange_gradient">
+        android:background="@drawable/bg_card_orange_light_gradient">
 
         <!-- Header (always visible, clickable to expand/collapse) -->
         <LinearLayout
             android:id="@+id/presentation_details_header"
             android:layout_width="match_parent"
-            android:layout_height="110dp"
+            android:layout_height="80dp"
             android:orientation="horizontal"
-            android:paddingStart="28dp"
-            android:paddingEnd="28dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
             android:gravity="center_vertical"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?android:attr/selectableItemBackground">
 
-            <!-- White Circular Icon Container -->
+            <!-- Purple Circular Icon Container -->
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="55dp"
-                android:layout_height="55dp"
-                android:layout_marginEnd="24dp"
-                app:cardCornerRadius="27.5dp"
-                app:cardBackgroundColor="@color/white"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="16dp"
+                app:cardCornerRadius="24dp"
+                app:cardBackgroundColor="@color/icon_container_orange"
                 app:cardElevation="0dp">
 
                 <ImageView
@@ -45,7 +45,7 @@
                     android:src="@drawable/ic_description"
                     android:contentDescription="@string/presentation_details_title"
                     android:padding="12dp"
-                    app:tint="@color/button_orange_start"
+                    app:tint="@color/white"
                     android:scaleType="fitCenter" />
 
             </com.google.android.material.card.MaterialCardView>
@@ -63,7 +63,7 @@
                     android:text="@string/presentation_details_title"
                     android:textSize="19sp"
                     android:textStyle="bold"
-                    android:textColor="@color/white" />
+                    android:textColor="@color/gray_900" />
 
                 <TextView
                     android:id="@+id/text_presentation_status"
@@ -71,8 +71,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/presentation_details_status_incomplete"
                     android:textSize="13sp"
-                    android:textColor="@color/white"
-                    android:alpha="0.8"
+                    android:textColor="@color/gray_700"
                     android:layout_marginTop="4dp" />
 
             </LinearLayout>
@@ -84,7 +83,7 @@
                 android:layout_height="32dp"
                 android:contentDescription="@string/expand"
                 android:src="@drawable/ic_expand_more"
-                app:tint="@color/white" />
+                app:tint="@color/gray_700" />
         </LinearLayout>
 
         <!-- Expandable Content (form fields) -->
@@ -107,7 +106,7 @@
                 android:text="@string/presentation_topic_hint"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:textColor="@color/white" />
+                android:textColor="@color/gray_900" />
 
             <!-- Presentation Topic Input -->
             <com.google.android.material.textfield.TextInputLayout
@@ -140,7 +139,7 @@
                 android:text="@string/seminar_abstract_hint"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:textColor="@color/white" />
+                android:textColor="@color/gray_900" />
 
             <!-- Seminar Abstract Input -->
             <com.google.android.material.textfield.TextInputLayout
@@ -175,7 +174,7 @@
                 android:text="@string/supervisor_name_hint"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:textColor="@color/white" />
+                android:textColor="@color/gray_900" />
 
             <!-- Supervisor Name Input -->
             <com.google.android.material.textfield.TextInputLayout
@@ -207,7 +206,7 @@
                 android:text="@string/supervisor_email_hint"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                android:textColor="@color/white" />
+                android:textColor="@color/gray_900" />
 
             <!-- Supervisor Email Input -->
             <com.google.android.material.textfield.TextInputLayout
@@ -240,7 +239,7 @@
                 android:textColor="@color/white"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                app:backgroundTint="@color/icon_blue"
+                app:backgroundTint="@color/icon_container_orange"
                 app:cornerRadius="12dp" />
 
         </LinearLayout>

@@ -28,6 +28,7 @@ import com.google.zxing.qrcode.QRCodeWriter;
 import org.example.semscan.R;
 import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
+import org.example.semscan.data.model.ManualAttendanceResponse;
 import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.QRUtils;
@@ -37,6 +38,7 @@ import org.example.semscan.utils.ConfigManager;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import java.util.List;
 import java.util.Locale;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -55,6 +57,15 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     public static final String EXTRA_SLOT_ID = "presenter_attendance_slot_id";
     public static final String EXTRA_USERNAME = "presenter_attendance_username";
     public static final String EXTRA_SESSION_ID = "presenter_attendance_session_id";
+
+    // Result extras for passing back session close info
+    public static final String RESULT_EXTRA_SESSION_CLOSED = "session_closed";
+    public static final String RESULT_EXTRA_SESSION_CANCELED = "session_canceled";
+    public static final String RESULT_EXTRA_OPENED_AT = "opened_at";
+    public static final String RESULT_EXTRA_CLOSED_AT = "closed_at";
+    public static final String RESULT_EXTRA_ATTENDEE_COUNT = "attendee_count";
+    public static final int RESULT_CODE_SESSION_CLOSED = 100;
+    public static final int RESULT_CODE_SESSION_CANCELED = 101;
 
     private static final long AUTO_CLOSE_CHECK_INTERVAL_MS = 30000L; // Check every 30 seconds
     // AUTO_CLOSE_DURATION_MS is now retrieved from ConfigManager (presenterCloseSessionDurationMinutes)
@@ -86,6 +97,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     private long sessionOpenedAtMs; // Timestamp when session was opened (in milliseconds)
     private long sessionClosesAtMs; // Timestamp when session should close (in milliseconds)
     private boolean isAutoClosing = false; // Flag to prevent multiple auto-close attempts
+    private String openedAtFormatted; // Formatted opened timestamp for display
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -153,19 +165,22 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
         }
 
         if (!TextUtils.isEmpty(openedAt)) {
-            textOpenedAt.setText(getString(R.string.presenter_attendance_qr_opened_at, openedAt));
             // Parse openedAt timestamp to calculate auto-close time
             sessionOpenedAtMs = parseTimestamp(openedAt);
             if (sessionOpenedAtMs <= 0) {
                 // If parsing fails, use current time as fallback
                 sessionOpenedAtMs = System.currentTimeMillis();
             }
+            // Format for display in human-readable format
+            openedAtFormatted = formatTimeHumanReadable(sessionOpenedAtMs);
+            textOpenedAt.setText(getString(R.string.presenter_attendance_qr_opened_at, openedAtFormatted));
         } else {
             // If no openedAt provided, use current time
             sessionOpenedAtMs = System.currentTimeMillis();
+            openedAtFormatted = formatTimeHumanReadable(sessionOpenedAtMs);
+            textOpenedAt.setText(getString(R.string.presenter_attendance_qr_opened_at, openedAtFormatted));
         }
         if (!TextUtils.isEmpty(closesAt)) {
-            textValidUntil.setText(getString(R.string.presenter_attendance_qr_valid_until, closesAt));
             // Parse closesAt timestamp to determine when to auto-close
             sessionClosesAtMs = parseTimestamp(closesAt);
             if (sessionClosesAtMs <= 0) {
@@ -177,6 +192,8 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                     sessionClosesAtMs = System.currentTimeMillis() + durationMs;
                 }
             }
+            // Format for display in human-readable format
+            textValidUntil.setText(getString(R.string.presenter_attendance_qr_valid_until, formatTimeHumanReadable(sessionClosesAtMs)));
         } else {
             // If no closesAt provided, calculate from openedAt + configured duration
             long durationMs = getAutoCloseDurationMs();
@@ -185,6 +202,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
             } else {
                 sessionClosesAtMs = System.currentTimeMillis() + durationMs;
             }
+            textValidUntil.setText(getString(R.string.presenter_attendance_qr_valid_until, formatTimeHumanReadable(sessionClosesAtMs)));
         }
 
         String normalizedContent = normalizeQrContent(!TextUtils.isEmpty(qrPayload) ? qrPayload : qrUrl);
@@ -197,28 +215,29 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     /**
      * Parse timestamp string to milliseconds.
      * Supports formats like "2025-11-09 14:30:00" or ISO 8601 format.
-     * Note: Timestamps without timezone are assumed to be in UTC to match server time.
+     * Note: Timestamps without timezone are assumed to be in Israel timezone (Asia/Jerusalem) to match server time.
      */
     private long parseTimestamp(String timestamp) {
         if (TextUtils.isEmpty(timestamp)) {
             return 0;
         }
         try {
-            // Try ISO 8601 format first (e.g., "2025-11-09T14:30:00Z" or "2025-11-09T14:30:00+00:00")
+            // Server sends timestamps in Israel timezone (Asia/Jerusalem)
+            java.util.TimeZone israelTz = java.util.TimeZone.getTimeZone("Asia/Jerusalem");
+
+            // Try ISO 8601 format first (e.g., "2025-11-09T14:30:00")
             java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
-            // Set timezone to UTC for timestamps without timezone info (to match server time)
-            isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            isoFormat.setTimeZone(israelTz);
             try {
                 String cleanedTimestamp = timestamp.replace("Z", "").replaceAll("\\+\\d{2}:\\d{2}$", "");
                 return isoFormat.parse(cleanedTimestamp).getTime();
             } catch (Exception e) {
                 // Try without timezone
             }
-            
+
             // Try standard format (e.g., "2025-11-09 14:30:00")
             java.text.SimpleDateFormat standardFormat = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US);
-            // Set timezone to UTC for timestamps without timezone info (to match server time)
-            standardFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            standardFormat.setTimeZone(israelTz);
             return standardFormat.parse(timestamp).getTime();
         } catch (Exception e) {
             Logger.w(Logger.TAG_UI, "Failed to parse timestamp: " + timestamp + " - " + e.getMessage());
@@ -232,6 +251,16 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     private String formatTime(long timestampMs) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
         return sdf.format(new Date(timestampMs));
+    }
+
+    /**
+     * Format timestamp to human-readable format (e.g., "December 28, 2025 at 4:43 PM")
+     */
+    private String formatTimeHumanReadable(long timestampMs) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM d, yyyy", Locale.getDefault());
+        SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
+        Date date = new Date(timestampMs);
+        return dateFormat.format(date) + " at " + timeFormat.format(date);
     }
 
 
@@ -412,6 +441,8 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                 if (response.isSuccessful()) {
                     Toast.makeText(PresenterAttendanceQrActivity.this, R.string.presenter_attendance_qr_end_success, Toast.LENGTH_SHORT).show();
                     Logger.userAction("Cancel Session", "Session " + sessionId + " cancelled successfully");
+                    // Set result to indicate session was canceled (not completed)
+                    setSessionCanceledResult();
                     // For cancel, just go back to home - don't navigate to export
                     finish();
                 } else {
@@ -436,10 +467,9 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     }
 
     /**
-     * Close session only (without navigating away).
-     * Used for auto-close to keep the QR page visible.
-     * 
-     * @param navigateToExport If true, navigate to export after closing. If false, stay on QR page.
+     * Close session. Checks for pending manual requests:
+     * - If pending requests exist → navigate to Export page for approval
+     * - If no pending requests → auto-upload and show success screen
      */
     private void closeSessionOnly(boolean navigateToExport) {
         if (sessionId == null) {
@@ -454,32 +484,26 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
         apiService.closeSession(sessionId).enqueue(new Callback<org.example.semscan.data.model.Session>() {
             @Override
             public void onResponse(Call<org.example.semscan.data.model.Session> call, Response<org.example.semscan.data.model.Session> response) {
-                progressRefresh.setVisibility(View.GONE);
-                btnEndSession.setEnabled(true);
-                btnCancelSession.setEnabled(true);
-                
                 if (response.isSuccessful()) {
                     // Log session close with timestamp
                     String sessionCloseTime = formatTime(System.currentTimeMillis());
-                    String sessionCloseLog = String.format("Session closed at %s | Session ID: %s, Slot ID: %s", 
+                    String sessionCloseLog = String.format("Session closed at %s | Session ID: %s, Slot ID: %s",
                         sessionCloseTime, sessionId, slotId != null ? slotId : "unknown");
                     Logger.i(Logger.TAG_UI, sessionCloseLog);
                     if (serverLogger != null) {
                         serverLogger.i(ServerLogger.TAG_UI, sessionCloseLog);
                     }
-                    
-                    String message = navigateToExport 
-                        ? getString(R.string.presenter_attendance_qr_end_success)
-                        : getString(R.string.presenter_attendance_qr_auto_close_message);
-                    Toast.makeText(PresenterAttendanceQrActivity.this, message, Toast.LENGTH_LONG).show();
+
                     Logger.userAction("End Session", "Session " + sessionId + " ended successfully");
-                    
-                    if (navigateToExport) {
-                        // Fetch slot details for export filename before navigating
-                        fetchSlotDetailsForExport();
-                    }
-                    // If navigateToExport is false, stay on QR page - don't navigate away
+                    Toast.makeText(PresenterAttendanceQrActivity.this,
+                        R.string.presenter_attendance_qr_end_success, Toast.LENGTH_SHORT).show();
+
+                    // Check for pending manual requests before deciding where to go
+                    checkPendingRequestsAndProceed();
                 } else {
+                    progressRefresh.setVisibility(View.GONE);
+                    btnEndSession.setEnabled(true);
+                    btnCancelSession.setEnabled(true);
                     Toast.makeText(PresenterAttendanceQrActivity.this, R.string.presenter_attendance_qr_end_error, Toast.LENGTH_SHORT).show();
                     Logger.apiError("PATCH", "/api/v1/sessions/" + sessionId + "/close", response.code(), "Failed to end session");
                 }
@@ -492,6 +516,118 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                 btnCancelSession.setEnabled(true);
                 Toast.makeText(PresenterAttendanceQrActivity.this, R.string.presenter_attendance_qr_end_error, Toast.LENGTH_SHORT).show();
                 Logger.e(Logger.TAG_API, "Failed to end session", t);
+            }
+        });
+    }
+
+    /**
+     * Check if there are pending manual requests. If yes, go to Export page. If no, auto-upload.
+     */
+    private void checkPendingRequestsAndProceed() {
+        apiService.getPendingManualRequests(sessionId).enqueue(new Callback<List<ManualAttendanceResponse>>() {
+            @Override
+            public void onResponse(Call<List<ManualAttendanceResponse>> call,
+                                   Response<List<ManualAttendanceResponse>> response) {
+                progressRefresh.setVisibility(View.GONE);
+                btnEndSession.setEnabled(true);
+                btnCancelSession.setEnabled(true);
+
+                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+                    // There are pending requests - go to Export page for approval
+                    int pendingCount = response.body().size();
+                    Logger.i(Logger.TAG_UI, "Found " + pendingCount + " pending manual requests - navigating to Export page");
+                    Toast.makeText(PresenterAttendanceQrActivity.this,
+                        "You have " + pendingCount + " pending attendance request(s) to review",
+                        Toast.LENGTH_LONG).show();
+                    fetchSlotDetailsForExport();
+                } else {
+                    // No pending requests - auto-upload and show success screen
+                    Logger.i(Logger.TAG_UI, "No pending manual requests - auto-uploading export");
+                    autoUploadAndFinish();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
+                progressRefresh.setVisibility(View.GONE);
+                btnEndSession.setEnabled(true);
+                btnCancelSession.setEnabled(true);
+                // On failure to check, just go to success screen
+                Logger.w(Logger.TAG_API, "Failed to check pending requests, proceeding to success screen: " + t.getMessage());
+                autoUploadAndFinish();
+            }
+        });
+    }
+
+    /**
+     * Auto-upload export and finish with success result.
+     * Used for both manual and auto close.
+     */
+    private void autoUploadAndFinish() {
+        Logger.i(Logger.TAG_UI, "Auto-uploading export for session " + sessionId);
+
+        apiService.uploadExport(sessionId, "xlsx").enqueue(new Callback<ApiService.UploadResponse>() {
+            @Override
+            public void onResponse(Call<ApiService.UploadResponse> call,
+                                   Response<ApiService.UploadResponse> response) {
+                if (response.isSuccessful() && response.body() != null && Boolean.TRUE.equals(response.body().success)) {
+                    int attendeeCount = 0;
+                    if (response.body().records != null && response.body().records > 0) {
+                        attendeeCount = response.body().records;
+                    }
+                    Logger.i(Logger.TAG_UI, "Export uploaded successfully - " + attendeeCount + " records");
+                    setSessionClosedResultWithCount(attendeeCount);
+                    finish();
+                } else {
+                    // Export failed (e.g., 409 due to pending manual requests)
+                    // Fetch actual attendance count from API
+                    Logger.w(Logger.TAG_UI, "Export upload failed - " +
+                        (response.body() != null ? response.body().message : "Unknown error") +
+                        ". Fetching attendance count separately.");
+                    fetchAttendanceCountAndFinish();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiService.UploadResponse> call, Throwable t) {
+                Logger.e(Logger.TAG_UI, "Export upload network error", t);
+                // Network error - still try to get attendance count
+                fetchAttendanceCountAndFinish();
+            }
+        });
+    }
+
+    /**
+     * Fetch actual attendance count for the session and finish with result.
+     * Called when export fails to ensure we show correct attendee count.
+     */
+    private void fetchAttendanceCountAndFinish() {
+        if (sessionId == null) {
+            setSessionClosedResult();
+            finish();
+            return;
+        }
+
+        apiService.getAttendance(sessionId).enqueue(new Callback<List<org.example.semscan.data.model.Attendance>>() {
+            @Override
+            public void onResponse(Call<List<org.example.semscan.data.model.Attendance>> call,
+                                   Response<List<org.example.semscan.data.model.Attendance>> response) {
+                int attendeeCount = 0;
+                if (response.isSuccessful() && response.body() != null) {
+                    attendeeCount = response.body().size();
+                    Logger.i(Logger.TAG_UI, "Fetched attendance count: " + attendeeCount + " records");
+                } else {
+                    Logger.w(Logger.TAG_UI, "Failed to fetch attendance count");
+                }
+                setSessionClosedResultWithCount(attendeeCount);
+                finish();
+            }
+
+            @Override
+            public void onFailure(Call<List<org.example.semscan.data.model.Attendance>> call, Throwable t) {
+                Logger.e(Logger.TAG_UI, "Failed to fetch attendance count", t);
+                setSessionClosedResult();
+                finish();
             }
         });
     }
@@ -567,7 +703,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     private void navigateToExport() {
         Intent intent = new Intent(PresenterAttendanceQrActivity.this, org.example.semscan.ui.teacher.ExportActivity.class);
         intent.putExtra("sessionId", sessionId);
-        
+
         // Pass slot details for filename generation
         if (slotDate != null) {
             intent.putExtra("sessionDate", slotDate);
@@ -578,10 +714,55 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
         if (presenterName != null) {
             intent.putExtra("sessionPresenter", presenterName);
         }
-        
+
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    /**
+     * Handle auto-close - just upload export and finish.
+     */
+    private void handleAutoCloseExport() {
+        if (sessionId == null) {
+            Logger.w(Logger.TAG_UI, "Cannot handle auto-close export - sessionId is null");
+            setSessionClosedResult();
+            finish();
+            return;
+        }
+
+        Toast.makeText(this, R.string.presenter_attendance_qr_auto_close_message, Toast.LENGTH_SHORT).show();
+        autoUploadAndFinish();
+    }
+
+    /**
+     * Set result to indicate session was closed successfully
+     */
+    private void setSessionClosedResult() {
+        setSessionClosedResultWithCount(-1); // -1 indicates unknown count
+    }
+
+    /**
+     * Set result to indicate session was closed successfully with attendee count
+     */
+    private void setSessionClosedResultWithCount(int attendeeCount) {
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra(RESULT_EXTRA_SESSION_CLOSED, true);
+        resultIntent.putExtra(RESULT_EXTRA_OPENED_AT, openedAtFormatted != null ? openedAtFormatted : formatTimeHumanReadable(sessionOpenedAtMs));
+        resultIntent.putExtra(RESULT_EXTRA_CLOSED_AT, formatTimeHumanReadable(System.currentTimeMillis()));
+        resultIntent.putExtra(RESULT_EXTRA_ATTENDEE_COUNT, attendeeCount);
+        setResult(RESULT_CODE_SESSION_CLOSED, resultIntent);
+    }
+
+    /**
+     * Set result to indicate session was canceled (not completed)
+     */
+    private void setSessionCanceledResult() {
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra(RESULT_EXTRA_SESSION_CANCELED, true);
+        resultIntent.putExtra(RESULT_EXTRA_OPENED_AT, openedAtFormatted != null ? openedAtFormatted : formatTimeHumanReadable(sessionOpenedAtMs));
+        resultIntent.putExtra(RESULT_EXTRA_CLOSED_AT, formatTimeHumanReadable(System.currentTimeMillis()));
+        setResult(RESULT_CODE_SESSION_CANCELED, resultIntent);
     }
 }
 

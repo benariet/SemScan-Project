@@ -33,18 +33,6 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Welcome Message -->
-            <TextView
-                android:id="@+id/text_welcome_message"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:layout_marginBottom="40dp"
-                android:text="Welcome, Student!"
-                android:textColor="@color/welcome_text_color"
-                android:textSize="24sp"
-                android:textStyle="bold" />
-
             <!-- Main Action Cards -->
             <LinearLayout
                 android:layout_width="match_parent"

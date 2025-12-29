@@ -201,7 +201,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void performLogout() {
         Logger.i(Logger.TAG_UI, "Performing logout");
         preferencesManager.clearUserData();
-        preferencesManager.clearSavedCredentials();
+        // Note: Do NOT clear saved credentials here - "Remember Me" should persist after logout
 
         Toast.makeText(this, R.string.logout_success, Toast.LENGTH_SHORT).show();
 

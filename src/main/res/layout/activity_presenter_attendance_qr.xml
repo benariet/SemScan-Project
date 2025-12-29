@@ -71,21 +71,49 @@
                     android:visibility="gone" />
             </FrameLayout>
 
-            <TextView
-                android:id="@+id/text_opened_at"
+            <!-- Session Info Card -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:textColor="@color/gray_700"
-                android:textSize="14sp" />
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/white">
 
-            <TextView
-                android:id="@+id/text_valid_until"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textColor="@color/gray_700"
-                android:textSize="14sp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/text_opened_at"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/gray_800"
+                        android:textSize="14sp"
+                        android:drawablePadding="8dp"
+                        android:gravity="center_vertical" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="@color/gray_200" />
+
+                    <TextView
+                        android:id="@+id/text_valid_until"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#D32F2F"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:drawablePadding="8dp"
+                        android:gravity="center_vertical" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
                 android:layout_width="match_parent"

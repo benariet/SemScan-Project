@@ -163,6 +163,7 @@
     <string name="setup_participation_label">Participation preference</string>
     <string name="setup_participation_placeholder">Tap to choose how you participate</string>
     <string name="setup_complete_button">Finish setup</string>
+    <string name="setup_next_button">Next</string>
     <string name="setup_degree_title">Select Degree</string>
     <string name="setup_degree_prompt">Which degree are you enrolled in?</string>
     <string name="setup_degree_msc">MSc</string>
@@ -198,6 +199,7 @@
     <string name="presenter_select_slot_first">Please select a presentation slot first</string>
     <string name="presenter_home_supervisor_required_in_settings">Please set your supervisor info in Settings first</string>
     <string name="welcome_user">Welcome, %1$s!</string>
+    <string name="welcome_default">Welcome!</string>
     <string name="presenter_home_enroll_title">Select a presentation slot</string>
     <string name="presenter_home_enroll_description">Browse upcoming seminar dates and enroll yourself.</string>
     <string name="presenter_home_my_slot_card_title">My registered slot</string>
@@ -318,6 +320,19 @@
     <string name="presenter_attendance_qr_end_error">Failed to end session</string>
     <string name="presenter_attendance_qr_auto_close_message">Session automatically closed after 15 minutes</string>
 
+    <!-- Session Success -->
+    <string name="presenter_session_success_title">Session Completed</string>
+    <string name="presenter_session_success_message">Your session has ended successfully. All attendance records have been saved.</string>
+    <string name="presenter_session_success_opened">Started</string>
+    <string name="presenter_session_success_closed">Ended</string>
+    <string name="presenter_session_success_attendees">Attendees</string>
+    <string name="presenter_session_success_new_session">Start New Session</string>
+    <string name="presenter_session_success_go_home">Go to Home</string>
+
+    <!-- Session Canceled -->
+    <string name="presenter_session_canceled_title">Session Canceled</string>
+    <string name="presenter_session_canceled_message">Session was canceled. No attendance records were saved.</string>
+
     <!-- Dialog / misc -->
     <string name="presenter_slot_register_button">Register now</string>
     <string name="presenter_slot_status_approved">Approved</string>
@@ -383,11 +398,7 @@
 
     <!-- Registration Confirmation Dialog -->
     <string name="registration_confirm_title">Confirm Registration</string>
-    <string name="registration_confirm_message">An invitation email will be sent to your supervisor for approval.
-
-Supervisor: %1$s
-Email: %2$s
-Topic: %3$s</string>
+    <string name="registration_confirm_message"><![CDATA[An invitation email will be sent to your supervisor for approval.<br><br><b>Supervisor:</b>  %1$s<br><b>Email:</b>  %2$s<br><br><b>Topic:</b>  %3$s]]></string>
     <string name="registration_confirm_button">Register</string>
     <string name="registration_review_button">Review Details</string>
     <string name="registration_details_incomplete">Please fill in all presentation details first</string>

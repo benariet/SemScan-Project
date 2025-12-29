@@ -3,6 +3,7 @@ package org.example.semscan.ui.teacher;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Html;
 import android.text.TextUtils;
 import android.util.Patterns;
 import android.view.MenuItem;
@@ -419,7 +420,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
     /**
      * Join waiting list using topic and abstract from Settings.
-     * No dialog is shown - values must be set in Settings first.
+     * Shows a warning dialog for PhD students about capacity requirements.
      */
     private void joinWaitingList(ApiService.SlotCard slot) {
         // Get topic and abstract from Settings
@@ -431,14 +432,44 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
         // Check if both topic and abstract are filled in Settings
         if (hasTopic && hasAbstract) {
-            // Both filled - proceed directly without dialog
-            Logger.i(Logger.TAG_UI, "Joining waiting list with settings: topic=" + savedTopic.trim() +
-                ", abstractLength=" + savedAbstract.trim().length());
-            if (serverLogger != null) {
-                serverLogger.i(ServerLogger.TAG_UI, "Joining waiting list with settings for slot=" +
-                    (slot != null ? slot.slotId : "null"));
+            // Check if user is PhD - show warning about capacity requirements
+            String degree = preferencesManager.getDegree();
+            boolean isPhd = "PhD".equalsIgnoreCase(degree);
+
+            if (isPhd) {
+                // Show PhD warning dialog
+                new AlertDialog.Builder(this)
+                    .setTitle("PhD Waiting List Notice")
+                    .setMessage("As a PhD student, your presentation is 40 minutes (MSc is 20 minutes).\n\n" +
+                               "This means you will only be promoted from the waiting list when 40 minutes of presentation time become available.\n\n" +
+                               "MSc students may be promoted before you if only 20 minutes open up.")
+                    .setPositiveButton("OK, Join Waiting List", (dialog, which) -> {
+                        Logger.i(Logger.TAG_UI, "PhD user confirmed joining waiting list: topic=" + savedTopic.trim());
+                        if (serverLogger != null) {
+                            serverLogger.i(ServerLogger.TAG_UI, "PhD user confirmed joining waiting list for slot=" +
+                                (slot != null ? slot.slotId : "null"));
+                        }
+                        performJoinWaitingList(slot, savedTopic.trim());
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        Logger.i(Logger.TAG_UI, "PhD user cancelled joining waiting list");
+                        if (serverLogger != null) {
+                            serverLogger.i(ServerLogger.TAG_UI, "PhD user cancelled joining waiting list for slot=" +
+                                (slot != null ? slot.slotId : "null"));
+                        }
+                        // Do nothing - user cancelled
+                    })
+                    .show();
+            } else {
+                // MSc - proceed directly without dialog
+                Logger.i(Logger.TAG_UI, "Joining waiting list with settings: topic=" + savedTopic.trim() +
+                    ", abstractLength=" + savedAbstract.trim().length());
+                if (serverLogger != null) {
+                    serverLogger.i(ServerLogger.TAG_UI, "Joining waiting list with settings for slot=" +
+                        (slot != null ? slot.slotId : "null"));
+                }
+                performJoinWaitingList(slot, savedTopic.trim());
             }
-            performJoinWaitingList(slot, savedTopic.trim());
         } else {
             // Missing topic or abstract - redirect to Settings
             String missing = "";
@@ -771,11 +802,12 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         final String finalSupervisorName = supervisorName.trim();
         final String finalSupervisorEmail = supervisorEmail.trim();
 
-        // Build confirmation message
-        String message = getString(R.string.registration_confirm_message,
+        // Build confirmation message with HTML formatting
+        String messageHtml = getString(R.string.registration_confirm_message,
                 finalSupervisorName, finalSupervisorEmail, finalTopic);
+        CharSequence message = Html.fromHtml(messageHtml, Html.FROM_HTML_MODE_LEGACY);
 
-        // Show simple confirmation dialog
+        // Show simple confirmation dialog (Register and Cancel only)
         new AlertDialog.Builder(this)
                 .setTitle(R.string.registration_confirm_title)
                 .setMessage(message)
@@ -783,12 +815,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     // Proceed with registration using saved details
                     performRegistration(slot, finalAbstract, finalTopic, finalSupervisorName, finalSupervisorEmail);
                 })
-                .setNegativeButton(R.string.registration_review_button, (dialog, which) -> {
-                    // Go back to home to review/edit details
-                    dialog.dismiss();
-                    finish();
-                })
-                .setNeutralButton(R.string.cancel, (dialog, which) -> dialog.dismiss())
+                .setNegativeButton(R.string.cancel, (dialog, which) -> dialog.dismiss())
                 .show();
     }
 
@@ -812,18 +839,36 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         int approved = (slot.enrolledCount > slot.approvedCount) ? slot.enrolledCount : slot.approvedCount;
         int pending = slot.pendingCount;
         int totalOccupied = approved + pending;
+        int availableCapacity = slot.capacity - totalOccupied;
         boolean isFull = (totalOccupied >= slot.capacity);
-        
+
+        // Get student degree to check PhD capacity requirement
+        String degree = preferencesManager.getDegree();
+        boolean isPhd = "PhD".equalsIgnoreCase(degree);
+        int requiredCapacity = isPhd ? 2 : 1; // PhD needs 2 slots, MSc needs 1
+
         // Log capacity check for debugging
-        String capacityCheck = String.format("Slot %d capacity check: approved=%d, pending=%d, total=%d, capacity=%d, isFull=%s",
-            slot != null ? slot.slotId : "null", approved, pending, totalOccupied, slot != null ? slot.capacity : 0, isFull);
+        String capacityCheck = String.format("Slot %d capacity check: approved=%d, pending=%d, total=%d, capacity=%d, available=%d, isPhd=%s, isFull=%s",
+            slot != null ? slot.slotId : "null", approved, pending, totalOccupied, slot != null ? slot.capacity : 0, availableCapacity, isPhd, isFull);
         Logger.i(Logger.TAG_UI, capacityCheck);
         if (serverLogger != null) {
             serverLogger.i(ServerLogger.TAG_UI, capacityCheck);
         }
-        
+
+        // Check if PhD student doesn't have enough capacity (needs 40 min = 2 spots)
+        if (isPhd && availableCapacity > 0 && availableCapacity < requiredCapacity) {
+            String phdMsg = "As a PhD student, your presentation requires 40 minutes.\n\n" +
+                           "This seminar only has 20 minutes available.\n\n" +
+                           "You can join the waiting list instead, and you'll be notified when enough time opens up.";
+            Logger.w(Logger.TAG_UI, "Registration blocked - PhD needs 2 slots but only " + availableCapacity + " available: " + capacityCheck);
+            if (serverLogger != null) {
+                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked - PhD needs 2 slots but only " + availableCapacity + " available: " + capacityCheck);
+            }
+            return phdMsg;
+        }
+
         if (isFull) {
-            String fullMsg = "This slot is full (" + totalOccupied + "/" + slot.capacity + "). You can join the waiting list instead.";
+            String fullMsg = "This slot is full (" + totalOccupied + "/" + slot.capacity + ").\n\nYou can join the waiting list instead.";
             Logger.w(Logger.TAG_UI, "Registration blocked - slot is full: " + capacityCheck);
             if (serverLogger != null) {
                 serverLogger.w(ServerLogger.TAG_UI, "Registration blocked - slot is full: " + capacityCheck);
@@ -847,11 +892,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             // NOTE: We don't check s.onWaitingList here - being on a waiting list
             // does NOT prevent registration for available slots
         }
-        
-        // Get student degree to determine limits
-        String degree = preferencesManager.getDegree();
-        boolean isPhd = "PHD".equals(degree);
-        
+
         // Check presentation limit (1 approved at a time)
         // Note: Business rule is "once per degree" but not strictly enforced
         // Students typically won't want to repeat this experience
@@ -1032,16 +1073,35 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         int approved = (slot.enrolledCount > slot.approvedCount) ? slot.enrolledCount : slot.approvedCount;
         int pending = slot.pendingCount;
         int totalOccupied = approved + pending;
+        int availableCapacity = slot.capacity - totalOccupied;
         boolean isFull = (totalOccupied >= slot.capacity);
-        
+
+        // Get student degree to check PhD capacity requirement
+        String degree = preferencesManager.getDegree();
+        boolean isPhd = "PhD".equalsIgnoreCase(degree);
+        int requiredCapacity = isPhd ? 2 : 1;
+
+        // Check if PhD student doesn't have enough capacity (needs 40 min = 2 spots)
+        if (isPhd && availableCapacity > 0 && availableCapacity < requiredCapacity) {
+            String phdMsg = "As a PhD student, your presentation requires 40 minutes.\n\n" +
+                           "This seminar only has 20 minutes available.\n\n" +
+                           "You can join the waiting list instead.";
+            Logger.w(Logger.TAG_UI, "Registration blocked at performRegistration - PhD needs 40 min but only 20 min available");
+            if (serverLogger != null) {
+                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked at performRegistration - PhD needs 2 slots but only " + availableCapacity + " available");
+            }
+            Toast.makeText(this, phdMsg, Toast.LENGTH_LONG).show();
+            return;
+        }
+
         if (isFull) {
-            String fullMsg = "This slot is full (" + totalOccupied + "/" + slot.capacity + "). Cannot register.";
-            Logger.w(Logger.TAG_UI, "Registration blocked at performRegistration - slot is full: slot=" + 
-                (slot != null ? slot.slotId : "null") + ", approved=" + approved + ", pending=" + pending + 
+            String fullMsg = "This slot is full (" + totalOccupied + "/" + slot.capacity + ").\n\nYou can join the waiting list instead.";
+            Logger.w(Logger.TAG_UI, "Registration blocked at performRegistration - slot is full: slot=" +
+                (slot != null ? slot.slotId : "null") + ", approved=" + approved + ", pending=" + pending +
                 ", total=" + totalOccupied + ", capacity=" + (slot != null ? slot.capacity : 0));
             if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked at performRegistration - slot is full: slot=" + 
-                    (slot != null ? slot.slotId : "null") + ", approved=" + approved + ", pending=" + pending + 
+                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked at performRegistration - slot is full: slot=" +
+                    (slot != null ? slot.slotId : "null") + ", approved=" + approved + ", pending=" + pending +
                     ", total=" + totalOccupied + ", capacity=" + (slot != null ? slot.capacity : 0));
             }
             Toast.makeText(this, fullMsg, Toast.LENGTH_LONG).show();
