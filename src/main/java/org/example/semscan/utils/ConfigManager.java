@@ -306,14 +306,14 @@ public class ConfigManager {
         if (cachedConfig != null && cachedConfig.exportEmailRecipients != null && !cachedConfig.exportEmailRecipients.trim().isEmpty()) {
             return cachedConfig.exportEmailRecipients.trim();
         }
-        return ApiConstants.EXPORT_EMAIL_RECIPIENTS; // Fallback
+        return ""; // No fallback - must be configured in backend
     }
-    
+
     public String getSupportEmail() {
         if (cachedConfig != null && cachedConfig.supportEmail != null && !cachedConfig.supportEmail.trim().isEmpty()) {
             return cachedConfig.supportEmail.trim();
         }
-        return "benariet@bgu.ac.il"; // Fallback
+        return ""; // No fallback - must be configured in backend
     }
     
     public String getEmailDomain() {

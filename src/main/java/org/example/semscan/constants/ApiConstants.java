@@ -69,13 +69,10 @@ public class ApiConstants {
     // =============================================
     // EXPORT CONFIGURATION
     // =============================================
-    // NOTE: MAX_EXPORT_FILE_SIZE_MB and EXPORT_EMAIL_RECIPIENTS are now configurable via ConfigManager
-    // These are fallback defaults - use ConfigManager.getMaxExportFileSizeMb() and getExportEmailRecipients()
+    // NOTE: MAX_EXPORT_FILE_SIZE_MB and EXPORT_EMAIL_RECIPIENTS are configurable via ConfigManager
+    // Use ConfigManager.getMaxExportFileSizeMb() and getExportEmailRecipients()
     public static final int MAX_EXPORT_FILE_SIZE_MB = 50; // Fallback default
     public static final String ALLOWED_EXPORT_FORMATS = "csv,xlsx";
-    // Multiple email recipients - separate with commas
-    // Example: "attendance@example.com,admin@example.com"
-    public static final String EXPORT_EMAIL_RECIPIENTS = "benariet@bgu.ac.il,talbnwork@gmail.com"; // Fallback default - use ConfigManager.getExportEmailRecipients()
     
     // =============================================
     // APPLICATION CONFIGURATION
