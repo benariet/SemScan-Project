@@ -420,7 +420,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
     /**
      * Join waiting list using topic and abstract from Settings.
-     * No dialog is shown - values must be set in Settings first.
+     * Shows a warning dialog for PhD students about capacity requirements.
      */
     private void joinWaitingList(ApiService.SlotCard slot) {
         // Get topic and abstract from Settings
@@ -432,14 +432,44 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
         // Check if both topic and abstract are filled in Settings
         if (hasTopic && hasAbstract) {
-            // Both filled - proceed directly without dialog
-            Logger.i(Logger.TAG_UI, "Joining waiting list with settings: topic=" + savedTopic.trim() +
-                ", abstractLength=" + savedAbstract.trim().length());
-            if (serverLogger != null) {
-                serverLogger.i(ServerLogger.TAG_UI, "Joining waiting list with settings for slot=" +
-                    (slot != null ? slot.slotId : "null"));
+            // Check if user is PhD - show warning about capacity requirements
+            String degree = preferencesManager.getDegree();
+            boolean isPhd = "PhD".equalsIgnoreCase(degree);
+
+            if (isPhd) {
+                // Show PhD warning dialog
+                new AlertDialog.Builder(this)
+                    .setTitle("PhD Waiting List Notice")
+                    .setMessage("As a PhD student, your presentation is 40 minutes (MSc is 20 minutes).\n\n" +
+                               "This means you will only be promoted from the waiting list when 40 minutes of presentation time become available.\n\n" +
+                               "MSc students may be promoted before you if only 20 minutes open up.")
+                    .setPositiveButton("OK, Join Waiting List", (dialog, which) -> {
+                        Logger.i(Logger.TAG_UI, "PhD user confirmed joining waiting list: topic=" + savedTopic.trim());
+                        if (serverLogger != null) {
+                            serverLogger.i(ServerLogger.TAG_UI, "PhD user confirmed joining waiting list for slot=" +
+                                (slot != null ? slot.slotId : "null"));
+                        }
+                        performJoinWaitingList(slot, savedTopic.trim());
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        Logger.i(Logger.TAG_UI, "PhD user cancelled joining waiting list");
+                        if (serverLogger != null) {
+                            serverLogger.i(ServerLogger.TAG_UI, "PhD user cancelled joining waiting list for slot=" +
+                                (slot != null ? slot.slotId : "null"));
+                        }
+                        // Do nothing - user cancelled
+                    })
+                    .show();
+            } else {
+                // MSc - proceed directly without dialog
+                Logger.i(Logger.TAG_UI, "Joining waiting list with settings: topic=" + savedTopic.trim() +
+                    ", abstractLength=" + savedAbstract.trim().length());
+                if (serverLogger != null) {
+                    serverLogger.i(ServerLogger.TAG_UI, "Joining waiting list with settings for slot=" +
+                        (slot != null ? slot.slotId : "null"));
+                }
+                performJoinWaitingList(slot, savedTopic.trim());
             }
-            performJoinWaitingList(slot, savedTopic.trim());
         } else {
             // Missing topic or abstract - redirect to Settings
             String missing = "";
@@ -825,11 +855,11 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             serverLogger.i(ServerLogger.TAG_UI, capacityCheck);
         }
 
-        // Check if PhD student doesn't have enough capacity (needs 2 spots)
+        // Check if PhD student doesn't have enough capacity (needs 40 min = 2 spots)
         if (isPhd && availableCapacity > 0 && availableCapacity < requiredCapacity) {
-            String phdMsg = "As a PhD student, you require 2 available slots to register.\n\n" +
-                           "This slot only has " + availableCapacity + " spot available.\n\n" +
-                           "You can join the waiting list instead, and you'll be notified when enough space opens up.";
+            String phdMsg = "As a PhD student, your presentation requires 40 minutes.\n\n" +
+                           "This seminar only has 20 minutes available.\n\n" +
+                           "You can join the waiting list instead, and you'll be notified when enough time opens up.";
             Logger.w(Logger.TAG_UI, "Registration blocked - PhD needs 2 slots but only " + availableCapacity + " available: " + capacityCheck);
             if (serverLogger != null) {
                 serverLogger.w(ServerLogger.TAG_UI, "Registration blocked - PhD needs 2 slots but only " + availableCapacity + " available: " + capacityCheck);
@@ -1051,12 +1081,12 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         boolean isPhd = "PhD".equalsIgnoreCase(degree);
         int requiredCapacity = isPhd ? 2 : 1;
 
-        // Check if PhD student doesn't have enough capacity (needs 2 spots)
+        // Check if PhD student doesn't have enough capacity (needs 40 min = 2 spots)
         if (isPhd && availableCapacity > 0 && availableCapacity < requiredCapacity) {
-            String phdMsg = "As a PhD student, you require 2 available slots to register.\n\n" +
-                           "This slot only has " + availableCapacity + " spot available.\n\n" +
+            String phdMsg = "As a PhD student, your presentation requires 40 minutes.\n\n" +
+                           "This seminar only has 20 minutes available.\n\n" +
                            "You can join the waiting list instead.";
-            Logger.w(Logger.TAG_UI, "Registration blocked at performRegistration - PhD needs 2 slots but only " + availableCapacity + " available");
+            Logger.w(Logger.TAG_UI, "Registration blocked at performRegistration - PhD needs 40 min but only 20 min available");
             if (serverLogger != null) {
                 serverLogger.w(ServerLogger.TAG_UI, "Registration blocked at performRegistration - PhD needs 2 slots but only " + availableCapacity + " available");
             }
