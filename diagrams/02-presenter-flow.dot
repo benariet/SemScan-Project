@@ -1,0 +1,120 @@
+digraph PresenterFlow {
+    label="Presenter Session Flow";
+    labelloc="t";
+    fontsize=24;
+    fontname="Arial Bold";
+
+    rankdir=TB;
+    splines=true;
+    nodesep=0.8;
+    ranksep=1.0;
+    bgcolor="#f5f5f5";
+
+    node [
+        shape=box,
+        style="rounded,filled",
+        fontname="Arial",
+        fontsize=12,
+        margin="0.3,0.2"
+    ];
+
+    edge [
+        fontname="Arial",
+        fontsize=10,
+        color="#666666"
+    ];
+
+    // Precondition
+    subgraph cluster_precondition {
+        label="Precondition";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#388e3c";
+        bgcolor="#e8f5e922";
+
+        Precondition [label="1. APPROVED for slot\n2. Slot time reached", fillcolor="#c8e6c9", color="#2e7d32", shape=note];
+    }
+
+    // Start
+    Home [label="Home Screen", fillcolor="#e8f5e9", color="#388e3c", penwidth=2];
+
+    // Start Session Button
+    StartSessionBtn [label="Press Start Session\nbutton", fillcolor="#bbdefb", color="#1976d2"];
+
+    // Open Session
+    subgraph cluster_session {
+        label="Attendance Session";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#7b1fa2";
+        bgcolor="#f3e5f522";
+
+        OpenSession [label="Open Attendance", fillcolor="#e1bee7", color="#7b1fa2"];
+        TooEarly [label="Too Early\n-----------\nWait for slot time", fillcolor="#ffcdd2", color="#c62828", shape=note];
+        QRDisplay [label="QR Code Displayed\n-----------\nStudents scan\nTimer: 15 min", fillcolor="#ce93d8", color="#7b1fa2", penwidth=2];
+        EndSession [label="End Session", fillcolor="#e1bee7", color="#7b1fa2"];
+        CancelSession [label="Cancel Session", fillcolor="#ffcdd2", color="#c62828"];
+        AutoClose [label="Auto-Close\n(15 min)", fillcolor="#fff9c4", color="#f9a825"];
+    }
+
+    // Check Pending
+    HasPending [label="Pending Manual\nRequests?", fillcolor="#ffccbc", color="#ff5722", shape=diamond];
+
+    // No Pending - Session Success with auto export
+    SessionSuccess [label="Session Completed\n-----------\nXLSX + Email sent\n(automatic)", fillcolor="#81c784", color="#1b5e20", shape=ellipse, penwidth=2];
+
+    // Session Canceled
+    SessionCanceled [label="Session\nCanceled", fillcolor="#ffcc80", color="#ef6c00", shape=ellipse];
+
+    // Export Page (only when has pending requests)
+    subgraph cluster_export {
+        label="Export Page (has pending)";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#388e3c";
+        bgcolor="#e8f5e922";
+
+        ExportPage [label="Export Page\n+ Review Modal", fillcolor="#c8e6c9", color="#388e3c"];
+        ReviewActions [label="For each request:\nApprove or Reject\n-----------\nReject sends email", fillcolor="#ffccbc", color="#ff5722", shape=note];
+        ExportBtn [label="Export Data", fillcolor="#a5d6a7", color="#2e7d32"];
+        ExportSuccess [label="Export Complete\n-----------\nXLSX + Email sent", fillcolor="#81c784", color="#1b5e20", shape=ellipse, penwidth=2];
+    }
+
+    // ==================== CONNECTIONS ====================
+
+    // Precondition
+    Precondition -> Home;
+
+    // Home to Start Session Button to Open Session
+    Home -> StartSessionBtn;
+    StartSessionBtn -> OpenSession;
+
+    // Session checks
+    OpenSession -> TooEarly [label="before time"];
+    TooEarly -> OpenSession [label="wait", style=dashed];
+    OpenSession -> QRDisplay [label="time reached"];
+
+    // QR Display actions
+    QRDisplay -> EndSession [label="tap end"];
+    QRDisplay -> CancelSession [label="tap cancel"];
+    QRDisplay -> AutoClose [label="timeout"];
+
+    // After Session - check pending
+    EndSession -> HasPending;
+    AutoClose -> HasPending;
+    CancelSession -> SessionCanceled;
+
+    // Pending check results
+    HasPending -> SessionSuccess [label="no"];
+    HasPending -> ExportPage [label="yes"];
+
+    // Export Page flow
+    ExportPage -> ReviewActions;
+    ReviewActions -> ExportBtn [label="all resolved"];
+    ExportBtn -> ExportSuccess;
+
+    // Return paths
+    SessionSuccess -> Home [style=dashed, color="#388e3c", constraint=false];
+    ExportSuccess -> Home [style=dashed, color="#388e3c", constraint=false];
+    SessionCanceled -> Home [style=dashed, color="#ef6c00", constraint=false];
+}
