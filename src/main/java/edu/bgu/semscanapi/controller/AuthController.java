@@ -107,13 +107,17 @@ public class AuthController {
 
             // Log successful login to database
             if (databaseLoggerService != null) {
+                // Get user if exists for supervisor info, otherwise use null
+                User user = existingUser.orElse(null);
+                boolean hasSupervisor = user != null && user.getSupervisor() != null;
+                
                 databaseLoggerService.logBusinessEvent("LOGIN_SUCCESS",
                         String.format("Login successful for user %s (isFirstTime=%s, isPresenter=%s, isParticipant=%s, hasSupervisor=%s)",
-                                user.getBguUsername(), isFirstTime,
-                                Boolean.TRUE.equals(user.getIsPresenter()),
-                                Boolean.TRUE.equals(user.getIsParticipant()),
-                                user.getSupervisor() != null),
-                        user.getBguUsername());
+                                bguUsername, isFirstTime,
+                                isPresenter,
+                                isParticipant,
+                                hasSupervisor),
+                        bguUsername);
             }
 
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), response.getMessage());
