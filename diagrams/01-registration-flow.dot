@@ -1,7 +1,7 @@
 digraph RegistrationFlow {
     label="Registration Flow";
     labelloc="t";
-    fontsize=20;
+    fontsize=15;
     fontname="Arial Bold";
 
     rankdir=TB;

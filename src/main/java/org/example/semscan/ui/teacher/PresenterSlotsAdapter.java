@@ -2,6 +2,8 @@ package org.example.semscan.ui.teacher;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.text.Html;
+import android.text.Spanned;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -126,6 +128,23 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
         return TextUtils.join("\n", names);
     }
 
+    /**
+     * Format waiting list as priority numbers with names (#1 - Name)
+     */
+    private String formatWaitingListPriorities(List<ApiService.PresenterCoPresenter> waitingList, int maxCount) {
+        if (waitingList == null || waitingList.isEmpty()) {
+            return null;
+        }
+        List<String> priorities = new ArrayList<>();
+        int count = Math.min(maxCount, waitingList.size());
+        for (int i = 0; i < count; i++) {
+            ApiService.PresenterCoPresenter presenter = waitingList.get(i);
+            String name = (presenter != null && presenter.name != null) ? presenter.name.trim() : "";
+            priorities.add("    #" + (i + 1) + " - " + name);
+        }
+        return TextUtils.join("\n", priorities);
+    }
+
     class SlotViewHolder extends RecyclerView.ViewHolder {
 
         private final TextView title;
@@ -147,9 +166,16 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
 
         void bind(final ApiService.SlotCard slot) {
             Context context = itemView.getContext();
-            // Add slot ID for testing (TODO: remove later)
-            String titleText = "[" + slot.slotId + "] " + context.getString(R.string.presenter_home_slot_title_format,
-                    safe(slot.dayOfWeek), safe(slot.date));
+            // Format date as dd/mm/yyyy
+            String formattedDate = safe(slot.date);
+            if (formattedDate.contains("-")) {
+                String[] parts = formattedDate.split("-");
+                if (parts.length == 3) {
+                    formattedDate = parts[2] + "/" + parts[1] + "/" + parts[0];
+                }
+            }
+            String titleText = context.getString(R.string.presenter_home_slot_title_format,
+                    safe(slot.dayOfWeek), formattedDate);
             title.setText(titleText);
             
             // Calculate slot capacity info early (needed for onClick handler)
@@ -201,18 +227,18 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             String pendingNames = formatNamesForDisplay(slot.pendingPresenters, 5);
             if (pendingNames != null && !pendingNames.isEmpty()) {
                 if (statusBuilder.length() > 0) {
-                    statusBuilder.append("\n");
+                    statusBuilder.append("\n\n");
                 }
                 statusBuilder.append("Pending:\n").append(pendingNames);
             }
 
-            // Waiting list names (if any)
-            String wlNames = formatNamesForDisplay(slot.waitingListEntries, 5);
+            // Waiting list priorities (if any)
+            String wlNames = formatWaitingListPriorities(slot.waitingListEntries, 5);
             if (wlNames != null && !wlNames.isEmpty()) {
                 if (statusBuilder.length() > 0) {
-                    statusBuilder.append("\n");
+                    statusBuilder.append("\n\n");
                 }
-                statusBuilder.append("Waiting List:\n").append(wlNames);
+                statusBuilder.append("Waiting List Priorities:\n").append(wlNames);
             }
             
             // Calculate available spots for display
@@ -221,26 +247,30 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             String capacityText = String.format(Locale.getDefault(), "%d/%d", availableSpots, slot.capacity);
 
             // Build final status text with capacity info
-            String statusTextStr;
+            // Use HTML for bigger availability text
+            Spanned statusSpanned;
             if (statusBuilder.length() == 0) {
                 if (isFull) {
-                    statusTextStr = "Full (0/" + slot.capacity + ") - Join Waiting List";
+                    statusSpanned = Html.fromHtml("<big><b>Full (0/" + slot.capacity + ")</b></big> - Join Waiting List", Html.FROM_HTML_MODE_LEGACY);
                 } else {
-                    statusTextStr = context.getString(R.string.presenter_home_slot_state_available) + " (" + capacityText + ")";
+                    String availText = context.getString(R.string.presenter_home_slot_state_available) + " (" + capacityText + ")";
+                    statusSpanned = Html.fromHtml("<big><b>" + availText + "</b></big>", Html.FROM_HTML_MODE_LEGACY);
                 }
             } else {
-                // Prepend capacity info to the names
-                statusTextStr = capacityText + " Available\n" + statusBuilder.toString();
+                // Prepend capacity info to the names with extra spacing
+                String htmlText = "<big><b>" + capacityText + " Available</b></big><br/><br/>" +
+                    statusBuilder.toString().replace("\n", "<br/>");
+                statusSpanned = Html.fromHtml(htmlText, Html.FROM_HTML_MODE_LEGACY);
             }
-            
+
             // Apply gradient background
             if (layoutSlotContent != null) {
                 layoutSlotContent.setBackground(ContextCompat.getDrawable(context, gradientResId));
             }
-            
+
             // Set status text
             if (statusText != null) {
-                statusText.setText(statusTextStr);
+                statusText.setText(statusSpanned);
                 statusText.setVisibility(View.VISIBLE);
             }
             
