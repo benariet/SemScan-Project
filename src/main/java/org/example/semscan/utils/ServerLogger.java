@@ -50,6 +50,7 @@ public class ServerLogger {
     public static final String TAG_ATTENDANCE = "SemScan-Attendance";
     public static final String TAG_SECURITY = "SemScan-Security";
     public static final String TAG_PERFORMANCE = "SemScan-Performance";
+    public static final String TAG_AUTH = "SemScan-Auth";
     
     private static ServerLogger instance;
     private final Context context;

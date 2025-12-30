@@ -67,7 +67,10 @@ public class ApiClient {
         
         // Custom interceptor for ServerLogger (app_logs) - logs request/response bodies
         ApiLoggingInterceptor apiLogging = new ApiLoggingInterceptor(context);
-        
+
+        // Auth interceptor for detecting 401/403 responses and broadcasting session expired
+        AuthInterceptor authInterceptor = new AuthInterceptor(context);
+
         // Configure SSL for self-signed certificates
         // Note: This trusts user certificates (configured in network_security_config.xml)
         // For production, use proper certificate pinning
@@ -78,8 +81,9 @@ public class ApiClient {
         int writeTimeout = getTimeoutFromConfig(context, "write");
         
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
-                .addInterceptor(httpLogging) // Android Logcat logging
-                .addInterceptor(apiLogging)  // ServerLogger (app_logs) logging
+                .addInterceptor(httpLogging)     // Android Logcat logging
+                .addInterceptor(apiLogging)      // ServerLogger (app_logs) logging
+                .addInterceptor(authInterceptor) // Session expiration detection (401/403)
                 .connectTimeout(connectionTimeout, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(readTimeout, java.util.concurrent.TimeUnit.SECONDS)
                 .writeTimeout(writeTimeout, java.util.concurrent.TimeUnit.SECONDS);
