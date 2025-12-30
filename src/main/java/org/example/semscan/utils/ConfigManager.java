@@ -484,5 +484,29 @@ public class ConfigManager {
         }
         return 2; // Fallback default
     }
+
+    /**
+     * Shutdown the ConfigManager, releasing all resources.
+     * Should be called when the application is terminating.
+     * This properly cleans up the ExecutorService to prevent memory leaks.
+     */
+    public void shutdown() {
+        Logger.i(Logger.TAG_PREFS, "Shutting down ConfigManager...");
+
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+            try {
+                // Wait up to 3 seconds for tasks to complete
+                if (!executorService.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        Logger.i(Logger.TAG_PREFS, "ConfigManager shutdown complete");
+    }
 }
 

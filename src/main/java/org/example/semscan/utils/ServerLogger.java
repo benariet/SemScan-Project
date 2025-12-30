@@ -709,6 +709,52 @@ public class ServerLogger {
     }
     
     /**
+     * Shutdown the logger, releasing all resources.
+     * Should be called when the application is terminating.
+     * This properly cleans up:
+     * - ExecutorService (prevents thread leaks)
+     * - Network listeners (prevents memory leaks)
+     * - Flushes any pending logs before shutdown
+     */
+    public void shutdown() {
+        Log.i(TAG_API, "Shutting down ServerLogger...");
+
+        // First, try to flush any pending logs
+        try {
+            synchronized (pendingLogs) {
+                if (!pendingLogs.isEmpty()) {
+                    persistPendingLogs(); // Save to disk in case we can't send
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG_API, "Failed to flush logs during shutdown", e);
+        }
+
+        // Unregister network listener
+        unregisterNetworkListener();
+
+        // Shutdown executor service
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+            try {
+                // Wait up to 5 seconds for tasks to complete
+                if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                    // Wait another 2 seconds for forced termination
+                    if (!executorService.awaitTermination(2, TimeUnit.SECONDS)) {
+                        Log.w(TAG_API, "ExecutorService did not terminate");
+                    }
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        Log.i(TAG_API, "ServerLogger shutdown complete");
+    }
+
+    /**
      * Unregister network connectivity listener
      */
     public void unregisterNetworkListener() {

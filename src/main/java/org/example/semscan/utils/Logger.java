@@ -1,17 +1,18 @@
 package org.example.semscan.utils;
 
-import android.util.Log;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.util.Log;
 
 /**
  * Centralized logging utility for the SemScan app
  * Provides consistent logging across all components
  */
 public class Logger {
-    
+
     // Main app tag
     private static final String APP_TAG = "SemScan";
-    
+
     // Component tags
     public static final String TAG_API = "SemScan-API";
     public static final String TAG_UI = "SemScan-UI";
@@ -19,23 +20,48 @@ public class Logger {
     public static final String TAG_QR = "SemScan-QR";
     public static final String TAG_ATTENDANCE = "SemScan-Attendance";
     public static final String TAG_SESSION = "SemScan-Session";
-    
-    // Log levels
-    public static final boolean DEBUG_ENABLED = true; // Set to false for production
+
+    // Debug flag - determined at runtime based on app's debuggable flag
+    // This is more reliable than BuildConfig.DEBUG and avoids compile-time issues
+    private static boolean debugEnabled = true; // Default to true until init() is called
+    private static boolean initialized = false;
     private static Context applicationContext; // For forwarding errors to ServerLogger
 
     /**
      * Initialize logger with application context to enable server forwarding
+     * Also determines if debug logging should be enabled based on app's debuggable flag
      */
     public static void init(Context context) {
         applicationContext = context.getApplicationContext();
+
+        // Determine debug mode from app's debuggable flag
+        // This is set automatically by the build system (true for debug, false for release)
+        if (!initialized && applicationContext != null) {
+            try {
+                ApplicationInfo appInfo = applicationContext.getApplicationInfo();
+                debugEnabled = (appInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+                initialized = true;
+                Log.i(APP_TAG, "Logger initialized - debug mode: " + debugEnabled);
+            } catch (Exception e) {
+                // If we can't determine, default to true for safety
+                debugEnabled = true;
+                Log.w(APP_TAG, "Could not determine debug mode, defaulting to enabled");
+            }
+        }
     }
-    
+
+    /**
+     * Check if debug logging is enabled
+     */
+    public static boolean isDebugEnabled() {
+        return debugEnabled;
+    }
+
     /**
      * Log debug messages
      */
     public static void d(String tag, String message) {
-        if (DEBUG_ENABLED) {
+        if (debugEnabled) {
             Log.i(tag, message);
         }
     }
@@ -89,7 +115,7 @@ public class Logger {
      * Log API calls
      */
     public static void api(String method, String url, String requestBody) {
-        if (DEBUG_ENABLED) {
+        if (debugEnabled) {
             Log.i(TAG_API, String.format("API %s: %s", method, url));
             if (requestBody != null && !requestBody.isEmpty()) {
                 Log.i(TAG_API, "Request Body: " + requestBody);
@@ -101,7 +127,7 @@ public class Logger {
      * Log API responses
      */
     public static void apiResponse(String method, String url, int statusCode, String responseBody) {
-        if (DEBUG_ENABLED) {
+        if (debugEnabled) {
             Log.i(TAG_API, String.format("API Response %s %s: %d", method, url, statusCode));
             if (responseBody != null && !responseBody.isEmpty()) {
                 Log.i(TAG_API, "Response Body: " + responseBody);
@@ -159,7 +185,7 @@ public class Logger {
      * Log preferences changes
      */
     public static void prefs(String key, String value) {
-        if (DEBUG_ENABLED) {
+        if (debugEnabled) {
             Log.i(TAG_PREFS, String.format("Preference: %s = %s", key, value));
         }
     }
