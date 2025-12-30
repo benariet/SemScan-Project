@@ -138,6 +138,14 @@ public class WaitingListController {
             dto.setAddedAt(entry.getAddedAt().toString());
             response.setEntries(List.of(dto));
 
+            // Log API response to database
+            databaseLoggerService.logAction("INFO", "API_WAITING_LIST_ADD_RESPONSE",
+                    String.format("Waiting list add API response for user %s, slot %d: success=true, position=%d",
+                            presenterUsername.trim(), slotId, entry.getPosition()),
+                    presenterUsername.trim(),
+                    String.format("slotId=%d,success=true,code=ADDED_TO_WAITING_LIST,position=%d,degree=%s,httpStatus=200",
+                            slotId, entry.getPosition(), entry.getDegree()));
+
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), "User added to waiting list");
             return ResponseEntity.ok(response);
         } catch (IllegalStateException e) {
@@ -195,8 +203,21 @@ public class WaitingListController {
         String endpoint = String.format("/api/v1/slots/%d/waiting-list?username=%s", slotId, username);
         LoggerUtil.logApiRequest(logger, "DELETE", endpoint, null);
 
+        // Log API request to database
+        databaseLoggerService.logAction("INFO", "API_WAITING_LIST_CANCEL_REQUEST",
+                String.format("Waiting list cancel API called for user %s, slot %d", username.trim(), slotId),
+                username.trim(),
+                String.format("slotId=%d", slotId));
+
         try {
             waitingListService.removeFromWaitingList(slotId, username.trim());
+
+            // Log API response to database
+            databaseLoggerService.logAction("INFO", "API_WAITING_LIST_CANCEL_RESPONSE",
+                    String.format("Waiting list cancel API response for user %s, slot %d: success=true", username.trim(), slotId),
+                    username.trim(),
+                    String.format("slotId=%d,success=true,code=REMOVED_FROM_WAITING_LIST,httpStatus=200", slotId));
+
             LoggerUtil.logApiResponse(logger, "DELETE", endpoint, HttpStatus.OK.value(), "User removed from waiting list");
             return ResponseEntity.ok(java.util.Map.of(
                     "ok", true,

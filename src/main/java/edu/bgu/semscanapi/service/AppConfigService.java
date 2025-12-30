@@ -69,13 +69,6 @@ public class AppConfigService {
                 return defaultValue;
             }
             
-            // Log successful config retrieval
-            if (databaseLoggerService != null) {
-                databaseLoggerService.logAction("INFO", "APP_CONFIG_RETRIEVED",
-                        String.format("Config key '%s' retrieved from database: %s (type: %s)", key, value, type.getSimpleName()),
-                        null, String.format("key=%s,value=%s,type=%s,targetSystem=%s", key, value, type.getSimpleName(), config.getTargetSystem()));
-            }
-            
             return result;
         } catch (Exception e) {
             logger.error("Error converting config value for key '{}': {}, using default value: {}", 

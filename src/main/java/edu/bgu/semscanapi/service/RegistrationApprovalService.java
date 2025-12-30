@@ -663,6 +663,12 @@ public class RegistrationApprovalService {
      */
     @Transactional
     public void approveRegistration(Long slotId, String presenterUsername, String token) {
+        // Log approval attempt
+        databaseLoggerService.logAction("INFO", "APPROVAL_ATTEMPT",
+                String.format("Approval attempt for slotId=%d, presenter=%s", slotId, presenterUsername),
+                presenterUsername,
+                String.format("slotId=%d,presenterUsername=%s,tokenProvided=%s", slotId, presenterUsername, token != null));
+
         SeminarSlotRegistration registration = registrationRepository
                 .findById(new SeminarSlotRegistrationId(slotId, presenterUsername))
                 .orElseThrow(() -> new IllegalArgumentException("Registration not found"));

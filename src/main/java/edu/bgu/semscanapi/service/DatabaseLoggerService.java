@@ -31,6 +31,26 @@ public class DatabaseLoggerService {
     @Autowired
     private UserRepository userRepository;
     
+    // Thread-local storage for device info (set by controllers/interceptors)
+    private static final ThreadLocal<String> currentDeviceInfo = new ThreadLocal<>();
+    private static final ThreadLocal<String> currentAppVersion = new ThreadLocal<>();
+
+    /**
+     * Set device info for current request thread (call this from controller/interceptor)
+     */
+    public static void setDeviceInfo(String deviceInfo, String appVersion) {
+        currentDeviceInfo.set(deviceInfo);
+        currentAppVersion.set(appVersion);
+    }
+
+    /**
+     * Clear device info for current request thread
+     */
+    public static void clearDeviceInfo() {
+        currentDeviceInfo.remove();
+        currentAppVersion.remove();
+    }
+
     /**
      * Log an action to the database
      * @param level Log level (INFO, WARN, ERROR, etc.)
@@ -42,6 +62,16 @@ public class DatabaseLoggerService {
     @Async
     @Transactional
     public void logAction(String level, String tag, String message, String bguUsername, String payload) {
+        logActionWithDevice(level, tag, message, bguUsername, payload, currentDeviceInfo.get(), currentAppVersion.get());
+    }
+
+    /**
+     * Log an action with explicit device info
+     */
+    @Async
+    @Transactional
+    public void logActionWithDevice(String level, String tag, String message, String bguUsername, String payload,
+                                    String deviceInfo, String appVersion) {
         try {
             AppLog appLog = new AppLog();
             appLog.setLogTimestamp(LocalDateTime.now());
@@ -50,6 +80,14 @@ public class DatabaseLoggerService {
             appLog.setMessage(message);
             appLog.setSource(AppLog.Source.API); // API source for server-side actions
             appLog.setCorrelationId(LoggerUtil.getCurrentCorrelationId());
+
+            // Set device info if available
+            if (deviceInfo != null && !deviceInfo.isBlank()) {
+                appLog.setDeviceInfo(deviceInfo);
+            }
+            if (appVersion != null && !appVersion.isBlank()) {
+                appLog.setAppVersion(appVersion);
+            }
 
             // Only set bgu_username if the user exists in the database (foreign key constraint)
             if (bguUsername != null && !bguUsername.isBlank()) {
@@ -98,12 +136,22 @@ public class DatabaseLoggerService {
             appLog.setMessage(message);
             appLog.setSource(AppLog.Source.API); // API source for server-side errors
             appLog.setCorrelationId(LoggerUtil.getCurrentCorrelationId());
-            
+
+            // Set device info if available
+            String deviceInfo = currentDeviceInfo.get();
+            String appVersion = currentAppVersion.get();
+            if (deviceInfo != null && !deviceInfo.isBlank()) {
+                appLog.setDeviceInfo(deviceInfo);
+            }
+            if (appVersion != null && !appVersion.isBlank()) {
+                appLog.setAppVersion(appVersion);
+            }
+
             if (throwable != null) {
                 appLog.setExceptionType(throwable.getClass().getName());
                 appLog.setStackTrace(getStackTrace(throwable));
             }
-            
+
             // Only set bgu_username if the user exists in the database (foreign key constraint)
             if (bguUsername != null && !bguUsername.isBlank()) {
                 String normalizedUsername = bguUsername.trim().toLowerCase();
@@ -123,9 +171,9 @@ public class DatabaseLoggerService {
                     // Don't set bgu_username if lookup fails
                 }
             }
-            
+
             appLog.setPayload(payload);
-            
+
             appLogRepository.save(appLog);
         } catch (Exception e) {
             // Don't throw exception if database logging fails - just log to file

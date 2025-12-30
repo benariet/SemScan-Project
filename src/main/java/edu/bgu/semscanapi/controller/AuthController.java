@@ -56,10 +56,25 @@ public class AuthController {
         LoggerUtil.logApiRequest(logger, "POST", endpoint, sanitizedRequest);
 
         try {
+            // Log login attempt to database
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logAction("INFO", "LOGIN_ATTEMPT",
+                        String.format("Login attempt for user %s", request.getUsername()),
+                        request.getUsername(),
+                        String.format("username=%s", request.getUsername()));
+            }
+
             boolean authenticated = bguAuthSoapService.validateUser(request.getUsername(), request.getPassword());
 
             if (!authenticated) {
                 logger.warn("BGU authentication failed for user: {}", request.getUsername());
+                // Log failed login to database
+                if (databaseLoggerService != null) {
+                    databaseLoggerService.logAction("WARN", "LOGIN_FAILED",
+                            String.format("Login failed for user %s - Invalid credentials", request.getUsername()),
+                            request.getUsername(),
+                            String.format("username=%s,reason=INVALID_CREDENTIALS", request.getUsername()));
+                }
                 LoginResponse response = LoginResponse.failure("Invalid username or password");
                 LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.UNAUTHORIZED.value(), response.getMessage());
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
@@ -90,10 +105,29 @@ public class AuthController {
                     isPresenter,
                     isParticipant);
 
+            // Log successful login to database
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logBusinessEvent("LOGIN_SUCCESS",
+                        String.format("Login successful for user %s (isFirstTime=%s, isPresenter=%s, isParticipant=%s, hasSupervisor=%s)",
+                                user.getBguUsername(), isFirstTime,
+                                Boolean.TRUE.equals(user.getIsPresenter()),
+                                Boolean.TRUE.equals(user.getIsParticipant()),
+                                user.getSupervisor() != null),
+                        user.getBguUsername());
+            }
+
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), response.getMessage());
             return ResponseEntity.ok(response);
         } catch (Exception ex) {
             LoggerUtil.logError(logger, "Unexpected error during BGU authentication", ex);
+            // Log unexpected error to database with full stack trace
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logError("LOGIN_UNEXPECTED_ERROR",
+                        String.format("Unexpected error during login for user %s: %s",
+                                request != null ? request.getUsername() : "null", ex.getMessage()),
+                        ex, request != null ? request.getUsername() : null,
+                        String.format("errorType=%s,httpStatus=500", ex.getClass().getSimpleName()));
+            }
             LoginResponse response = LoginResponse.failure("Authentication service unavailable");
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), response.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
