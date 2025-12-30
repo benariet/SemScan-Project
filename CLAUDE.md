@@ -12,6 +12,18 @@ SemScan is a **seminar attendance tracking system** for BGU (Ben-Gurion Universi
 - **QR Attendance**: Presenters open attendance window, participants scan QR to mark attendance
 - **Session Timeout**: 401/403 responses trigger auto-redirect to login
 
+## Development Guidelines
+
+### IMPORTANT: Keep It Simple!
+**This is a small application for ~20 users maximum.** Do NOT over-engineer:
+- No complex performance optimizations unless there's an actual measurable problem
+- No premature database indexing or query optimization
+- No elaborate caching strategies
+- Keep code changes minimal and focused
+- Simple fixes only - avoid architectural changes for theoretical "improvements"
+
+If a code review suggests performance improvements, ask: "Is this actually needed for 20 users?" The answer is almost always NO.
+
 ## Project Structure
 
 ### Android App (`SemScan/`)
@@ -466,3 +478,314 @@ SELECT * FROM email_queue WHERE status = 'PENDING';
 - `is_presenter` - User is presenter
 - `is_participant` - User is participant
 - `supervisor_id` - Linked supervisor
+
+## Database Schema (Full DDL)
+
+**IMPORTANT**: Always reference this schema when writing SQL queries. The actual table/column names may differ from JPA entity names.
+
+```sql
+-- Table: announce_config
+CREATE TABLE `announce_config` (
+  `id` int NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '0',
+  `version` int NOT NULL DEFAULT '1',
+  `title` varchar(100) DEFAULT '',
+  `message` text,
+  `is_blocking` tinyint(1) NOT NULL DEFAULT '0',
+  `start_at` timestamp NULL DEFAULT NULL,
+  `end_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+);
+
+-- Table: app_config
+CREATE TABLE `app_config` (
+  `config_id` bigint NOT NULL AUTO_INCREMENT,
+  `config_key` varchar(255) NOT NULL,
+  `config_value` text NOT NULL,
+  `config_type` enum('STRING','INTEGER','BOOLEAN','JSON') NOT NULL,
+  `target_system` enum('MOBILE','API','BOTH') NOT NULL,
+  `category` varchar(50) DEFAULT NULL,
+  `description` text,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`config_id`),
+  UNIQUE KEY `config_key` (`config_key`)
+);
+
+-- Table: app_logs
+CREATE TABLE `app_logs` (
+  `log_id` bigint NOT NULL AUTO_INCREMENT,
+  `log_timestamp` datetime NOT NULL,
+  `level` varchar(20) NOT NULL,
+  `tag` varchar(100) DEFAULT NULL,
+  `message` text NOT NULL,
+  `source` enum('API','MOBILE') NOT NULL DEFAULT 'API',
+  `correlation_id` varchar(50) DEFAULT NULL,
+  `bgu_username` varchar(50) DEFAULT NULL,
+  `user_role` enum('PARTICIPANT','PRESENTER','BOTH','UNKNOWN') DEFAULT 'UNKNOWN',
+  `device_info` varchar(255) DEFAULT NULL,
+  `app_version` varchar(50) DEFAULT NULL,
+  `stack_trace` text,
+  `exception_type` varchar(100) DEFAULT NULL,
+  `payload` text,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`log_id`),
+  KEY `idx_logs_user` (`bgu_username`),
+  CONSTRAINT `fk_logs_user` FOREIGN KEY (`bgu_username`) REFERENCES `users` (`bgu_username`) ON DELETE SET NULL
+);
+
+-- Table: users
+CREATE TABLE `users` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `email` varchar(255) NOT NULL,
+  `bgu_username` varchar(50) NOT NULL,
+  `first_name` varchar(100) NOT NULL,
+  `last_name` varchar(100) NOT NULL,
+  `degree` enum('MSc','PhD') DEFAULT NULL,
+  `is_presenter` tinyint(1) DEFAULT '0',
+  `is_participant` tinyint(1) DEFAULT '0',
+  `national_id_number` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `supervisor_id` bigint DEFAULT NULL,
+  `seminar_abstract` text,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `bgu_username` (`bgu_username`)
+);
+
+-- Table: slots
+CREATE TABLE `slots` (
+  `slot_id` bigint NOT NULL AUTO_INCREMENT,
+  `semester_label` varchar(50) DEFAULT NULL,
+  `slot_date` date NOT NULL,
+  `start_time` time NOT NULL,
+  `end_time` time NOT NULL,
+  `building` varchar(50) DEFAULT NULL,
+  `room` varchar(50) DEFAULT NULL,
+  `capacity` int NOT NULL,
+  `status` enum('FREE','SEMI','FULL') NOT NULL DEFAULT 'FREE',
+  `attendance_opened_at` datetime DEFAULT NULL,
+  `attendance_closes_at` datetime DEFAULT NULL,
+  `attendance_opened_by` varchar(50) DEFAULT NULL,
+  `legacy_seminar_id` bigint DEFAULT NULL,
+  `legacy_session_id` bigint DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`slot_id`)
+);
+
+-- Table: slot_registration (NOT seminar_slot_registrations!)
+CREATE TABLE `slot_registration` (
+  `slot_id` bigint NOT NULL,
+  `presenter_username` varchar(50) NOT NULL,
+  `degree` enum('MSc','PhD') NOT NULL,
+  `topic` varchar(255) DEFAULT NULL,
+  `seminar_abstract` text,
+  `supervisor_name` varchar(255) DEFAULT NULL,
+  `supervisor_email` varchar(255) DEFAULT NULL,
+  `national_id_number` varchar(50) DEFAULT NULL,
+  `registered_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `approval_status` enum('PENDING','APPROVED','DECLINED','EXPIRED') NOT NULL DEFAULT 'PENDING',
+  `approval_token` varchar(255) DEFAULT NULL,
+  `approval_token_expires_at` datetime DEFAULT NULL,
+  `supervisor_approved_at` datetime DEFAULT NULL,
+  `supervisor_declined_at` datetime DEFAULT NULL,
+  `supervisor_declined_reason` text,
+  `last_reminder_sent_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`slot_id`,`presenter_username`),
+  UNIQUE KEY `approval_token` (`approval_token`),
+  CONSTRAINT `fk_slot_registration_presenter` FOREIGN KEY (`presenter_username`) REFERENCES `users` (`bgu_username`) ON DELETE CASCADE,
+  CONSTRAINT `fk_slot_registration_slot` FOREIGN KEY (`slot_id`) REFERENCES `slots` (`slot_id`) ON DELETE CASCADE
+);
+
+-- Table: waiting_list (NOT waiting_list_entries!)
+CREATE TABLE `waiting_list` (
+  `waiting_list_id` bigint NOT NULL AUTO_INCREMENT,
+  `slot_id` bigint NOT NULL,
+  `presenter_username` varchar(50) NOT NULL,
+  `degree` enum('MSc','PhD') NOT NULL,
+  `topic` varchar(255) DEFAULT NULL,
+  `supervisor_name` varchar(255) DEFAULT NULL,
+  `supervisor_email` varchar(255) DEFAULT NULL,
+  `position` int NOT NULL,
+  `added_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `promotion_token` varchar(255) DEFAULT NULL,
+  `promotion_token_expires_at` datetime DEFAULT NULL,
+  `promotion_offered_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`waiting_list_id`),
+  UNIQUE KEY `unique_slot_presenter_waiting` (`slot_id`,`presenter_username`),
+  CONSTRAINT `fk_waiting_list_presenter` FOREIGN KEY (`presenter_username`) REFERENCES `users` (`bgu_username`) ON DELETE CASCADE,
+  CONSTRAINT `fk_waiting_list_slot` FOREIGN KEY (`slot_id`) REFERENCES `slots` (`slot_id`) ON DELETE CASCADE
+);
+
+-- Table: waiting_list_promotions
+CREATE TABLE `waiting_list_promotions` (
+  `promotion_id` bigint NOT NULL AUTO_INCREMENT,
+  `slot_id` bigint NOT NULL,
+  `presenter_username` varchar(50) NOT NULL,
+  `registration_slot_id` bigint NOT NULL,
+  `registration_presenter_username` varchar(50) NOT NULL,
+  `promoted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `expires_at` datetime NOT NULL,
+  `status` enum('PENDING','APPROVED','DECLINED','EXPIRED') NOT NULL DEFAULT 'PENDING',
+  PRIMARY KEY (`promotion_id`),
+  CONSTRAINT `fk_promotions_registration` FOREIGN KEY (`registration_slot_id`, `registration_presenter_username`) REFERENCES `slot_registration` (`slot_id`, `presenter_username`) ON DELETE CASCADE,
+  CONSTRAINT `fk_promotions_slot` FOREIGN KEY (`slot_id`) REFERENCES `slots` (`slot_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_promotions_user` FOREIGN KEY (`presenter_username`) REFERENCES `users` (`bgu_username`) ON DELETE CASCADE
+);
+
+-- Table: seminars
+CREATE TABLE `seminars` (
+  `seminar_id` bigint NOT NULL AUTO_INCREMENT,
+  `seminar_name` varchar(255) NOT NULL,
+  `description` text,
+  `presenter_username` varchar(50) NOT NULL,
+  `max_enrollment_capacity` int DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`seminar_id`),
+  CONSTRAINT `fk_seminars_presenter` FOREIGN KEY (`presenter_username`) REFERENCES `users` (`bgu_username`) ON DELETE CASCADE
+);
+
+-- Table: sessions
+CREATE TABLE `sessions` (
+  `session_id` bigint NOT NULL AUTO_INCREMENT,
+  `seminar_id` bigint NOT NULL,
+  `start_time` datetime NOT NULL,
+  `end_time` datetime DEFAULT NULL,
+  `status` enum('OPEN','CLOSED') NOT NULL DEFAULT 'OPEN',
+  `location` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`session_id`),
+  CONSTRAINT `fk_sessions_seminar` FOREIGN KEY (`seminar_id`) REFERENCES `seminars` (`seminar_id`) ON DELETE CASCADE
+);
+
+-- Table: attendance
+CREATE TABLE `attendance` (
+  `attendance_id` bigint NOT NULL AUTO_INCREMENT,
+  `session_id` bigint NOT NULL,
+  `student_username` varchar(50) NOT NULL,
+  `attendance_time` datetime NOT NULL,
+  `method` enum('QR_SCAN','MANUAL','MANUAL_REQUEST','PROXY') NOT NULL,
+  `request_status` enum('PENDING_APPROVAL','CONFIRMED','REJECTED') DEFAULT NULL,
+  `manual_reason` varchar(255) DEFAULT NULL,
+  `requested_at` datetime DEFAULT NULL,
+  `approved_by_username` varchar(50) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `device_id` varchar(100) DEFAULT NULL,
+  `auto_flags` text,
+  `notes` text,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`attendance_id`),
+  UNIQUE KEY `uq_attendance_session_student` (`session_id`,`student_username`),
+  CONSTRAINT `fk_attendance_approver` FOREIGN KEY (`approved_by_username`) REFERENCES `users` (`bgu_username`) ON DELETE SET NULL,
+  CONSTRAINT `fk_attendance_session` FOREIGN KEY (`session_id`) REFERENCES `sessions` (`session_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_attendance_student` FOREIGN KEY (`student_username`) REFERENCES `users` (`bgu_username`) ON DELETE CASCADE
+);
+
+-- Table: email_queue
+CREATE TABLE `email_queue` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `to_email` varchar(255) NOT NULL,
+  `cc_email` varchar(255) DEFAULT NULL,
+  `bcc_email` varchar(255) DEFAULT NULL,
+  `subject` varchar(500) NOT NULL,
+  `html_content` text NOT NULL,
+  `email_type` varchar(50) NOT NULL,
+  `registration_id` bigint DEFAULT NULL,
+  `slot_id` bigint DEFAULT NULL,
+  `username` varchar(100) DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'PENDING',
+  `retry_count` int NOT NULL DEFAULT '0',
+  `max_retries` int NOT NULL DEFAULT '3',
+  `last_error` text,
+  `last_error_code` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `scheduled_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_attempt_at` timestamp NULL DEFAULT NULL,
+  `sent_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`)
+);
+
+-- Table: email_log
+CREATE TABLE `email_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `to_email` varchar(255) NOT NULL,
+  `subject` varchar(500) NOT NULL,
+  `email_type` varchar(50) NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `error_message` text,
+  `error_code` varchar(50) DEFAULT NULL,
+  `registration_id` bigint DEFAULT NULL,
+  `slot_id` bigint DEFAULT NULL,
+  `username` varchar(100) DEFAULT NULL,
+  `queue_id` bigint DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+);
+
+-- Table: seminar_participants
+CREATE TABLE `seminar_participants` (
+  `participant_id` bigint NOT NULL AUTO_INCREMENT,
+  `seminar_id` bigint NOT NULL,
+  `participant_username` varchar(50) NOT NULL,
+  `role` enum('PARTICIPANT','PRESENTER') NOT NULL,
+  `joined_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`participant_id`),
+  UNIQUE KEY `unique_seminar_user` (`seminar_id`,`participant_username`),
+  CONSTRAINT `fk_seminar_participants_seminar` FOREIGN KEY (`seminar_id`) REFERENCES `seminars` (`seminar_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_seminar_participants_user` FOREIGN KEY (`participant_username`) REFERENCES `users` (`bgu_username`) ON DELETE CASCADE
+);
+
+-- Table: supervisor_reminder_tracking
+CREATE TABLE `supervisor_reminder_tracking` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `registration_id` bigint NOT NULL,
+  `supervisor_email` varchar(255) NOT NULL,
+  `reminder_date` date NOT NULL,
+  `sent_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_reminder` (`registration_id`,`reminder_date`)
+);
+
+-- Table: test_flows (for QA testing)
+CREATE TABLE `test_flows` (
+  `test_id` varchar(20) NOT NULL,
+  `category` varchar(50) DEFAULT NULL,
+  `test_name` varchar(150) DEFAULT NULL,
+  `priority` varchar(10) DEFAULT NULL,
+  `db_setup` text,
+  `presenter_setup` text,
+  `preconditions` text,
+  `step_1` varchar(300) DEFAULT NULL,
+  `step_2` varchar(300) DEFAULT NULL,
+  `step_3` varchar(300) DEFAULT NULL,
+  `step_4` varchar(300) DEFAULT NULL,
+  `step_5` varchar(300) DEFAULT NULL,
+  `step_6` varchar(300) DEFAULT NULL,
+  `expected_result` text,
+  `pass_fail` varchar(10) DEFAULT NULL,
+  `tester` varchar(50) DEFAULT NULL,
+  `test_date` date DEFAULT NULL,
+  `notes` text,
+  PRIMARY KEY (`test_id`)
+);
+```
+
+### Table Name Mapping (JPA Entity → Actual Table)
+| JPA Entity | Actual Table Name |
+|------------|-------------------|
+| `SeminarSlotRegistration` | `slot_registration` |
+| `WaitingListEntry` | `waiting_list` |
+| `SeminarSlot` | `slots` |
+| `AppLog` | `app_logs` |
+| `User` | `users` |
+| `Session` | `sessions` |
+| `Seminar` | `seminars` |
+| `Attendance` | `attendance` |
+| `EmailQueue` | `email_queue` |
+| `AppConfig` | `app_config` |
