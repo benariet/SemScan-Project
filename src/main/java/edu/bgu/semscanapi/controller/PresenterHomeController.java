@@ -5,9 +5,11 @@ import edu.bgu.semscanapi.dto.PresenterOpenAttendanceResponse;
 import edu.bgu.semscanapi.dto.PresenterSlotRegistrationRequest;
 import edu.bgu.semscanapi.dto.PresenterSlotRegistrationResponse;
 import edu.bgu.semscanapi.dto.SupervisorEmailRequest;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.PresenterHomeService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +29,9 @@ public class PresenterHomeController {
     private static final Logger logger = LoggerUtil.getLogger(PresenterHomeController.class);
 
     private final PresenterHomeService presenterHomeService;
+
+    @Autowired(required = false)
+    private DatabaseLoggerService databaseLoggerService;
 
     public PresenterHomeController(PresenterHomeService presenterHomeService) {
         this.presenterHomeService = presenterHomeService;
@@ -63,18 +68,57 @@ public class PresenterHomeController {
         String endpoint = String.format("/api/v1/presenters/%s/home/slots/%d/register", presenterUsername, slotId);
         LoggerUtil.logApiRequest(logger, "POST", endpoint, String.format("{\"topic\":\"%s\"}", request.getTopic()));
 
+        // Log API request to database with full payload
+        if (databaseLoggerService != null) {
+            databaseLoggerService.logAction("INFO", "API_REGISTER_REQUEST",
+                    String.format("Registration API called for presenter %s, slot %d", presenterUsername, slotId),
+                    presenterUsername,
+                    String.format("slotId=%d,topic=%s,supervisorName=%s,supervisorEmail=%s,seminarAbstract=%s",
+                            slotId,
+                            request.getTopic() != null ? request.getTopic() : "null",
+                            request.getSupervisorName() != null ? request.getSupervisorName() : "null",
+                            request.getSupervisorEmail() != null ? request.getSupervisorEmail() : "null",
+                            request.getSeminarAbstract() != null ? "provided" : "null"));
+        }
+
         try {
             PresenterSlotRegistrationResponse response = presenterHomeService.registerForSlot(presenterUsername, slotId, request);
             HttpStatus status = deriveStatus(response);
+
+            // Log API response to database
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logAction("INFO", "API_REGISTER_RESPONSE",
+                        String.format("Registration API response for presenter %s, slot %d: success=%s, code=%s",
+                                presenterUsername, slotId, response.isSuccess(), response.getCode()),
+                        presenterUsername,
+                        String.format("slotId=%d,success=%s,code=%s,message=%s,httpStatus=%d",
+                                slotId, response.isSuccess(), response.getCode(), response.getMessage(), status.value()));
+            }
+
             LoggerUtil.logApiResponse(logger, "POST", endpoint, status.value(), response.getMessage());
             return ResponseEntity.status(status).body(response);
         } catch (IllegalArgumentException ex) {
             LoggerUtil.logError(logger, "Presenter slot registration failed", ex);
+            // Log error to database with full details
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logError("API_REGISTER_ERROR",
+                        String.format("Registration failed for presenter %s, slot %d: %s", presenterUsername, slotId, ex.getMessage()),
+                        ex, presenterUsername,
+                        String.format("slotId=%d,errorType=IllegalArgumentException,httpStatus=404", slotId));
+            }
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.NOT_FOUND.value(), ex.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new PresenterSlotRegistrationResponse(false, ex.getMessage(), "NOT_FOUND", false));
         } catch (Exception ex) {
             LoggerUtil.logError(logger, "Unexpected error during slot registration", ex);
+            // Log unexpected error to database with full stack trace
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logError("API_REGISTER_UNEXPECTED_ERROR",
+                        String.format("Unexpected error during registration for presenter %s, slot %d: %s",
+                                presenterUsername, slotId, ex.getMessage()),
+                        ex, presenterUsername,
+                        String.format("slotId=%d,errorType=%s,httpStatus=500", slotId, ex.getClass().getSimpleName()));
+            }
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
             throw ex;
         } finally {
@@ -89,18 +133,52 @@ public class PresenterHomeController {
         String endpoint = String.format("/api/v1/presenters/%s/home/slots/%d/register", presenterUsername, slotId);
         LoggerUtil.logApiRequest(logger, "DELETE", endpoint, null);
 
+        // Log API request to database
+        if (databaseLoggerService != null) {
+            databaseLoggerService.logAction("INFO", "API_UNREGISTER_REQUEST",
+                    String.format("Unregister API called for presenter %s, slot %d", presenterUsername, slotId),
+                    presenterUsername,
+                    String.format("slotId=%d", slotId));
+        }
+
         try {
             PresenterSlotRegistrationResponse response = presenterHomeService.unregisterFromSlot(presenterUsername, slotId);
             HttpStatus status = deriveStatus(response);
+
+            // Log API response to database
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logAction("INFO", "API_UNREGISTER_RESPONSE",
+                        String.format("Unregister API response for presenter %s, slot %d: success=%s, code=%s",
+                                presenterUsername, slotId, response.isSuccess(), response.getCode()),
+                        presenterUsername,
+                        String.format("slotId=%d,success=%s,code=%s,message=%s,httpStatus=%d",
+                                slotId, response.isSuccess(), response.getCode(), response.getMessage(), status.value()));
+            }
+
             LoggerUtil.logApiResponse(logger, "DELETE", endpoint, status.value(), response.getMessage());
             return ResponseEntity.status(status).body(response);
         } catch (IllegalArgumentException ex) {
             LoggerUtil.logError(logger, "Presenter slot unregister failed", ex);
+            // Log error to database with full details
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logError("API_UNREGISTER_ERROR",
+                        String.format("Unregister failed for presenter %s, slot %d: %s", presenterUsername, slotId, ex.getMessage()),
+                        ex, presenterUsername,
+                        String.format("slotId=%d,errorType=IllegalArgumentException,httpStatus=404", slotId));
+            }
             LoggerUtil.logApiResponse(logger, "DELETE", endpoint, HttpStatus.NOT_FOUND.value(), ex.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new PresenterSlotRegistrationResponse(false, ex.getMessage(), "NOT_FOUND", false));
         } catch (Exception ex) {
             LoggerUtil.logError(logger, "Unexpected error during slot unregister", ex);
+            // Log unexpected error to database with full stack trace
+            if (databaseLoggerService != null) {
+                databaseLoggerService.logError("API_UNREGISTER_UNEXPECTED_ERROR",
+                        String.format("Unexpected error during unregister for presenter %s, slot %d: %s",
+                                presenterUsername, slotId, ex.getMessage()),
+                        ex, presenterUsername,
+                        String.format("slotId=%d,errorType=%s,httpStatus=500", slotId, ex.getClass().getSimpleName()));
+            }
             LoggerUtil.logApiResponse(logger, "DELETE", endpoint, HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error");
             throw ex;
         } finally {

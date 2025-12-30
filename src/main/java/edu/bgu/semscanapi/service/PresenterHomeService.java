@@ -180,7 +180,17 @@ public class PresenterHomeService {
                                                              PresenterSlotRegistrationRequest request) {
         String normalizedUsername = normalizeUsername(presenterUsernameParam);
         logger.info("Registering presenter {} to slot {}", normalizedUsername, slotId);
-        
+
+        // Log registration attempt with full context
+        databaseLoggerService.logAction("INFO", "REGISTRATION_ATTEMPT",
+                String.format("Registration attempt started for presenter %s to slot %d", normalizedUsername, slotId),
+                normalizedUsername,
+                String.format("slotId=%d,presenterUsername=%s,topic=%s,supervisorName=%s,supervisorEmail=%s",
+                        slotId, normalizedUsername,
+                        request != null ? request.getTopic() : "null",
+                        request != null ? request.getSupervisorName() : "null",
+                        request != null ? request.getSupervisorEmail() : "null"));
+
         String presenterUsername = null;
         User presenter = null;
         User.Degree presenterDegree = null;
@@ -345,6 +355,15 @@ public class PresenterHomeService {
                     String.format("slotId=%s,reason=NO_SUPERVISOR", slotId));
                 return new PresenterSlotRegistrationResponse(false, errorMsg, "NO_SUPERVISOR");
             }
+
+            // Log pre-registration slot state
+            databaseLoggerService.logAction("INFO", "REGISTRATION_SLOT_STATE",
+                    String.format("Slot %d state before registration: capacity=%d, effectiveUsage=%d, projected=%d",
+                            slotId, capacity, effectiveUsage, projectedUsage),
+                    presenterUsername,
+                    String.format("slotId=%d,capacity=%d,approvedCount=%d,pendingCount=%d,effectiveUsage=%d,projectedUsage=%d,presenterDegree=%s,presenterWeight=%d",
+                            slotId, capacity, approvedRegistrations.size(), pendingRegistrations.size(),
+                            effectiveUsage, projectedUsage, presenterDegree, newRegistrationWeight));
 
             registration = new SeminarSlotRegistration();
             registration.setId(new SeminarSlotRegistrationId(slotId, presenterUsername));
@@ -679,6 +698,12 @@ public class PresenterHomeService {
         String normalizedUsername = normalizeUsername(presenterUsernameParam);
         logger.info("Unregistering presenter {} from slot {}", normalizedUsername, slotId);
 
+        // Log cancellation attempt with full context
+        databaseLoggerService.logAction("INFO", "CANCELLATION_ATTEMPT",
+                String.format("Cancellation attempt started for presenter %s from slot %d", normalizedUsername, slotId),
+                normalizedUsername,
+                String.format("slotId=%d,presenterUsername=%s", slotId, normalizedUsername));
+
         User presenter = findPresenterByUsername(normalizedUsername);
         String presenterUsername = normalizeUsername(presenter.getBguUsername());
         if (presenterUsername == null) {
@@ -695,7 +720,19 @@ public class PresenterHomeService {
         }
 
         SeminarSlotRegistration registration = existing.get();
-        
+
+        // Log registration state before cancellation
+        databaseLoggerService.logAction("INFO", "CANCELLATION_SLOT_STATE",
+                String.format("Slot %d state before cancellation: presenterDegree=%s, approvalStatus=%s, supervisorEmail=%s",
+                        slotId, registration.getDegree(), registration.getApprovalStatus(),
+                        registration.getSupervisorEmail() != null ? registration.getSupervisorEmail() : "null"),
+                presenterUsername,
+                String.format("slotId=%d,presenterDegree=%s,approvalStatus=%s,supervisorEmail=%s,topic=%s,registeredAt=%s",
+                        slotId, registration.getDegree(), registration.getApprovalStatus(),
+                        registration.getSupervisorEmail() != null ? registration.getSupervisorEmail() : "null",
+                        registration.getTopic() != null ? registration.getTopic() : "null",
+                        registration.getRegisteredAt() != null ? registration.getRegisteredAt().toString() : "null"));
+
         // Send cancellation email to supervisor if registration was APPROVED
         // Do this BEFORE deleting the registration so we can access supervisor info
         if (registration.getApprovalStatus() == ApprovalStatus.APPROVED) {
@@ -789,6 +826,15 @@ public class PresenterHomeService {
         }
 
         logger.info("Presenter {} removed from slot {}. Remaining presenters: {}", presenterUsername, slotId, remaining);
+
+        // Log cancellation success with response details
+        databaseLoggerService.logAction("INFO", "CANCELLATION_SUCCESS",
+                String.format("Cancellation completed for presenter %s from slot %d. Remaining registrations: %d, approved: %d",
+                        presenterUsername, slotId, remaining, approvedRemaining),
+                presenterUsername,
+                String.format("slotId=%d,remainingTotal=%d,remainingApproved=%d,response=UNREGISTERED,success=true",
+                        slotId, remaining, approvedRemaining));
+
         return new PresenterSlotRegistrationResponse(true, "Registration cancelled", "UNREGISTERED", false);
     }
 
