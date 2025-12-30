@@ -36,10 +36,17 @@ public class RequestLoggingFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        
+
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
-        
+
+        // Skip logging for the logs endpoint to avoid recursive logging noise
+        String requestUri = httpRequest.getRequestURI();
+        if (requestUri != null && requestUri.contains("/api/v1/logs")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         // Wrap request and response to capture bodies
         ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(httpRequest);
         ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(httpResponse);
