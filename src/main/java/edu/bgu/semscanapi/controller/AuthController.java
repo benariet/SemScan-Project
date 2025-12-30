@@ -52,7 +52,22 @@ public class AuthController {
         LoggerUtil.generateAndSetCorrelationId();
         String endpoint = "/api/v1/auth/login";
 
-        String sanitizedRequest = String.format("{\"username\":\"%s\"}", request != null ? request.getUsername() : "null");
+        // Validate request is not null and has required fields
+        if (request == null || request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+            LoggerUtil.logApiRequest(logger, "POST", endpoint, "{\"username\":\"null\"}");
+            LoginResponse response = LoginResponse.failure("Username is required");
+            LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), response.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+
+        if (request.getPassword() == null || request.getPassword().isEmpty()) {
+            LoggerUtil.logApiRequest(logger, "POST", endpoint, String.format("{\"username\":\"%s\"}", request.getUsername()));
+            LoginResponse response = LoginResponse.failure("Password is required");
+            LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), response.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+
+        String sanitizedRequest = String.format("{\"username\":\"%s\"}", request.getUsername());
         LoggerUtil.logApiRequest(logger, "POST", endpoint, sanitizedRequest);
 
         try {

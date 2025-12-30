@@ -1,5 +1,6 @@
 package edu.bgu.semscanapi.controller;
 
+import edu.bgu.semscanapi.dto.ErrorResponse;
 import edu.bgu.semscanapi.dto.PresenterHomeResponse;
 import edu.bgu.semscanapi.dto.PresenterOpenAttendanceResponse;
 import edu.bgu.semscanapi.dto.PresenterSlotRegistrationRequest;
@@ -38,7 +39,7 @@ public class PresenterHomeController {
     }
 
     @GetMapping
-    public ResponseEntity<PresenterHomeResponse> getPresenterHome(@PathVariable("username") String presenterUsername) {
+    public ResponseEntity<?> getPresenterHome(@PathVariable("username") String presenterUsername) {
         LoggerUtil.generateAndSetCorrelationId();
         String endpoint = String.format("/api/v1/presenters/%s/home", presenterUsername);
         LoggerUtil.logApiRequest(logger, "GET", endpoint, null);
@@ -50,7 +51,8 @@ public class PresenterHomeController {
         } catch (IllegalArgumentException ex) {
             LoggerUtil.logError(logger, "Presenter home request failed", ex);
             LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.NOT_FOUND.value(), ex.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("Presenter not found", ex.getMessage(), HttpStatus.NOT_FOUND.value(), endpoint));
         } catch (Exception ex) {
             LoggerUtil.logError(logger, "Failed to build presenter home response", ex);
             LoggerUtil.logApiResponse(logger, "GET", endpoint, 500, "Internal Server Error");

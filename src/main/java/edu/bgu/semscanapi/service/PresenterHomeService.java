@@ -178,18 +178,24 @@ public class PresenterHomeService {
     public PresenterSlotRegistrationResponse registerForSlot(String presenterUsernameParam,
                                                              Long slotId,
                                                              PresenterSlotRegistrationRequest request) {
+        // Validate request is not null
+        if (request == null) {
+            logger.error("Registration request is null for presenter {} to slot {}", presenterUsernameParam, slotId);
+            return new PresenterSlotRegistrationResponse(false, "Registration request is required", "INVALID_REQUEST");
+        }
+
         String normalizedUsername = normalizeUsername(presenterUsernameParam);
         logger.info("Registering presenter {} to slot {}", normalizedUsername, slotId);
 
-        // Log registration attempt with full context
+        // Log registration attempt with full context (request is guaranteed non-null after validation above)
         databaseLoggerService.logAction("INFO", "REGISTRATION_ATTEMPT",
                 String.format("Registration attempt started for presenter %s to slot %d", normalizedUsername, slotId),
                 normalizedUsername,
                 String.format("slotId=%d,presenterUsername=%s,topic=%s,supervisorName=%s,supervisorEmail=%s",
                         slotId, normalizedUsername,
-                        request != null ? request.getTopic() : "null",
-                        request != null ? request.getSupervisorName() : "null",
-                        request != null ? request.getSupervisorEmail() : "null"));
+                        request.getTopic(),
+                        request.getSupervisorName(),
+                        request.getSupervisorEmail()));
 
         String presenterUsername = null;
         User presenter = null;
