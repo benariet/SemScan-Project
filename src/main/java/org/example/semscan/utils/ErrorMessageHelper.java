@@ -16,12 +16,40 @@ public class ErrorMessageHelper {
         if (throwable instanceof java.net.SocketTimeoutException) {
             return context.getString(R.string.error_network_timeout);
         } else if (throwable instanceof java.net.ConnectException) {
-            return context.getString(R.string.error_network_connection);
+            return context.getString(R.string.error_no_internet_retry);
         } else if (throwable instanceof java.net.UnknownHostException) {
             return context.getString(R.string.error_server_unavailable);
+        } else if (throwable instanceof java.io.IOException) {
+            String message = throwable.getMessage();
+            if (message != null && message.toLowerCase().contains("reset")) {
+                return context.getString(R.string.error_connection_reset);
+            }
+            return context.getString(R.string.error_network_connection);
         } else {
             return context.getString(R.string.error_network_connection);
         }
+    }
+
+    /**
+     * Check if an error is retryable (network issues that may resolve)
+     */
+    public static boolean isRetryableError(Throwable throwable) {
+        if (throwable == null) return false;
+
+        return throwable instanceof java.net.SocketTimeoutException
+            || throwable instanceof java.net.ConnectException
+            || throwable instanceof java.net.UnknownHostException
+            || (throwable instanceof java.io.IOException &&
+                !(throwable instanceof java.io.FileNotFoundException));
+    }
+
+    /**
+     * Check if HTTP status code indicates a retryable error
+     */
+    public static boolean isRetryableHttpError(int statusCode) {
+        // 5xx server errors and 408 timeout are retryable
+        return statusCode == 408 || statusCode == 429 ||
+               (statusCode >= 500 && statusCode <= 599);
     }
     
     /**
@@ -40,23 +68,25 @@ public class ErrorMessageHelper {
         // Fallback to status code-based messages
         switch (statusCode) {
             case 400:
-                return "Invalid request. Please check your information and try again.";
+                return context.getString(R.string.error_invalid_request);
             case 401:
-                return "Authentication required. Please log in again.";
+                return context.getString(R.string.error_session_expired);
             case 403:
-                return "You don't have permission to perform this action.";
+                return context.getString(R.string.error_permission_denied);
             case 404:
-                return "The requested item was not found. It may have been removed or doesn't exist.";
+                return context.getString(R.string.error_not_found);
             case 409:
-                return "This action conflicts with existing data. Please refresh and try again.";
+                return context.getString(R.string.error_conflict);
             case 422:
-                return "The information you provided is invalid. Please check and try again.";
+                return context.getString(R.string.error_validation_failed);
             case 429:
-                return "Too many requests. Please wait a moment and try again.";
+                return context.getString(R.string.error_too_many_requests);
             case 500:
             case 502:
             case 503:
-                return context.getString(R.string.error_server_error);
+                return context.getString(R.string.error_server_busy_retry);
+            case 504:
+                return context.getString(R.string.error_gateway_timeout);
             default:
                 return context.getString(R.string.error_unknown);
         }

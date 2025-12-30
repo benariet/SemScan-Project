@@ -1423,9 +1423,14 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                     Logger.i("EMAIL_" + Logger.TAG_API, emailExpectedLog);
                                     serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailExpectedLog);
                                 }
-                                Toast.makeText(PresenterSlotSelectionActivity.this, 
-                                    "Registration submitted. Waiting for supervisor approval.",
-                                    Toast.LENGTH_LONG).show();
+                                // Show enhanced message with supervisor name
+                                String pendingMessage;
+                                if (!TextUtils.isEmpty(normalizedSupervisorName)) {
+                                    pendingMessage = getString(R.string.presenter_home_register_pending_with_supervisor, normalizedSupervisorName);
+                                } else {
+                                    pendingMessage = getString(R.string.presenter_home_register_pending_generic);
+                                }
+                                Toast.makeText(PresenterSlotSelectionActivity.this, pendingMessage, Toast.LENGTH_LONG).show();
                                 loadSlots(); // Refresh to show pending status
                                 break;
                             case "REGISTERED":
@@ -1441,10 +1446,10 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                     serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailExpectedLog);
                                 }
                                 Toast.makeText(PresenterSlotSelectionActivity.this, R.string.presenter_home_register_success, Toast.LENGTH_LONG).show();
-                                
+
                                 // Supervisor invitation is now handled automatically by backend
                                 // No need to show post-registration dialog
-                                
+
                                 loadSlots();
                                 break;
                             case "ALREADY_IN_SLOT":

@@ -332,9 +332,9 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
                 nationalId
         );
 
-        apiService.upsertUser(request).enqueue(new Callback<User>() {
+        apiService.upsertUser(request).enqueue(new Callback<ApiService.UserProfileResponse>() {
             @Override
-            public void onResponse(Call<User> call, Response<User> response) {
+            public void onResponse(Call<ApiService.UserProfileResponse> call, Response<ApiService.UserProfileResponse> response) {
                 if (progressBar != null) {
                     progressBar.setVisibility(View.GONE);
                 }
@@ -358,7 +358,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Call<User> call, Throwable t) {
+            public void onFailure(Call<ApiService.UserProfileResponse> call, Throwable t) {
                 if (progressBar != null) {
                     progressBar.setVisibility(View.GONE);
                 }

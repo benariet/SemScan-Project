@@ -171,17 +171,71 @@ public class SettingsActivity extends AppCompatActivity {
         String lastName = editLastName.getText() != null ? editLastName.getText().toString().trim() : "";
         String nationalId = editNationalId.getText() != null ? editNationalId.getText().toString().trim() : "";
         String degree = spinnerDegree.getSelectedItem().toString();
+        String username = preferencesManager.getUserName();
+        String email = preferencesManager.getEmail();
+        String participation = preferencesManager.getParticipationPreference();
+
+        // Disable save button while saving
+        btnSave.setEnabled(false);
+        btnSave.setText("Saving...");
 
         try {
-            // Save all settings
+            // Save locally first
             preferencesManager.setFirstName(firstName);
             preferencesManager.setLastName(lastName);
             preferencesManager.setNationalId(nationalId);
             preferencesManager.setDegree(degree);
 
-            Logger.i(Logger.TAG_UI, "Settings saved successfully");
-            Toast.makeText(this, "Settings saved successfully!", Toast.LENGTH_SHORT).show();
+            // Normalize degree for API (M.Sc. -> MSc, Ph.D. -> PhD)
+            String normalizedDegree = degree.replace(".", "").replace(" ", "");
+            if ("MSc".equalsIgnoreCase(normalizedDegree)) {
+                normalizedDegree = "MSc";
+            } else if ("PhD".equalsIgnoreCase(normalizedDegree)) {
+                normalizedDegree = "PhD";
+            }
+
+            // Update on server
+            ApiService.UserProfileUpdateRequest request = new ApiService.UserProfileUpdateRequest(
+                    username,
+                    email,
+                    firstName,
+                    lastName,
+                    normalizedDegree,
+                    participation,
+                    nationalId
+            );
+
+            apiService.upsertUser(request).enqueue(new Callback<ApiService.UserProfileResponse>() {
+                @Override
+                public void onResponse(Call<ApiService.UserProfileResponse> call, Response<ApiService.UserProfileResponse> response) {
+                    runOnUiThread(() -> {
+                        btnSave.setEnabled(true);
+                        btnSave.setText(R.string.save);
+
+                        if (response.isSuccessful()) {
+                            Logger.i(Logger.TAG_UI, "Settings saved to server successfully");
+                            Toast.makeText(SettingsActivity.this, "Settings saved successfully!", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Logger.w(Logger.TAG_UI, "Failed to save settings to server: " + response.code());
+                            Toast.makeText(SettingsActivity.this, "Saved locally, but failed to sync to server", Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+
+                @Override
+                public void onFailure(Call<ApiService.UserProfileResponse> call, Throwable t) {
+                    runOnUiThread(() -> {
+                        btnSave.setEnabled(true);
+                        btnSave.setText(R.string.save);
+                        Logger.e(Logger.TAG_UI, "Failed to save settings to server", t);
+                        Toast.makeText(SettingsActivity.this, "Saved locally, but failed to sync to server", Toast.LENGTH_LONG).show();
+                    });
+                }
+            });
+
         } catch (Exception e) {
+            btnSave.setEnabled(true);
+            btnSave.setText(R.string.save);
             Logger.e(Logger.TAG_UI, "Failed to save settings", e);
             Toast.makeText(this, R.string.error_save_failed, Toast.LENGTH_LONG).show();
         }

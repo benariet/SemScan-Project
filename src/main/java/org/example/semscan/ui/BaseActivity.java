@@ -1,6 +1,9 @@
 package org.example.semscan.ui;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -11,9 +14,15 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import org.example.semscan.R;
+import org.example.semscan.data.api.AuthInterceptor;
+import org.example.semscan.ui.auth.LoginActivity;
 import org.example.semscan.utils.Logger;
+import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.SafeUtils;
+import org.example.semscan.utils.ServerLogger;
 
 /**
  * Base Activity class that provides crash protection and safe utility methods.
@@ -23,6 +32,17 @@ public abstract class BaseActivity extends AppCompatActivity {
 
     private static final String TAG = "BaseActivity";
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    // Session expired broadcast receiver
+    private final BroadcastReceiver sessionExpiredReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (AuthInterceptor.ACTION_SESSION_EXPIRED.equals(intent.getAction())) {
+                handleSessionExpired();
+            }
+        }
+    };
+    private boolean isSessionExpiredReceiverRegistered = false;
 
     // ==================== LIFECYCLE PROTECTION ====================
 
@@ -41,6 +61,8 @@ public abstract class BaseActivity extends AppCompatActivity {
     protected void onStart() {
         try {
             super.onStart();
+            // Register session expired receiver
+            registerSessionExpiredReceiver();
             onStartSafe();
         } catch (Exception e) {
             Logger.e(TAG, "Error in onStart: " + getClass().getSimpleName(), e);
@@ -71,6 +93,8 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         try {
+            // Unregister session expired receiver
+            unregisterSessionExpiredReceiver();
             onStopSafe();
         } catch (Exception e) {
             Logger.e(TAG, "Error in onStop: " + getClass().getSimpleName(), e);
@@ -306,5 +330,69 @@ public abstract class BaseActivity extends AppCompatActivity {
                 finish();
             } catch (Exception ignored2) {}
         }
+    }
+
+    // ==================== SESSION EXPIRED HANDLING ====================
+
+    /**
+     * Register the session expired broadcast receiver
+     */
+    private void registerSessionExpiredReceiver() {
+        if (!isSessionExpiredReceiverRegistered) {
+            try {
+                IntentFilter filter = new IntentFilter(AuthInterceptor.ACTION_SESSION_EXPIRED);
+                LocalBroadcastManager.getInstance(this).registerReceiver(sessionExpiredReceiver, filter);
+                isSessionExpiredReceiverRegistered = true;
+            } catch (Exception e) {
+                Logger.e(TAG, "Error registering session expired receiver", e);
+            }
+        }
+    }
+
+    /**
+     * Unregister the session expired broadcast receiver
+     */
+    private void unregisterSessionExpiredReceiver() {
+        if (isSessionExpiredReceiverRegistered) {
+            try {
+                LocalBroadcastManager.getInstance(this).unregisterReceiver(sessionExpiredReceiver);
+                isSessionExpiredReceiverRegistered = false;
+            } catch (Exception e) {
+                Logger.e(TAG, "Error unregistering session expired receiver", e);
+            }
+        }
+    }
+
+    /**
+     * Handle session expired event - clear user data and redirect to login
+     */
+    private void handleSessionExpired() {
+        String activityName = getClass().getSimpleName();
+        String logMessage = "Session expired - redirecting to login from " + activityName;
+        Logger.w(TAG, logMessage);
+
+        // Log to server for tracking
+        ServerLogger serverLogger = ServerLogger.getInstance(this);
+        if (serverLogger != null) {
+            serverLogger.w(ServerLogger.TAG_AUTH, logMessage);
+        }
+
+        runSafe(() -> {
+            try {
+                // Show toast message
+                Toast.makeText(this, R.string.error_session_expired, Toast.LENGTH_LONG).show();
+
+                // Clear user data
+                PreferencesManager.getInstance(this).clearUserData();
+
+                // Redirect to login - clear task stack
+                Intent intent = new Intent(this, LoginActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                finishSafe();
+            } catch (Exception e) {
+                Logger.e(TAG, "Error handling session expired", e);
+            }
+        });
     }
 }

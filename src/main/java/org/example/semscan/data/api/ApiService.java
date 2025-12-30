@@ -140,7 +140,7 @@ public interface ApiService {
     Call<UserProfileResponse> getUserProfile(@Path("bguUsername") String bguUsername);
 
     @POST("api/v1/users")
-    Call<User> upsertUser(@Body UserProfileUpdateRequest request);
+    Call<UserProfileResponse> upsertUser(@Body UserProfileUpdateRequest request);
 
     // =============================
     // Test Email

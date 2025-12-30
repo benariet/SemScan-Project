@@ -106,6 +106,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
     
     /**
      * Format names from registered list for display - each name on its own indented line
+     * Shows degree prefix (PhD/MSc) to explain capacity usage
      * Returns null if no names available
      */
     private String formatNamesForDisplay(List<ApiService.PresenterCoPresenter> registered, int maxCount) {
@@ -117,8 +118,13 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
         for (int i = 0; i < count; i++) {
             ApiService.PresenterCoPresenter presenter = registered.get(i);
             if (presenter != null && presenter.name != null && !presenter.name.trim().isEmpty()) {
-                // Add indent before each name
-                names.add("    " + presenter.name.trim());
+                // Format: "    PhD, Name" or "    MSc, Name" or just "    Name" if no degree
+                StringBuilder entry = new StringBuilder("    ");
+                if (presenter.degree != null && !presenter.degree.trim().isEmpty()) {
+                    entry.append(presenter.degree.trim()).append(", ");
+                }
+                entry.append(presenter.name.trim());
+                names.add(entry.toString());
             }
         }
         if (names.isEmpty()) {

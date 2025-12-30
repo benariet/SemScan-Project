@@ -133,6 +133,23 @@
     <string name="error_email_failed">Email failed. Try again.</string>
     <string name="error_file_save_failed">File save failed. Check storage permissions.</string>
     <string name="error_server_error">Server error. Try again later.</string>
+
+    <!-- Session and authentication errors -->
+    <string name="error_session_expired">Your session has expired. Please log in again.</string>
+    <string name="error_permission_denied">You don\'t have permission. Contact your administrator.</string>
+
+    <!-- Actionable error messages with retry suggestions -->
+    <string name="error_no_internet_retry">No internet connection. Check your connection and tap retry.</string>
+    <string name="error_server_busy_retry">Server is busy. Please wait a moment and try again.</string>
+    <string name="error_connection_reset">Connection was reset. Please try again.</string>
+    <string name="error_gateway_timeout">Server is taking too long to respond. Try again later.</string>
+
+    <!-- HTTP status error messages -->
+    <string name="error_invalid_request">Invalid request. Please check your information and try again.</string>
+    <string name="error_not_found">The requested item was not found.</string>
+    <string name="error_conflict">This action conflicts with existing data. Please refresh and try again.</string>
+    <string name="error_validation_failed">The information you provided is invalid. Please check and try again.</string>
+    <string name="error_too_many_requests">Too many requests. Please wait a moment and try again.</string>
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -266,6 +283,8 @@
     <string name="presenter_home_supervisor_info_required">Please set your supervisor name and email in Settings first</string>
     <string name="presenter_home_presenter_email_required">Email required for supervisor notification. Update in Settings.</string>
     <string name="presenter_home_register_success">Registered for this slot.</string>
+    <string name="presenter_home_register_pending_with_supervisor">Registration submitted!\nWaiting for %1$s\'s approval.\nSupervisors typically respond within 2 days.</string>
+    <string name="presenter_home_register_pending_generic">Registration submitted!\nWaiting for supervisor approval.\nSupervisors typically respond within 2 days.</string>
     <string name="presenter_home_register_already">Already registered for this slot.</string>
     <string name="presenter_home_register_full">Slot is full.</string>
     <string name="presenter_home_register_conflict">Another slot already booked.</string>
