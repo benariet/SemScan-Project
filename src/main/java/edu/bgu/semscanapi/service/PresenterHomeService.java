@@ -1682,14 +1682,6 @@ public class PresenterHomeService {
             }
         }
         
-        // Log waiting list status to app_log for all slots
-        databaseLoggerService.logAction("INFO", "WAITING_LIST_STATUS",
-                String.format("Slot %d waiting list status: count=%d, userOnList=%s, firstUser=%s",
-                        slot.getSlotId(), waitingListCount, onWaitingList, waitingListUserName != null ? waitingListUserName : "none"),
-                presenterUsername != null ? presenterUsername : "system",
-                String.format("slotId=%d,waitingListCount=%d,onWaitingList=%s,waitingListUserName=%s",
-                        slot.getSlotId(), waitingListCount, onWaitingList, waitingListUserName != null ? waitingListUserName : "null"));
-        
         // Warning: Log data inconsistency when user is marked as on waiting list but count is 0
         // This indicates a potential missing field or data synchronization issue
         if (onWaitingList && waitingListCount == 0) {
