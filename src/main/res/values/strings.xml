@@ -283,6 +283,8 @@
     <string name="presenter_home_supervisor_info_required">Please set your supervisor name and email in Settings first</string>
     <string name="presenter_home_presenter_email_required">Email required for supervisor notification. Update in Settings.</string>
     <string name="presenter_home_register_success">Registered for this slot.</string>
+    <string name="presenter_home_register_pending_with_supervisor">Registration submitted!\nWaiting for %1$s\'s approval.\nSupervisors typically respond within 2 days.</string>
+    <string name="presenter_home_register_pending_generic">Registration submitted!\nWaiting for supervisor approval.\nSupervisors typically respond within 2 days.</string>
     <string name="presenter_home_register_already">Already registered for this slot.</string>
     <string name="presenter_home_register_full">Slot is full.</string>
     <string name="presenter_home_register_conflict">Another slot already booked.</string>
