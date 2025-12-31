@@ -159,10 +159,10 @@ public class WaitingListController {
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), "User added to waiting list");
             return ResponseEntity.ok(response);
         } catch (IllegalStateException e) {
-            String errorMsg = String.format("Business logic error: %s", e.getMessage());
-            LoggerUtil.logError(logger, "Failed to add to waiting list", e);
-            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, e, presenterUsername,
-                    String.format("endpoint=%s,slotId=%d,exceptionType=IllegalStateException", endpoint, slotId));
+            // Business logic errors (e.g., "waiting list full") - log as WARN, not ERROR
+            logger.warn("Business rule prevented action: {} - slotId={}, user={}", e.getMessage(), slotId, presenterUsername);
+            databaseLoggerService.logAction("WARN", "WAITING_LIST_ADD_BLOCKED", e.getMessage(), presenterUsername,
+                    String.format("slotId=%d,reason=%s", slotId, e.getMessage()));
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), e.getMessage());
             WaitingListResponse errorResponse = new WaitingListResponse();
             errorResponse.setOk(false);
