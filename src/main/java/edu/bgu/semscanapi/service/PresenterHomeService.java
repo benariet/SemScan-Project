@@ -1833,6 +1833,13 @@ public class PresenterHomeService {
         } else if (state == SlotState.FULL) {
             canRegister = false;
             card.setDisableReason("Slot is full");
+        } else if (presenterDegree == User.Degree.PhD) {
+            // PhD needs phdWeight capacity (default 2) - check if enough available
+            int phdWeight = appConfigService.getIntegerConfig("phd.capacity.weight", 2);
+            if (available < phdWeight) {
+                canRegister = false;
+                card.setDisableReason("Not enough capacity for PhD presentation. Join waiting list instead.");
+            }
         } else if (presenterInThisSlot) {
             canRegister = false;
             card.setDisableReason("You are already registered in this slot");
