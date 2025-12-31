@@ -149,7 +149,7 @@ public class ManualAttendanceService {
                     windowDescription, sessionStart, 
                     sessionEnd != null ? String.format(", session ends at: %s", sessionEnd) : "",
                     now);
-                logger.error("❌ Manual attendance request outside window - Session: {}, Student: {}, Now (Israel): {}, Window: {} to {}", 
+                logger.error("Manual attendance request outside window - Session: {}, Student: {}, Now (Israel): {}, Window: {} to {}", 
                     sessionId, studentUsername, now, windowStart, windowEnd);
                 databaseLoggerService.logError("MANUAL_ATTENDANCE_OUTSIDE_WINDOW", errorMsg, null, 
                     studentUsername, String.format("sessionId=%s,windowStart=%s,windowEnd=%s,currentTime=%s", 

@@ -499,7 +499,7 @@ public class PresenterHomeService {
             String errorMsg = emailValidation.getErrorMessage();
             String errorCode = emailValidation.getErrorCode();
 
-            logger.error("📧 ❌ REGISTRATION REJECTED - Supervisor email validation failed: {}", errorMsg);
+            logger.error("📧 REGISTRATION REJECTED - Supervisor email validation failed: {}", errorMsg);
             databaseLoggerService.logError("EMAIL_SUPERVISOR_VALIDATION_REJECTED",
                 String.format("Registration rejected for %s on slot %d - %s",
                     presenterUsername, slotId, errorMsg),
@@ -528,7 +528,7 @@ public class PresenterHomeService {
                 }
                 
                 if (registration == null) {
-                    logger.error("📧 ❌ CRITICAL: Registration is null when trying to send email!");
+                    logger.error("📧 CRITICAL: Registration is null when trying to send email!");
                     databaseLoggerService.logError("EMAIL_REGISTRATION_NULL_EMAIL_SEND",
                             String.format("Registration is null when trying to send email for presenter %s and slot %s",
                                     presenterUsername, slotId),
@@ -548,14 +548,14 @@ public class PresenterHomeService {
                             presenterUsername, String.format("slotId=%d,supervisorEmail=%s,sent=%s", slotId, supervisorEmail, emailSent));
                     
                     if (emailSent) {
-                        logger.info("📧 ✅ Approval email sent successfully for presenter {} and slot {} to supervisor {}", 
+                        logger.info("📧 Approval email sent successfully for presenter {} and slot {} to supervisor {}", 
                                 presenterUsername, slotId, supervisorEmail);
                         databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT",
                                 String.format("Approval email sent successfully for presenter %s and slot %s to supervisor %s",
                                         presenterUsername, slotId, supervisorEmail),
                                 presenterUsername);
                     } else {
-                        logger.error("📧 ❌ Approval email FAILED to send for presenter {} and slot {} to supervisor {} - check logs for details", 
+                        logger.error("📧 Approval email FAILED to send for presenter {} and slot {} to supervisor {} - check logs for details", 
                                 presenterUsername, slotId, supervisorEmail);
                         databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_FAILED",
                                 String.format("Approval email FAILED to send for presenter %s and slot %s to supervisor %s",
@@ -565,7 +565,7 @@ public class PresenterHomeService {
                     }
                 }
             } catch (Exception e) {
-                logger.error("📧 ❌ Failed to send approval email for presenter {} and slot {} to supervisor {} - Exception: {}",
+                logger.error("📧 Failed to send approval email for presenter {} and slot {} to supervisor {} - Exception: {}",
                         presenterUsername, slotId, supervisorEmail, e.getMessage(), e);
                 databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_EXCEPTION",
                         String.format("Exception sending approval email for presenter %s and slot %s: %s",
@@ -581,7 +581,7 @@ public class PresenterHomeService {
                     presenterUsername, slotId, 
                     request.getSupervisorEmail() != null ? request.getSupervisorEmail() : "null",
                     registration != null && registration.getSupervisorEmail() != null ? registration.getSupervisorEmail() : "null");
-            logger.warn("📧 ⚠️ {}", warningMsg);
+            logger.warn("📧 {}", warningMsg);
             databaseLoggerService.logError("EMAIL_REGISTRATION_NO_SUPERVISOR_EMAIL", warningMsg, null,
                     presenterUsername, String.format("slotId=%d,requestEmail=%s,registrationEmail=%s",
                             slotId, 
@@ -855,7 +855,7 @@ public class PresenterHomeService {
                         <p>Dear %s,</p>
                         
                         <div class="info-box">
-                            <h3 style="margin-top: 0; color: #721c24;">⚠️ Registration Cancelled</h3>
+                            <h3 style="margin-top: 0; color: #721c24;">Registration Cancelled</h3>
                             <p>Your student has cancelled their approved registration for this presentation slot.</p>
                         </div>
                         
@@ -1199,7 +1199,7 @@ public class PresenterHomeService {
             long minutesDiff = Duration.between(now, openWindow).toMinutes();
             String errorMsg = String.format("Cannot open session yet. You will be able to open it on %s at %s",
                     dateStr, timeStr);
-            logger.error("❌ TOO_EARLY - Slot: {}, Now: {}, OpenWindow: {}, Start: {}, Minutes difference: {} (negative = too early)", 
+            logger.error("TOO_EARLY - Slot: {}, Now: {}, OpenWindow: {}, Start: {}, Minutes difference: {} (negative = too early)", 
                 slotId, now, openWindow, start, minutesDiff);
             databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
                 String.format("slotId=%s,reason=TOO_EARLY,now=%s,openWindow=%s,start=%s,minutesDiff=%d", 
@@ -1207,7 +1207,7 @@ public class PresenterHomeService {
             return new PresenterOpenAttendanceResponse(false, errorMsg, "TOO_EARLY", null, openWindowStr, null, null, null);
         }
         
-        logger.info("✅ Time check passed - Slot: {} can be opened (Now: {} >= OpenWindow: {})", slotId, now, openWindow);
+        logger.info("Time check passed - Slot: {} can be opened (Now: {} >= OpenWindow: {})", slotId, now, openWindow);
         
         // Check if too late (after slot ends + windowAfterMinutes) - only if slot has an end time
         if (closeWindow != null && now.isAfter(closeWindow)) {
@@ -1731,7 +1731,7 @@ public class PresenterHomeService {
         if (onWaitingList && waitingListCount == 0) {
             String warningMsg = String.format("Data inconsistency detected: onWaitingList=true but waitingListCount=0 for slotId=%d, presenterUsername=%s",
                     slot.getSlotId(), presenterUsername != null ? presenterUsername : "unknown");
-            logger.warn("⚠️ {}", warningMsg);
+            logger.warn("{}", warningMsg);
             databaseLoggerService.logError("WAITING_LIST_DATA_INCONSISTENCY", warningMsg, null,
                     presenterUsername != null ? presenterUsername : "system",
                     String.format("slotId=%d,presenterUsername=%s,onWaitingList=true,waitingListCount=0",
