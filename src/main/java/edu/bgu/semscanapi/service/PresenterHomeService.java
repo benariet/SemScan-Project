@@ -1565,18 +1565,26 @@ public class PresenterHomeService {
         
         return slots.stream()
                 .filter(slot -> {
-                    // Always show today's slots, regardless of status
                     LocalDate slotDate = slot.getSlotDate();
+
+                    // Filter out past slots (before today)
+                    if (slotDate != null && slotDate.isBefore(today)) {
+                        logger.debug("Filtering out past slot {} (slotDate={}, today={})",
+                            slot.getSlotId(), slotDate, today);
+                        return false; // Don't show past slots
+                    }
+
+                    // Always show today's slots, regardless of status
                     boolean isToday = slotDate != null && slotDate.equals(today);
-                    
+
                     if (isToday) {
-                        logger.info("Slot {} is for today ({}), always showing it (slotDate={}, today={})", 
+                        logger.info("Slot {} is for today ({}), always showing it (slotDate={}, today={})",
                             slot.getSlotId(), slotDate, slotDate, today);
                         return true; // Always show today's slots
                     }
-                    
+
                     logger.debug("Slot {} is NOT for today (slotDate={}, today={})", slot.getSlotId(), slotDate, today);
-                    
+
                     // For future slots, filter out closed ones
                     // Check if session is CLOSED
                     if (slot.getLegacySessionId() != null) {
