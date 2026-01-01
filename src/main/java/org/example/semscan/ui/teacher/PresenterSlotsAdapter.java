@@ -366,9 +366,15 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             // IMPORTANT: Don't show "Join Waiting List" if:
             // 1. User is already on waiting list
             // 2. User is already registered in this slot
-            // 3. Slot is not full
+            // 3. Slot is not full (unless PhD can't fit due to insufficient capacity)
             // 4. Waiting list is full (capacity is 1)
-            if (slotAtCapacity && !isUserRegisteredInThisSlot && !slot.onWaitingList && !isWaitingListFull && !userHasApprovedRegistration) {
+            // 5. User can register normally
+            boolean phdCantFit = !slot.canRegister && slot.disableReason != null &&
+                    slot.disableReason.contains("waiting list");
+            boolean showWaitingList = (slotAtCapacity || phdCantFit) &&
+                    !isUserRegisteredInThisSlot && !slot.onWaitingList &&
+                    !isWaitingListFull && !userHasApprovedRegistration;
+            if (showWaitingList) {
                 waitingListButton.setVisibility(View.VISIBLE);
                 waitingListButton.setOnClickListener(v -> {
                     Logger.userAction("Join Waiting List", "Attempting to join waiting list for slot=" + slot.slotId);

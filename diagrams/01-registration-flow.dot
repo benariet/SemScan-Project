@@ -1,7 +1,7 @@
 digraph RegistrationFlow {
     label="Registration Flow";
     labelloc="t";
-    fontsize=15;
+    fontsize=20;
     fontname="Arial Bold";
 
     rankdir=TB;
@@ -35,7 +35,11 @@ digraph RegistrationFlow {
 
         PresDetails [label="Press Presentation\nDetails button", fillcolor="#e1bee7", color="#9c27b0"];
         DetailsForm [label="Fill in:\n-----------\n* Topic\n* Abstract\n* Supervisor Name\n* Supervisor Email", fillcolor="#e1bee7", color="#9c27b0", shape=note];
+        SaveDetailsBtn [label="Press\n\"Save Details\"", fillcolor="#bbdefb", color="#1976d2"];
     }
+
+    // Select Slot Button (after saving details)
+    SelectSlotBtn [label="Press\n\"Select a presentation slot\"", fillcolor="#bbdefb", color="#1976d2"];
 
     // Browse Slots
     subgraph cluster_browse {
@@ -64,8 +68,9 @@ digraph RegistrationFlow {
         color="#ff9800";
         bgcolor="#fff3e022";
 
-        Waitlist [label="WAITING_LIST\n+ Email sent", fillcolor="#ffe0b2", color="#ef6c00"];
-        WaitlistNote [label="When spot opens:\nAuto-promoted to PENDING\n-> goes through approval", fillcolor="#ffcc80", color="#ef6c00", shape=note];
+        Waitlist [label="Added to\nWaiting List", fillcolor="#ffe0b2", color="#ef6c00"];
+        WaitlistEmail [label="Notification email\nsent to presenter", fillcolor="#ffe0b2", color="#ef6c00"];
+        WaitlistNote [label="Spot became available:\n1. Auto-promoted\n2. Goes to PENDING flow", fillcolor="#ffcc80", color="#ef6c00", shape=note];
     }
 
     // Supervisor Review
@@ -87,7 +92,9 @@ digraph RegistrationFlow {
     // Connections - Presentation Details
     Home -> PresDetails;
     PresDetails -> DetailsForm;
-    DetailsForm -> AvailableSlots [label="saved"];
+    DetailsForm -> SaveDetailsBtn;
+    SaveDetailsBtn -> SelectSlotBtn [label="saved"];
+    SelectSlotBtn -> AvailableSlots;
 
     // Connections - Browse
     AvailableSlots -> SlotList;
@@ -100,7 +107,8 @@ digraph RegistrationFlow {
     CapacityCheck -> SupervisorEmail [label="yes\n(has room)"];
 
     // Connections - Waitlist
-    Waitlist -> WaitlistNote;
+    Waitlist -> WaitlistEmail;
+    WaitlistEmail -> WaitlistNote;
     WaitlistNote -> Pending [label="promoted", style=dashed, color="#ef6c00", constraint=false];
 
     // Connections - Supervisor
