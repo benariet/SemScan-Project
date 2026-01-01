@@ -32,11 +32,11 @@ digraph PresenterFlow {
         color="#388e3c";
         bgcolor="#e8f5e922";
 
-        Precondition [label="1. APPROVED for slot\n2. Slot time reached", fillcolor="#c8e6c9", color="#2e7d32", shape=note];
+        Precondition [label="1. APPROVED for slot\n\n2. Slot time reached", fillcolor="#c8e6c9", color="#2e7d32", shape=note];
     }
 
     // Start
-    Home [label="Home Screen", fillcolor="#e8f5e9", color="#388e3c", penwidth=2];
+    Home [label="Presenter Home Screen", fillcolor="#e8f5e9", color="#388e3c", penwidth=2];
 
     // Start Session Button
     StartSessionBtn [label="Press Start Session\nbutton", fillcolor="#bbdefb", color="#1976d2"];
@@ -49,7 +49,7 @@ digraph PresenterFlow {
         color="#7b1fa2";
         bgcolor="#f3e5f522";
 
-        OpenSession [label="Open Attendance", fillcolor="#e1bee7", color="#7b1fa2"];
+        OpenSession [label="Open Session", fillcolor="#e1bee7", color="#7b1fa2"];
         TooEarly [label="Too Early\n-----------\nWait for slot time", fillcolor="#ffcdd2", color="#c62828", shape=note];
         QRDisplay [label="QR Code Displayed\n-----------\nStudents scan\nTimer: 15 min", fillcolor="#ce93d8", color="#7b1fa2", penwidth=2];
         EndSession [label="End Session", fillcolor="#e1bee7", color="#7b1fa2"];
@@ -68,7 +68,7 @@ digraph PresenterFlow {
 
     // Export Page (only when has pending requests)
     subgraph cluster_export {
-        label="Export Page (has pending)";
+        label="Manual Attandance Flow";
         labeljust="l";
         style="rounded,dashed";
         color="#388e3c";

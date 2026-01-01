@@ -46,7 +46,7 @@ digraph ParticipantFlow {
         color="#1976d2";
         bgcolor="#e3f2fd22";
 
-        ScanQR [label="Scan QR", fillcolor="#bbdefb", color="#1976d2"];
+        ScanQR [label="Press\n\"Scan Attendance\"", fillcolor="#bbdefb", color="#1976d2"];
         Camera [label="Camera Opens\nPoint at QR Code", fillcolor="#bbdefb", color="#1976d2"];
         QRError [label="Error\n(won't scan)", fillcolor="#ffcdd2", color="#c62828", shape=ellipse];
     }
@@ -59,9 +59,10 @@ digraph ParticipantFlow {
         color="#7b1fa2";
         bgcolor="#f3e5f522";
 
-        Manual [label="Request\nManual Attendance", fillcolor="#e1bee7", color="#7b1fa2"];
-        SelectSession [label="Select Session", fillcolor="#e1bee7", color="#7b1fa2"];
+        Manual [label="Press\n\"Manual Attendance Request\"", fillcolor="#e1bee7", color="#7b1fa2"];
+        SelectSession [label="Select Session\nfrom list", fillcolor="#e1bee7", color="#7b1fa2"];
         EnterReason [label="Enter Reason\n-----------\n* Camera broken\n* QR won't scan", fillcolor="#e1bee7", color="#7b1fa2", shape=note];
+        SubmitBtn [label="Press\n\"Submit\"", fillcolor="#e1bee7", color="#7b1fa2"];
         Pending [label="PENDING\nAPPROVAL", fillcolor="#fff9c4", color="#f9a825"];
     }
 
@@ -86,7 +87,8 @@ digraph ParticipantFlow {
     Home -> Manual;
     Manual -> SelectSession;
     SelectSession -> EnterReason;
-    EnterReason -> Pending [label="submit"];
+    EnterReason -> SubmitBtn;
+    SubmitBtn -> Pending;
 
     // Connections - Presenter Review
     Pending -> PresenterDecision;
