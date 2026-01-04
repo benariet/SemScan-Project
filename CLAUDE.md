@@ -6,12 +6,12 @@ SemScan is a **seminar attendance tracking system** for BGU (Ben-Gurion Universi
 - **SemScan-API** - Spring Boot backend API
 
 ### Key Features
-- **Presenter Registration**: PhD/MSc students register for presentation slots (PhD takes 2 capacity, MSc takes 1)
+- **Presenter Registration**: PhD/MSc students register for presentation slots with **exclusive slot rules** (see Capacity System below)
 - **Supervisor Approval**: Registrations require supervisor email approval via token link
 - **Waiting List**: When slots are full, users can join waiting list and get auto-promoted
 - **QR Attendance**: Presenters open attendance window, participants scan QR to mark attendance
 - **Session Timeout**: 401/403 responses trigger auto-redirect to login
-
+```
 ## Development Guidelines
 
 ### IMPORTANT: Keep It Simple!
@@ -114,15 +114,43 @@ src/main/java/edu/bgu/semscanapi/
 - LOGIN_ATTEMPT, LOGIN_SUCCESS, LOGIN_FAILED
 - API_REGISTER_REQUEST, API_REGISTER_RESPONSE
 - REGISTRATION_ATTEMPT, REGISTRATION_SLOT_STATE, SLOT_REGISTRATION_SUCCESS
+- SLOT_REGISTRATION_FAILED (with payload: reason=PHD_EXCLUSIVE, reason=MSC_BLOCKS_PHD)
 - CANCELLATION_ATTEMPT, CANCELLATION_SLOT_STATE, CANCELLATION_SUCCESS
 - API_WAITING_LIST_ADD_RESPONSE, API_WAITING_LIST_CANCEL_REQUEST
+- WAITING_LIST_ADD_FAILED (with payload: reason=PHD_EXCLUSIVE, reason=MSC_BLOCKS_PHD)
+- WAITING_LIST_PROMOTION_BLOCKED_PHD_EXCLUSIVE, WAITING_LIST_PHD_SKIPPED_MSC_EXISTS
 - APPROVAL_ATTEMPT, EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT
 - WAITING_LIST_PROMOTED_AFTER_CANCELLATION
 
-## Capacity System
-- **PhD students**: Weight = 2 (takes whole slot)
-- **MSc students**: Weight = 1
-- **Slot capacity**: Usually 2 (can fit 2 MSc or 1 PhD)
+## Capacity System - PhD/MSc Exclusivity
+
+**IMPORTANT**: PhD and MSc students are **mutually exclusive** in a slot.
+
+### Rules:
+1. **PhD takes exclusive slot**: When a PhD registers, no MSc can register (slot is locked)
+2. **MSc blocks PhD**: When any MSc is registered, PhD cannot register
+3. **3 MSc per slot**: Up to 3 MSc students can share a slot (if no PhD)
+4. **Waiting list respects exclusivity**: PhD can't join waiting list if MSc exists, and vice versa
+
+### Configuration:
+- **PhD weight**: 3 (takes entire slot capacity)
+- **MSc weight**: 1
+- **Slot capacity**: 3
+
+### Scenarios:
+| Slot State | PhD tries to register | MSc tries to register |
+|------------|----------------------|----------------------|
+| Empty | ✅ Success (takes whole slot) | ✅ Success |
+| Has PhD (pending/approved) | ❌ `ALREADY_REGISTERED` | ❌ `SLOT_LOCKED` |
+| Has 1 MSc | ❌ `PHD_BLOCKED_BY_MSC` | ✅ Success |
+| Has 2 MSc | ❌ `PHD_BLOCKED_BY_MSC` | ✅ Success |
+| Has 3 MSc | ❌ `PHD_BLOCKED_BY_MSC` | ❌ `SLOT_FULL` |
+
+### Waiting List Scenarios:
+| Slot State | PhD joins waiting list | MSc joins waiting list |
+|------------|------------------------|------------------------|
+| Has PhD | ❌ Blocked (exclusive) | ❌ Blocked (exclusive) |
+| Has MSc | ❌ Blocked (can't promote) | ✅ Success |
 
 ## Slot Colors (Mobile UI)
 - **Green**: Available (0 registrations)
@@ -217,9 +245,8 @@ done
 - `DELETE /api/v1/slots/{slotId}/waiting-list?username=xxx` - Leave waiting list
 
 ### Approval (Supervisor clicks email link)
-- `GET /api/v1/approval/{token}` - Show approval page
-- `POST /api/v1/approval/{token}/approve` - Approve registration
-- `POST /api/v1/approval/{token}/reject` - Reject registration
+- `GET /api/v1/approve/{token}` - Approve registration (returns HTML success page)
+- `GET /api/v1/decline/{token}` - Decline registration (returns HTML page)
 
 ### Configuration
 - `GET /api/v1/config/mobile` - Get mobile app config
@@ -250,7 +277,7 @@ done
 - `EXPIRED` - Token expired (72 hours default)
 
 ### User.Degree
-- `PHD` - PhD student (weight=2)
+- `PHD` - PhD student (weight=3, takes exclusive slot)
 - `MSC` - MSc student (weight=1)
 
 ### SeminarSlot.SlotStatus
@@ -331,7 +358,7 @@ done
 | Key | Value | Description |
 |-----|-------|-------------|
 | `server_url` | http://132.72.50.53:8080 | API server URL |
-| `phd.capacity.weight` | 2 | PhD capacity weight |
+| `phd.capacity.weight` | 3 | PhD capacity weight (takes entire slot) |
 | `waiting.list.limit.per.slot` | 3 | Max waiting list per slot |
 | `waiting_list_approval_window_hours` | 168 | Hours to respond (7 days) |
 | `presenter_close_session_duration_minutes` | 15 | Session auto-close duration |
@@ -351,6 +378,8 @@ done
 - `ALREADY_REGISTERED` - Already registered in slot
 - `ALREADY_APPROVED` - Already have an approved registration
 - `SLOT_FULL` - Slot at capacity
+- `SLOT_LOCKED` - Slot reserved by PhD presenter (MSc can't register)
+- `PHD_BLOCKED_BY_MSC` - PhD can't register because MSc presenters exist
 - `NOT_FOUND` - Slot/user not found
 - `UNREGISTERED` - Successfully cancelled
 
@@ -387,9 +416,9 @@ done
 - **Waiting List Promotion**: Sent when spot opens up
 
 ### Token Links
-- Format: `http://132.72.50.53:8080/api/v1/approval/{token}`
-- Expiration: 72 hours (configurable)
-- Actions: `/approve` or `/reject`
+- Approve: `http://132.72.50.53:8080/api/v1/approve/{token}`
+- Decline: `http://132.72.50.53:8080/api/v1/decline/{token}`
+- Expiration: 14 days (configurable via `approval_token_expiry_days`)
 
 ## Git Branches
 
@@ -415,9 +444,60 @@ cd SemScan-API && ./gradlew test
 ./gradlew test --tests "PresenterHomeServiceTest"
 ```
 
-### Test Users (Development)
-- Create via login (BGU credentials required)
-- Or insert directly into `users` table
+### Test Users (BGU Accounts)
+| Username | Password | Degree |
+|----------|----------|--------|
+| benariet | Taltal123! | MSc |
+| amarrev | Revital1990% | MSc |
+| talguest2 | tc2xqVds | PhD |
+| talguest3 | kbm7Xzfk | MSc |
+| talguest4 | atpgK2zc | MSc |
+
+## Critical Test Cases
+
+### PhD/MSc Exclusivity Tests (MUST TEST)
+PhD and MSc students are mutually exclusive in a slot. These scenarios must be tested:
+
+| Scenario | Setup | Expected Result |
+|----------|-------|-----------------|
+| PhD registers to empty slot | Empty slot | ✅ Success, slot locked |
+| MSc blocked by PhD | Slot has PhD | ❌ `SLOT_LOCKED` |
+| PhD blocked by MSc | Slot has any MSc | ❌ `PHD_BLOCKED_BY_MSC` |
+| MSc can join MSc | Slot has 1-2 MSc | ✅ Success |
+| PhD can't join waiting list with MSc | Slot has MSc | ❌ Blocked |
+| MSc can't join waiting list with PhD | Slot has PhD | ❌ Blocked |
+
+**How to test:**
+1. Login as `talguest2` (PhD) - try to register for slot with MSc → Should fail with "slot has MSc presenters"
+2. Login as `talguest3` (MSc) - try to register for slot with PhD → Should fail with "slot is reserved by PhD"
+3. Test waiting list joins with same rules
+
+### Registration Limit Tests
+| User | Limit | Test |
+|------|-------|------|
+| MSc | 1 approved | Try registering for 2nd slot after 1st approved |
+| PhD | 1 approved | Try registering for 2nd slot after 1st approved |
+
+### API + UI Consistency
+When testing API changes, always verify:
+1. API returns correct response codes
+2. Mobile UI shows appropriate buttons
+3. Mobile UI displays correct messages
+
+### Past Slots (MUST TEST)
+Slots from past dates should NOT allow registration:
+
+| Scenario | Expected |
+|----------|----------|
+| Slot date is yesterday | Should NOT show "Register" button |
+| Slot date is today (time passed) | Should NOT show "Register" button |
+| Slot date is today (time not passed) | CAN show "Register" button |
+| Slot date is future | CAN show "Register" button |
+
+**How to test:**
+1. Check slot list includes past dates
+2. Verify past slots do NOT show "Register Now" button
+3. Verify past slots show appropriate message (e.g., "Slot date has passed")
 
 ## Troubleshooting
 
@@ -789,3 +869,51 @@ CREATE TABLE `test_flows` (
 | `Attendance` | `attendance` |
 | `EmailQueue` | `email_queue` |
 | `AppConfig` | `app_config` |
+
+## Capacity Change Runbook
+
+**Frequency**: ~2-3 times per year. Manual process - no automation needed.
+
+### Decreasing Capacity (e.g., 3 → 2)
+
+**Migration script**: `SemScan-API/src/main/resources/db/migration/capacity_migration_3_to_2.sql`
+
+Steps:
+1. Run diagnostic queries to find over-capacity slots
+2. Create backups
+3. Cancel PENDING registrations that overflow (oldest stays, newest cancelled)
+4. Update `slots.capacity`
+5. Update `app_config` → `waiting.list.limit.per.slot`
+6. Recalculate slot status
+7. **Restart API service** to clear config cache
+
+**WARNING**: APPROVED registrations are NEVER auto-cancelled. If APPROVED > new capacity, manually contact users to reschedule.
+
+### Increasing Capacity (e.g., 2 → 3)
+
+**Important**: Waiting list is NOT auto-promoted when capacity increases!
+
+```sql
+-- 1. Update capacity
+UPDATE slots SET capacity = 3, updated_at = NOW() WHERE capacity = 2 AND slot_date >= CURDATE();
+
+-- 2. Update config
+UPDATE app_config SET config_value = '3', updated_at = NOW() WHERE config_key = 'waiting.list.limit.per.slot';
+
+-- 3. Find slots with waiting list that now have room
+SELECT s.slot_id, s.slot_date,
+       s.capacity - COALESCE(SUM(CASE WHEN r.degree = 'PhD' THEN 2 ELSE 1 END), 0) AS available,
+       (SELECT GROUP_CONCAT(w.presenter_username) FROM waiting_list w WHERE w.slot_id = s.slot_id) AS waiting
+FROM slots s
+LEFT JOIN slot_registration r ON s.slot_id = r.slot_id AND r.approval_status IN ('PENDING', 'APPROVED')
+WHERE s.slot_date >= CURDATE()
+GROUP BY s.slot_id
+HAVING available > 0 AND waiting IS NOT NULL;
+
+-- 4. Restart API service
+sudo systemctl restart semscan-api
+```
+
+**Manual promotion options**:
+- Tell waiting list users to cancel and re-register through the app
+- Or manually INSERT into `slot_registration` and DELETE from `waiting_list`
