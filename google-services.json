@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "551877957778",
+    "project_id": "semscan-dfdf5",
+    "storage_bucket": "semscan-dfdf5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:551877957778:android:7bdbe6b3bc78ad431aee4b",
+        "android_client_info": {
+          "package_name": "org.example.semscan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4kl2IpVKYtI4cf9W0z0e6PnttuUFoOig"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

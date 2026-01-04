@@ -143,6 +143,16 @@ public interface ApiService {
     Call<UserProfileResponse> upsertUser(@Body UserProfileUpdateRequest request);
 
     // =============================
+    // FCM Push Notifications
+    // =============================
+
+    @POST("api/v1/users/{username}/fcm-token")
+    Call<Void> registerFcmToken(@Path("username") String username, @Body FcmTokenRequest request);
+
+    @DELETE("api/v1/users/{username}/fcm-token")
+    Call<Void> removeFcmToken(@Path("username") String username);
+
+    // =============================
     // Test Email
     // =============================
 
@@ -554,6 +564,22 @@ public interface ApiService {
     class WaitingListResponse {
         public boolean ok;
         public String message;
+    }
+
+    // =============================
+    // FCM Token
+    // =============================
+
+    class FcmTokenRequest {
+        public String fcmToken;
+        public String deviceInfo;
+
+        public FcmTokenRequest() {}
+
+        public FcmTokenRequest(String fcmToken, String deviceInfo) {
+            this.fcmToken = fcmToken;
+            this.deviceInfo = deviceInfo;
+        }
     }
 
     // =============================

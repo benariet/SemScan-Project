@@ -27,6 +27,7 @@ public class PreferencesManager {
     private static final String KEY_SEMINAR_ABSTRACT = "seminar_abstract";
     private static final String KEY_PRESENTATION_TOPIC = "presentation_topic";
     private static final String KEY_LAST_SEEN_ANNOUNCEMENT_VERSION = "last_seen_announcement_version";
+    private static final String KEY_FCM_TOKEN = "fcm_token";
 
     // Remember Me credentials
     private static final String KEY_SAVED_USERNAME = "saved_username";
@@ -224,6 +225,25 @@ public class PreferencesManager {
 
     public int getLastSeenAnnouncementVersion() {
         return prefs.getInt(KEY_LAST_SEEN_ANNOUNCEMENT_VERSION, 0);
+    }
+
+    // FCM Token
+    public void setFcmToken(String token) {
+        Logger.prefs(KEY_FCM_TOKEN, token != null ? token.substring(0, Math.min(10, token.length())) + "..." : null);
+        if (token == null || token.isEmpty()) {
+            prefs.edit().remove(KEY_FCM_TOKEN).apply();
+        } else {
+            prefs.edit().putString(KEY_FCM_TOKEN, token).apply();
+        }
+    }
+
+    public String getFcmToken() {
+        return prefs.getString(KEY_FCM_TOKEN, null);
+    }
+
+    // Alias for consistency with other code
+    public String getBguUsername() {
+        return getUserName();
     }
 
     // Clear all preferences

@@ -2,6 +2,7 @@ import java.io.ByteArrayOutputStream
 
 plugins {
     id("com.android.application") version "8.13.1"
+    id("com.google.gms.google-services") version "4.4.4"
 }
 
 android {
@@ -109,6 +110,10 @@ dependencies {
     
     // SwipeRefreshLayout
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+
+    // Firebase for push notifications
+    implementation(platform("com.google.firebase:firebase-bom:34.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
     
     // CSV export
     implementation("com.opencsv:opencsv:5.9")

@@ -11,6 +11,7 @@ import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.ServerLogger;
 import org.example.semscan.utils.ConfigManager;
+import org.example.semscan.utils.NotificationHelper;
 
 public class SemScanApplication extends Application {
 
@@ -26,6 +27,9 @@ public class SemScanApplication extends Application {
 
         // Initialize global logger forwarding to server
         Logger.init(this);
+
+        // Create notification channels for FCM
+        NotificationHelper.createNotificationChannels(this);
 
         // Register lifecycle observer for proper resource cleanup
         // This is more reliable than onTerminate() which is rarely called on real devices

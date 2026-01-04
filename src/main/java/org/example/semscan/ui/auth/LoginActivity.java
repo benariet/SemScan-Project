@@ -24,6 +24,9 @@ import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.ServerLogger;
+import org.example.semscan.service.SemScanMessagingService;
+
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -537,7 +540,10 @@ public class LoginActivity extends AppCompatActivity {
             // Continue with navigation even if config refresh fails
             Logger.e(Logger.TAG_UI, "Continuing with navigation despite config refresh failure");
         }
-        
+
+        // Register FCM token for push notifications (runs in background)
+        registerFcmToken();
+
         // Check for announcements before navigating
         checkAndShowAnnouncement(() -> {
             Intent intent;
@@ -752,6 +758,45 @@ public class LoginActivity extends AppCompatActivity {
     private void clearSavedCredentials() {
         preferencesManager.clearSavedCredentials();
         Logger.i(Logger.TAG_UI, "Cleared saved credentials");
+    }
+
+    /**
+     * Register FCM token for push notifications.
+     * This runs in background and doesn't block navigation.
+     */
+    private void registerFcmToken() {
+        Logger.i(Logger.TAG_UI, "Attempting to register FCM token...");
+        try {
+            FirebaseMessaging.getInstance().getToken()
+                    .addOnCompleteListener(task -> {
+                        if (!task.isSuccessful()) {
+                            Logger.w(Logger.TAG_UI, "Failed to get FCM token: " +
+                                    (task.getException() != null ? task.getException().getMessage() : "unknown error"));
+                            return;
+                        }
+
+                        String token = task.getResult();
+                        if (token == null || token.isEmpty()) {
+                            Logger.w(Logger.TAG_UI, "FCM token is null or empty");
+                            return;
+                        }
+
+                        Logger.i(Logger.TAG_UI, "FCM token obtained: " + token.substring(0, Math.min(10, token.length())) + "...");
+
+                        // Store token locally
+                        preferencesManager.setFcmToken(token);
+
+                        // Send token to server
+                        String username = preferencesManager.getUserName();
+                        if (username != null && !username.isEmpty()) {
+                            SemScanMessagingService.sendTokenToServer(LoginActivity.this, username, token);
+                        } else {
+                            Logger.w(Logger.TAG_UI, "Cannot send FCM token: username is null");
+                        }
+                    });
+        } catch (Exception e) {
+            Logger.e(Logger.TAG_UI, "Error registering FCM token: " + e.getMessage(), e);
+        }
     }
 }
 
