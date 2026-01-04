@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -26,7 +25,6 @@ import java.util.Optional;
 public class FcmService {
 
     private static final Logger logger = LoggerUtil.getLogger(FcmService.class);
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MMM d, yyyy");
 
     @Autowired
     private FcmTokenRepository fcmTokenRepository;
@@ -79,6 +77,11 @@ public class FcmService {
         String normalizedUsername = bguUsername.toLowerCase().trim();
         fcmTokenRepository.deleteByBguUsername(normalizedUsername);
         logger.info("Removed FCM token for user: {}", normalizedUsername);
+
+        logAction("FCM_TOKEN_REMOVED",
+                String.format("FCM token removed for user %s (logout)", normalizedUsername),
+                normalizedUsername,
+                null);
     }
 
     /**
