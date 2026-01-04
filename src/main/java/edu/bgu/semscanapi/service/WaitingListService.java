@@ -176,6 +176,41 @@ public class WaitingListService {
             throw new IllegalStateException("User degree is not set");
         }
 
+        // PhD/MSc exclusivity rules for waiting list:
+        // 1. If PhD already registered (approved or pending), slot is locked - no one can join waiting list
+        // 2. If user is PhD and MSc already registered, PhD can't join waiting list (they'd never get promoted anyway)
+        List<SeminarSlotRegistration> allRegistrations = registrationRepository.findByIdSlotId(slotId);
+        List<SeminarSlotRegistration> activeRegistrations = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED ||
+                              reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .collect(java.util.stream.Collectors.toList());
+
+        boolean existingPhd = activeRegistrations.stream()
+                .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
+        boolean existingMsc = activeRegistrations.stream()
+                .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
+
+        // Rule 1: If PhD already registered (approved or pending), slot is locked
+        if (existingPhd) {
+            String errorMsg = "Slot already has a PhD presenter - slot is exclusive, waiting list closed";
+            logger.warn("{} - slotId={}, presenterUsername={}", errorMsg, slotId, normalizedUsername);
+            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
+                    String.format("slotId=%d,presenterUsername=%s,reason=PHD_EXCLUSIVE", slotId, normalizedUsername));
+            throw new IllegalStateException("Slot is reserved by a PhD presenter - waiting list closed");
+        }
+
+        // Rule 2: If user is PhD and MSc already registered, PhD can't join waiting list
+        if (user.getDegree() == User.Degree.PhD && existingMsc) {
+            String errorMsg = "PhD cannot join waiting list - slot already has MSc presenters";
+            logger.warn("{} - slotId={}, presenterUsername={}, mscCount={}", errorMsg, slotId, normalizedUsername,
+                    activeRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count());
+            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
+                    String.format("slotId=%d,presenterUsername=%s,reason=MSC_BLOCKS_PHD,mscCount=%d",
+                            slotId, normalizedUsername,
+                            activeRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count()));
+            throw new IllegalStateException("Cannot join waiting list as PhD - slot has MSc presenters registered");
+        }
+
         // Get supervisor from User entity (preferred) or fall back to request parameters (backward compatibility)
         String finalSupervisorName = null;
         String finalSupervisorEmail = null;
@@ -486,6 +521,40 @@ public class WaitingListService {
             return false;
         }
 
+        // PhD/MSc exclusivity check for promotion
+        List<SeminarSlotRegistration> activeRegistrations = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED ||
+                              reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .collect(java.util.stream.Collectors.toList());
+
+        boolean existingPhd = activeRegistrations.stream()
+                .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
+        boolean existingMsc = activeRegistrations.stream()
+                .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
+
+        // If PhD registered, slot is locked - no promotions
+        if (existingPhd) {
+            logger.info("Cannot offer promotion - slot {} has PhD presenter (exclusive)", slotId);
+            databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_BLOCKED_PHD_EXCLUSIVE",
+                    String.format("Cannot offer promotion for slot %d - PhD presenter has exclusive reservation", slotId),
+                    nextEntry.getPresenterUsername());
+            return false;
+        }
+
+        // If next person is PhD but MSc already registered, skip PhD and try next
+        if (nextEntry.getDegree() == User.Degree.PhD && existingMsc) {
+            logger.info("Skipping PhD user {} for promotion - slot {} has MSc presenters",
+                    nextEntry.getPresenterUsername(), slotId);
+            databaseLoggerService.logBusinessEvent("WAITING_LIST_PHD_SKIPPED_MSC_EXISTS",
+                    String.format("PhD user %s skipped for promotion on slot %d - MSc presenters exist, removing from waiting list",
+                            nextEntry.getPresenterUsername(), slotId),
+                    nextEntry.getPresenterUsername());
+            // Remove PhD from waiting list since they can never be promoted for this slot
+            removeFromWaitingList(slotId, nextEntry.getPresenterUsername(), false);
+            // Try next person
+            return offerPromotionToNextFromWaitingList(slotId);
+        }
+
         String username = nextEntry.getPresenterUsername();
 
         // Check if user already registered
@@ -593,6 +662,36 @@ public class WaitingListService {
                     slotId, username, capacity, effectiveUsage, userWeight);
             databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_FAILED",
                     String.format("User %s confirmed promotion but slot %d is now full", username, slotId),
+                    username);
+            return Optional.empty();
+        }
+
+        // PhD/MSc exclusivity check for promotion confirmation
+        List<SeminarSlotRegistration> activeRegistrations = allRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED ||
+                              reg.getApprovalStatus() == ApprovalStatus.PENDING)
+                .collect(java.util.stream.Collectors.toList());
+
+        boolean existingPhd = activeRegistrations.stream()
+                .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
+        boolean existingMsc = activeRegistrations.stream()
+                .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
+
+        // If PhD already registered, slot is locked
+        if (existingPhd) {
+            logger.warn("Cannot confirm promotion - slot {} has PhD presenter (exclusive)", slotId);
+            databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_FAILED",
+                    String.format("User %s confirmed promotion but slot %d is locked by PhD", username, slotId),
+                    username);
+            return Optional.empty();
+        }
+
+        // If user is PhD but MSc already registered, PhD can't be promoted
+        if (user.getDegree() == User.Degree.PhD && existingMsc) {
+            logger.warn("Cannot confirm promotion - PhD user {} blocked by existing MSc in slot {}",
+                    username, slotId);
+            databaseLoggerService.logBusinessEvent("WAITING_LIST_PROMOTION_FAILED",
+                    String.format("PhD user %s cannot be promoted - slot %d has MSc presenters", username, slotId),
                     username);
             return Optional.empty();
         }

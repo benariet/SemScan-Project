@@ -288,15 +288,33 @@ public class PresenterHomeService {
                     .filter(reg -> reg.getApprovalTokenExpiresAt() == null || now.isBefore(reg.getApprovalTokenExpiresAt()))
                     .collect(Collectors.toList());
             
-            boolean existingPhd = approvedRegistrations.stream()
+            // PhD/MSc exclusivity rules:
+            // 1. PhD takes exclusive slot - no MSc can register if PhD exists (approved or pending)
+            // 2. MSc can have up to 3 spots - but PhD cannot register if any MSc exists
+            List<SeminarSlotRegistration> allActiveRegistrations = new ArrayList<>();
+            allActiveRegistrations.addAll(approvedRegistrations);
+            allActiveRegistrations.addAll(pendingRegistrations);
+
+            boolean existingPhd = allActiveRegistrations.stream()
                     .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
-            
-            // PhD exclusivity rule: if slot already has a PhD presenter, no other presenters can register
+            boolean existingMsc = allActiveRegistrations.stream()
+                    .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
+
+            // Rule 1: If PhD already registered (approved or pending), block all new registrations
             if (existingPhd) {
-                String errorMsg = "Slot already has a PhD presenter";
-                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                    String.format("slotId=%s,reason=PHD_BLOCKED", slotId));
-                return new PresenterSlotRegistrationResponse(false, "Slot locked by PhD presenter", "SLOT_LOCKED");
+                String errorMsg = "Slot already has a PhD presenter - slot is exclusive";
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                    String.format("slotId=%s,reason=PHD_EXCLUSIVE", slotId));
+                return new PresenterSlotRegistrationResponse(false, "Slot is reserved by a PhD presenter", "SLOT_LOCKED");
+            }
+
+            // Rule 2: If user is PhD and MSc already registered, block PhD registration
+            if (presenterDegree == User.Degree.PhD && existingMsc) {
+                String errorMsg = "PhD cannot register - slot already has MSc presenters";
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                    String.format("slotId=%s,reason=MSC_BLOCKS_PHD,mscCount=%d", slotId,
+                        allActiveRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count()));
+                return new PresenterSlotRegistrationResponse(false, "Cannot register as PhD - slot has MSc presenters. Join waiting list instead.", "PHD_BLOCKED_BY_MSC");
             }
             
             // Read slot entity only when needed (for capacity check and status update) to minimize row lock duration
@@ -312,10 +330,7 @@ public class PresenterHomeService {
             // CRITICAL FIX: Count BOTH approved AND pending registrations against capacity
             int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
             
-            // Combine approved and pending for effective usage calculation
-            List<SeminarSlotRegistration> allActiveRegistrations = new ArrayList<>();
-            allActiveRegistrations.addAll(approvedRegistrations);
-            allActiveRegistrations.addAll(pendingRegistrations);
+            // Calculate effective usage (allActiveRegistrations already defined above)
             int effectiveUsage = calculateEffectiveCapacityUsage(allActiveRegistrations);
             
             // Calculate what the new total would be if this registration is added
