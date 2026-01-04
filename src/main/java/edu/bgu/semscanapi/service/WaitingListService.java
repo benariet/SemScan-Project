@@ -39,6 +39,7 @@ public class WaitingListService {
     private final MailService mailService;
     private final WaitingListPromotionRepository waitingListPromotionRepository;
     private final AppConfigService appConfigService;
+    private final FcmService fcmService;
 
     @Value("${app.registration.msc.max-per-slot:3}")
     private int mscMaxPerSlot;
@@ -61,7 +62,8 @@ public class WaitingListService {
             DatabaseLoggerService databaseLoggerService,
             MailService mailService,
             WaitingListPromotionRepository waitingListPromotionRepository,
-            AppConfigService appConfigService) {
+            AppConfigService appConfigService,
+            FcmService fcmService) {
         this.waitingListRepository = waitingListRepository;
         this.registrationRepository = registrationRepository;
         this.slotRepository = slotRepository;
@@ -70,6 +72,7 @@ public class WaitingListService {
         this.mailService = mailService;
         this.waitingListPromotionRepository = waitingListPromotionRepository;
         this.appConfigService = appConfigService;
+        this.fcmService = fcmService;
     }
 
     /**
@@ -586,6 +589,15 @@ public class WaitingListService {
 
         // Send promotion offer email
         sendPromotionOfferEmail(nextEntry, slot, token);
+
+        // Send push notification
+        try {
+            String slotDate = slot.getSlotDate().format(DATE_FORMAT);
+            fcmService.sendPromotionNotification(username, slotId, slotDate);
+        } catch (Exception e) {
+            logger.error("Failed to send push notification for promotion offer to user {}", username, e);
+            // Don't fail promotion if push notification fails
+        }
 
         return true;
     }

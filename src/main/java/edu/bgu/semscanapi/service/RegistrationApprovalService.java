@@ -44,6 +44,7 @@ public class RegistrationApprovalService {
     private final WaitingListPromotionRepository waitingListPromotionRepository;
     private final WaitingListService waitingListService; // For removing user from waiting lists on approval
     private final AppConfigService appConfigService;
+    private final FcmService fcmService;
 
     // Self-injection to enable @Transactional on saveApprovalToken when called from within the class
     @Autowired
@@ -64,7 +65,8 @@ public class RegistrationApprovalService {
             @Lazy PresenterHomeService presenterHomeService,
             WaitingListPromotionRepository waitingListPromotionRepository,
             @Lazy WaitingListService waitingListService,
-            AppConfigService appConfigService) {
+            AppConfigService appConfigService,
+            FcmService fcmService) {
         this.registrationRepository = registrationRepository;
         this.slotRepository = slotRepository;
         this.userRepository = userRepository;
@@ -76,6 +78,7 @@ public class RegistrationApprovalService {
         this.waitingListPromotionRepository = waitingListPromotionRepository;
         this.waitingListService = waitingListService;
         this.appConfigService = appConfigService;
+        this.fcmService = fcmService;
     }
 
     /**
@@ -781,6 +784,16 @@ public class RegistrationApprovalService {
             logger.error("Failed to send approval notification email to presenter {} for slot {}", presenterUsername, slotId, e);
             // Don't fail approval if email fails
         }
+
+        // Send push notification
+        try {
+            SeminarSlot slot = slotRepository.findById(slotId).orElse(null);
+            String slotDate = slot != null ? slot.getSlotDate().format(DATE_FORMAT) : "your slot";
+            fcmService.sendApprovalNotification(presenterUsername, slotId, slotDate, true, null);
+        } catch (Exception e) {
+            logger.error("Failed to send push notification to presenter {} for slot {}", presenterUsername, slotId, e);
+            // Don't fail approval if push notification fails
+        }
     }
 
     /**
@@ -1009,8 +1022,18 @@ public class RegistrationApprovalService {
                     e, presenterUsername, String.format("slotId=%d", slotId));
             // Don't fail the decline operation if promotion fails
         }
+
+        // Send push notification for decline
+        try {
+            SeminarSlot slot = slotRepository.findById(slotId).orElse(null);
+            String slotDate = slot != null ? slot.getSlotDate().format(DATE_FORMAT) : "your slot";
+            fcmService.sendApprovalNotification(presenterUsername, slotId, slotDate, false, reason);
+        } catch (Exception e) {
+            logger.error("Failed to send push notification to presenter {} for slot {}", presenterUsername, slotId, e);
+            // Don't fail decline if push notification fails
+        }
     }
-    
+
     /**
      * Helper method to update WaitingListPromotion status
      */

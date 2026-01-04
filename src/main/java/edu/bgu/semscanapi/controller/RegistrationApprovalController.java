@@ -71,16 +71,18 @@ public class RegistrationApprovalController {
 
     /**
      * Decline registration via token (mobile-compatible endpoint)
-     * GET /api/v1/decline/{approvalToken}
+     * GET /api/v1/decline/{approvalToken}?reason=optional_reason
      */
     @GetMapping(value = "/api/v1/decline/{approvalToken}", produces = MediaType.TEXT_HTML_VALUE)
-    public ResponseEntity<String> declineRegistrationByToken(@PathVariable String approvalToken) {
+    public ResponseEntity<String> declineRegistrationByToken(
+            @PathVariable String approvalToken,
+            @RequestParam(required = false) String reason) {
         LoggerUtil.generateAndSetCorrelationId();
         String endpoint = String.format("/api/v1/decline/%s", approvalToken.substring(0, Math.min(8, approvalToken.length())) + "...");
         LoggerUtil.logApiRequest(logger, "GET", endpoint, null);
 
         try {
-            approvalService.declineRegistrationByToken(approvalToken, null);
+            approvalService.declineRegistrationByToken(approvalToken, reason);
             
             String html = generateSuccessPage("Registration Declined", 
                     "The registration has been declined.");

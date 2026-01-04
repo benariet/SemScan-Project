@@ -1,10 +1,12 @@
 package edu.bgu.semscanapi.controller;
 
+import edu.bgu.semscanapi.dto.FcmTokenRequest;
 import edu.bgu.semscanapi.dto.UserExistsRequest;
 import edu.bgu.semscanapi.dto.UserProfileResponse;
 import edu.bgu.semscanapi.dto.UserProfileUpdateRequest;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.UserRepository;
+import edu.bgu.semscanapi.service.FcmService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -27,9 +29,11 @@ public class UserController {
     private static final Logger logger = LoggerUtil.getLogger(UserController.class);
 
     private final UserRepository userRepository;
+    private final FcmService fcmService;
 
-    public UserController(UserRepository userRepository) {
+    public UserController(UserRepository userRepository, FcmService fcmService) {
         this.userRepository = userRepository;
+        this.fcmService = fcmService;
     }
 
     @PostMapping
@@ -296,6 +300,73 @@ public class UserController {
         }
         return null;
     }
+
+    /**
+     * Register FCM token for push notifications
+     */
+    @PostMapping("/{username}/fcm-token")
+    public ResponseEntity<?> registerFcmToken(
+            @PathVariable String username,
+            @RequestBody FcmTokenRequest request) {
+        LoggerUtil.generateAndSetCorrelationId();
+        String endpoint = "/api/v1/users/" + username + "/fcm-token";
+        LoggerUtil.logApiRequest(logger, "POST", endpoint, request.toString());
+
+        try {
+            if (username == null || username.trim().isEmpty()) {
+                LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), "username required");
+                return ResponseEntity.badRequest().body(new FcmTokenResponse(false, "Username is required"));
+            }
+
+            if (request.getFcmToken() == null || request.getFcmToken().trim().isEmpty()) {
+                LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), "fcmToken required");
+                return ResponseEntity.badRequest().body(new FcmTokenResponse(false, "FCM token is required"));
+            }
+
+            fcmService.registerToken(username.trim(), request.getFcmToken().trim(), request.getDeviceInfo());
+
+            LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), "FCM token registered");
+            return ResponseEntity.ok(new FcmTokenResponse(true, "FCM token registered successfully"));
+
+        } catch (Exception ex) {
+            LoggerUtil.logError(logger, "Failed to register FCM token", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new FcmTokenResponse(false, "Failed to register FCM token: " + ex.getMessage()));
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+
+    /**
+     * Remove FCM token (e.g., on logout)
+     */
+    @DeleteMapping("/{username}/fcm-token")
+    public ResponseEntity<?> removeFcmToken(@PathVariable String username) {
+        LoggerUtil.generateAndSetCorrelationId();
+        String endpoint = "/api/v1/users/" + username + "/fcm-token";
+        LoggerUtil.logApiRequest(logger, "DELETE", endpoint, null);
+
+        try {
+            if (username == null || username.trim().isEmpty()) {
+                LoggerUtil.logApiResponse(logger, "DELETE", endpoint, HttpStatus.BAD_REQUEST.value(), "username required");
+                return ResponseEntity.badRequest().body(new FcmTokenResponse(false, "Username is required"));
+            }
+
+            fcmService.removeToken(username.trim());
+
+            LoggerUtil.logApiResponse(logger, "DELETE", endpoint, HttpStatus.OK.value(), "FCM token removed");
+            return ResponseEntity.ok(new FcmTokenResponse(true, "FCM token removed successfully"));
+
+        } catch (Exception ex) {
+            LoggerUtil.logError(logger, "Failed to remove FCM token", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new FcmTokenResponse(false, "Failed to remove FCM token: " + ex.getMessage()));
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+
+    private record FcmTokenResponse(boolean success, String message) {}
 }
 
 

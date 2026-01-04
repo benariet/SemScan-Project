@@ -67,6 +67,7 @@ public class PresenterHomeService {
     private final AppConfigService appConfigService;
     private final WaitingListPromotionRepository waitingListPromotionRepository;
     private final EmailQueueService emailQueueService;
+    private final FcmService fcmService;
 
     public PresenterHomeService(UserRepository userRepository,
                                 SeminarSlotRepository seminarSlotRepository,
@@ -81,7 +82,8 @@ public class PresenterHomeService {
                                 MailService mailService,
                                 AppConfigService appConfigService,
                                 WaitingListPromotionRepository waitingListPromotionRepository,
-                                EmailQueueService emailQueueService) {
+                                EmailQueueService emailQueueService,
+                                FcmService fcmService) {
         this.userRepository = userRepository;
         this.seminarSlotRepository = seminarSlotRepository;
         this.registrationRepository = registrationRepository;
@@ -96,6 +98,7 @@ public class PresenterHomeService {
         this.appConfigService = appConfigService;
         this.waitingListPromotionRepository = waitingListPromotionRepository;
         this.emailQueueService = emailQueueService;
+        this.fcmService = fcmService;
     }
 
     /**
@@ -1032,6 +1035,16 @@ public class PresenterHomeService {
                 logger.info("Student confirmation email sent to promoted user {} in slot {}", promotedUsername, slotId);
             } catch (Exception e) {
                 logger.error("Failed to send student confirmation email for promoted user {} in slot {}: {}",
+                        promotedUsername, slotId, e.getMessage(), e);
+            }
+
+            // Send push notification for promotion
+            try {
+                String slotDate = slot.getSlotDate().format(DATE_FORMAT);
+                fcmService.sendPromotionNotification(promotedUsername, slotId, slotDate);
+                logger.info("Push notification sent to promoted user {} for slot {}", promotedUsername, slotId);
+            } catch (Exception e) {
+                logger.error("Failed to send push notification to promoted user {} for slot {}: {}",
                         promotedUsername, slotId, e.getMessage(), e);
             }
 

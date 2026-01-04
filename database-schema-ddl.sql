@@ -119,6 +119,18 @@ CREATE TABLE users (
 --  LEVEL 2: Tables depending on users and/or slots
 -- =====================================================================
 
+CREATE TABLE fcm_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    bgu_username VARCHAR(50) NOT NULL UNIQUE,
+    fcm_token VARCHAR(255) NOT NULL,
+    device_info VARCHAR(255),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_fcm_tokens_user
+        FOREIGN KEY (bgu_username) REFERENCES users(bgu_username)
+        ON DELETE CASCADE
+);
+
 CREATE TABLE seminars (
     seminar_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     seminar_name VARCHAR(255) NOT NULL,
