@@ -136,17 +136,34 @@ public class ErrorMessageHelper {
         if (lower.contains("already on waiting list") || lower.contains("already in waiting list")) {
             return "You are already on the waiting list for this slot.";
         }
-        
+
         if (lower.contains("not on waiting list") || lower.contains("not in waiting list")) {
             return "You are not on the waiting list for this slot.";
         }
-        
+
         if (lower.contains("waiting list full") || lower.contains("waiting list is full")) {
             return "The waiting list is full. Please try again later.";
         }
-        
+
         if (lower.contains("cannot join waiting list") || lower.contains("unable to join waiting list")) {
             return "Cannot join waiting list. You may already be registered or on another waiting list.";
+        }
+
+        // PhD/MSc exclusivity errors
+        if (lower.contains("reserved by a phd") || lower.contains("phd presenter") && lower.contains("exclusive")) {
+            return "This slot is reserved by a PhD presenter. Please choose another slot.";
+        }
+
+        if (lower.contains("phd") && lower.contains("msc") && lower.contains("cannot")) {
+            return "PhD presenters cannot use slots with MSc presenters. Please choose an empty slot.";
+        }
+
+        if (lower.contains("slot has msc") || lower.contains("has msc presenters")) {
+            return "This slot has MSc presenters. PhD presenters require an empty slot.";
+        }
+
+        if (lower.contains("waiting list closed") && lower.contains("phd")) {
+            return "This slot's waiting list is closed because a PhD presenter has reserved it.";
         }
         
         // Supervisor info errors
@@ -184,6 +201,10 @@ public class ErrorMessageHelper {
             return context.getString(R.string.presenter_home_register_already);
         } else if ("SLOT_FULL".equals(errorCode)) {
             return context.getString(R.string.presenter_home_register_full);
+        } else if ("SLOT_LOCKED".equals(errorCode)) {
+            return "This slot is reserved by a PhD presenter. Please choose another slot or join the waiting list.";
+        } else if ("PHD_BLOCKED_BY_MSC".equals(errorCode)) {
+            return "PhD presenters cannot register for this slot because MSc presenters are already registered. Please choose an empty slot or join the waiting list.";
         } else if (backendMessage != null && !backendMessage.trim().isEmpty()) {
             return cleanBackendMessage(backendMessage);
         } else {
@@ -242,12 +263,25 @@ public class ErrorMessageHelper {
             if (lower.contains("supervisor") && (lower.contains("required") || lower.contains("missing"))) {
                 return "Please set your supervisor details in Settings before joining the waiting list.";
             }
-            
+
             if (lower.contains("supervisor") && lower.contains("email") && lower.contains("invalid")) {
                 return "Invalid supervisor email. Please check your supervisor email in Settings.";
             }
+
+            // PhD/MSc exclusivity errors for waiting list
+            if (lower.contains("reserved by a phd") || (lower.contains("phd presenter") && lower.contains("exclusive"))) {
+                return "This slot is reserved by a PhD presenter. The waiting list is not available.";
+            }
+
+            if (lower.contains("waiting list closed") && lower.contains("phd")) {
+                return "The waiting list is closed because a PhD presenter has reserved this slot.";
+            }
+
+            if ((lower.contains("phd") && lower.contains("cannot join")) || lower.contains("phd") && lower.contains("msc") && lower.contains("waiting")) {
+                return "PhD presenters cannot join the waiting list for slots with MSc presenters.";
+            }
         }
-        
+
         // Fallback to HTTP status code messages
         switch (statusCode) {
             case 400:
