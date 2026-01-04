@@ -104,8 +104,7 @@ public class NotificationHelper {
     /**
      * Shows an approval notification (approved or declined).
      */
-    public static void showApprovalNotification(Context context, String title, String body,
-                                                  long slotId, boolean approved) {
+    public static void showApprovalNotification(Context context, String title, String body, long slotId) {
         showNotification(context, CHANNEL_APPROVALS, NOTIFICATION_ID_APPROVAL, title, body, slotId);
     }
 

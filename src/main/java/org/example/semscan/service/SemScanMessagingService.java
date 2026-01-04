@@ -82,8 +82,7 @@ public class SemScanMessagingService extends FirebaseMessagingService {
 
         switch (type) {
             case "APPROVAL":
-                boolean approved = title != null && title.toLowerCase().contains("approved");
-                NotificationHelper.showApprovalNotification(this, title, body, slotId, approved);
+                NotificationHelper.showApprovalNotification(this, title, body, slotId);
                 break;
 
             case "PROMOTION":
@@ -96,7 +95,7 @@ public class SemScanMessagingService extends FirebaseMessagingService {
 
             default:
                 // Default to approval channel for unknown types
-                NotificationHelper.showApprovalNotification(this, title, body, slotId, true);
+                NotificationHelper.showApprovalNotification(this, title, body, slotId);
                 break;
         }
     }
