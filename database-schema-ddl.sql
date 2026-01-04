@@ -376,7 +376,7 @@ INSERT INTO app_config (config_key, config_value, config_type, category, target_
 ('email_reply_to', 'noreply@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'Email reply-to address'),
 ('email_bcc_list', 'admin@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'BCC recipients for emails (comma-separated)'),
 ('waiting.list.limit.per.slot', '3', 'INTEGER', 'REGISTRATION', 'BOTH', 'Maximum number of users on waiting list per slot'),
-('phd.capacity.weight', '2', 'INTEGER', 'REGISTRATION', 'BOTH', 'How many capacity slots a PhD registration counts as'),
+('phd.capacity.weight', '3', 'INTEGER', 'REGISTRATION', 'BOTH', 'How many capacity slots a PhD registration counts as (PhD takes entire slot)'),
 ('APP_VERSION', '1.0.0', 'STRING', 'APP', 'MOBILE', 'Current mobile app version number'),
 ('email_queue_max_retries', '3', 'INTEGER', 'EMAIL', 'API', 'Maximum retry attempts for failed emails'),
 ('email_queue_initial_backoff_minutes', '5', 'INTEGER', 'EMAIL', 'API', 'Initial backoff time in minutes before first retry'),

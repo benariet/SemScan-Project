@@ -94,7 +94,7 @@ public class RegistrationApprovalService {
         Optional<User> studentUser = userRepository.findByBguUsernameIgnoreCase(registration.getPresenterUsername());
         if (studentUser.isEmpty()) {
             String errorMsg = String.format("Cannot send student confirmation email: student user not found: %s", registration.getPresenterUsername());
-            logger.warn("📧 ❌ {}", errorMsg);
+            logger.warn("📧 {}", errorMsg);
             databaseLoggerService.logError("EMAIL_STUDENT_CONFIRMATION_EMAIL_USER_NOT_FOUND",
                     errorMsg, null, registration.getPresenterUsername(),
                     String.format("slotId=%d,presenter=%s", registration.getSlotId(), registration.getPresenterUsername()));
@@ -105,7 +105,7 @@ public class RegistrationApprovalService {
         String studentEmail = student.getEmail();
         if (studentEmail == null || studentEmail.trim().isEmpty()) {
             String errorMsg = String.format("Cannot send student confirmation email: student email is missing for user: %s", registration.getPresenterUsername());
-            logger.warn("📧 ❌ {}", errorMsg);
+            logger.warn("📧 {}", errorMsg);
             databaseLoggerService.logError("EMAIL_STUDENT_CONFIRMATION_EMAIL_MISSING_EMAIL",
                     errorMsg, null, registration.getPresenterUsername(),
                     String.format("slotId=%d,presenter=%s", registration.getSlotId(), registration.getPresenterUsername()));
@@ -140,7 +140,7 @@ public class RegistrationApprovalService {
         SeminarSlot slot = slotRepository.findById(registration.getSlotId())
                 .orElseThrow(() -> {
                     String errorMsg = "Slot not found: " + registration.getSlotId();
-                    logger.error("📧 ❌ {}", errorMsg);
+                    logger.error("📧 {}", errorMsg);
                     databaseLoggerService.logError("EMAIL_SLOT_NOT_FOUND_STUDENT_CONFIRMATION",
                             errorMsg, null, registration.getPresenterUsername(),
                             String.format("slotId=%d", registration.getSlotId()));
@@ -171,7 +171,7 @@ public class RegistrationApprovalService {
             registration.getPresenterUsername()
         );
 
-        logger.info("📧 ✅ [RegistrationApprovalService] Student confirmation email queued for {} for registration slotId={}, presenter={}",
+        logger.info("📧 [RegistrationApprovalService] Student confirmation email queued for {} for registration slotId={}, presenter={}",
                 studentEmail, registration.getSlotId(), registration.getPresenterUsername());
         databaseLoggerService.logBusinessEvent("EMAIL_STUDENT_CONFIRMATION_EMAIL_QUEUED",
                 String.format("Student confirmation email queued for %s for registration slotId=%d, presenter=%s",
@@ -191,7 +191,7 @@ public class RegistrationApprovalService {
         SeminarSlotRegistration registration = registrationRepository.findByApprovalToken(confirmationToken)
                 .orElseThrow(() -> {
                     String errorMsg = "Registration not found for confirmation token";
-                    logger.error("📧 ❌ {}", errorMsg);
+                    logger.error("📧 {}", errorMsg);
                     databaseLoggerService.logError("EMAIL_STUDENT_CONFIRMATION_INVALID_TOKEN",
                             errorMsg, null, null, String.format("token=%s", confirmationToken.substring(0, Math.min(8, confirmationToken.length()))));
                     return new IllegalArgumentException("Invalid confirmation token");
@@ -214,7 +214,7 @@ public class RegistrationApprovalService {
             throw new IllegalStateException("Registration is not pending student confirmation");
         }
         
-        logger.info("📧 ✅ Student {} confirmed promotion for slotId={}, proceeding to send supervisor approval email",
+        logger.info("📧 Student {} confirmed promotion for slotId={}, proceeding to send supervisor approval email",
                 registration.getPresenterUsername(), registration.getSlotId());
         databaseLoggerService.logBusinessEvent("WAITING_LIST_STUDENT_CONFIRMED_PROMOTION",
                 String.format("Student %s confirmed promotion for slotId=%d, sending supervisor approval email",
@@ -230,7 +230,7 @@ public class RegistrationApprovalService {
         // Now send supervisor approval email
         boolean emailSent = sendApprovalEmail(registration);
         if (!emailSent) {
-            logger.error("📧 ❌ Failed to send supervisor approval email after student confirmation for slotId={}, presenter={}",
+            logger.error("📧 Failed to send supervisor approval email after student confirmation for slotId={}, presenter={}",
                     registration.getSlotId(), registration.getPresenterUsername());
             databaseLoggerService.logError("EMAIL_STUDENT_CONFIRMATION_APPROVAL_EMAIL_FAILED",
                     String.format("Failed to send supervisor approval email after student confirmation for slotId=%d, presenter=%s",
@@ -254,7 +254,7 @@ public class RegistrationApprovalService {
         SeminarSlotRegistration registration = registrationRepository.findByApprovalToken(confirmationToken)
                 .orElseThrow(() -> {
                     String errorMsg = "Registration not found for confirmation token";
-                    logger.error("📧 ❌ {}", errorMsg);
+                    logger.error("📧 {}", errorMsg);
                     databaseLoggerService.logError("EMAIL_STUDENT_DECLINE_INVALID_TOKEN",
                             errorMsg, null, null, String.format("token=%s", confirmationToken.substring(0, Math.min(8, confirmationToken.length()))));
                     return new IllegalArgumentException("Invalid confirmation token");
@@ -280,7 +280,7 @@ public class RegistrationApprovalService {
         SeminarSlot slot = slotRepository.findById(slotId)
                 .orElseThrow(() -> {
                     String errorMsg = "Slot not found: " + slotId;
-                    logger.error("📧 ❌ {}", errorMsg);
+                    logger.error("📧 {}", errorMsg);
                     databaseLoggerService.logError("EMAIL_STUDENT_DECLINE_SLOT_NOT_FOUND",
                             errorMsg, null, presenterUsername, String.format("slotId=%d", slotId));
                     return new IllegalArgumentException(errorMsg);
@@ -292,7 +292,7 @@ public class RegistrationApprovalService {
         // Delete the registration (cancellation)
         registrationRepository.delete(registration);
         
-        logger.info("📧 ✅ Student {} declined promotion for slotId={}, registration deleted",
+        logger.info("📧 Student {} declined promotion for slotId={}, registration deleted",
                 presenterUsername, slotId);
         databaseLoggerService.logBusinessEvent("WAITING_LIST_STUDENT_DECLINED_PROMOTION",
                 String.format("Student %s declined promotion for slotId=%d, registration deleted. Attempting to promote next person from waiting list.",
@@ -304,7 +304,7 @@ public class RegistrationApprovalService {
             Optional<edu.bgu.semscanapi.entity.WaitingListEntry> promotedEntry = 
                     presenterHomeService.promoteFromWaitingListAfterCancellation(slotId, slot);
             if (promotedEntry.isPresent()) {
-                logger.info("📧 ✅ Successfully promoted next person {} from waiting list for slot {} after student declined",
+                logger.info("📧 Successfully promoted next person {} from waiting list for slot {} after student declined",
                         promotedEntry.get().getPresenterUsername(), slotId);
                 databaseLoggerService.logBusinessEvent("WAITING_LIST_AUTO_PROMOTED_AFTER_DECLINE",
                         String.format("Next person %s automatically promoted from waiting list for slotId=%d after previous student declined",
@@ -314,7 +314,7 @@ public class RegistrationApprovalService {
                 logger.info("📧 No one to promote from waiting list for slot {} (waiting list empty or slot full)", slotId);
             }
         } catch (Exception e) {
-            logger.error("📧 ❌ Failed to promote next person from waiting list for slot {} after student declined: {}", 
+            logger.error("📧 Failed to promote next person from waiting list for slot {} after student declined: {}", 
                     slotId, e.getMessage(), e);
             databaseLoggerService.logError("WAITING_LIST_AUTO_PROMOTE_FAILED",
                     String.format("Failed to automatically promote next person from waiting list for slotId=%d after student declined: %s",
@@ -450,7 +450,7 @@ public class RegistrationApprovalService {
         if (registration.getSupervisorEmail() == null || registration.getSupervisorEmail().trim().isEmpty()) {
             String errorMsg = String.format("Cannot send approval email: supervisor email is missing for registration slotId=%d, presenter=%s",
                     registration.getSlotId(), registration.getPresenterUsername());
-            logger.warn("📧 ❌ {}", errorMsg);
+            logger.warn("📧 {}", errorMsg);
             databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_MISSING_SUPERVISOR",
                     errorMsg, null, registration.getPresenterUsername(),
                     String.format("slotId=%d,presenter=%s", registration.getSlotId(), registration.getPresenterUsername()));
@@ -482,7 +482,7 @@ public class RegistrationApprovalService {
                 .orElseThrow(() -> {
                     String errorMsg = String.format("Registration not found after token save - slotId=%d, presenter=%s", 
                             registration.getSlotId(), registration.getPresenterUsername());
-                    logger.error("📧 ❌ {}", errorMsg);
+                    logger.error("📧 {}", errorMsg);
                     IllegalArgumentException exception = new IllegalArgumentException(errorMsg);
                     databaseLoggerService.logError("EMAIL_REGISTRATION_NOT_FOUND_AFTER_TOKEN_SAVE",
                             errorMsg, exception, registration.getPresenterUsername(),
@@ -497,7 +497,7 @@ public class RegistrationApprovalService {
                     approvalToken != null ? approvalToken.substring(0, Math.min(8, approvalToken.length())) : "null",
                     actualToken != null ? actualToken.substring(0, Math.min(8, actualToken.length())) : "null",
                     registration.getSlotId(), registration.getPresenterUsername());
-            logger.error("📧 ❌ {}", errorMsg);
+            logger.error("📧 {}", errorMsg);
             databaseLoggerService.logError("EMAIL_TOKEN_MISMATCH_AFTER_SAVE",
                     errorMsg, null, registration.getPresenterUsername(),
                     String.format("slotId=%d,generatedTokenPrefix=%s,savedTokenPrefix=%s", 
@@ -519,7 +519,7 @@ public class RegistrationApprovalService {
         SeminarSlot slot = slotRepository.findById(registration.getSlotId())
                 .orElseThrow(() -> {
                     String errorMsg = "Slot not found: " + registration.getSlotId();
-                    logger.error("📧 ❌ {}", errorMsg);
+                    logger.error("📧 {}", errorMsg);
                     databaseLoggerService.logError("EMAIL_SLOT_NOT_FOUND_EMAIL",
                             errorMsg, null, registration.getPresenterUsername(),
                             String.format("slotId=%d", registration.getSlotId()));
@@ -575,7 +575,7 @@ public class RegistrationApprovalService {
                 registration.getPresenterUsername()
             );
 
-            logger.info("📧 ✅ [RegistrationApprovalService] Supervisor approval email queued for {} for registration slotId={}, presenter={}",
+            logger.info("📧 [RegistrationApprovalService] Supervisor approval email queued for {} for registration slotId={}, presenter={}",
                     registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername());
             databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_QUEUED",
                     String.format("Supervisor approval email queued for %s for registration slotId=%d, presenter=%s",
@@ -587,7 +587,7 @@ public class RegistrationApprovalService {
 
             return true;
         } catch (Exception e) {
-            logger.error("📧 ❌ [RegistrationApprovalService] Exception while queueing approval email to supervisor {} for registration slotId={}, presenter={}: {}",
+            logger.error("📧 [RegistrationApprovalService] Exception while queueing approval email to supervisor {} for registration slotId={}, presenter={}: {}",
                     registration.getSupervisorEmail(), registration.getSlotId(), registration.getPresenterUsername(), e.getMessage(), e);
             databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_QUEUE_EXCEPTION",
                     String.format("Exception while queueing approval email to supervisor %s for registration slotId=%d, presenter=%s: %s",
@@ -616,7 +616,7 @@ public class RegistrationApprovalService {
                 .orElseThrow(() -> {
                     String errorMsg = String.format("Registration not found after save - slotId=%d, presenter=%s", 
                             registration.getSlotId(), registration.getPresenterUsername());
-                    logger.error("📧 ❌ {}", errorMsg);
+                    logger.error("📧 {}", errorMsg);
                     IllegalArgumentException exception = new IllegalArgumentException(errorMsg);
                     databaseLoggerService.logError("EMAIL_REGISTRATION_NOT_FOUND_AFTER_SAVE",
                             errorMsg, exception, registration.getPresenterUsername(),
@@ -628,7 +628,7 @@ public class RegistrationApprovalService {
         if (savedRegistration.getApprovalToken() == null || !savedRegistration.getApprovalToken().equals(approvalToken)) {
             String errorMsg = String.format("Token was not saved correctly - expected: %s, actual: %s, slotId=%d, presenter=%s",
                     approvalToken, savedRegistration.getApprovalToken(), registration.getSlotId(), registration.getPresenterUsername());
-            logger.error("📧 ❌ {}", errorMsg);
+            logger.error("📧 {}", errorMsg);
             IllegalArgumentException exception = new IllegalArgumentException(errorMsg);
             databaseLoggerService.logError("EMAIL_REGISTRATION_TOKEN_NOT_SAVED",
                     errorMsg, exception, registration.getPresenterUsername(),
@@ -650,7 +650,7 @@ public class RegistrationApprovalService {
                     registration.getPresenterUsername(),
                     String.format("slotId=%d,tokenPrefix=%s", registration.getSlotId(), approvalToken.substring(0, Math.min(8, approvalToken.length()))));
         } else {
-            logger.error("📧 ❌ [RegistrationApprovalService] Token lookup FAILED - token cannot be found immediately after save! This indicates transaction not committed.");
+            logger.error("📧 [RegistrationApprovalService] Token lookup FAILED - token cannot be found immediately after save! This indicates transaction not committed.");
             databaseLoggerService.logError("EMAIL_TOKEN_LOOKUP_FAILED",
                     "Token cannot be found immediately after save - transaction may not have committed",
                     null, registration.getPresenterUsername(),
@@ -706,7 +706,7 @@ public class RegistrationApprovalService {
             // DECLINED or EXPIRED - cannot approve
             String errorMsg = String.format("Cannot approve registration: status is %s (only PENDING registrations can be approved)", 
                     registration.getApprovalStatus());
-            logger.error("📧 ❌ {}", errorMsg);
+            logger.error("📧 {}", errorMsg);
             databaseLoggerService.logError("REGISTRATION_APPROVAL_INVALID_STATUS",
                     errorMsg, null, presenterUsername, String.format("slotId=%d,status=%s", slotId, registration.getApprovalStatus()));
             throw new IllegalStateException("Registration is not pending approval");
@@ -795,7 +795,7 @@ public class RegistrationApprovalService {
         if (approvalToken == null || approvalToken.trim().isEmpty()) {
             String errorMsg = "Approval token is null or empty";
             IllegalArgumentException exception = new IllegalArgumentException("Approval token is required");
-            logger.error("📧 ❌ {}", errorMsg, exception);
+            logger.error("📧 {}", errorMsg, exception);
             databaseLoggerService.logError("REGISTRATION_APPROVAL_TOKEN_INVALID",
                     errorMsg, exception, null, "token=null_or_empty");
             throw exception;
@@ -839,7 +839,7 @@ public class RegistrationApprovalService {
             IllegalArgumentException exception = new IllegalArgumentException(userMessage);
             
             String errorMsg = "Registration not found for this token";
-            logger.error("📧 ❌ {} - Token prefix: {}, Diagnostics: {}", errorMsg, tokenPrefix, diagnosticInfo, exception);
+            logger.error("📧 {} - Token prefix: {}, Diagnostics: {}", errorMsg, tokenPrefix, diagnosticInfo, exception);
             databaseLoggerService.logError("REGISTRATION_APPROVAL_TOKEN_NOT_FOUND",
                     errorMsg, exception, null, diagnosticInfo);
             
@@ -869,7 +869,7 @@ public class RegistrationApprovalService {
         if (approvalToken == null || approvalToken.trim().isEmpty()) {
             String errorMsg = "Approval token is null or empty";
             IllegalArgumentException exception = new IllegalArgumentException("Approval token is required");
-            logger.error("📧 ❌ {}", errorMsg, exception);
+            logger.error("📧 {}", errorMsg, exception);
             databaseLoggerService.logError("REGISTRATION_DECLINE_TOKEN_INVALID",
                     errorMsg, exception, null, "token=null_or_empty");
             throw exception;
@@ -902,7 +902,7 @@ public class RegistrationApprovalService {
             IllegalArgumentException exception = new IllegalArgumentException(userMessage);
             
             String errorMsg = "Registration not found for this token";
-            logger.error("📧 ❌ {} - Token prefix: {}, Diagnostics: {}", errorMsg, tokenPrefix, diagnosticInfo, exception);
+            logger.error("📧 {} - Token prefix: {}, Diagnostics: {}", errorMsg, tokenPrefix, diagnosticInfo, exception);
             databaseLoggerService.logError("REGISTRATION_DECLINE_TOKEN_NOT_FOUND",
                     errorMsg, exception, null, diagnosticInfo);
             
@@ -962,7 +962,7 @@ public class RegistrationApprovalService {
             // APPROVED or EXPIRED - cannot decline
             String errorMsg = String.format("Cannot decline registration: status is %s (only PENDING registrations can be declined)", 
                     registration.getApprovalStatus());
-            logger.error("📧 ❌ {}", errorMsg);
+            logger.error("📧 {}", errorMsg);
             databaseLoggerService.logError("REGISTRATION_DECLINE_INVALID_STATUS",
                     errorMsg, null, presenterUsername, String.format("slotId=%d,status=%s", slotId, registration.getApprovalStatus()));
             throw new IllegalStateException("Registration is not pending approval");
@@ -990,7 +990,7 @@ public class RegistrationApprovalService {
                 Optional<edu.bgu.semscanapi.entity.WaitingListEntry> promotedEntry =
                         presenterHomeService.promoteFromWaitingListAfterCancellation(slotId, slot);
                 if (promotedEntry.isPresent()) {
-                    logger.info("📧 ✅ Successfully promoted next person {} from waiting list for slot {} after supervisor declined",
+                    logger.info("📧 Successfully promoted next person {} from waiting list for slot {} after supervisor declined",
                             promotedEntry.get().getPresenterUsername(), slotId);
                     databaseLoggerService.logBusinessEvent("WAITING_LIST_AUTO_PROMOTED_AFTER_DECLINE",
                             String.format("Next person %s automatically promoted from waiting list for slotId=%d after supervisor declined previous registration",
@@ -1001,7 +1001,7 @@ public class RegistrationApprovalService {
                 }
             }
         } catch (Exception e) {
-            logger.error("📧 ❌ Failed to promote next person from waiting list for slot {} after decline: {}",
+            logger.error("📧 Failed to promote next person from waiting list for slot {} after decline: {}",
                     slotId, e.getMessage(), e);
             databaseLoggerService.logError("WAITING_LIST_AUTO_PROMOTE_AFTER_DECLINE_FAILED",
                     String.format("Failed to automatically promote next person from waiting list for slotId=%d after decline: %s",

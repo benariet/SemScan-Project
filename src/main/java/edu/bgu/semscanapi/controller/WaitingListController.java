@@ -103,7 +103,12 @@ public class WaitingListController {
             databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, null,
                     String.format("endpoint=%s,slotId=%d", endpoint, slotId));
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), errorMsg);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            WaitingListResponse errorResponse = new WaitingListResponse();
+            errorResponse.setOk(false);
+            errorResponse.setMessage(errorMsg);
+            errorResponse.setCode("INVALID_REQUEST");
+            errorResponse.setSlotId(slotId);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
 
         // Validate required fields
@@ -113,7 +118,12 @@ public class WaitingListController {
             databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, null,
                     String.format("endpoint=%s,slotId=%d", endpoint, slotId));
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), errorMsg);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            WaitingListResponse errorResponse = new WaitingListResponse();
+            errorResponse.setOk(false);
+            errorResponse.setMessage(errorMsg);
+            errorResponse.setCode("MISSING_USERNAME");
+            errorResponse.setSlotId(slotId);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
 
         try {
@@ -149,19 +159,29 @@ public class WaitingListController {
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), "User added to waiting list");
             return ResponseEntity.ok(response);
         } catch (IllegalStateException e) {
-            String errorMsg = String.format("Business logic error: %s", e.getMessage());
-            LoggerUtil.logError(logger, "Failed to add to waiting list", e);
-            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, e, presenterUsername,
-                    String.format("endpoint=%s,slotId=%d,exceptionType=IllegalStateException", endpoint, slotId));
+            // Business logic errors (e.g., "waiting list full") - log as WARN, not ERROR
+            logger.warn("Business rule prevented action: {} - slotId={}, user={}", e.getMessage(), slotId, presenterUsername);
+            databaseLoggerService.logAction("WARN", "WAITING_LIST_ADD_BLOCKED", e.getMessage(), presenterUsername,
+                    String.format("slotId=%d,reason=%s", slotId, e.getMessage()));
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            WaitingListResponse errorResponse = new WaitingListResponse();
+            errorResponse.setOk(false);
+            errorResponse.setMessage(e.getMessage());
+            errorResponse.setCode("BUSINESS_ERROR");
+            errorResponse.setSlotId(slotId);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         } catch (IllegalArgumentException e) {
             String errorMsg = String.format("Invalid argument: %s", e.getMessage());
             LoggerUtil.logError(logger, "Failed to add to waiting list", e);
             databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, e, presenterUsername,
                     String.format("endpoint=%s,slotId=%d,exceptionType=IllegalArgumentException", endpoint, slotId));
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            WaitingListResponse errorResponse = new WaitingListResponse();
+            errorResponse.setOk(false);
+            errorResponse.setMessage(e.getMessage());
+            errorResponse.setCode("INVALID_ARGUMENT");
+            errorResponse.setSlotId(slotId);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         } catch (Exception e) {
             String errorMsg = String.format("Unexpected error: %s", e.getMessage());
             LoggerUtil.logError(logger, "Unexpected error adding to waiting list", e);

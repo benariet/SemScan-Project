@@ -83,14 +83,14 @@ public class MailService {
         
         // CRITICAL: Check if JavaMailSender is configured
         if (mailSender == null) {
-            logger.error("❌ CRITICAL: JavaMailSender is NULL! Email sending will fail. Check Spring Mail configuration.");
+            logger.error("CRITICAL: JavaMailSender is NULL! Email sending will fail. Check Spring Mail configuration.");
             if (databaseLoggerService != null) {
                 databaseLoggerService.logError("EMAIL_MAILSERVICE_INIT_MAILSENDER_NULL",
                         "JavaMailSender is null during MailService initialization. Email sending is disabled.",
                         null, null, "mailSender=null,check=spring.mail.configuration");
             }
         } else {
-            logger.info("✅ JavaMailSender is configured and ready");
+            logger.info("JavaMailSender is configured and ready");
             if (databaseLoggerService != null) {
                 databaseLoggerService.logAction("INFO", "EMAIL_MAILSERVICE_INIT_SUCCESS",
                         "MailService initialized successfully with JavaMailSender",
@@ -127,7 +127,7 @@ public class MailService {
         logger.info("📧 [MailService] sendHtmlEmail() called - recipients: {}, subject: {}", to, subject);
         
         if (mailSender == null) {
-            logger.error("📧 ❌ [MailService] JavaMailSender is not configured. Email sending is disabled.");
+            logger.error("📧 [MailService] JavaMailSender is not configured. Email sending is disabled.");
             if (databaseLoggerService != null) {
                 databaseLoggerService.logError("EMAIL_MAILSENDER_NULL",
                         "JavaMailSender is not configured. Email sending is disabled.",
@@ -138,7 +138,7 @@ public class MailService {
         logger.info("📧 [MailService] JavaMailSender is configured");
 
         if (to == null || to.isEmpty()) {
-            logger.error("📧 ❌ [MailService] No recipients provided. Cannot send email.");
+            logger.error("📧 [MailService] No recipients provided. Cannot send email.");
             if (databaseLoggerService != null) {
                 databaseLoggerService.logError("EMAIL_NO_RECIPIENTS",
                         "No recipients provided. Cannot send email.",
@@ -194,7 +194,7 @@ public class MailService {
                                 null, String.format("replyTo=%s", emailReplyTo));
                     }
                 } catch (MessagingException e) {
-                    logger.error("📧 ⚠️ [MailService] Failed to set reply-to to {}: {}", emailReplyTo, e.getMessage());
+                    logger.error("📧 [MailService] Failed to set reply-to to {}: {}", emailReplyTo, e.getMessage());
                     if (databaseLoggerService != null) {
                         databaseLoggerService.logError("EMAIL_CONFIG_REPLY_TO_FAILED",
                                 String.format("Failed to set reply-to address from app_config: %s", emailReplyTo),
@@ -238,7 +238,7 @@ public class MailService {
                         }
                     }
                 } catch (MessagingException e) {
-                    logger.error("📧 ⚠️ [MailService] Failed to set BCC to {}: {}", bccToUse, e.getMessage());
+                    logger.error("📧 [MailService] Failed to set BCC to {}: {}", bccToUse, e.getMessage());
                     if (databaseLoggerService != null) {
                         databaseLoggerService.logError("EMAIL_CONFIG_BCC_FAILED",
                                 String.format("Failed to set BCC from app_config: %s", bccToUse),
@@ -262,7 +262,7 @@ public class MailService {
             logger.info("📧 [MailService] Sending email via JavaMailSender to SMTP server...");
             mailSender.send(message);
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("📧 ✅ [MailService] HTML email sent successfully to {} recipients: {} (took {}ms)", 
+            logger.info("📧 [MailService] HTML email sent successfully to {} recipients: {} (took {}ms)", 
                     to.size(), to, duration);
             
             // Log to app_log database
@@ -327,7 +327,7 @@ public class MailService {
                 }
             }
             
-            logger.error("📧 ❌ [MailService] {} after {}ms\n" +
+            logger.error("📧 [MailService] {} after {}ms\n" +
                     "Details: {}\n" +
                     "Troubleshooting: {}\n" +
                     "Full error:", errorType, duration, errorDetails, troubleshootingHint, e);
@@ -343,7 +343,7 @@ public class MailService {
             return false;
         } catch (jakarta.mail.SendFailedException e) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.error("📧 ❌ [MailService] Email send failed after {}ms - Invalid recipient or SMTP error. Error: {}", 
+            logger.error("📧 [MailService] Email send failed after {}ms - Invalid recipient or SMTP error. Error: {}", 
                     duration, e.getMessage(), e);
             if (databaseLoggerService != null) {
                 String recipientsStr = String.join(", ", to);
@@ -393,7 +393,7 @@ public class MailService {
                 troubleshootingHint = "General SMTP messaging error. Check SMTP server configuration and network connectivity.";
             }
             
-            logger.error("📧 ❌ [MailService] {} sending HTML email to {} after {}ms\n" +
+            logger.error("📧 [MailService] {} sending HTML email to {} after {}ms\n" +
                     "Error: {}\n" +
                     "Troubleshooting: {}", 
                     errorType, to, duration, e.getMessage(), troubleshootingHint, e);
@@ -418,7 +418,7 @@ public class MailService {
             
             return false;
         } catch (Exception e) {
-            logger.error("📧 ❌ [MailService] Unexpected error sending HTML email to {} - Error: {}", to, e.getMessage(), e);
+            logger.error("📧 [MailService] Unexpected error sending HTML email to {} - Error: {}", to, e.getMessage(), e);
             
             // Log error to app_log database
             if (databaseLoggerService != null) {

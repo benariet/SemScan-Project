@@ -288,15 +288,33 @@ public class PresenterHomeService {
                     .filter(reg -> reg.getApprovalTokenExpiresAt() == null || now.isBefore(reg.getApprovalTokenExpiresAt()))
                     .collect(Collectors.toList());
             
-            boolean existingPhd = approvedRegistrations.stream()
+            // PhD/MSc exclusivity rules:
+            // 1. PhD takes exclusive slot - no MSc can register if PhD exists (approved or pending)
+            // 2. MSc can have up to 3 spots - but PhD cannot register if any MSc exists
+            List<SeminarSlotRegistration> allActiveRegistrations = new ArrayList<>();
+            allActiveRegistrations.addAll(approvedRegistrations);
+            allActiveRegistrations.addAll(pendingRegistrations);
+
+            boolean existingPhd = allActiveRegistrations.stream()
                     .anyMatch(reg -> User.Degree.PhD == reg.getDegree());
-            
-            // PhD exclusivity rule: if slot already has a PhD presenter, no other presenters can register
+            boolean existingMsc = allActiveRegistrations.stream()
+                    .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
+
+            // Rule 1: If PhD already registered (approved or pending), block all new registrations
             if (existingPhd) {
-                String errorMsg = "Slot already has a PhD presenter";
-                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                    String.format("slotId=%s,reason=PHD_BLOCKED", slotId));
-                return new PresenterSlotRegistrationResponse(false, "Slot locked by PhD presenter", "SLOT_LOCKED");
+                String errorMsg = "Slot already has a PhD presenter - slot is exclusive";
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                    String.format("slotId=%s,reason=PHD_EXCLUSIVE", slotId));
+                return new PresenterSlotRegistrationResponse(false, "Slot is reserved by a PhD presenter", "SLOT_LOCKED");
+            }
+
+            // Rule 2: If user is PhD and MSc already registered, block PhD registration
+            if (presenterDegree == User.Degree.PhD && existingMsc) {
+                String errorMsg = "PhD cannot register - slot already has MSc presenters";
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                    String.format("slotId=%s,reason=MSC_BLOCKS_PHD,mscCount=%d", slotId,
+                        allActiveRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count()));
+                return new PresenterSlotRegistrationResponse(false, "Cannot register as PhD - slot has MSc presenters. Join waiting list instead.", "PHD_BLOCKED_BY_MSC");
             }
             
             // Read slot entity only when needed (for capacity check and status update) to minimize row lock duration
@@ -312,10 +330,7 @@ public class PresenterHomeService {
             // CRITICAL FIX: Count BOTH approved AND pending registrations against capacity
             int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
             
-            // Combine approved and pending for effective usage calculation
-            List<SeminarSlotRegistration> allActiveRegistrations = new ArrayList<>();
-            allActiveRegistrations.addAll(approvedRegistrations);
-            allActiveRegistrations.addAll(pendingRegistrations);
+            // Calculate effective usage (allActiveRegistrations already defined above)
             int effectiveUsage = calculateEffectiveCapacityUsage(allActiveRegistrations);
             
             // Calculate what the new total would be if this registration is added
@@ -499,7 +514,7 @@ public class PresenterHomeService {
             String errorMsg = emailValidation.getErrorMessage();
             String errorCode = emailValidation.getErrorCode();
 
-            logger.error("📧 ❌ REGISTRATION REJECTED - Supervisor email validation failed: {}", errorMsg);
+            logger.error("📧 REGISTRATION REJECTED - Supervisor email validation failed: {}", errorMsg);
             databaseLoggerService.logError("EMAIL_SUPERVISOR_VALIDATION_REJECTED",
                 String.format("Registration rejected for %s on slot %d - %s",
                     presenterUsername, slotId, errorMsg),
@@ -528,7 +543,7 @@ public class PresenterHomeService {
                 }
                 
                 if (registration == null) {
-                    logger.error("📧 ❌ CRITICAL: Registration is null when trying to send email!");
+                    logger.error("📧 CRITICAL: Registration is null when trying to send email!");
                     databaseLoggerService.logError("EMAIL_REGISTRATION_NULL_EMAIL_SEND",
                             String.format("Registration is null when trying to send email for presenter %s and slot %s",
                                     presenterUsername, slotId),
@@ -548,14 +563,14 @@ public class PresenterHomeService {
                             presenterUsername, String.format("slotId=%d,supervisorEmail=%s,sent=%s", slotId, supervisorEmail, emailSent));
                     
                     if (emailSent) {
-                        logger.info("📧 ✅ Approval email sent successfully for presenter {} and slot {} to supervisor {}", 
+                        logger.info("📧 Approval email sent successfully for presenter {} and slot {} to supervisor {}", 
                                 presenterUsername, slotId, supervisorEmail);
                         databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT",
                                 String.format("Approval email sent successfully for presenter %s and slot %s to supervisor %s",
                                         presenterUsername, slotId, supervisorEmail),
                                 presenterUsername);
                     } else {
-                        logger.error("📧 ❌ Approval email FAILED to send for presenter {} and slot {} to supervisor {} - check logs for details", 
+                        logger.error("📧 Approval email FAILED to send for presenter {} and slot {} to supervisor {} - check logs for details", 
                                 presenterUsername, slotId, supervisorEmail);
                         databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_FAILED",
                                 String.format("Approval email FAILED to send for presenter %s and slot %s to supervisor %s",
@@ -565,7 +580,7 @@ public class PresenterHomeService {
                     }
                 }
             } catch (Exception e) {
-                logger.error("📧 ❌ Failed to send approval email for presenter {} and slot {} to supervisor {} - Exception: {}",
+                logger.error("📧 Failed to send approval email for presenter {} and slot {} to supervisor {} - Exception: {}",
                         presenterUsername, slotId, supervisorEmail, e.getMessage(), e);
                 databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_EXCEPTION",
                         String.format("Exception sending approval email for presenter %s and slot %s: %s",
@@ -581,7 +596,7 @@ public class PresenterHomeService {
                     presenterUsername, slotId, 
                     request.getSupervisorEmail() != null ? request.getSupervisorEmail() : "null",
                     registration != null && registration.getSupervisorEmail() != null ? registration.getSupervisorEmail() : "null");
-            logger.warn("📧 ⚠️ {}", warningMsg);
+            logger.warn("📧 {}", warningMsg);
             databaseLoggerService.logError("EMAIL_REGISTRATION_NO_SUPERVISOR_EMAIL", warningMsg, null,
                     presenterUsername, String.format("slotId=%d,requestEmail=%s,registrationEmail=%s",
                             slotId, 
@@ -855,7 +870,7 @@ public class PresenterHomeService {
                         <p>Dear %s,</p>
                         
                         <div class="info-box">
-                            <h3 style="margin-top: 0; color: #721c24;">⚠️ Registration Cancelled</h3>
+                            <h3 style="margin-top: 0; color: #721c24;">Registration Cancelled</h3>
                             <p>Your student has cancelled their approved registration for this presentation slot.</p>
                         </div>
                         
@@ -1199,7 +1214,7 @@ public class PresenterHomeService {
             long minutesDiff = Duration.between(now, openWindow).toMinutes();
             String errorMsg = String.format("Cannot open session yet. You will be able to open it on %s at %s",
                     dateStr, timeStr);
-            logger.error("❌ TOO_EARLY - Slot: {}, Now: {}, OpenWindow: {}, Start: {}, Minutes difference: {} (negative = too early)", 
+            logger.error("TOO_EARLY - Slot: {}, Now: {}, OpenWindow: {}, Start: {}, Minutes difference: {} (negative = too early)", 
                 slotId, now, openWindow, start, minutesDiff);
             databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
                 String.format("slotId=%s,reason=TOO_EARLY,now=%s,openWindow=%s,start=%s,minutesDiff=%d", 
@@ -1207,7 +1222,7 @@ public class PresenterHomeService {
             return new PresenterOpenAttendanceResponse(false, errorMsg, "TOO_EARLY", null, openWindowStr, null, null, null);
         }
         
-        logger.info("✅ Time check passed - Slot: {} can be opened (Now: {} >= OpenWindow: {})", slotId, now, openWindow);
+        logger.info("Time check passed - Slot: {} can be opened (Now: {} >= OpenWindow: {})", slotId, now, openWindow);
         
         // Check if too late (after slot ends + windowAfterMinutes) - only if slot has an end time
         if (closeWindow != null && now.isAfter(closeWindow)) {
@@ -1565,18 +1580,26 @@ public class PresenterHomeService {
         
         return slots.stream()
                 .filter(slot -> {
-                    // Always show today's slots, regardless of status
                     LocalDate slotDate = slot.getSlotDate();
+
+                    // Filter out past slots (before today)
+                    if (slotDate != null && slotDate.isBefore(today)) {
+                        logger.debug("Filtering out past slot {} (slotDate={}, today={})",
+                            slot.getSlotId(), slotDate, today);
+                        return false; // Don't show past slots
+                    }
+
+                    // Always show today's slots, regardless of status
                     boolean isToday = slotDate != null && slotDate.equals(today);
-                    
+
                     if (isToday) {
-                        logger.info("Slot {} is for today ({}), always showing it (slotDate={}, today={})", 
+                        logger.info("Slot {} is for today ({}), always showing it (slotDate={}, today={})",
                             slot.getSlotId(), slotDate, slotDate, today);
                         return true; // Always show today's slots
                     }
-                    
+
                     logger.debug("Slot {} is NOT for today (slotDate={}, today={})", slot.getSlotId(), slotDate, today);
-                    
+
                     // For future slots, filter out closed ones
                     // Check if session is CLOSED
                     if (slot.getLegacySessionId() != null) {
@@ -1731,7 +1754,7 @@ public class PresenterHomeService {
         if (onWaitingList && waitingListCount == 0) {
             String warningMsg = String.format("Data inconsistency detected: onWaitingList=true but waitingListCount=0 for slotId=%d, presenterUsername=%s",
                     slot.getSlotId(), presenterUsername != null ? presenterUsername : "unknown");
-            logger.warn("⚠️ {}", warningMsg);
+            logger.warn("{}", warningMsg);
             databaseLoggerService.logError("WAITING_LIST_DATA_INCONSISTENCY", warningMsg, null,
                     presenterUsername != null ? presenterUsername : "system",
                     String.format("slotId=%d,presenterUsername=%s,onWaitingList=true,waitingListCount=0",
@@ -1833,6 +1856,13 @@ public class PresenterHomeService {
         } else if (state == SlotState.FULL) {
             canRegister = false;
             card.setDisableReason("Slot is full");
+        } else if (presenterDegree == User.Degree.PhD) {
+            // PhD needs phdWeight capacity (default 2) - check if enough available
+            int phdWeight = appConfigService.getIntegerConfig("phd.capacity.weight", 2);
+            if (available < phdWeight) {
+                canRegister = false;
+                card.setDisableReason("Not enough capacity for PhD presentation. Join waiting list instead.");
+            }
         } else if (presenterInThisSlot) {
             canRegister = false;
             card.setDisableReason("You are already registered in this slot");
