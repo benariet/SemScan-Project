@@ -16,10 +16,13 @@ import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
+import com.google.firebase.messaging.FirebaseMessaging;
+
 import org.example.semscan.R;
 import org.example.semscan.data.api.ApiClient;
 import org.example.semscan.data.api.ApiService;
 import org.example.semscan.data.model.User;
+import org.example.semscan.service.SemScanMessagingService;
 import org.example.semscan.ui.RolePickerActivity;
 import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.Logger;
@@ -70,7 +73,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         setupListeners();
         setupNationalIdValidation();
 
-        Logger.i(Logger.TAG_UI, "FirstTimeSetupActivity created for username=" + preferencesManager.getUserName());
+        Logger.i(Logger.TAG_SCREEN_VIEW, "FirstTimeSetupActivity created for username=" + preferencesManager.getUserName());
         serverLogger.userAction("FirstTimeSetup", "Onboarding started");
     }
 
@@ -286,7 +289,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         // Everyone is ALWAYS both presenter and participant
         preferencesManager.setParticipationPreference(PARTICIPATION_BOTH);
 
-        Logger.i(Logger.TAG_UI, "First time setup form validated, degree=" + selectedDegree);
+        Logger.i(Logger.TAG_ACCOUNT_SETUP, "First time setup form validated, degree=" + selectedDegree);
         serverLogger.userAction("FirstTimeSetup", "Degree selected: " + selectedDegree);
 
         // Update the user profile on the server with BOTH (everyone is always both)
@@ -307,7 +310,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
                 String emailDomain = ConfigManager.getInstance(this).getEmailDomain();
                 email = username + emailDomain;
             } catch (Exception e) {
-                Logger.e(Logger.TAG_UI, "Failed to get email domain from ConfigManager: " + e.getMessage(), e);
+                Logger.e(Logger.TAG_CONFIG_LOAD, "Failed to get email domain from ConfigManager: " + e.getMessage(), e);
                 email = username + "@bgu.ac.il"; // Fallback
             }
         }
@@ -320,7 +323,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
             btnSubmit.setEnabled(false);
         }
 
-        Logger.i(Logger.TAG_API, "Updating user profile on server: username=" + username + ", degree=" + degree + ", participation=" + participationPreference);
+        Logger.i(Logger.TAG_ACCOUNT_SETUP, "Updating user profile on server: username=" + username + ", degree=" + degree + ", participation=" + participationPreference);
 
         ApiService.UserProfileUpdateRequest request = new ApiService.UserProfileUpdateRequest(
                 username,
@@ -343,16 +346,19 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
                 }
 
                 if (response.isSuccessful() && response.body() != null) {
-                    Logger.i(Logger.TAG_API, "User profile updated successfully on server");
+                    Logger.i(Logger.TAG_ACCOUNT_SETUP, "User profile updated successfully on server");
                     serverLogger.userAction("FirstTimeSetup", "Profile saved to server successfully");
 
                     // Mark initial setup as completed
                     preferencesManager.setInitialSetupCompleted(true);
 
+                    // Register FCM token now that user exists in database
+                    registerFcmToken();
+
                     // Navigate to appropriate home screen based on participation preference
                     navigateToHome(participationPreference);
                 } else {
-                    Logger.w(Logger.TAG_API, "Failed to update user profile on server: " + response.code());
+                    Logger.w(Logger.TAG_ACCOUNT_SETUP, "Failed to update user profile on server: " + response.code());
                     Toast.makeText(FirstTimeSetupActivity.this, "Failed to save profile. Please try again.", Toast.LENGTH_LONG).show();
                 }
             }
@@ -366,7 +372,7 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
                     btnSubmit.setEnabled(true);
                 }
 
-                Logger.e(Logger.TAG_API, "Network error updating user profile: " + t.getMessage(), t);
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Network error updating user profile: " + t.getMessage(), t);
                 Toast.makeText(FirstTimeSetupActivity.this, "Network error. Please check your connection and try again.", Toast.LENGTH_LONG).show();
             }
         });
@@ -378,6 +384,45 @@ public class FirstTimeSetupActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    /**
+     * Register FCM token after user record is created in database.
+     * This is called after first-time setup completes, ensuring the user exists.
+     */
+    private void registerFcmToken() {
+        Logger.i(Logger.TAG_ACCOUNT_SETUP, "Registering FCM token after first-time setup...");
+        try {
+            FirebaseMessaging.getInstance().getToken()
+                    .addOnCompleteListener(task -> {
+                        if (!task.isSuccessful()) {
+                            Logger.w(Logger.TAG_ACCOUNT_SETUP, "Failed to get FCM token: " +
+                                    (task.getException() != null ? task.getException().getMessage() : "unknown error"));
+                            return;
+                        }
+
+                        String token = task.getResult();
+                        if (token == null || token.isEmpty()) {
+                            Logger.w(Logger.TAG_ACCOUNT_SETUP, "FCM token is null or empty");
+                            return;
+                        }
+
+                        Logger.i(Logger.TAG_ACCOUNT_SETUP, "FCM token obtained after setup: " + token.substring(0, Math.min(10, token.length())) + "...");
+
+                        // Store token locally
+                        preferencesManager.setFcmToken(token);
+
+                        // Send token to server (user now exists in database)
+                        String username = preferencesManager.getUserName();
+                        if (username != null && !username.isEmpty()) {
+                            SemScanMessagingService.sendTokenToServer(FirstTimeSetupActivity.this, username, token);
+                        } else {
+                            Logger.w(Logger.TAG_ACCOUNT_SETUP, "Cannot send FCM token: username is null");
+                        }
+                    });
+        } catch (Exception e) {
+            Logger.e(Logger.TAG_ACCOUNT_SETUP, "Error registering FCM token: " + e.getMessage(), e);
+        }
     }
 
     private String trim(@Nullable TextInputEditText editText) {

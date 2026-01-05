@@ -110,17 +110,60 @@ src/main/java/edu/bgu/semscanapi/
 - `stack_trace` - Full stack trace for errors
 - `source` - API or MOBILE
 
+### Log Tag Naming Paradigm
+
+**Format:** `FEATURE_ACTION` or `FEATURE_ACTION_RESULT`
+
+| Component | Description | Examples |
+|-----------|-------------|----------|
+| **FEATURE** | The domain/module | `AUTH`, `REGISTRATION`, `WAITING_LIST`, `ATTENDANCE`, `EMAIL`, `FCM` |
+| **ACTION** | What is happening | `LOGIN`, `REGISTER`, `CANCEL`, `JOIN`, `PROMOTE`, `SEND` |
+| **RESULT** (optional) | The outcome | `SUCCESS`, `FAILED`, `ERROR`, `BLOCKED` |
+
+**Examples:**
+- `AUTH_LOGIN_SUCCESS` - Authentication feature, login action, success result
+- `REGISTRATION_API_REQUEST` - Registration feature, API request action
+- `WAITING_LIST_DEGREE_MISMATCH` - Waiting list feature, degree mismatch result
+- `ATTENDANCE_OPEN_BLOCKED` - Attendance feature, open action blocked
+
+**API Request/Response Tags:**
+- `{FEATURE}_API_REQUEST` - HTTP request for a feature
+- `{FEATURE}_API_RESPONSE` - HTTP response for a feature
+- Feature is derived from endpoint URL (e.g., `/register` → `REGISTRATION`)
+
+**DO NOT use generic tags like:**
+- ❌ `API_REQUEST`, `API_RESPONSE` (too generic)
+- ❌ `SemScan-API`, `SemScan-UI` (not descriptive)
+- ❌ `ERROR`, `INFO` (use level field instead)
+
 ### Key Log Tags
-- LOGIN_ATTEMPT, LOGIN_SUCCESS, LOGIN_FAILED
-- API_REGISTER_REQUEST, API_REGISTER_RESPONSE
-- REGISTRATION_ATTEMPT, REGISTRATION_SLOT_STATE, SLOT_REGISTRATION_SUCCESS
-- SLOT_REGISTRATION_FAILED (with payload: reason=PHD_EXCLUSIVE, reason=MSC_BLOCKS_PHD)
-- CANCELLATION_ATTEMPT, CANCELLATION_SLOT_STATE, CANCELLATION_SUCCESS
-- API_WAITING_LIST_ADD_RESPONSE, API_WAITING_LIST_CANCEL_REQUEST
-- WAITING_LIST_ADD_FAILED (with payload: reason=PHD_EXCLUSIVE, reason=MSC_BLOCKS_PHD)
-- WAITING_LIST_PROMOTION_BLOCKED_PHD_EXCLUSIVE, WAITING_LIST_PHD_SKIPPED_MSC_EXISTS
-- APPROVAL_ATTEMPT, EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT
-- WAITING_LIST_PROMOTED_AFTER_CANCELLATION
+
+**Authentication:**
+- `AUTH_LOGIN_ATTEMPT`, `AUTH_LOGIN_SUCCESS`, `AUTH_LOGIN_FAILED`
+
+**Registration:**
+- `SLOT_REGISTRATION_FAILED` (with payload: reason=PHD_EXCLUSIVE, reason=MSC_BLOCKS_PHD, reason=SLOT_FULL)
+- `SLOT_REGISTRATION_SUCCESS`
+- `SLOT_REGISTRATION_DB_ERROR`, `SLOT_REGISTRATION_ERROR`
+
+**Waiting List:**
+- `WAITING_LIST_ADD_FAILED` (with payload: reason=DEGREE_MISMATCH, reason=ALREADY_ON_LIST, reason=LIST_FULL)
+- `WAITING_LIST_PROMOTED_AFTER_CANCELLATION`
+- `WAITING_LIST_AUTO_PROMOTE_FAILED`
+
+**Attendance:**
+- `ATTENDANCE_OPEN_FAILED`, `ATTENDANCE_REOPEN_BLOCKED`
+- `ATTENDANCE_SESSION_NOT_FOUND`, `ATTENDANCE_DUPLICATE`
+
+**Registration Approval:**
+- `REGISTRATION_APPROVAL_INVALID_TOKEN`
+- `REGISTRATION_DECLINE_TOKEN_INVALID`
+
+**Email:**
+- `EMAIL_REGISTRATION_APPROVAL_EMAIL_FAILED`, `EMAIL_SEND_FAILED`
+
+**FCM Notifications:**
+- `FCM_NOTIFICATION_FAILED`
 
 ## Capacity System - PhD/MSc Exclusivity
 
@@ -146,11 +189,15 @@ src/main/java/edu/bgu/semscanapi/
 | Has 2 MSc | ❌ `PHD_BLOCKED_BY_MSC` | ✅ Success |
 | Has 3 MSc | ❌ `PHD_BLOCKED_BY_MSC` | ❌ `SLOT_FULL` |
 
-### Waiting List Scenarios:
-| Slot State | PhD joins waiting list | MSc joins waiting list |
-|------------|------------------------|------------------------|
-| Has PhD | ❌ Blocked (exclusive) | ❌ Blocked (exclusive) |
-| Has MSc | ❌ Blocked (can't promote) | ✅ Success |
+### Waiting List Scenarios (First-Sets-Type Queue):
+When a PhD-occupied slot has a waiting list, the **first person to join sets the queue type**. Only same-degree users can join after.
+
+| Slot State | Queue State | PhD joins waiting list | MSc joins waiting list |
+|------------|-------------|------------------------|------------------------|
+| Has PhD | Empty | ✅ Sets queue to PhD-only | ✅ Sets queue to MSc-only |
+| Has PhD | PhD in pos 1 | ✅ Same type | ❌ Blocked (queue is PhD-only) |
+| Has PhD | MSc in pos 1 | ❌ Blocked (queue is MSc-only) | ✅ Same type |
+| Has MSc | Any | ❌ Blocked (can't promote) | ✅ Success |
 
 ## Slot Colors (Mobile UI)
 - **Green**: Available (0 registrations)
@@ -167,7 +214,7 @@ cp "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "SemScan/build/outputs/ap
 
 ## Build Locations
 - **APK**: `SemScan/build/outputs/apk/debug/semscan.apk`
-- **JAR**: `SemScan-API/build/libs/SemScan-API-0.0.1-SNAPSHOT.jar`
+- **JAR**: `SemScan-API/build/libs/SemScan-API-1.0.0.jar`
 
 ## Deployment
 
@@ -184,7 +231,7 @@ After building, upload files to server:
 curl -k -u "webmaster:$SEMSCAN_PASSWORD" -T "SemScan/build/outputs/apk/debug/semscan.apk" "sftp://132.72.50.53/opt/semscan-api/semscan.apk"
 
 # Upload JAR (keep full version name, overwrites existing)
-curl -k -u "webmaster:$SEMSCAN_PASSWORD" -T "SemScan-API/build/libs/SemScan-API-0.0.1-SNAPSHOT.jar" "sftp://132.72.50.53/opt/semscan-api/SemScan-API-0.0.1-SNAPSHOT.jar"
+curl -k -u "webmaster:$SEMSCAN_PASSWORD" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api/SemScan-API-1.0.0.jar"
 
 # Restart the API service after JAR upload
 echo "$SEMSCAN_PASSWORD" | ssh -o StrictHostKeyChecking=no webmaster@132.72.50.53 "echo '$SEMSCAN_PASSWORD' | sudo -S systemctl restart semscan-api"
@@ -444,14 +491,22 @@ cd SemScan-API && ./gradlew test
 ./gradlew test --tests "PresenterHomeServiceTest"
 ```
 
-### Test Users (BGU Accounts)
-| Username | Password | Degree |
-|----------|----------|--------|
-| benariet | Taltal123! | MSc |
-| amarrev | Revital1990% | MSc |
-| talguest2 | tc2xqVds | PhD |
-| talguest3 | kbm7Xzfk | MSc |
-| talguest4 | atpgK2zc | MSc |
+### Test Users
+| Username | Password | Name | Degree |
+|----------|----------|------|--------|
+| `talguest2` | `tc2xqVds` | Ron Levy | PhD |
+| `testphd1` | `Test123!` | Alex Cohen | PhD |
+| `testphd2` | `Test123!` | Maya Levi | PhD |
+| `amarrev` | `Revital1990%` | Revital Amar | MSc |
+| `benariet` | `Taltal123!` | Tal Ben Arie | MSc |
+| `talguest3` | `kbm7Xzfk` | Dana Katz | MSc |
+| `talguest4` | `atpgK2zc` | Jhon Smith | MSc |
+| `testmsc1` | `Test123!` | Yael Stern | MSc |
+| `testmsc2` | `Test123!` | Oren Golan | MSc |
+| `testmsc3` | `Test123!` | Noa Shapira | MSc |
+| `testmsc4` | `Test123!` | Eitan Peretz | MSc |
+
+**Note:** Users starting with `test` bypass BGU authentication (all use `Test123!`). Others authenticate via BGU SOAP.
 
 ## Critical Test Cases
 

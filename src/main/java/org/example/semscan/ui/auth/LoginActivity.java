@@ -74,7 +74,7 @@ public class LoginActivity extends AppCompatActivity {
             });
         }
 
-        Logger.i(Logger.TAG_UI, "LoginActivity created");
+        Logger.i(Logger.TAG_SCREEN_VIEW, "LoginActivity created");
     }
 
     private void handleLogin() {
@@ -107,138 +107,138 @@ public class LoginActivity extends AppCompatActivity {
         preferencesManager.setInitialSetupCompleted(false);
 
         Logger.userAction("Login", "User attempting login with username=" + username);
-        Logger.i(Logger.TAG_UI, "=== LOGIN FLOW START ===");
-        Logger.i(Logger.TAG_UI, "Login button clicked - username=" + username + ", password length=" + (password != null ? password.length() : 0));
-        
+        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "=== LOGIN FLOW START ===");
+        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "Login button clicked - username=" + username + ", password length=" + (password != null ? password.length() : 0));
+
         try {
             ServerLogger serverLogger = ServerLogger.getInstance(this);
             if (serverLogger != null) {
-                serverLogger.i(ServerLogger.TAG_UI, "Login button clicked - username=" + username);
+                serverLogger.i(ServerLogger.TAG_LOGIN_ATTEMPT, "Login button clicked - username=" + username);
             }
         } catch (Exception e) {
-            Logger.e(Logger.TAG_UI, "Failed to log to ServerLogger: " + e.getMessage());
+            Logger.e(Logger.TAG_LOGIN_ATTEMPT, "Failed to log to ServerLogger: " + e.getMessage());
         }
 
         // Disable login button to prevent multiple clicks
         btnLogin.setEnabled(false);
         btnLogin.setText(getString(R.string.login_button_loading));
-        Logger.i(Logger.TAG_UI, "Login button disabled, calling performLogin()");
+        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "Login button disabled, calling performLogin()");
 
         // FIRST: Authenticate user via BGU external authentication
         performLogin(username, password);
     }
 
     private void performLogin(String normalized, String password) {
-        Logger.i(Logger.TAG_API, "=== PERFORM LOGIN START ===");
-        Logger.i(Logger.TAG_API, "performLogin() called - normalized username=" + normalized);
-        
+        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "=== PERFORM LOGIN START ===");
+        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "performLogin() called - normalized username=" + normalized);
+
         // FIRST: Authenticate user via BGU external authentication API
         ApiService apiService = ApiClient.getInstance(this).getApiService();
-        Logger.i(Logger.TAG_API, "ApiService obtained successfully");
-        
+        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "ApiService obtained successfully");
+
         ApiService.LoginRequest loginRequest = new ApiService.LoginRequest(normalized, password != null ? password : "");
-        Logger.i(Logger.TAG_API, "LoginRequest created - username=" + normalized + ", password provided=" + (password != null && !password.isEmpty()));
-        
-        Logger.i(Logger.TAG_API, "Calling login API endpoint...");
+        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "LoginRequest created - username=" + normalized + ", password provided=" + (password != null && !password.isEmpty()));
+
+        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "Calling login API endpoint...");
         apiService.login(loginRequest).enqueue(new Callback<ApiService.LoginResponse>() {
             @Override
             public void onResponse(Call<ApiService.LoginResponse> call, Response<ApiService.LoginResponse> response) {
                 // Check if activity is still valid before processing
                 if (isFinishing() || isDestroyed()) {
-                    Logger.w(Logger.TAG_API, "Login response - Activity destroyed, ignoring");
+                    Logger.w(Logger.TAG_LOGIN_ATTEMPT, "Login response - Activity destroyed, ignoring");
                     return;
                 }
 
-                Logger.i(Logger.TAG_API, "=== LOGIN API RESPONSE RECEIVED ===");
-                Logger.i(Logger.TAG_API, "Response code: " + response.code() + ", isSuccessful: " + response.isSuccessful());
+                Logger.i(Logger.TAG_LOGIN_ATTEMPT, "=== LOGIN API RESPONSE RECEIVED ===");
+                Logger.i(Logger.TAG_LOGIN_ATTEMPT, "Response code: " + response.code() + ", isSuccessful: " + response.isSuccessful());
 
                 try {
                     if (response.isSuccessful() && response.body() != null) {
-                        Logger.i(Logger.TAG_API, "Response is successful and body is not null");
+                        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "Response is successful and body is not null");
                         ApiService.LoginResponse loginResponse = response.body();
-                        Logger.i(Logger.TAG_API, "LoginResponse object parsed successfully");
-                        
+                        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "LoginResponse object parsed successfully");
+
                         // Log all response fields for debugging
-                        Logger.i(Logger.TAG_API, "Response fields - ok: " + loginResponse.ok + 
-                            ", message: " + loginResponse.message + 
-                            ", bguUsername: " + loginResponse.bguUsername + 
-                            ", email: " + loginResponse.email + 
-                            ", isFirstTime: " + loginResponse.isFirstTime + 
-                            ", isPresenter: " + loginResponse.isPresenter + 
+                        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "Response fields - ok: " + loginResponse.ok +
+                            ", message: " + loginResponse.message +
+                            ", bguUsername: " + loginResponse.bguUsername +
+                            ", email: " + loginResponse.email +
+                            ", isFirstTime: " + loginResponse.isFirstTime +
+                            ", isPresenter: " + loginResponse.isPresenter +
                             ", isParticipant: " + loginResponse.isParticipant);
-                        
+
                         // Check if authentication was successful
                         if (!loginResponse.ok) {
-                            Logger.w(Logger.TAG_API, "Authentication failed - ok=false, message=" + loginResponse.message);
+                            Logger.w(Logger.TAG_LOGIN_FAILED, "Authentication failed - ok=false, message=" + loginResponse.message);
                             // Authentication failed - show error and stop
                             btnLogin.setEnabled(true);
                             btnLogin.setText(getString(R.string.login_button));
                             String errorMsg = loginResponse.message != null ? loginResponse.message : "Invalid username or password";
-                            Logger.w(Logger.TAG_API, "Authentication failed: " + errorMsg);
+                            Logger.w(Logger.TAG_LOGIN_FAILED, "Authentication failed: " + errorMsg);
                             Toast.makeText(LoginActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                             return;
                         }
-                        
-                        Logger.i(Logger.TAG_API, "Authentication successful - ok=true, proceeding with user setup");
-                        
+
+                        Logger.i(Logger.TAG_LOGIN_SUCCESS, "Authentication successful - ok=true, proceeding with user setup");
+
                         // Authentication successful - now check if user exists in users database
                         String username = loginResponse.bguUsername != null ? loginResponse.bguUsername : normalized;
-                        Logger.i(Logger.TAG_API, "Username determined: " + username + " (from bguUsername: " + loginResponse.bguUsername + ", fallback: " + normalized + ")");
-                        
+                        Logger.i(Logger.TAG_LOGIN_SUCCESS, "Username determined: " + username + " (from bguUsername: " + loginResponse.bguUsername + ", fallback: " + normalized + ")");
+
                         preferencesManager.setUserName(username);
-                        Logger.i(Logger.TAG_API, "Username saved to preferences");
-                        
+                        Logger.i(Logger.TAG_LOGIN_SUCCESS, "Username saved to preferences");
+
                         if (loginResponse.email != null) {
                             preferencesManager.setEmail(loginResponse.email);
-                            Logger.i(Logger.TAG_API, "Email saved to preferences: " + loginResponse.email);
+                            Logger.i(Logger.TAG_LOGIN_SUCCESS, "Email saved to preferences: " + loginResponse.email);
                         } else {
-                            Logger.i(Logger.TAG_API, "No email in response, skipping email save");
+                            Logger.i(Logger.TAG_LOGIN_SUCCESS, "No email in response, skipping email save");
                         }
-                        
+
                         // Save credentials if "Remember Me" is checked
                         if (checkboxRememberMe != null && checkboxRememberMe.isChecked()) {
-                            Logger.i(Logger.TAG_API, "Remember Me is checked, saving credentials");
+                            Logger.i(Logger.TAG_PREFERENCES, "Remember Me is checked, saving credentials");
                             saveCredentials(normalized, password);
                         } else {
-                            Logger.i(Logger.TAG_API, "Remember Me is not checked, clearing saved credentials");
+                            Logger.i(Logger.TAG_PREFERENCES, "Remember Me is not checked, clearing saved credentials");
                             // Clear saved credentials if "Remember Me" is unchecked
                             clearSavedCredentials();
                         }
-                        
+
                         // Determine user role with null safety
                         String userRole = "UNKNOWN";
-                        Logger.i(Logger.TAG_API, "Determining user role from response...");
+                        Logger.i(Logger.TAG_LOGIN_SUCCESS, "Determining user role from response...");
                         try {
                             if (loginResponse.isPresenter) {
                                 userRole = "PRESENTER";
-                                Logger.i(Logger.TAG_API, "User role determined: PRESENTER (from isPresenter=true)");
+                                Logger.i(Logger.TAG_LOGIN_SUCCESS, "User role determined: PRESENTER (from isPresenter=true)");
                             } else if (loginResponse.isParticipant) {
                                 userRole = "PARTICIPANT";
-                                Logger.i(Logger.TAG_API, "User role determined: PARTICIPANT (from isParticipant=true)");
+                                Logger.i(Logger.TAG_LOGIN_SUCCESS, "User role determined: PARTICIPANT (from isParticipant=true)");
                             } else {
-                                Logger.i(Logger.TAG_API, "User role determined: UNKNOWN (isPresenter=false, isParticipant=false)");
+                                Logger.i(Logger.TAG_LOGIN_SUCCESS, "User role determined: UNKNOWN (isPresenter=false, isParticipant=false)");
                             }
                         } catch (Exception e) {
-                            Logger.e(Logger.TAG_API, "Failed to determine user role from login response: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
+                            Logger.e(Logger.TAG_LOGIN_SUCCESS, "Failed to determine user role from login response: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
                             // Use default UNKNOWN role
                         }
-                        
-                        Logger.i(Logger.TAG_API, "Updating ServerLogger context with username=" + username + ", role=" + userRole);
+
+                        Logger.i(Logger.TAG_LOGIN_SUCCESS, "Updating ServerLogger context with username=" + username + ", role=" + userRole);
                         try {
                             ServerLogger.getInstance(LoginActivity.this).updateUserContext(username, userRole);
-                            Logger.i(Logger.TAG_API, "ServerLogger context updated successfully");
+                            Logger.i(Logger.TAG_LOGIN_SUCCESS, "ServerLogger context updated successfully");
                         } catch (Exception e) {
-                            Logger.e(Logger.TAG_API, "Failed to update ServerLogger context: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
+                            Logger.e(Logger.TAG_LOGIN_SUCCESS, "Failed to update ServerLogger context: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
                             // Continue even if ServerLogger fails
                         }
-                        
+
                         // SECOND: Check if authenticated user exists in users database
-                        Logger.i(Logger.TAG_API, "Calling checkUserExistsInDatabase() with username=" + username);
+                        Logger.i(Logger.TAG_ACCOUNT_SETUP, "Calling checkUserExistsInDatabase() with username=" + username);
                         checkUserExistsInDatabase(username);
                     } else {
-                        Logger.w(Logger.TAG_API, "=== LOGIN API RESPONSE FAILED ===");
-                        Logger.w(Logger.TAG_API, "Response is not successful OR body is null");
-                        Logger.w(Logger.TAG_API, "Response code: " + response.code() + ", body is null: " + (response.body() == null));
+                        Logger.w(Logger.TAG_LOGIN_FAILED, "=== LOGIN API RESPONSE FAILED ===");
+                        Logger.w(Logger.TAG_LOGIN_FAILED, "Response is not successful OR body is null");
+                        Logger.w(Logger.TAG_LOGIN_FAILED, "Response code: " + response.code() + ", body is null: " + (response.body() == null));
 
                         // Authentication failed - show error and stop
                         btnLogin.setEnabled(true);
@@ -258,57 +258,57 @@ public class LoginActivity extends AppCompatActivity {
                         try {
                             if (response.errorBody() != null) {
                                 String errorBody = response.errorBody().string();
-                                Logger.w(Logger.TAG_API, "Error body content: " + errorBody);
+                                Logger.w(Logger.TAG_LOGIN_FAILED, "Error body content: " + errorBody);
                             }
                         } catch (Exception e) {
-                            Logger.e(Logger.TAG_API, "Failed to read error body: " + e.getMessage(), e);
+                            Logger.e(Logger.TAG_LOGIN_FAILED, "Failed to read error body: " + e.getMessage(), e);
                         }
 
-                        Logger.w(Logger.TAG_API, "Authentication failed, code=" + response.code());
+                        Logger.w(Logger.TAG_LOGIN_FAILED, "Authentication failed, code=" + response.code());
                         Toast.makeText(LoginActivity.this, errorMsg, Toast.LENGTH_LONG).show();
                     }
                 } catch (Exception e) {
                     // Catch any unexpected exceptions during response processing
-                    Logger.e(Logger.TAG_API, "=== UNEXPECTED ERROR IN LOGIN RESPONSE PROCESSING ===");
-                    Logger.e(Logger.TAG_API, "Exception type: " + e.getClass().getSimpleName());
-                    Logger.e(Logger.TAG_API, "Exception message: " + e.getMessage());
-                    Logger.e(Logger.TAG_API, "Stack trace:", e);
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "=== UNEXPECTED ERROR IN LOGIN RESPONSE PROCESSING ===");
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "Exception type: " + e.getClass().getSimpleName());
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "Exception message: " + e.getMessage());
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "Stack trace:", e);
                     try {
                         ServerLogger serverLogger = ServerLogger.getInstance(LoginActivity.this);
                         if (serverLogger != null) {
-                            serverLogger.e(ServerLogger.TAG_API, "Unexpected error processing login response: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
+                            serverLogger.e(ServerLogger.TAG_LOGIN_FAILED, "Unexpected error processing login response: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
                         }
                     } catch (Exception logEx) {
-                        Logger.e(Logger.TAG_API, "Failed to log to ServerLogger: " + logEx.getMessage() + ", Exception: " + logEx.getClass().getSimpleName(), logEx);
+                        Logger.e(Logger.TAG_LOGIN_FAILED, "Failed to log to ServerLogger: " + logEx.getMessage() + ", Exception: " + logEx.getClass().getSimpleName(), logEx);
                     }
                     btnLogin.setEnabled(true);
                     btnLogin.setText(getString(R.string.login_button));
-                    Logger.e(Logger.TAG_API, "Login button re-enabled after error");
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "Login button re-enabled after error");
                     Toast.makeText(LoginActivity.this, "Login failed due to an unexpected error. Please try again.", Toast.LENGTH_LONG).show();
                 }
-                Logger.i(Logger.TAG_API, "=== LOGIN API RESPONSE HANDLING COMPLETE ===");
+                Logger.i(Logger.TAG_LOGIN_ATTEMPT, "=== LOGIN API RESPONSE HANDLING COMPLETE ===");
             }
 
             @Override
             public void onFailure(Call<ApiService.LoginResponse> call, Throwable t) {
                 // Check if activity is still valid before updating UI
                 if (isFinishing() || isDestroyed()) {
-                    Logger.w(Logger.TAG_API, "Login failure callback - Activity destroyed, ignoring");
+                    Logger.w(Logger.TAG_LOGIN_FAILED, "Login failure callback - Activity destroyed, ignoring");
                     return;
                 }
 
-                Logger.e(Logger.TAG_API, "=== LOGIN API CALL FAILURE ===");
-                Logger.e(Logger.TAG_API, "Network/API call failed - Exception type: " + t.getClass().getSimpleName());
-                Logger.e(Logger.TAG_API, "Exception message: " + t.getMessage());
-                Logger.e(Logger.TAG_API, "Stack trace:", t);
+                Logger.e(Logger.TAG_LOGIN_FAILED, "=== LOGIN API CALL FAILURE ===");
+                Logger.e(Logger.TAG_LOGIN_FAILED, "Network/API call failed - Exception type: " + t.getClass().getSimpleName());
+                Logger.e(Logger.TAG_LOGIN_FAILED, "Exception message: " + t.getMessage());
+                Logger.e(Logger.TAG_LOGIN_FAILED, "Stack trace:", t);
 
                 try {
                     if (btnLogin != null) {
                         btnLogin.setEnabled(true);
                         btnLogin.setText(getString(R.string.login_button));
                     }
-                    Logger.e(Logger.TAG_API, "Login button re-enabled after network failure");
-                    
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "Login button re-enabled after network failure");
+
                     // Log network error to ServerLogger with full exception details
                     // This will be queued and sent when network is available
                     try {
@@ -316,11 +316,11 @@ public class LoginActivity extends AppCompatActivity {
                         String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
                         String errorDetails = String.format("Login network failure - URL: %s, Exception: %s, Message: %s",
                             requestUrl, t.getClass().getSimpleName(), t.getMessage());
-                        serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                        serverLogger.e(ServerLogger.TAG_LOGIN_FAILED, errorDetails, t);
                     } catch (Exception e) {
-                        Logger.e(Logger.TAG_API, "Failed to log to ServerLogger: " + e.getMessage(), e);
+                        Logger.e(Logger.TAG_LOGIN_FAILED, "Failed to log to ServerLogger: " + e.getMessage(), e);
                     }
-                    
+
                     // Show user-friendly error message based on exception type
                     String errorMessage = "Network error. Please check your connection and try again.";
                     if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
@@ -329,24 +329,24 @@ public class LoginActivity extends AppCompatActivity {
                         errorMessage = "Cannot connect to server. Please check your internet connection.";
                     } else if (t instanceof javax.net.ssl.SSLException) {
                         errorMessage = "SSL connection error. Please check your network settings.";
-                        Logger.e(Logger.TAG_API, "Error type: SSLException");
+                        Logger.e(Logger.TAG_LOGIN_FAILED, "Error type: SSLException");
                     } else {
-                        Logger.e(Logger.TAG_API, "Error type: " + t.getClass().getSimpleName() + " (using generic message)");
+                        Logger.e(Logger.TAG_LOGIN_FAILED, "Error type: " + t.getClass().getSimpleName() + " (using generic message)");
                     }
-                    Logger.e(Logger.TAG_API, "Showing error message to user: " + errorMessage);
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "Showing error message to user: " + errorMessage);
                     Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_LONG).show();
-                    Logger.e(Logger.TAG_API, "=== LOGIN API CALL FAILURE HANDLING COMPLETE ===");
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "=== LOGIN API CALL FAILURE HANDLING COMPLETE ===");
                 } catch (Exception e) {
-                    Logger.e(Logger.TAG_API, "=== UNEXPECTED ERROR IN ONFAILURE HANDLER ===");
-                    Logger.e(Logger.TAG_API, "Exception type: " + e.getClass().getSimpleName());
-                    Logger.e(Logger.TAG_API, "Exception message: " + e.getMessage());
-                    Logger.e(Logger.TAG_API, "Stack trace:", e);
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "=== UNEXPECTED ERROR IN ONFAILURE HANDLER ===");
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "Exception type: " + e.getClass().getSimpleName());
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "Exception message: " + e.getMessage());
+                    Logger.e(Logger.TAG_LOGIN_FAILED, "Stack trace:", e);
                     Toast.makeText(LoginActivity.this, "Login failed due to an unexpected error. Please try again.", Toast.LENGTH_LONG).show();
                 }
             }
         });
-        
-        Logger.i(Logger.TAG_API, "Login API call enqueued, waiting for response...");
+
+        Logger.i(Logger.TAG_LOGIN_ATTEMPT, "Login API call enqueued, waiting for response...");
     }
 
     private void checkUserExistsInDatabase(String username) {
@@ -356,75 +356,75 @@ public class LoginActivity extends AppCompatActivity {
         apiService.checkUserExists(existsRequest).enqueue(new Callback<ApiService.UserExistsResponse>() {
             @Override
             public void onResponse(Call<ApiService.UserExistsResponse> call, Response<ApiService.UserExistsResponse> response) {
-                Logger.i(Logger.TAG_API, "=== CHECK USER EXISTS RESPONSE RECEIVED ===");
-                Logger.i(Logger.TAG_API, "Response code: " + response.code() + ", isSuccessful: " + response.isSuccessful() + ", body is null: " + (response.body() == null));
-                
+                Logger.i(Logger.TAG_ACCOUNT_SETUP, "=== CHECK USER EXISTS RESPONSE RECEIVED ===");
+                Logger.i(Logger.TAG_ACCOUNT_SETUP, "Response code: " + response.code() + ", isSuccessful: " + response.isSuccessful() + ", body is null: " + (response.body() == null));
+
                 if (response.isSuccessful() && response.body() != null) {
                     ApiService.UserExistsResponse existsResponse = response.body();
-                    Logger.i(Logger.TAG_API, "UserExistsResponse parsed - exists: " + existsResponse.exists);
-                    
+                    Logger.i(Logger.TAG_ACCOUNT_SETUP, "UserExistsResponse parsed - exists: " + existsResponse.exists);
+
                     if (!existsResponse.exists) {
                         // User authenticated but doesn't exist in DB - go to initial setup
-                        Logger.i(Logger.TAG_API, "User authenticated but NOT in DB - navigating to initial setup");
+                        Logger.i(Logger.TAG_ACCOUNT_SETUP, "User authenticated but NOT in DB - navigating to initial setup");
                         // Ensure username is set
                         preferencesManager.setUserName(username);
-                        Logger.i(Logger.TAG_API, "Username saved to preferences: " + username);
+                        Logger.i(Logger.TAG_ACCOUNT_SETUP, "Username saved to preferences: " + username);
                         preferencesManager.setInitialSetupCompleted(false);
-                        Logger.i(Logger.TAG_API, "Initial setup marked as incomplete");
+                        Logger.i(Logger.TAG_ACCOUNT_SETUP, "Initial setup marked as incomplete");
                         navigateAfterLogin();
                         return;
                     }
-                    
+
                     // User exists in DB - check profile and proceed
-                    Logger.i(Logger.TAG_API, "User EXISTS in DB - checking profile and proceeding");
+                    Logger.i(Logger.TAG_ACCOUNT_SETUP, "User EXISTS in DB - checking profile and proceeding");
                     // Ensure username is set
                     preferencesManager.setUserName(username);
-                    Logger.i(Logger.TAG_API, "Username saved to preferences: " + username);
+                    Logger.i(Logger.TAG_ACCOUNT_SETUP, "Username saved to preferences: " + username);
                     checkUserProfileAndNavigate(username);
                 } else {
                     // Error checking user existence - assume user doesn't exist and go to initial setup
-                    Logger.w(Logger.TAG_API, "Failed to check user existence - response not successful or body is null");
-                    Logger.w(Logger.TAG_API, "Assuming new user and navigating to initial setup");
+                    Logger.w(Logger.TAG_ACCOUNT_SETUP, "Failed to check user existence - response not successful or body is null");
+                    Logger.w(Logger.TAG_ACCOUNT_SETUP, "Assuming new user and navigating to initial setup");
                     // Ensure username is set
                     preferencesManager.setUserName(username);
-                    Logger.i(Logger.TAG_API, "Username saved to preferences: " + username);
+                    Logger.i(Logger.TAG_ACCOUNT_SETUP, "Username saved to preferences: " + username);
                     preferencesManager.setInitialSetupCompleted(false);
-                    Logger.i(Logger.TAG_API, "Initial setup marked as incomplete");
+                    Logger.i(Logger.TAG_ACCOUNT_SETUP, "Initial setup marked as incomplete");
                     navigateAfterLogin();
                 }
-                Logger.i(Logger.TAG_API, "=== CHECK USER EXISTS RESPONSE HANDLING COMPLETE ===");
+                Logger.i(Logger.TAG_ACCOUNT_SETUP, "=== CHECK USER EXISTS RESPONSE HANDLING COMPLETE ===");
             }
 
             @Override
             public void onFailure(Call<ApiService.UserExistsResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_API, "=== CHECK USER EXISTS API CALL FAILURE ===");
-                Logger.e(Logger.TAG_API, "Network/API call failed - Exception type: " + t.getClass().getSimpleName());
-                Logger.e(Logger.TAG_API, "Exception message: " + t.getMessage());
-                Logger.e(Logger.TAG_API, "Stack trace:", t);
-                
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "=== CHECK USER EXISTS API CALL FAILURE ===");
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Network/API call failed - Exception type: " + t.getClass().getSimpleName());
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Exception message: " + t.getMessage());
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Stack trace:", t);
+
                 // Ensure username is set even on failure
                 preferencesManager.setUserName(username);
-                Logger.e(Logger.TAG_API, "Username saved to preferences (on failure): " + username);
-                Logger.e(Logger.TAG_API, "Failed to check user existence in DB, assuming new user");
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Username saved to preferences (on failure): " + username);
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Failed to check user existence in DB, assuming new user");
                 // Network error - assume user doesn't exist in DB and go to initial setup
                 preferencesManager.setInitialSetupCompleted(false);
-                Logger.e(Logger.TAG_API, "Initial setup marked as incomplete (on failure)");
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Initial setup marked as incomplete (on failure)");
                 navigateAfterLogin();
-                Logger.e(Logger.TAG_API, "=== CHECK USER EXISTS FAILURE HANDLING COMPLETE ===");
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "=== CHECK USER EXISTS FAILURE HANDLING COMPLETE ===");
             }
         });
-        
-        Logger.i(Logger.TAG_API, "checkUserExists API call enqueued, waiting for response...");
+
+        Logger.i(Logger.TAG_ACCOUNT_SETUP, "checkUserExists API call enqueued, waiting for response...");
     }
 
     private void checkUserProfileAndNavigate(String username) {
-        Logger.i(Logger.TAG_API, "=== CHECK USER PROFILE AND NAVIGATE START ===");
-        Logger.i(Logger.TAG_API, "checkUserProfileAndNavigate() called with username=" + username);
-        
+        Logger.i(Logger.TAG_ACCOUNT_SETUP, "=== CHECK USER PROFILE AND NAVIGATE START ===");
+        Logger.i(Logger.TAG_ACCOUNT_SETUP, "checkUserProfileAndNavigate() called with username=" + username);
+
         ApiService apiService = ApiClient.getInstance(this).getApiService();
-        Logger.i(Logger.TAG_API, "ApiService obtained for getUserProfile");
-        Logger.i(Logger.TAG_API, "Calling getUserProfile API...");
-        
+        Logger.i(Logger.TAG_ACCOUNT_SETUP, "ApiService obtained for getUserProfile");
+        Logger.i(Logger.TAG_ACCOUNT_SETUP, "Calling getUserProfile API...");
+
         apiService.getUserProfile(username).enqueue(new Callback<ApiService.UserProfileResponse>() {
             @Override
             public void onResponse(Call<ApiService.UserProfileResponse> call, Response<ApiService.UserProfileResponse> response) {
@@ -435,7 +435,7 @@ public class LoginActivity extends AppCompatActivity {
                             && profile.lastName != null && !profile.lastName.trim().isEmpty()
                             && profile.degree != null && !profile.degree.trim().isEmpty()
                             && profile.participationPreference != null && !profile.participationPreference.trim().isEmpty();
-                    
+
                     if (isComplete) {
                         // Profile is complete - sync to preferences
                         // Ensure username is set (should already be set from auth, but ensure it's here too)
@@ -446,99 +446,99 @@ public class LoginActivity extends AppCompatActivity {
                         preferencesManager.setDegree(profile.degree);
                         preferencesManager.setParticipationPreference(profile.participationPreference);
                         preferencesManager.setInitialSetupCompleted(true);
-                        Logger.i(Logger.TAG_API, "Profile data synced to preferences - firstName: " + profile.firstName + 
-                            ", lastName: " + profile.lastName + 
-                            ", degree: " + profile.degree + 
+                        Logger.i(Logger.TAG_ACCOUNT_SETUP, "Profile data synced to preferences - firstName: " + profile.firstName +
+                            ", lastName: " + profile.lastName +
+                            ", degree: " + profile.degree +
                             ", participationPreference: " + profile.participationPreference);
-                        
+
                         if (profile.participationPreference != null) {
                             if (profile.participationPreference.contains("PRESENTER")) {
                                 preferencesManager.setUserRole("PRESENTER");
-                                Logger.i(Logger.TAG_API, "User role set to PRESENTER");
+                                Logger.i(Logger.TAG_ACCOUNT_SETUP, "User role set to PRESENTER");
                             } else if (profile.participationPreference.contains("PARTICIPANT")) {
                                 preferencesManager.setUserRole("PARTICIPANT");
-                                Logger.i(Logger.TAG_API, "User role set to PARTICIPANT");
+                                Logger.i(Logger.TAG_ACCOUNT_SETUP, "User role set to PARTICIPANT");
                             } else {
-                                Logger.i(Logger.TAG_API, "User role not determined from participationPreference: " + profile.participationPreference);
+                                Logger.i(Logger.TAG_ACCOUNT_SETUP, "User role not determined from participationPreference: " + profile.participationPreference);
                             }
                         } else {
-                            Logger.i(Logger.TAG_API, "participationPreference is null, skipping role determination");
+                            Logger.i(Logger.TAG_ACCOUNT_SETUP, "participationPreference is null, skipping role determination");
                         }
                         navigateAfterLogin();
                     } else {
-                        Logger.i(Logger.TAG_API, "Profile is INCOMPLETE - navigating to initial setup");
+                        Logger.i(Logger.TAG_ACCOUNT_SETUP, "Profile is INCOMPLETE - navigating to initial setup");
                         // Profile exists but incomplete - show initial setup
                         // Ensure username is set
                         preferencesManager.setUserName(username);
                         preferencesManager.setInitialSetupCompleted(false);
-                        Logger.i(Logger.TAG_API, "Initial setup marked as incomplete");
+                        Logger.i(Logger.TAG_ACCOUNT_SETUP, "Initial setup marked as incomplete");
                         navigateAfterLogin();
                     }
                 } else {
-                    Logger.w(Logger.TAG_API, "User profile not found or response failed - code=" + response.code() + ", body is null: " + (response.body() == null));
+                    Logger.w(Logger.TAG_ACCOUNT_SETUP, "User profile not found or response failed - code=" + response.code() + ", body is null: " + (response.body() == null));
                     // User doesn't exist - show initial setup (will create user there)
                     // Ensure username is set
                     preferencesManager.setUserName(username);
-                    Logger.w(Logger.TAG_API, "Assuming new user, navigating to initial setup");
+                    Logger.w(Logger.TAG_ACCOUNT_SETUP, "Assuming new user, navigating to initial setup");
                     preferencesManager.setInitialSetupCompleted(false);
                     navigateAfterLogin();
                 }
-                Logger.i(Logger.TAG_API, "=== GET USER PROFILE RESPONSE HANDLING COMPLETE ===");
+                Logger.i(Logger.TAG_ACCOUNT_SETUP, "=== GET USER PROFILE RESPONSE HANDLING COMPLETE ===");
             }
 
             @Override
             public void onFailure(Call<ApiService.UserProfileResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_API, "=== GET USER PROFILE API CALL FAILURE ===");
-                Logger.e(Logger.TAG_API, "Network/API call failed - Exception type: " + t.getClass().getSimpleName());
-                Logger.e(Logger.TAG_API, "Exception message: " + t.getMessage());
-                Logger.e(Logger.TAG_API, "Stack trace:", t);
-                
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "=== GET USER PROFILE API CALL FAILURE ===");
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Network/API call failed - Exception type: " + t.getClass().getSimpleName());
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Exception message: " + t.getMessage());
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Stack trace:", t);
+
                 // Ensure username is set even on failure
                 preferencesManager.setUserName(username);
-                Logger.e(Logger.TAG_API, "Username saved to preferences (on failure): " + username);
-                Logger.e(Logger.TAG_API, "Failed to fetch user profile, showing initial setup");
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Username saved to preferences (on failure): " + username);
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Failed to fetch user profile, showing initial setup");
                 preferencesManager.setInitialSetupCompleted(false);
-                Logger.e(Logger.TAG_API, "Initial setup marked as incomplete (on failure)");
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Initial setup marked as incomplete (on failure)");
                 navigateAfterLogin();
-                Logger.e(Logger.TAG_API, "=== GET USER PROFILE FAILURE HANDLING COMPLETE ===");
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "=== GET USER PROFILE FAILURE HANDLING COMPLETE ===");
             }
         });
-        
-        Logger.i(Logger.TAG_API, "getUserProfile API call enqueued, waiting for response...");
+
+        Logger.i(Logger.TAG_ACCOUNT_SETUP, "getUserProfile API call enqueued, waiting for response...");
     }
 
     private void navigateAfterLogin() {
-        Logger.i(Logger.TAG_UI, "=== NAVIGATE AFTER LOGIN START ===");
-        Logger.i(Logger.TAG_UI, "navigateAfterLogin() called");
-        Logger.i(Logger.TAG_UI, "hasCompletedInitialSetup: " + preferencesManager.hasCompletedInitialSetup());
-        
+        Logger.i(Logger.TAG_NAVIGATION, "=== NAVIGATE AFTER LOGIN START ===");
+        Logger.i(Logger.TAG_NAVIGATION, "navigateAfterLogin() called");
+        Logger.i(Logger.TAG_NAVIGATION, "hasCompletedInitialSetup: " + preferencesManager.hasCompletedInitialSetup());
+
         // Fetch fresh configuration from backend on every login
         // This runs in background and doesn't block navigation
         // Wrap in try-catch to prevent crashes if ConfigManager initialization fails
-        Logger.i(Logger.TAG_UI, "Attempting to refresh config on login...");
+        Logger.i(Logger.TAG_CONFIG_LOAD, "Attempting to refresh config on login...");
         try {
             ConfigManager.getInstance(this).refreshConfig();
-            Logger.i(Logger.TAG_UI, "Config refresh initiated successfully (runs in background)");
+            Logger.i(Logger.TAG_CONFIG_LOAD, "Config refresh initiated successfully (runs in background)");
             try {
                 ServerLogger serverLogger = ServerLogger.getInstance(this);
                 if (serverLogger != null) {
-                    serverLogger.i(ServerLogger.TAG_UI, "Config refresh initiated on login");
+                    serverLogger.i(ServerLogger.TAG_CONFIG_LOAD, "Config refresh initiated on login");
                 }
             } catch (Exception logEx) {
-                Logger.e(Logger.TAG_UI, "Failed to log to ServerLogger: " + logEx.getMessage());
+                Logger.e(Logger.TAG_CONFIG_LOAD, "Failed to log to ServerLogger: " + logEx.getMessage());
             }
         } catch (Exception e) {
-            Logger.e(Logger.TAG_UI, "Failed to refresh config on login: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
+            Logger.e(Logger.TAG_CONFIG_LOAD, "Failed to refresh config on login: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
             try {
                 ServerLogger serverLogger = ServerLogger.getInstance(this);
                 if (serverLogger != null) {
-                    serverLogger.e(ServerLogger.TAG_UI, "Failed to refresh config on login: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
+                    serverLogger.e(ServerLogger.TAG_CONFIG_LOAD, "Failed to refresh config on login: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
                 }
             } catch (Exception logEx) {
-                Logger.e(Logger.TAG_UI, "Failed to log to ServerLogger: " + logEx.getMessage());
+                Logger.e(Logger.TAG_CONFIG_LOAD, "Failed to log to ServerLogger: " + logEx.getMessage());
             }
             // Continue with navigation even if config refresh fails
-            Logger.e(Logger.TAG_UI, "Continuing with navigation despite config refresh failure");
+            Logger.e(Logger.TAG_CONFIG_LOAD, "Continuing with navigation despite config refresh failure");
         }
 
         // Register FCM token for push notifications (runs in background)
@@ -548,19 +548,19 @@ public class LoginActivity extends AppCompatActivity {
         checkAndShowAnnouncement(() -> {
             Intent intent;
             if (preferencesManager.hasCompletedInitialSetup()) {
-                Logger.i(Logger.TAG_UI, "User has completed initial setup - navigating to RolePickerActivity");
+                Logger.i(Logger.TAG_NAVIGATION, "User has completed initial setup - navigating to RolePickerActivity");
                 intent = new Intent(this, RolePickerActivity.class);
             } else {
-                Logger.i(Logger.TAG_UI, "User has NOT completed initial setup - navigating to FirstTimeSetupActivity");
+                Logger.i(Logger.TAG_NAVIGATION, "User has NOT completed initial setup - navigating to FirstTimeSetupActivity");
                 intent = new Intent(this, FirstTimeSetupActivity.class);
             }
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            Logger.i(Logger.TAG_UI, "Starting activity: " + intent.getComponent().getClassName());
+            Logger.i(Logger.TAG_NAVIGATION, "Starting activity: " + intent.getComponent().getClassName());
             startActivity(intent);
-            Logger.i(Logger.TAG_UI, "Activity started, finishing LoginActivity");
+            Logger.i(Logger.TAG_NAVIGATION, "Activity started, finishing LoginActivity");
             finish();
-            Logger.i(Logger.TAG_UI, "=== NAVIGATE AFTER LOGIN COMPLETE ===");
-            Logger.i(Logger.TAG_UI, "=== LOGIN FLOW END ===");
+            Logger.i(Logger.TAG_LOGIN_SUCCESS, "=== NAVIGATE AFTER LOGIN COMPLETE ===");
+            Logger.i(Logger.TAG_LOGIN_SUCCESS, "=== LOGIN FLOW END ===");
         });
     }
 
@@ -569,7 +569,7 @@ public class LoginActivity extends AppCompatActivity {
      * @param onComplete Callback to run after announcement is dismissed or if no announcement
      */
     private void checkAndShowAnnouncement(Runnable onComplete) {
-        Logger.i(Logger.TAG_UI, "Checking for announcements...");
+        Logger.i(Logger.TAG_CONFIG_LOAD, "Checking for announcements...");
 
         ApiService apiService = ApiClient.getInstance(this).getApiService();
         apiService.getAnnouncement().enqueue(new Callback<ApiService.AnnouncementResponse>() {
@@ -579,7 +579,7 @@ public class LoginActivity extends AppCompatActivity {
                     ApiService.AnnouncementResponse announcement = response.body();
                     int lastSeenVersion = preferencesManager.getLastSeenAnnouncementVersion();
 
-                    Logger.i(Logger.TAG_UI, "Announcement: isActive=" + announcement.isActive +
+                    Logger.i(Logger.TAG_CONFIG_LOAD, "Announcement: isActive=" + announcement.isActive +
                             ", version=" + announcement.version + ", lastSeen=" + lastSeenVersion);
 
                     if (announcement.isActive && announcement.version > lastSeenVersion) {
@@ -590,14 +590,14 @@ public class LoginActivity extends AppCompatActivity {
                         runOnUiThread(onComplete);
                     }
                 } else {
-                    Logger.w(Logger.TAG_UI, "Failed to fetch announcement: " + response.code());
+                    Logger.w(Logger.TAG_CONFIG_LOAD, "Failed to fetch announcement: " + response.code());
                     runOnUiThread(onComplete);
                 }
             }
 
             @Override
             public void onFailure(Call<ApiService.AnnouncementResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Error fetching announcement", t);
+                Logger.e(Logger.TAG_CONFIG_LOAD, "Error fetching announcement", t);
                 runOnUiThread(onComplete);
             }
         });
@@ -649,10 +649,10 @@ public class LoginActivity extends AppCompatActivity {
         try {
             emailDomain = ConfigManager.getInstance(this).getEmailDomain();
         } catch (Exception e) {
-            Logger.e(Logger.TAG_UI, "Failed to get email domain from ConfigManager: " + e.getMessage(), e);
+            Logger.e(Logger.TAG_CONFIG_LOAD, "Failed to get email domain from ConfigManager: " + e.getMessage(), e);
             ServerLogger serverLogger = ServerLogger.getInstance(this);
             if (serverLogger != null) {
-                serverLogger.e(ServerLogger.TAG_UI, "Failed to get email domain from ConfigManager: " + e.getMessage(), e);
+                serverLogger.e(ServerLogger.TAG_CONFIG_LOAD, "Failed to get email domain from ConfigManager: " + e.getMessage(), e);
             }
             emailDomain = "@bgu.ac.il"; // Fallback to hardcoded default
         }
@@ -676,13 +676,13 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<ApiService.UserProfileResponse> call, Response<ApiService.UserProfileResponse> response) {
                 if (!response.isSuccessful()) {
-                    Logger.w(Logger.TAG_API, "Skip auth profile upsert failed, code=" + response.code());
+                    Logger.w(Logger.TAG_ACCOUNT_SETUP, "Skip auth profile upsert failed, code=" + response.code());
                 }
             }
 
             @Override
             public void onFailure(Call<ApiService.UserProfileResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_API, "Skip auth profile upsert error", t);
+                Logger.e(Logger.TAG_ACCOUNT_SETUP, "Skip auth profile upsert error", t);
             }
         });
 
@@ -736,7 +736,7 @@ public class LoginActivity extends AppCompatActivity {
                 editPassword.setText(savedPassword);
             }
 
-            Logger.i(Logger.TAG_UI, "Loaded saved credentials for username: " + savedUsername);
+            Logger.i(Logger.TAG_PREFERENCES, "Loaded saved credentials for username: " + savedUsername);
         }
     }
 
@@ -749,15 +749,15 @@ public class LoginActivity extends AppCompatActivity {
         preferencesManager.setSavedUsername(username);
         preferencesManager.setSavedPassword(password);
         preferencesManager.setRememberMeEnabled(true);
-        Logger.i(Logger.TAG_UI, "Saved credentials securely for username: " + username);
+        Logger.i(Logger.TAG_PREFERENCES, "Saved credentials securely for username: " + username);
     }
-    
+
     /**
      * Clear saved credentials when "Remember Me" is unchecked
      */
     private void clearSavedCredentials() {
         preferencesManager.clearSavedCredentials();
-        Logger.i(Logger.TAG_UI, "Cleared saved credentials");
+        Logger.i(Logger.TAG_PREFERENCES, "Cleared saved credentials");
     }
 
     /**
@@ -765,23 +765,23 @@ public class LoginActivity extends AppCompatActivity {
      * This runs in background and doesn't block navigation.
      */
     private void registerFcmToken() {
-        Logger.i(Logger.TAG_UI, "Attempting to register FCM token...");
+        Logger.i(Logger.TAG_LOGIN_SUCCESS, "Attempting to register FCM token...");
         try {
             FirebaseMessaging.getInstance().getToken()
                     .addOnCompleteListener(task -> {
                         if (!task.isSuccessful()) {
-                            Logger.w(Logger.TAG_UI, "Failed to get FCM token: " +
+                            Logger.w(Logger.TAG_LOGIN_SUCCESS, "Failed to get FCM token: " +
                                     (task.getException() != null ? task.getException().getMessage() : "unknown error"));
                             return;
                         }
 
                         String token = task.getResult();
                         if (token == null || token.isEmpty()) {
-                            Logger.w(Logger.TAG_UI, "FCM token is null or empty");
+                            Logger.w(Logger.TAG_LOGIN_SUCCESS, "FCM token is null or empty");
                             return;
                         }
 
-                        Logger.i(Logger.TAG_UI, "FCM token obtained: " + token.substring(0, Math.min(10, token.length())) + "...");
+                        Logger.i(Logger.TAG_LOGIN_SUCCESS, "FCM token obtained: " + token.substring(0, Math.min(10, token.length())) + "...");
 
                         // Store token locally
                         preferencesManager.setFcmToken(token);
@@ -791,11 +791,11 @@ public class LoginActivity extends AppCompatActivity {
                         if (username != null && !username.isEmpty()) {
                             SemScanMessagingService.sendTokenToServer(LoginActivity.this, username, token);
                         } else {
-                            Logger.w(Logger.TAG_UI, "Cannot send FCM token: username is null");
+                            Logger.w(Logger.TAG_LOGIN_SUCCESS, "Cannot send FCM token: username is null");
                         }
                     });
         } catch (Exception e) {
-            Logger.e(Logger.TAG_UI, "Error registering FCM token: " + e.getMessage(), e);
+            Logger.e(Logger.TAG_LOGIN_SUCCESS, "Error registering FCM token: " + e.getMessage(), e);
         }
     }
 }

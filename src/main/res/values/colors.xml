@@ -55,6 +55,10 @@
     <color name="welcome_text_color">#FF102A68</color>
     <color name="button_save_green">#FF43A047</color>
 
+    <!-- Pastel Button Colors (medium blue - readable with black text) -->
+    <color name="button_pastel_blue">#FF64B5F6</color>
+    <color name="button_pastel_blue_text">#FF000000</color>
+
     <!-- Card Icon Container Colors (matching pastel cards) -->
     <color name="icon_container_purple">#FF9C27B0</color>
     <color name="icon_container_blue">#FF2196F3</color>

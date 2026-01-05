@@ -224,7 +224,8 @@
                 android:layout_marginBottom="24dp"
                 android:text="@string/setup_next_button"
                 android:textSize="16sp"
-                android:backgroundTint="@color/primary_blue"
+                android:backgroundTint="@color/button_pastel_blue"
+                android:textColor="@color/button_pastel_blue_text"
                 app:cornerRadius="12dp" />
 
             <com.google.android.material.progressindicator.CircularProgressIndicator

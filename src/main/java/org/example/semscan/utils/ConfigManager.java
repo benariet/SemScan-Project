@@ -156,7 +156,7 @@ public class ConfigManager {
                         if (context != null) {
                             ServerLogger serverLogger = ServerLogger.getInstance(context);
                             if (serverLogger != null) {
-                                serverLogger.e(ServerLogger.TAG_UI, "Failed to get ApiClient for config refresh: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
+                                serverLogger.e(ServerLogger.TAG_CONFIG_REFRESH, "Failed to get ApiClient for config refresh: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
                             }
                         }
                     } catch (Exception logEx) {
@@ -179,7 +179,7 @@ public class ConfigManager {
                         if (context != null) {
                             ServerLogger serverLogger = ServerLogger.getInstance(context);
                             if (serverLogger != null) {
-                                serverLogger.i(ServerLogger.TAG_UI, "Successfully fetched and cached mobile config");
+                                serverLogger.i(ServerLogger.TAG_CONFIG_REFRESH, "Successfully fetched and cached mobile config");
                             }
                         }
                     } catch (Exception logEx) {
@@ -194,7 +194,7 @@ public class ConfigManager {
                         if (context != null) {
                             ServerLogger serverLogger = ServerLogger.getInstance(context);
                             if (serverLogger != null) {
-                                serverLogger.w(ServerLogger.TAG_UI, errorMsg);
+                                serverLogger.w(ServerLogger.TAG_CONFIG_REFRESH, errorMsg);
                             }
                         }
                     } catch (Exception logEx) {
@@ -209,7 +209,7 @@ public class ConfigManager {
                     if (context != null) {
                         ServerLogger serverLogger = ServerLogger.getInstance(context);
                         if (serverLogger != null) {
-                            serverLogger.e(ServerLogger.TAG_UI, "Failed to fetch mobile config: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
+                            serverLogger.e(ServerLogger.TAG_CONFIG_REFRESH, "Failed to fetch mobile config: " + e.getMessage() + ", Exception: " + e.getClass().getSimpleName(), e);
                         }
                     }
                 } catch (Exception logEx) {
@@ -280,7 +280,7 @@ public class ConfigManager {
             try {
                 ServerLogger serverLogger = ServerLogger.getInstance(context);
                 if (serverLogger != null) {
-                    serverLogger.i(ServerLogger.TAG_UI, "Saved mobile config to cache");
+                    serverLogger.i(ServerLogger.TAG_CONFIG_REFRESH, "Saved mobile config to cache");
                 }
             } catch (Exception e) {
                 // Ignore ServerLogger errors to prevent cascading failures

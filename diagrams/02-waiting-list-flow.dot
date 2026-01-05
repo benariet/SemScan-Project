@@ -61,7 +61,7 @@ digraph WaitingListFlow {
         color="#7b1fa2";
         bgcolor="#f3e5f522";
 
-        CheckCapacity [label="Check capacity\nfor next in queue\n-----------\nPhD needs 2\nMSc needs 1", fillcolor="#e1bee7", color="#7b1fa2"];
+        CheckCapacity [label="Check capacity\nfor next in queue\n-----------\nPhD: whole slot\nMSc: 1 spot", fillcolor="#e1bee7", color="#7b1fa2"];
         PresenterEmail [label="Email sent to\npresenter:\n\"Do you still want\nto register?\"\n-----------\n(still on waiting list)", fillcolor="#ce93d8", color="#7b1fa2"];
         PresenterDecision [label="Presenter\nResponse?", fillcolor="#b3e5fc", color="#0288d1", shape=diamond];
     }

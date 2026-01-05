@@ -136,9 +136,9 @@ public class PresenterMySlotActivity extends AppCompatActivity {
             public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) {
                 setLoading(false);
                 String errorDetails = "Failed to load my slot - Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
-                Logger.e(Logger.TAG_API, errorDetails, t);
+                Logger.e(Logger.TAG_SLOTS_LOAD, errorDetails, t);
                 if (serverLogger != null) {
-                    serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                    serverLogger.e(ServerLogger.TAG_SLOTS_LOAD, errorDetails, t);
                 }
                 String errorMessage = getString(R.string.error_slot_load_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
@@ -229,18 +229,18 @@ public class PresenterMySlotActivity extends AppCompatActivity {
         }
         
         if (currentSlot == null || currentSlot.slotId == null) {
-            Logger.e(Logger.TAG_UI, "Cancel registration failed - slot is null");
+            Logger.e(Logger.TAG_CANCEL_REQUEST, "Cancel registration failed - slot is null");
             if (serverLogger != null) {
-                serverLogger.e(ServerLogger.TAG_UI, "Cancel registration failed - slot is null");
+                serverLogger.e(ServerLogger.TAG_CANCEL_REQUEST, "Cancel registration failed - slot is null");
             }
             Toast.makeText(this, R.string.presenter_my_slot_no_slot_error, Toast.LENGTH_LONG).show();
             return;
         }
         final String username = preferencesManager.getUserName();
         if (TextUtils.isEmpty(username)) {
-            Logger.e(Logger.TAG_UI, "Cancel registration failed - username is empty");
+            Logger.e(Logger.TAG_CANCEL_REQUEST, "Cancel registration failed - username is empty");
             if (serverLogger != null) {
-                serverLogger.e(ServerLogger.TAG_UI, "Cancel registration failed - username is empty");
+                serverLogger.e(ServerLogger.TAG_CANCEL_REQUEST, "Cancel registration failed - username is empty");
             }
             Toast.makeText(this, R.string.presenter_my_slot_no_user_error, Toast.LENGTH_LONG).show();
             return;
@@ -267,9 +267,9 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                         }
                         
                         if (response.isSuccessful()) {
-                            Logger.i(Logger.TAG_API, "Successfully cancelled registration for slot=" + currentSlot.slotId);
+                            Logger.i(Logger.TAG_CANCEL_SUCCESS, "Successfully cancelled registration for slot=" + currentSlot.slotId);
                             if (serverLogger != null) {
-                                serverLogger.i(ServerLogger.TAG_API, "Successfully cancelled registration for slot=" + currentSlot.slotId + 
+                                serverLogger.i(ServerLogger.TAG_CANCEL_SUCCESS, "Successfully cancelled registration for slot=" + currentSlot.slotId +
                                         ", user=" + normalizedUsername);
                             }
                             Toast.makeText(PresenterMySlotActivity.this, R.string.presenter_my_slot_cancel_success, Toast.LENGTH_LONG).show();
@@ -280,7 +280,7 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                             if (response.errorBody() != null) {
                                 try {
                                     String errorBodyString = response.errorBody().string();
-                                    Logger.i(Logger.TAG_API, "Cancel registration error response body: " + errorBodyString);
+                                    Logger.i(Logger.TAG_CANCEL_RESPONSE, "Cancel registration error response body: " + errorBodyString);
                                     
                                     // Try to parse JSON error body
                                     try {
@@ -302,9 +302,9 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                                         }
                                     }
                                 } catch (Exception e) {
-                                    Logger.e(Logger.TAG_API, "Failed to read error body", e);
+                                    Logger.e(Logger.TAG_CANCEL_FAILED, "Failed to read error body", e);
                                     if (serverLogger != null) {
-                                        serverLogger.e(ServerLogger.TAG_API, "Failed to read error body", e);
+                                        serverLogger.e(ServerLogger.TAG_CANCEL_FAILED, "Failed to read error body", e);
                                     }
                                 }
                             }
@@ -320,11 +320,11 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                     public void onFailure(Call<Void> call, Throwable t) {
                         setLoading(false);
                         String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
-                        String errorDetails = "Cancel registration network failure - URL: " + requestUrl + 
+                        String errorDetails = "Cancel registration network failure - URL: " + requestUrl +
                                 ", Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
-                        Logger.e(Logger.TAG_API, errorDetails, t);
+                        Logger.e(Logger.TAG_CANCEL_FAILED, errorDetails, t);
                         if (serverLogger != null) {
-                            serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                            serverLogger.e(ServerLogger.TAG_CANCEL_FAILED, errorDetails, t);
                         }
                         Toast.makeText(PresenterMySlotActivity.this, R.string.presenter_my_slot_cancel_error, Toast.LENGTH_LONG).show();
                     }

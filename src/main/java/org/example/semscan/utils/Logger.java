@@ -13,13 +13,74 @@ public class Logger {
     // Main app tag
     private static final String APP_TAG = "SemScan";
 
-    // Component tags
-    public static final String TAG_API = "SemScan-API";
-    public static final String TAG_UI = "SemScan-UI";
-    public static final String TAG_PREFS = "SemScan-Prefs";
-    public static final String TAG_QR = "SemScan-QR";
-    public static final String TAG_ATTENDANCE = "SemScan-Attendance";
-    public static final String TAG_SESSION = "SemScan-Session";
+    // Component tags - use FEATURE_ACTION pattern
+    public static final String TAG_API = "API_CALL";
+    public static final String TAG_UI = "UI_ACTION";
+    public static final String TAG_PREFS = "CONFIG_PREFERENCES";
+    public static final String TAG_QR = "QR_EVENT";
+    public static final String TAG_ATTENDANCE = "ATTENDANCE_EVENT";
+    public static final String TAG_SESSION = "SESSION_EVENT";
+
+    // ========== FEATURE_ACTION_RESULT Tag Paradigm ==========
+    // Format: FEATURE_ACTION or FEATURE_ACTION_RESULT
+    // Easy to filter: WHERE tag LIKE 'AUTH_%' or 'REGISTRATION_%'
+
+    // AUTH - Authentication & Login
+    public static final String TAG_LOGIN_ATTEMPT = "AUTH_LOGIN_ATTEMPT";
+    public static final String TAG_LOGIN_SUCCESS = "AUTH_LOGIN_SUCCESS";
+    public static final String TAG_LOGIN_FAILED = "AUTH_LOGIN_FAILED";
+    public static final String TAG_LOGOUT = "AUTH_LOGOUT";
+    public static final String TAG_ACCOUNT_SETUP = "AUTH_ACCOUNT_SETUP";
+    public static final String TAG_SESSION_EXPIRED = "AUTH_SESSION_EXPIRED";
+
+    // REGISTRATION - Slot Registration
+    public static final String TAG_REGISTER_REQUEST = "REGISTRATION_REQUEST";
+    public static final String TAG_REGISTER_RESPONSE = "REGISTRATION_RESPONSE";
+    public static final String TAG_REGISTRATION_SUCCESS = "REGISTRATION_SUCCESS";
+    public static final String TAG_REGISTRATION_FAILED = "REGISTRATION_FAILED";
+    public static final String TAG_CANCEL_REQUEST = "REGISTRATION_CANCEL_REQUEST";
+    public static final String TAG_CANCEL_RESPONSE = "REGISTRATION_CANCEL_RESPONSE";
+    public static final String TAG_CANCEL_SUCCESS = "REGISTRATION_CANCEL_SUCCESS";
+    public static final String TAG_CANCEL_FAILED = "REGISTRATION_CANCEL_FAILED";
+
+    // WAITING_LIST - Waiting List Operations
+    public static final String TAG_WAITING_LIST_JOIN = "WAITING_LIST_JOIN_REQUEST";
+    public static final String TAG_WAITING_LIST_LEAVE = "WAITING_LIST_LEAVE_REQUEST";
+    public static final String TAG_WAITING_LIST_SUCCESS = "WAITING_LIST_SUCCESS";
+    public static final String TAG_WAITING_LIST_FAILED = "WAITING_LIST_FAILED";
+    public static final String TAG_WAITING_LIST_DEGREE_MISMATCH = "WAITING_LIST_DEGREE_MISMATCH";
+
+    // SLOT - Slot Loading & Viewing
+    public static final String TAG_SLOTS_LOAD = "SLOT_LOAD";
+    public static final String TAG_SLOTS_REFRESH = "SLOT_REFRESH";
+    public static final String TAG_SLOT_DETAILS = "SLOT_VIEW";
+
+    // ATTENDANCE - QR & Attendance
+    public static final String TAG_QR_SCAN = "ATTENDANCE_QR_SCAN";
+    public static final String TAG_QR_GENERATE = "ATTENDANCE_QR_GENERATE";
+    public static final String TAG_ATTENDANCE_OPEN = "ATTENDANCE_SESSION_OPEN";
+    public static final String TAG_ATTENDANCE_CLOSE = "ATTENDANCE_SESSION_CLOSE";
+    public static final String TAG_ATTENDANCE_MARK = "ATTENDANCE_MARK";
+    public static final String TAG_MANUAL_ATTENDANCE = "ATTENDANCE_MANUAL_REQUEST";
+
+    // CONFIG - Settings & Configuration
+    public static final String TAG_CONFIG_LOAD = "CONFIG_LOAD";
+    public static final String TAG_CONFIG_REFRESH = "CONFIG_REFRESH";
+    public static final String TAG_SETTINGS_CHANGE = "CONFIG_SETTINGS_SAVE";
+    public static final String TAG_PREFERENCES = "CONFIG_PREFERENCES";
+
+    // NAV - Navigation & Screen Views
+    public static final String TAG_SCREEN_VIEW = "NAV_SCREEN_VIEW";
+    public static final String TAG_NAVIGATION = "NAV_NAVIGATE";
+
+    // EXPORT - Data Export
+    public static final String TAG_EXPORT_REQUEST = "EXPORT_REQUEST";
+    public static final String TAG_EXPORT_SUCCESS = "EXPORT_SUCCESS";
+    public static final String TAG_EXPORT_FAILED = "EXPORT_FAILED";
+
+    // APP - App Lifecycle
+    public static final String TAG_APP_START = "APP_START";
+    public static final String TAG_APP_RESUME = "APP_RESUME";
 
     // Debug flag - determined at runtime based on app's debuggable flag
     // This is more reliable than BuildConfig.DEBUG and avoids compile-time issues
@@ -137,11 +198,22 @@ public class Logger {
     
     /**
      * Log API errors
+     * 4xx errors (client/business rule errors) → WARN
+     * 5xx errors (server errors) → ERROR
      */
     public static void apiError(String method, String url, int statusCode, String errorBody) {
-        Log.e(TAG_API, String.format("API Error %s %s: %d", method, url, statusCode));
-        if (errorBody != null && !errorBody.isEmpty()) {
-            Log.e(TAG_API, "Error Body: " + errorBody);
+        String msg = String.format("API Error %s %s: %d", method, url, statusCode);
+        // 4xx = business/client errors (WARN), 5xx = server errors (ERROR)
+        if (statusCode >= 500) {
+            Log.e(TAG_API, msg);
+            if (errorBody != null && !errorBody.isEmpty()) {
+                Log.e(TAG_API, "Error Body: " + errorBody);
+            }
+        } else {
+            Log.w(TAG_API, msg);
+            if (errorBody != null && !errorBody.isEmpty()) {
+                Log.w(TAG_API, "Error Body: " + errorBody);
+            }
         }
         // Forward to server as structured API error
         try {

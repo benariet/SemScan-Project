@@ -173,7 +173,7 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) {
                 setLoading(false);
-                Logger.e(Logger.TAG_API, "Failed to load presenter home", t);
+                Logger.e(Logger.TAG_SLOTS_LOAD, "Failed to load presenter home", t);
                 Toast.makeText(PresenterStartSessionActivity.this, R.string.presenter_start_session_error_load, Toast.LENGTH_LONG).show();
                 showEmptyState();
             }
@@ -282,15 +282,15 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
 
         // Frontend validation: Check if another presenter has an open session for this slot
         // This is a workaround for backend bug where it doesn't properly check for other presenters' sessions
-        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-        Logger.i(Logger.TAG_UI, "ATTEMPTING TO OPEN SESSION");
-        Logger.i(Logger.TAG_UI, "Presenter: " + normalizedUsername);
-        Logger.i(Logger.TAG_UI, "Slot ID: " + currentSlot.slotId);
-        Logger.i(Logger.TAG_UI, "Slot Time: " + currentSlot.timeRange);
-        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-        
+        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "═══════════════════════════════════════════════════════════");
+        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "ATTEMPTING TO OPEN SESSION");
+        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Presenter: " + normalizedUsername);
+        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Slot ID: " + currentSlot.slotId);
+        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Slot Time: " + currentSlot.timeRange);
+        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "═══════════════════════════════════════════════════════════");
+
         if (serverLogger != null) {
-            serverLogger.i(ServerLogger.TAG_UI, "ATTEMPTING TO OPEN SESSION | Presenter: " + normalizedUsername + 
+            serverLogger.i(ServerLogger.TAG_ATTENDANCE_OPEN, "ATTEMPTING TO OPEN SESSION | Presenter: " + normalizedUsername +
                     ", Slot ID: " + currentSlot.slotId + ", Slot Time: " + currentSlot.timeRange);
         }
 
@@ -307,7 +307,7 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                     List<Session> openSessions = response.body();
                     String currentPresenterName = preferencesManager.getUserName();
                     
-                    Logger.i(Logger.TAG_UI, "Checking " + openSessions.size() + " open sessions for conflicts");
+                    Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Checking " + openSessions.size() + " open sessions for conflicts");
                     
                     // Check if any open session has the same time range and different presenter
                     boolean foundConflict = false;
@@ -341,7 +341,7 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                                         timeMatches = true;
                                     }
                                 } catch (Exception e) {
-                                    Logger.w(Logger.TAG_UI, "Failed to parse time for conflict check: " + e.getMessage());
+                                    Logger.w(Logger.TAG_ATTENDANCE_OPEN, "Failed to parse time for conflict check: " + e.getMessage());
                                 }
                             }
                         }
@@ -357,14 +357,14 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                         if (timeMatches && differentPresenter) {
                             foundConflict = true;
                             conflictingSession = session;
-                            Logger.e(Logger.TAG_UI, "⚠️ CONFLICT DETECTED: Another presenter has an open session!");
-                            Logger.e(Logger.TAG_UI, "  Conflicting Session ID: " + session.getSessionId());
-                            Logger.e(Logger.TAG_UI, "  Conflicting Presenter: " + session.getPresenterName());
-                            Logger.e(Logger.TAG_UI, "  Current Presenter: " + currentPresenterName);
-                            Logger.e(Logger.TAG_UI, "  Slot ID: " + currentSlot.slotId);
-                            
+                            Logger.e(Logger.TAG_ATTENDANCE_OPEN, "⚠️ CONFLICT DETECTED: Another presenter has an open session!");
+                            Logger.e(Logger.TAG_ATTENDANCE_OPEN, "  Conflicting Session ID: " + session.getSessionId());
+                            Logger.e(Logger.TAG_ATTENDANCE_OPEN, "  Conflicting Presenter: " + session.getPresenterName());
+                            Logger.e(Logger.TAG_ATTENDANCE_OPEN, "  Current Presenter: " + currentPresenterName);
+                            Logger.e(Logger.TAG_ATTENDANCE_OPEN, "  Slot ID: " + currentSlot.slotId);
+
                             if (serverLogger != null) {
-                                serverLogger.e(ServerLogger.TAG_UI, "🚨 FRONTEND VALIDATION: CONFLICT DETECTED | " +
+                                serverLogger.e(ServerLogger.TAG_ATTENDANCE_OPEN, "🚨 FRONTEND VALIDATION: CONFLICT DETECTED | " +
                                     "Another presenter (" + session.getPresenterName() + ") has an OPEN session (ID: " + 
                                     session.getSessionId() + ") for the same slot (Slot ID: " + currentSlot.slotId + 
                                     "). Backend should return IN_PROGRESS but may not. Proceeding with backend call for validation.");
@@ -380,9 +380,9 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                             conflictSession.getPresenterName() : "Unknown";
                         final Long conflictSessionId = conflictSession.getSessionId();
                         
-                        Logger.e(Logger.TAG_UI, "❌ BLOCKED: Frontend detected conflict - another presenter has open session");
+                        Logger.e(Logger.TAG_ATTENDANCE_OPEN, "❌ BLOCKED: Frontend detected conflict - another presenter has open session");
                         if (serverLogger != null) {
-                            serverLogger.e(ServerLogger.TAG_UI, "🚨 FRONTEND BLOCKED SESSION OPEN | " +
+                            serverLogger.e(ServerLogger.TAG_ATTENDANCE_OPEN, "🚨 FRONTEND BLOCKED SESSION OPEN | " +
                                 "Another presenter (" + conflictPresenterName + ") has an OPEN session (ID: " + 
                                 conflictSessionId + ") for this slot. Backend should have returned IN_PROGRESS but didn't. " +
                                 "Frontend is blocking to prevent duplicate sessions.");
@@ -400,7 +400,7 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                         return; // Don't proceed to backend
                     }
                 } else {
-                    Logger.w(Logger.TAG_UI, "Failed to check for conflicting sessions: " + (response.code()));
+                    Logger.w(Logger.TAG_ATTENDANCE_OPEN, "Failed to check for conflicting sessions: " + (response.code()));
                 }
                 
                 // No conflict detected - proceed to backend call
@@ -409,7 +409,7 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<List<Session>> call, Throwable t) {
-                Logger.w(Logger.TAG_UI, "Failed to check for conflicting sessions, proceeding anyway: " + t.getMessage());
+                Logger.w(Logger.TAG_ATTENDANCE_OPEN, "Failed to check for conflicting sessions, proceeding anyway: " + t.getMessage());
                 // Proceed anyway - backend should validate
                 proceedWithOpenSession();
             }
@@ -421,12 +421,12 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         // because it might be from another presenter's session in the same slot.
         // The backend will return the correct state (OPENED, ALREADY_OPEN for this presenter, or IN_PROGRESS for another presenter)
         setLoading(true);
-        
-        Logger.i(Logger.TAG_UI, "Calling backend to open session: POST /api/v1/presenters/" + normalizedUsername + 
+
+        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Calling backend to open session: POST /api/v1/presenters/" + normalizedUsername +
             "/home/slots/" + currentSlot.slotId + "/attendance/open");
-        
+
         if (serverLogger != null) {
-            serverLogger.i(ServerLogger.TAG_UI, "CALLING BACKEND: POST /api/v1/presenters/" + normalizedUsername + 
+            serverLogger.i(ServerLogger.TAG_ATTENDANCE_OPEN, "CALLING BACKEND: POST /api/v1/presenters/" + normalizedUsername +
                 "/home/slots/" + currentSlot.slotId + "/attendance/open | " +
                 "Expected: Backend should return IN_PROGRESS if another presenter has open session");
         }
@@ -488,7 +488,7 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                                         }
                                     }
                                 } catch (Exception e) {
-                                    Logger.e(Logger.TAG_API, "Failed to read error body", e);
+                                    Logger.e(Logger.TAG_ATTENDANCE_OPEN, "Failed to read error body", e);
                                 }
                             }
                             
@@ -500,10 +500,10 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                             
                             if (isLockTimeout) {
                                 // Log database lock timeout to app_logs
-                                Logger.e(Logger.TAG_API, "🚨 DATABASE LOCK TIMEOUT DETECTED | Response Code: " + response.code() + 
+                                Logger.e(Logger.TAG_ATTENDANCE_OPEN, "🚨 DATABASE LOCK TIMEOUT DETECTED | Response Code: " + response.code() +
                                     ", Error: " + rawErrorMessage);
                                 if (serverLogger != null) {
-                                    serverLogger.e(ServerLogger.TAG_API, "🚨 DATABASE LOCK TIMEOUT | " +
+                                    serverLogger.e(ServerLogger.TAG_ATTENDANCE_OPEN, "🚨 DATABASE LOCK TIMEOUT | " +
                                         "Response Code: " + response.code() + 
                                         ", Error Message: " + rawErrorMessage + 
                                         ", Presenter: " + normalizedUsername + 
@@ -533,15 +533,15 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                         ApiService.PresenterAttendanceOpenResponse body = response.body();
                         String code = body.code != null ? body.code : "";
                         
-                        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-                        Logger.i(Logger.TAG_UI, "BACKEND RESPONSE RECEIVED");
-                        Logger.i(Logger.TAG_UI, "Response Code: " + code);
-                        Logger.i(Logger.TAG_UI, "Session ID: " + body.sessionId);
-                        Logger.i(Logger.TAG_UI, "Message: " + body.message);
-                        Logger.i(Logger.TAG_UI, "═══════════════════════════════════════════════════════════");
-                        
+                        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "═══════════════════════════════════════════════════════════");
+                        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "BACKEND RESPONSE RECEIVED");
+                        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Response Code: " + code);
+                        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Session ID: " + body.sessionId);
+                        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Message: " + body.message);
+                        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "═══════════════════════════════════════════════════════════");
+
                         if (serverLogger != null) {
-                            serverLogger.i(ServerLogger.TAG_UI, "BACKEND RESPONSE | Code: " + code + 
+                            serverLogger.i(ServerLogger.TAG_ATTENDANCE_OPEN, "BACKEND RESPONSE | Code: " + code +
                                     ", Session ID: " + body.sessionId + ", Message: " + body.message);
                         }
                         

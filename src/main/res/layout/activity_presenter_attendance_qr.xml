@@ -49,6 +49,7 @@
                 android:textColor="@color/gray_600"
                 android:textSize="14sp" />
 
+            <!-- QR Code (larger for scanning from distance) -->
             <FrameLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -56,8 +57,8 @@
 
                 <ImageView
                     android:id="@+id/image_qr_code"
-                    android:layout_width="260dp"
-                    android:layout_height="260dp"
+                    android:layout_width="340dp"
+                    android:layout_height="340dp"
                     android:contentDescription="@string/presenter_attendance_qr_title"
                     android:background="@drawable/qr_background"
                     android:padding="12dp" />
@@ -126,7 +127,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_cancel_session"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    style="@style/SemScanButtonPrimary"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -135,7 +136,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_end_session"
-                    style="@style/Widget.MaterialComponents.Button"
+                    style="@style/SemScanButtonPrimary"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"

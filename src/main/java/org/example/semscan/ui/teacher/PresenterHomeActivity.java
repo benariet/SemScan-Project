@@ -89,8 +89,8 @@ public class PresenterHomeActivity extends AppCompatActivity {
         setupClickListeners();
         loadPresentationDetails();
         checkRegistrationStatus();
-        Logger.userAction("Open Presenter Home", "Presenter home screen opened");
-        if (serverLogger != null) serverLogger.userAction("Open Presenter Home", "Presenter home screen opened");
+        Logger.i(Logger.TAG_SCREEN_VIEW, "PresenterHomeActivity opened");
+        if (serverLogger != null) serverLogger.i(ServerLogger.TAG_SCREEN_VIEW, "PresenterHomeActivity opened");
     }
 
     private void initializeViews() {
@@ -152,7 +152,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
             iconExpand.startAnimation(rotate);
         }
         if (presentationDetailsContent != null) presentationDetailsContent.setVisibility(isPresentationDetailsExpanded ? View.VISIBLE : View.GONE);
-        Logger.userAction("Toggle Presentation Details", "Expanded: " + isPresentationDetailsExpanded);
+        Logger.i(Logger.TAG_NAVIGATION, "Toggle Presentation Details: expanded=" + isPresentationDetailsExpanded);
     }
 
     private void loadPresentationDetails() {
@@ -190,8 +190,8 @@ public class PresenterHomeActivity extends AppCompatActivity {
         Toast.makeText(this, R.string.presentation_details_saved, Toast.LENGTH_SHORT).show();
         updatePresentationDetailsStatus();
         if (isPresentationDetailsExpanded) togglePresentationDetails();
-        Logger.userAction("Save Presentation Details", "Topic: " + topic);
-        if (serverLogger != null) serverLogger.userAction("Save Presentation Details", "Saved");
+        Logger.i(Logger.TAG_SETTINGS_CHANGE, "Presentation details saved: topic=" + topic);
+        if (serverLogger != null) serverLogger.i(ServerLogger.TAG_SETTINGS_CHANGE, "Presentation details saved");
     }
 
     private void updatePresentationDetailsStatus() {
@@ -217,7 +217,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
 
     private void checkRegistrationStatus() {
         final String username = preferencesManager.getUserName();
-        if (username == null || username.trim().isEmpty()) { Logger.w(Logger.TAG_UI, "No username cached"); return; }
+        if (username == null || username.trim().isEmpty()) { Logger.w(Logger.TAG_PREFERENCES, "No username cached"); return; }
         final String normalizedUsername = username.trim().toLowerCase(Locale.US);
         apiService.getPresenterHome(normalizedUsername).enqueue(new Callback<ApiService.PresenterHomeResponse>() {
             @Override public void onResponse(Call<ApiService.PresenterHomeResponse> call, Response<ApiService.PresenterHomeResponse> response) {
@@ -226,7 +226,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
                 hasRegisteredSlot = body.mySlot != null && body.mySlot.slotId != null;
                 setCardsEnabled(hasRegisteredSlot);
             }
-            @Override public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) { Logger.e(Logger.TAG_UI, "Failed", t); }
+            @Override public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) { Logger.e(Logger.TAG_SLOTS_LOAD, "Failed to check registration status", t); }
         });
     }
 

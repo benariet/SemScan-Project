@@ -51,7 +51,7 @@ public class TestEmailActivity extends AppCompatActivity {
         progressTestEmail.setVisibility(View.VISIBLE);
         btnSendTestEmail.setText(getString(R.string.test_email_sending));
 
-        Logger.i(Logger.TAG_UI, "Sending test email to: " + userEmail);
+        Logger.i(Logger.TAG_SCREEN_VIEW, "Sending test email to: " + userEmail);
 
         // Build HTML email content
         String htmlContent = buildTestEmailHtml();
@@ -75,13 +75,13 @@ public class TestEmailActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     ApiService.TestEmailResponse emailResponse = response.body();
                     if (emailResponse.success) {
-                        Logger.i(Logger.TAG_API, "Test email sent successfully to: " + userEmail);
+                        Logger.i(Logger.TAG_CONFIG_LOAD, "Test email sent successfully to: " + userEmail);
                         Toast.makeText(TestEmailActivity.this, R.string.test_email_success, Toast.LENGTH_LONG).show();
                         // Close activity after a short delay
                         btnSendTestEmail.postDelayed(() -> finish(), 1500);
                     } else {
                         String errorMsg = emailResponse.message != null ? emailResponse.message : "Failed to send email";
-                        Logger.e(Logger.TAG_API, "Test email failed: " + errorMsg);
+                        Logger.e(Logger.TAG_CONFIG_LOAD, "Test email failed: " + errorMsg);
                         Toast.makeText(TestEmailActivity.this, 
                                 getString(R.string.test_email_error, errorMsg), Toast.LENGTH_LONG).show();
                     }
@@ -97,7 +97,7 @@ public class TestEmailActivity extends AppCompatActivity {
                     } catch (Exception e) {
                         // Ignore
                     }
-                    Logger.e(Logger.TAG_API, "Test email API error, code=" + response.code() + ", message=" + errorMsg);
+                    Logger.e(Logger.TAG_CONFIG_LOAD, "Test email API error, code=" + response.code() + ", message=" + errorMsg);
                     Toast.makeText(TestEmailActivity.this, 
                             getString(R.string.test_email_error, errorMsg), Toast.LENGTH_LONG).show();
                 }
@@ -109,7 +109,7 @@ public class TestEmailActivity extends AppCompatActivity {
                 progressTestEmail.setVisibility(View.GONE);
                 btnSendTestEmail.setText(getString(R.string.ok));
                 
-                Logger.e(Logger.TAG_API, "Test email network error", t);
+                Logger.e(Logger.TAG_CONFIG_LOAD, "Test email network error", t);
                 String errorMsg = getString(R.string.error_network_connection);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
                     errorMsg = getString(R.string.error_network_timeout);

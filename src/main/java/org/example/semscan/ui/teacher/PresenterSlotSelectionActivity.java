@@ -239,7 +239,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                 // If slot is in the past (before today), skip it
             } catch (ParseException e) {
                 // If parsing fails, include the slot (better to show than hide)
-                Logger.w(Logger.TAG_UI, "Failed to parse slot date/time: " + slot.date + " " + slot.timeRange + " - " + e.getMessage());
+                Logger.w(Logger.TAG_SLOTS_LOAD, "Failed to parse slot date/time: " + slot.date + " " + slot.timeRange + " - " + e.getMessage());
                 futureSlots.add(slot);
             }
         }
@@ -271,14 +271,14 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                 if (response.body().slotCatalog != null) {
                     for (ApiService.SlotCard slot : response.body().slotCatalog) {
                         // Log waiting list status for all slots to debug (both local and server)
-                        String wlStatus = "Slot " + slot.slotId + " waiting list: onWaitingList=" + 
-                            slot.onWaitingList + ", waitingListCount=" + slot.waitingListCount + 
+                        String wlStatus = "Slot " + slot.slotId + " waiting list: onWaitingList=" +
+                            slot.onWaitingList + ", waitingListCount=" + slot.waitingListCount +
                             ", waitingListUserName=" + slot.waitingListUserName;
-                        Logger.i(Logger.TAG_API, wlStatus);
+                        Logger.i(Logger.TAG_SLOTS_LOAD, wlStatus);
                         if (serverLogger != null) {
-                            serverLogger.i(ServerLogger.TAG_API, wlStatus);
+                            serverLogger.i(ServerLogger.TAG_SLOTS_LOAD, wlStatus);
                         }
-                        
+
                         // WARNING: If backend doesn't return waitingListCount, it defaults to 0
                         // Backend MUST include waitingListCount in JSON response for ALL slots
                         // This is required so all users can see if someone is on the waiting list
@@ -286,35 +286,35 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             // This shouldn't happen - if user is on waiting list, count should be at least 1
                             String warning = "WARNING: Slot " + slot.slotId + " has onWaitingList=true but waitingListCount=0. " +
                                 "Backend may not be returning waitingListCount field in JSON response.";
-                            Logger.w(Logger.TAG_API, warning);
+                            Logger.w(Logger.TAG_SLOTS_LOAD, warning);
                             if (serverLogger != null) {
-                                serverLogger.w(ServerLogger.TAG_API, warning);
+                                serverLogger.w(ServerLogger.TAG_SLOTS_LOAD, warning);
                             }
                         }
-                        
+
                         // If backend didn't return onWaitingList=true but we just joined, fix it locally
-                        if (lastJoinedWaitingListSlotId != null && slot.slotId != null && 
+                        if (lastJoinedWaitingListSlotId != null && slot.slotId != null &&
                             slot.slotId.equals(lastJoinedWaitingListSlotId) && !slot.onWaitingList) {
                             String fixMsg = "Backend didn't return onWaitingList=true for slot " + slot.slotId + " we just joined, fixing locally";
-                            Logger.w(Logger.TAG_API, fixMsg);
+                            Logger.w(Logger.TAG_SLOTS_LOAD, fixMsg);
                             if (serverLogger != null) {
-                                serverLogger.w(ServerLogger.TAG_API, fixMsg);
+                                serverLogger.w(ServerLogger.TAG_SLOTS_LOAD, fixMsg);
                             }
                             slot.onWaitingList = true;
                             if (slot.waitingListCount <= 0) {
                                 slot.waitingListCount = 1;
                             }
                         }
-                        
+
                         // IMPORTANT: If backend returns waitingListCount=0 but someone is on waiting list,
                         // we need to detect this. The backend should return waitingListCount > 0 for ALL users
                         // when someone is on the waiting list, not just when the current user is on it.
                         // For now, if onWaitingList=true but waitingListCount=0, set it to 1
                         if (slot.onWaitingList && slot.waitingListCount <= 0) {
                             String fixCountMsg = "Slot " + slot.slotId + " has onWaitingList=true but waitingListCount=0, fixing to 1";
-                            Logger.w(Logger.TAG_API, fixCountMsg);
+                            Logger.w(Logger.TAG_SLOTS_LOAD, fixCountMsg);
                             if (serverLogger != null) {
-                                serverLogger.w(ServerLogger.TAG_API, fixCountMsg);
+                                serverLogger.w(ServerLogger.TAG_SLOTS_LOAD, fixCountMsg);
                             }
                             slot.waitingListCount = 1;
                         }
@@ -339,16 +339,16 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     errorMessage = getString(R.string.error_server_unavailable);
                 }
                 Toast.makeText(PresenterSlotSelectionActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
-                Logger.e(Logger.TAG_API, "Failed to load presenter home", t);
+                Logger.e(Logger.TAG_SLOTS_LOAD, "Failed to load presenter home", t);
             }
         });
     }
 
     @Override
     public void onRegisterClicked(ApiService.SlotCard slot) {
-        Logger.userAction("Register Slot", "User clicked register for slot=" + (slot != null ? slot.slotId : "null"));
+        Logger.i(Logger.TAG_REGISTER_REQUEST, "User clicked register for slot=" + (slot != null ? slot.slotId : "null"));
         if (serverLogger != null) {
-            serverLogger.userAction("Register Slot", "User clicked register for slot=" + (slot != null ? slot.slotId : "null"));
+            serverLogger.i(ServerLogger.TAG_REGISTER_REQUEST, "User clicked register for slot=" + (slot != null ? slot.slotId : "null"));
         }
         
         // Check registration limits BEFORE showing dialog
@@ -364,9 +364,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
     @Override
     public void onJoinWaitingList(ApiService.SlotCard slot) {
-        Logger.userAction("Join Waiting List", "User clicked join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+        Logger.i(Logger.TAG_WAITING_LIST_JOIN, "User clicked join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
         if (serverLogger != null) {
-            serverLogger.userAction("Join Waiting List", "User clicked join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+            serverLogger.i(ServerLogger.TAG_WAITING_LIST_JOIN, "User clicked join waiting list for slot=" + (slot != null ? slot.slotId : "null"));
         }
         
         // Check waiting list limit before showing dialog (user can only be on 1 waiting list at a time)
@@ -401,9 +401,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
     @Override
     public void onCancelWaitingList(ApiService.SlotCard slot) {
-        Logger.userAction("Cancel Waiting List", "User clicked cancel waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+        Logger.i(Logger.TAG_WAITING_LIST_LEAVE, "User clicked cancel waiting list for slot=" + (slot != null ? slot.slotId : "null"));
         if (serverLogger != null) {
-            serverLogger.userAction("Cancel Waiting List", "User clicked cancel waiting list for slot=" + (slot != null ? slot.slotId : "null"));
+            serverLogger.i(ServerLogger.TAG_WAITING_LIST_LEAVE, "User clicked cancel waiting list for slot=" + (slot != null ? slot.slotId : "null"));
         }
         leaveWaitingList(slot);
     }
@@ -412,9 +412,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
     public void onSlotClicked(ApiService.SlotCard slot, boolean isFull) {
         String action = isFull ? "Full Slot Clicked" : "Slot Clicked";
         String details = "User clicked slot=" + (slot != null ? slot.slotId : "null") + ", isFull=" + isFull;
-        Logger.userAction(action, details);
+        Logger.i(Logger.TAG_SLOT_DETAILS, details);
         if (serverLogger != null) {
-            serverLogger.userAction(action, details);
+            serverLogger.i(ServerLogger.TAG_SLOT_DETAILS, details);
         }
     }
 
@@ -437,24 +437,26 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             boolean isPhd = "PhD".equalsIgnoreCase(degree);
 
             if (isPhd) {
-                // Show PhD warning dialog
+                // Show PhD info dialog
                 new AlertDialog.Builder(this)
-                    .setTitle("PhD Waiting List Notice")
-                    .setMessage("As a PhD student, your presentation is 40 minutes (MSc is 20 minutes).\n\n" +
-                               "This means you will only be promoted from the waiting list when 40 minutes of presentation time become available.\n\n" +
-                               "MSc students may be promoted before you if only 20 minutes open up.")
+                    .setTitle("PhD Waiting List")
+                    .setMessage("As a PhD student, your presentation takes the whole slot.\n\n" +
+                               "The waiting list works on a first-come-first-served basis. " +
+                               "If you join first, only other PhD students can join after you. " +
+                               "If an MSc student joined first, only MSc students can join.\n\n" +
+                               "When a spot opens up, you'll be notified.")
                     .setPositiveButton("OK, Join Waiting List", (dialog, which) -> {
-                        Logger.i(Logger.TAG_UI, "PhD user confirmed joining waiting list: topic=" + savedTopic.trim());
+                        Logger.i(Logger.TAG_REGISTER_REQUEST, "PhD user confirmed joining waiting list: topic=" + savedTopic.trim());
                         if (serverLogger != null) {
-                            serverLogger.i(ServerLogger.TAG_UI, "PhD user confirmed joining waiting list for slot=" +
+                            serverLogger.i(ServerLogger.TAG_REGISTER_REQUEST, "PhD user confirmed joining waiting list for slot=" +
                                 (slot != null ? slot.slotId : "null"));
                         }
                         performJoinWaitingList(slot, savedTopic.trim());
                     })
                     .setNegativeButton("Cancel", (dialog, which) -> {
-                        Logger.i(Logger.TAG_UI, "PhD user cancelled joining waiting list");
+                        Logger.i(Logger.TAG_REGISTER_REQUEST, "PhD user cancelled joining waiting list");
                         if (serverLogger != null) {
-                            serverLogger.i(ServerLogger.TAG_UI, "PhD user cancelled joining waiting list for slot=" +
+                            serverLogger.i(ServerLogger.TAG_REGISTER_REQUEST, "PhD user cancelled joining waiting list for slot=" +
                                 (slot != null ? slot.slotId : "null"));
                         }
                         // Do nothing - user cancelled
@@ -462,10 +464,10 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     .show();
             } else {
                 // MSc - proceed directly without dialog
-                Logger.i(Logger.TAG_UI, "Joining waiting list with settings: topic=" + savedTopic.trim() +
+                Logger.i(Logger.TAG_REGISTER_REQUEST, "Joining waiting list with settings: topic=" + savedTopic.trim() +
                     ", abstractLength=" + savedAbstract.trim().length());
                 if (serverLogger != null) {
-                    serverLogger.i(ServerLogger.TAG_UI, "Joining waiting list with settings for slot=" +
+                    serverLogger.i(ServerLogger.TAG_REGISTER_REQUEST, "Joining waiting list with settings for slot=" +
                         (slot != null ? slot.slotId : "null"));
                 }
                 performJoinWaitingList(slot, savedTopic.trim());
@@ -481,9 +483,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                 missing = "abstract";
             }
 
-            Logger.w(Logger.TAG_UI, "Cannot join waiting list - missing " + missing + " in Settings");
+            Logger.w(Logger.TAG_REGISTER_REQUEST, "Cannot join waiting list - missing " + missing + " in Settings");
             if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, "Cannot join waiting list - missing " + missing +
+                serverLogger.w(ServerLogger.TAG_REGISTER_REQUEST, "Cannot join waiting list - missing " + missing +
                     " in Settings, slot=" + (slot != null ? slot.slotId : "null"));
             }
 
@@ -505,9 +507,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         }
         
         if (slot == null || slot.slotId == null) {
-            Logger.e(Logger.TAG_UI, "Join waiting list failed - slot is null");
+            Logger.e(Logger.TAG_REGISTER_REQUEST, "Join waiting list failed - slot is null");
             if (serverLogger != null) {
-                serverLogger.e(ServerLogger.TAG_UI, "Join waiting list failed - slot is null");
+                serverLogger.e(ServerLogger.TAG_REGISTER_REQUEST, "Join waiting list failed - slot is null");
             }
             Toast.makeText(this, "Invalid slot", Toast.LENGTH_SHORT).show();
             return;
@@ -515,9 +517,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
         String username = preferencesManager.getUserName();
         if (TextUtils.isEmpty(username)) {
-            Logger.e(Logger.TAG_UI, "Join waiting list failed - username is empty");
+            Logger.e(Logger.TAG_REGISTER_REQUEST, "Join waiting list failed - username is empty");
             if (serverLogger != null) {
-                serverLogger.e(ServerLogger.TAG_UI, "Join waiting list failed - username is empty");
+                serverLogger.e(ServerLogger.TAG_REGISTER_REQUEST, "Join waiting list failed - username is empty");
             }
             Toast.makeText(this, R.string.presenter_start_session_error_no_user, Toast.LENGTH_LONG).show();
             return;
@@ -529,9 +531,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
         // Validate supervisor info is set in settings
         if (TextUtils.isEmpty(supervisorName) || TextUtils.isEmpty(supervisorEmail)) {
-            Logger.e(Logger.TAG_UI, "Join waiting list failed - supervisor info missing. Name=" + supervisorName + ", Email=" + supervisorEmail);
+            Logger.e(Logger.TAG_REGISTER_REQUEST, "Join waiting list failed - supervisor info missing. Name=" + supervisorName + ", Email=" + supervisorEmail);
             if (serverLogger != null) {
-                serverLogger.e(ServerLogger.TAG_UI, "Join waiting list failed - supervisor info missing. Name=" + supervisorName + ", Email=" + supervisorEmail);
+                serverLogger.e(ServerLogger.TAG_REGISTER_REQUEST, "Join waiting list failed - supervisor info missing. Name=" + supervisorName + ", Email=" + supervisorEmail);
             }
             Toast.makeText(this, R.string.presenter_home_supervisor_info_required, Toast.LENGTH_LONG).show();
             startActivity(new Intent(this, SettingsActivity.class));
@@ -561,9 +563,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                         }
                         
                         if (response.isSuccessful() && response.body() != null && response.body().ok) {
-                            Logger.i(Logger.TAG_API, "Successfully joined waiting list for slot=" + slot.slotId);
+                            Logger.i(Logger.TAG_REGISTER_RESPONSE, "Successfully joined waiting list for slot=" + slot.slotId);
                             if (serverLogger != null) {
-                                serverLogger.i(ServerLogger.TAG_API, "Successfully joined waiting list for slot=" + slot.slotId + 
+                                serverLogger.i(ServerLogger.TAG_REGISTER_RESPONSE, "Successfully joined waiting list for slot=" + slot.slotId + 
                                         ", user=" + normalizedUsername);
                             }
                             // Remember that we just joined this slot's waiting list
@@ -585,7 +587,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             } else if (response.errorBody() != null) {
                                 try {
                                     String errorBodyString = response.errorBody().string();
-                                    Logger.i(Logger.TAG_API, "Join waiting list error response body: " + errorBodyString);
+                                    Logger.i(Logger.TAG_REGISTER_RESPONSE, "Join waiting list error response body: " + errorBodyString);
                                     
                                     // Try to parse JSON error body
                                     try {
@@ -607,7 +609,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                         }
                                     }
                                 } catch (Exception e) {
-                                    Logger.e(Logger.TAG_API, "Failed to read error body", e);
+                                    Logger.e(Logger.TAG_REGISTER_RESPONSE, "Failed to read error body", e);
                                 }
                             }
                             
@@ -623,9 +625,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                         String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
                         String errorDetails = "Join waiting list network failure - URL: " + requestUrl + 
                                 ", Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
-                        Logger.e(Logger.TAG_API, errorDetails, t);
+                        Logger.e(Logger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         if (serverLogger != null) {
-                            serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                            serverLogger.e(ServerLogger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         }
                         
                         String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(
@@ -685,9 +687,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                         }
                         
                         if (response.isSuccessful() && response.body() != null && response.body().ok) {
-                            Logger.i(Logger.TAG_API, "Successfully left waiting list for slot=" + slot.slotId);
+                            Logger.i(Logger.TAG_REGISTER_RESPONSE, "Successfully left waiting list for slot=" + slot.slotId);
                             if (serverLogger != null) {
-                                serverLogger.i(ServerLogger.TAG_API, "Successfully left waiting list for slot=" + slot.slotId + 
+                                serverLogger.i(ServerLogger.TAG_REGISTER_RESPONSE, "Successfully left waiting list for slot=" + slot.slotId + 
                                         ", user=" + normalizedUsername);
                             }
                             // Clear tracking if we left the waiting list
@@ -711,7 +713,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             } else if (response.errorBody() != null) {
                                 try {
                                     String errorBodyString = response.errorBody().string();
-                                    Logger.i(Logger.TAG_API, "Leave waiting list error response body: " + errorBodyString);
+                                    Logger.i(Logger.TAG_REGISTER_RESPONSE, "Leave waiting list error response body: " + errorBodyString);
                                     
                                     // Try to parse JSON error body
                                     try {
@@ -733,7 +735,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                         }
                                     }
                                 } catch (Exception e) {
-                                    Logger.e(Logger.TAG_API, "Failed to read error body", e);
+                                    Logger.e(Logger.TAG_REGISTER_RESPONSE, "Failed to read error body", e);
                                 }
                             }
                             
@@ -749,9 +751,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                         String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
                         String errorDetails = "Leave waiting list network failure - URL: " + requestUrl + 
                                 ", Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
-                        Logger.e(Logger.TAG_API, errorDetails, t);
+                        Logger.e(Logger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         if (serverLogger != null) {
-                            serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                            serverLogger.e(ServerLogger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         }
                         
                         String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(
@@ -764,9 +766,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
     }
     
     private void showRegistrationDialog(ApiService.SlotCard slot) {
-        Logger.i(Logger.TAG_UI, "Showing registration confirmation dialog for slot=" + (slot != null ? slot.slotId : "null"));
+        Logger.i(Logger.TAG_REGISTER_REQUEST, "Showing registration confirmation dialog for slot=" + (slot != null ? slot.slotId : "null"));
         if (serverLogger != null) {
-            serverLogger.i(ServerLogger.TAG_UI, "Showing registration confirmation dialog for slot=" + (slot != null ? slot.slotId : "null"));
+            serverLogger.i(ServerLogger.TAG_REGISTER_REQUEST, "Showing registration confirmation dialog for slot=" + (slot != null ? slot.slotId : "null"));
         }
 
         // Get all presentation details from saved preferences
@@ -785,11 +787,11 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         if (!hasTopic || !hasAbstract || !hasSupervisorName || !hasSupervisorEmail) {
             // Presentation details not complete - redirect to home to fill them
             Toast.makeText(this, R.string.registration_details_incomplete, Toast.LENGTH_LONG).show();
-            Logger.w(Logger.TAG_UI, "Registration blocked - presentation details incomplete: " +
+            Logger.w(Logger.TAG_REGISTER_REQUEST, "Registration blocked - presentation details incomplete: " +
                     "topic=" + hasTopic + ", abstract=" + hasAbstract +
                     ", supervisorName=" + hasSupervisorName + ", supervisorEmail=" + hasSupervisorEmail);
             if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked - presentation details incomplete");
+                serverLogger.w(ServerLogger.TAG_REGISTER_REQUEST, "Registration blocked - presentation details incomplete");
             }
             // Go back to home to fill in details
             finish();
@@ -845,33 +847,34 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         // Get student degree to check PhD capacity requirement
         String degree = preferencesManager.getDegree();
         boolean isPhd = "PhD".equalsIgnoreCase(degree);
-        int requiredCapacity = isPhd ? 2 : 1; // PhD needs 2 slots, MSc needs 1
+        int phdWeight = ConfigManager.getInstance(this).getPhdCapacityWeight();
+        int requiredCapacity = isPhd ? phdWeight : 1; // PhD takes whole slot, MSc needs 1
 
         // Log capacity check for debugging
         String capacityCheck = String.format("Slot %d capacity check: approved=%d, pending=%d, total=%d, capacity=%d, available=%d, isPhd=%s, isFull=%s",
             slot != null ? slot.slotId : "null", approved, pending, totalOccupied, slot != null ? slot.capacity : 0, availableCapacity, isPhd, isFull);
-        Logger.i(Logger.TAG_UI, capacityCheck);
+        Logger.i(Logger.TAG_REGISTER_REQUEST, capacityCheck);
         if (serverLogger != null) {
-            serverLogger.i(ServerLogger.TAG_UI, capacityCheck);
+            serverLogger.i(ServerLogger.TAG_REGISTER_REQUEST, capacityCheck);
         }
 
-        // Check if PhD student doesn't have enough capacity (needs 40 min = 2 spots)
+        // Check if PhD student doesn't have enough capacity (PhD takes whole slot)
         if (isPhd && availableCapacity > 0 && availableCapacity < requiredCapacity) {
-            String phdMsg = "As a PhD student, your presentation requires 40 minutes.\n\n" +
-                           "This seminar only has 20 minutes available.\n\n" +
-                           "You can join the waiting list instead, and you'll be notified when enough time opens up.";
-            Logger.w(Logger.TAG_UI, "Registration blocked - PhD needs 2 slots but only " + availableCapacity + " available: " + capacityCheck);
+            String phdMsg = "As a PhD student, your presentation takes the whole slot.\n\n" +
+                           "This slot doesn't have enough capacity available.\n\n" +
+                           "You can join the waiting list instead, and you'll be notified when a spot opens up.";
+            Logger.w(Logger.TAG_REGISTER_REQUEST, "Registration blocked - PhD needs " + requiredCapacity + " capacity but only " + availableCapacity + " available: " + capacityCheck);
             if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked - PhD needs 2 slots but only " + availableCapacity + " available: " + capacityCheck);
+                serverLogger.w(ServerLogger.TAG_REGISTER_REQUEST, "Registration blocked - PhD needs " + requiredCapacity + " capacity but only " + availableCapacity + " available: " + capacityCheck);
             }
             return phdMsg;
         }
 
         if (isFull) {
             String fullMsg = "This slot is full (" + totalOccupied + "/" + slot.capacity + ").\n\nYou can join the waiting list instead.";
-            Logger.w(Logger.TAG_UI, "Registration blocked - slot is full: " + capacityCheck);
+            Logger.w(Logger.TAG_REGISTER_REQUEST, "Registration blocked - slot is full: " + capacityCheck);
             if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked - slot is full: " + capacityCheck);
+                serverLogger.w(ServerLogger.TAG_REGISTER_REQUEST, "Registration blocked - slot is full: " + capacityCheck);
             }
             return fullMsg;
         }
@@ -954,9 +957,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         // Note: Business rule is "once per degree" but not strictly enforced
         if (approvedCount >= 1) {
             String limitMsg = "Registration limit reached: Already have 1 approved registration (max 1 at a time)";
-            Logger.w(Logger.TAG_UI, limitMsg);
+            Logger.w(Logger.TAG_REGISTER_REQUEST, limitMsg);
             if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, limitMsg + ", slot=" + (slot != null ? slot.slotId : "null"));
+                serverLogger.w(ServerLogger.TAG_REGISTER_REQUEST, limitMsg + ", slot=" + (slot != null ? slot.slotId : "null"));
             }
             Toast.makeText(this, 
                 "You already have an approved registration. " +
@@ -970,9 +973,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         if (pendingCount >= maxPending) {
             String limitMsg = String.format("Registration limit reached: %d pending approvals (max %d for %s)",
                     pendingCount, maxPending, isPhd ? "PhD" : "MSC");
-            Logger.w(Logger.TAG_UI, limitMsg);
+            Logger.w(Logger.TAG_REGISTER_REQUEST, limitMsg);
             if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, limitMsg + ", slot=" + (slot != null ? slot.slotId : "null"));
+                serverLogger.w(ServerLogger.TAG_REGISTER_REQUEST, limitMsg + ", slot=" + (slot != null ? slot.slotId : "null"));
             }
             Toast.makeText(this, 
                 String.format("You can only have %d pending approval%s at once. " +
@@ -989,10 +992,10 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         // See: onJoinWaitingList() for the waiting list limit check.
         
         // All checks passed
-        Logger.i(Logger.TAG_UI, "Registration limits check passed: approved=" + approvedCount + 
+        Logger.i(Logger.TAG_REGISTER_REQUEST, "Registration limits check passed: approved=" + approvedCount + 
                 ", pending=" + pendingCount);
         if (serverLogger != null) {
-            serverLogger.i(ServerLogger.TAG_UI, "Registration limits check passed: approved=" + approvedCount + 
+            serverLogger.i(ServerLogger.TAG_REGISTER_REQUEST, "Registration limits check passed: approved=" + approvedCount + 
                     ", pending=" + pendingCount + ", slot=" + (slot != null ? slot.slotId : "null"));
         }
         onSuccess.run();
@@ -1010,9 +1013,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         
         // Null check for slot parameter to prevent NullPointerException
         if (slot == null) {
-            Logger.e(Logger.TAG_UI, "Registration failed - slot is null");
+            Logger.e(Logger.TAG_REGISTER_REQUEST, "Registration failed - slot is null");
             if (serverLogger != null) {
-                serverLogger.e(ServerLogger.TAG_UI, "Registration failed - slot is null");
+                serverLogger.e(ServerLogger.TAG_REGISTER_REQUEST, "Registration failed - slot is null");
             }
             Toast.makeText(this, R.string.error_registration_failed, Toast.LENGTH_LONG).show();
             return;
@@ -1023,9 +1026,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         
         final String username = preferencesManager.getUserName();
         if (TextUtils.isEmpty(username)) {
-            Logger.e(Logger.TAG_UI, "Registration failed - username is empty");
+            Logger.e(Logger.TAG_REGISTER_REQUEST, "Registration failed - username is empty");
             if (serverLogger != null) {
-                serverLogger.e(ServerLogger.TAG_UI, "Registration failed - username is empty");
+                serverLogger.e(ServerLogger.TAG_REGISTER_REQUEST, "Registration failed - username is empty");
             }
             Toast.makeText(this, R.string.presenter_start_session_error_no_user, Toast.LENGTH_LONG).show();
             return;
@@ -1040,18 +1043,18 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         
         if (TextUtils.isEmpty(presenterEmail)) {
             String errorMsg = "Registration failed - presenter email is empty or null. User profile may not have email set.";
-            Logger.e("EMAIL_" + Logger.TAG_UI, errorMsg);
+            Logger.e("EMAIL_" + Logger.TAG_REGISTER_REQUEST, errorMsg);
             if (serverLogger != null) {
-                serverLogger.e("EMAIL_" + ServerLogger.TAG_UI, errorMsg + ", username=" + username);
+                serverLogger.e("EMAIL_" + ServerLogger.TAG_REGISTER_REQUEST, errorMsg + ", username=" + username);
             }
             Toast.makeText(this, R.string.presenter_home_presenter_email_required, Toast.LENGTH_LONG).show();
             return;
         }
         
         // Log presenter email status for debugging
-        Logger.i("EMAIL_" + Logger.TAG_UI, "Presenter email retrieved: " + (presenterEmail != null ? presenterEmail : "null"));
+        Logger.i("EMAIL_" + Logger.TAG_REGISTER_REQUEST, "Presenter email retrieved: " + (presenterEmail != null ? presenterEmail : "null"));
         if (serverLogger != null) {
-            serverLogger.i("EMAIL_" + ServerLogger.TAG_UI, "Presenter email retrieved: " + (presenterEmail != null ? presenterEmail : "null") + 
+            serverLogger.i("EMAIL_" + ServerLogger.TAG_REGISTER_REQUEST, "Presenter email retrieved: " + (presenterEmail != null ? presenterEmail : "null") + 
                 ", username=" + username);
         }
 
@@ -1079,16 +1082,17 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         // Get student degree to check PhD capacity requirement
         String degree = preferencesManager.getDegree();
         boolean isPhd = "PhD".equalsIgnoreCase(degree);
-        int requiredCapacity = isPhd ? 2 : 1;
+        int phdWeight = ConfigManager.getInstance(this).getPhdCapacityWeight();
+        int requiredCapacity = isPhd ? phdWeight : 1; // PhD takes whole slot, MSc needs 1
 
-        // Check if PhD student doesn't have enough capacity (needs 40 min = 2 spots)
+        // Check if PhD student doesn't have enough capacity (PhD takes whole slot)
         if (isPhd && availableCapacity > 0 && availableCapacity < requiredCapacity) {
-            String phdMsg = "As a PhD student, your presentation requires 40 minutes.\n\n" +
-                           "This seminar only has 20 minutes available.\n\n" +
+            String phdMsg = "As a PhD student, your presentation takes the whole slot.\n\n" +
+                           "This slot doesn't have enough capacity available.\n\n" +
                            "You can join the waiting list instead.";
-            Logger.w(Logger.TAG_UI, "Registration blocked at performRegistration - PhD needs 40 min but only 20 min available");
+            Logger.w(Logger.TAG_REGISTER_REQUEST, "Registration blocked at performRegistration - PhD needs " + requiredCapacity + " capacity but only " + availableCapacity + " available");
             if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked at performRegistration - PhD needs 2 slots but only " + availableCapacity + " available");
+                serverLogger.w(ServerLogger.TAG_REGISTER_REQUEST, "Registration blocked at performRegistration - PhD needs " + requiredCapacity + " capacity but only " + availableCapacity + " available");
             }
             Toast.makeText(this, phdMsg, Toast.LENGTH_LONG).show();
             return;
@@ -1096,11 +1100,11 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
         if (isFull) {
             String fullMsg = "This slot is full (" + totalOccupied + "/" + slot.capacity + ").\n\nYou can join the waiting list instead.";
-            Logger.w(Logger.TAG_UI, "Registration blocked at performRegistration - slot is full: slot=" +
+            Logger.w(Logger.TAG_REGISTER_REQUEST, "Registration blocked at performRegistration - slot is full: slot=" +
                 (slot != null ? slot.slotId : "null") + ", approved=" + approved + ", pending=" + pending +
                 ", total=" + totalOccupied + ", capacity=" + (slot != null ? slot.capacity : 0));
             if (serverLogger != null) {
-                serverLogger.w(ServerLogger.TAG_UI, "Registration blocked at performRegistration - slot is full: slot=" +
+                serverLogger.w(ServerLogger.TAG_REGISTER_REQUEST, "Registration blocked at performRegistration - slot is full: slot=" +
                     (slot != null ? slot.slotId : "null") + ", approved=" + approved + ", pending=" + pending +
                     ", total=" + totalOccupied + ", capacity=" + (slot != null ? slot.capacity : 0));
             }
@@ -1121,17 +1125,17 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                 normalizedSupervisorEmail != null ? normalizedSupervisorEmail : "null",
                 normalizedSupervisorName != null ? normalizedSupervisorName : "null",
                 normalizedTopic != null ? normalizedTopic : "null");
-            Logger.i("EMAIL_" + Logger.TAG_API, emailLogMsg);
+            Logger.i("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailLogMsg);
             if (serverLogger != null) {
-                serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailLogMsg);
+                serverLogger.i("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailLogMsg);
             }
             
             // Validate email addresses before sending (with detailed error messages)
             if (TextUtils.isEmpty(normalizedSupervisorEmail)) {
                 String emailError = "Supervisor email is empty or null";
-                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                Logger.e("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailError);
                 if (serverLogger != null) {
-                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId);
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailError + ", slot=" + slotId);
                 }
                 Toast.makeText(PresenterSlotSelectionActivity.this, "Supervisor email is required", Toast.LENGTH_LONG).show();
                 return;
@@ -1139,9 +1143,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             
             if (!Patterns.EMAIL_ADDRESS.matcher(normalizedSupervisorEmail).matches()) {
                 String emailError = "Invalid supervisor email format: " + normalizedSupervisorEmail;
-                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                Logger.e("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailError);
                 if (serverLogger != null) {
-                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId);
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailError + ", slot=" + slotId);
                 }
                 Toast.makeText(PresenterSlotSelectionActivity.this, "Invalid supervisor email format", Toast.LENGTH_LONG).show();
                 return;
@@ -1149,9 +1153,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             
             if (TextUtils.isEmpty(normalizedPresenterEmail)) {
                 String emailError = "Presenter email is empty or null";
-                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                Logger.e("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailError);
                 if (serverLogger != null) {
-                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId + ", username=" + normalizedUsername);
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailError + ", slot=" + slotId + ", username=" + normalizedUsername);
                 }
                 Toast.makeText(PresenterSlotSelectionActivity.this, "Presenter email is required. Please update your profile.", Toast.LENGTH_LONG).show();
                 return;
@@ -1159,9 +1163,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             
             if (!Patterns.EMAIL_ADDRESS.matcher(normalizedPresenterEmail).matches()) {
                 String emailError = "Invalid presenter email format: " + normalizedPresenterEmail;
-                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                Logger.e("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailError);
                 if (serverLogger != null) {
-                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId + ", username=" + normalizedUsername);
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailError + ", slot=" + slotId + ", username=" + normalizedUsername);
                 }
                 Toast.makeText(PresenterSlotSelectionActivity.this, "Invalid presenter email format. Please update your profile.", Toast.LENGTH_LONG).show();
                 return;
@@ -1174,18 +1178,18 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                 request.supervisorName != null ? request.supervisorName : "null",
                 request.supervisorEmail != null ? request.supervisorEmail : "null",
                 request.presenterEmail != null ? request.presenterEmail : "null");
-            Logger.i("EMAIL_" + Logger.TAG_API, requestDetails);
+            Logger.i("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, requestDetails);
             if (serverLogger != null) {
-                serverLogger.i("EMAIL_" + ServerLogger.TAG_API, requestDetails + ", slot=" + slotId);
+                serverLogger.i("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, requestDetails + ", slot=" + slotId);
             }
             
             // Additional validation to match backend requirements
             // Backend checks: email must contain "@" and be at least 5 chars
             if (normalizedSupervisorEmail != null && (normalizedSupervisorEmail.length() < 5 || !normalizedSupervisorEmail.contains("@"))) {
                 String emailError = "Supervisor email does not meet minimum requirements (must contain @ and be at least 5 chars): " + normalizedSupervisorEmail;
-                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                Logger.e("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailError);
                 if (serverLogger != null) {
-                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId);
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailError + ", slot=" + slotId);
                 }
                 Toast.makeText(PresenterSlotSelectionActivity.this, "Invalid supervisor email format", Toast.LENGTH_LONG).show();
                 return;
@@ -1193,9 +1197,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             
             if (normalizedPresenterEmail != null && (normalizedPresenterEmail.length() < 5 || !normalizedPresenterEmail.contains("@"))) {
                 String emailError = "Presenter email does not meet minimum requirements (must contain @ and be at least 5 chars): " + normalizedPresenterEmail;
-                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                Logger.e("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailError);
                 if (serverLogger != null) {
-                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + ", slot=" + slotId + ", username=" + normalizedUsername);
+                    serverLogger.e("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailError + ", slot=" + slotId + ", username=" + normalizedUsername);
                 }
                 Toast.makeText(PresenterSlotSelectionActivity.this, "Invalid presenter email format. Please update your profile.", Toast.LENGTH_LONG).show();
                 return;
@@ -1205,9 +1209,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
             String validationPassed = String.format("All email validations passed - supervisorEmail=%s (length=%d), presenterEmail=%s (length=%d)",
                 normalizedSupervisorEmail, normalizedSupervisorEmail != null ? normalizedSupervisorEmail.length() : 0,
                 normalizedPresenterEmail, normalizedPresenterEmail != null ? normalizedPresenterEmail.length() : 0);
-            Logger.i("EMAIL_" + Logger.TAG_API, validationPassed);
+            Logger.i("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, validationPassed);
             if (serverLogger != null) {
-                serverLogger.i("EMAIL_" + ServerLogger.TAG_API, validationPassed + ", slot=" + slotId);
+                serverLogger.i("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, validationPassed + ", slot=" + slotId);
             }
 
             String apiEndpoint = "api/v1/presenters/" + normalizedUsername + "/home/slots/" + slotId + "/register";
@@ -1236,18 +1240,18 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                 regResponse.message != null ? regResponse.message : "null",
                                 regResponse.registrationId != null ? regResponse.registrationId.toString() : "null",
                                 regResponse.approvalStatus != null ? regResponse.approvalStatus : "null");
-                            Logger.i(Logger.TAG_API, responseLog);
+                            Logger.i(Logger.TAG_REGISTER_RESPONSE, responseLog);
                             if (serverLogger != null) {
-                                serverLogger.i(ServerLogger.TAG_API, responseLog);
+                                serverLogger.i(ServerLogger.TAG_REGISTER_RESPONSE, responseLog);
                             }
                             
                             // Log email-related info from response
                             if (regResponse.message != null && (regResponse.message.toLowerCase().contains("email") || 
                                 regResponse.message.toLowerCase().contains("mail"))) {
                                 String emailMsg = "Email-related message in registration response: " + regResponse.message;
-                                Logger.w("EMAIL_" + Logger.TAG_API, emailMsg);
+                                Logger.w("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailMsg);
                                 if (serverLogger != null) {
-                                    serverLogger.w("EMAIL_" + ServerLogger.TAG_API, emailMsg);
+                                    serverLogger.w("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailMsg);
                                 }
                             }
                             
@@ -1275,18 +1279,18 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             if (response.errorBody() != null) {
                                 try {
                                     String errorBodyString = response.errorBody().string();
-                                    Logger.i(Logger.TAG_API, "Registration error response body: " + errorBodyString);
+                                    Logger.i(Logger.TAG_REGISTER_RESPONSE, "Registration error response body: " + errorBodyString);
                                     if (serverLogger != null) {
-                                        serverLogger.i(ServerLogger.TAG_API, "Registration error response body: " + errorBodyString + 
+                                        serverLogger.i(ServerLogger.TAG_REGISTER_RESPONSE, "Registration error response body: " + errorBodyString + 
                                             ", slot=" + slotId + ", supervisorEmail=" + supervisorEmail + ", presenterEmail=" + presenterEmail);
                                     }
                                     
                                     // Check if error mentions email issues
                                     if (errorBodyString.toLowerCase().contains("email") || errorBodyString.toLowerCase().contains("mail")) {
                                         String emailError = "Email-related error in registration: " + errorBodyString;
-                                        Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                                        Logger.e("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailError);
                                         if (serverLogger != null) {
-                                            serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + 
+                                            serverLogger.e("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailError + 
                                                 ", slot=" + slotId + ", supervisorEmail=" + supervisorEmail + ", presenterEmail=" + presenterEmail);
                                         }
                                     }
@@ -1320,9 +1324,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                             if (errorField != null && (errorField.toLowerCase().contains("email") || 
                                                 errorField.toLowerCase().contains("mail"))) {
                                                 String emailError = "Email error in registration response: " + errorField;
-                                                Logger.e("EMAIL_" + Logger.TAG_API, emailError);
+                                                Logger.e("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailError);
                                                 if (serverLogger != null) {
-                                                    serverLogger.e("EMAIL_" + ServerLogger.TAG_API, emailError + 
+                                                    serverLogger.e("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailError + 
                                                         ", slot=" + slotId + ", supervisorEmail=" + supervisorEmail);
                                                 }
                                             }
@@ -1362,7 +1366,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                         }
                                     }
                                 } catch (Exception e) {
-                                    Logger.e(Logger.TAG_API, "Failed to read error body", e);
+                                    Logger.e(Logger.TAG_REGISTER_RESPONSE, "Failed to read error body", e);
                                 }
                             }
                             
@@ -1374,11 +1378,11 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             
                             if (isLockTimeout) {
                                 // Log database lock timeout to app_logs
-                                Logger.e(Logger.TAG_API, "🚨 DATABASE LOCK TIMEOUT DETECTED | Response Code: " + response.code() + 
+                                Logger.e(Logger.TAG_REGISTER_RESPONSE, "🚨 DATABASE LOCK TIMEOUT DETECTED | Response Code: " + response.code() + 
                                     ", Error: " + rawErrorMessage);
                                 if (serverLogger != null) {
                                     String username = preferencesManager.getUserName();
-                                    serverLogger.e(ServerLogger.TAG_API, "🚨 DATABASE LOCK TIMEOUT | " +
+                                    serverLogger.e(ServerLogger.TAG_REGISTER_RESPONSE, "🚨 DATABASE LOCK TIMEOUT | " +
                                         "Response Code: " + response.code() + 
                                         ", Error Message: " + rawErrorMessage + 
                                         ", Presenter: " + (username != null ? username : "unknown") + 
@@ -1407,21 +1411,21 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                         ApiService.PresenterRegisterResponse body = response.body();
                         String code = body.code != null ? body.code : "";
                         if (serverLogger != null) {
-                            serverLogger.i(ServerLogger.TAG_API, "Registration response code: " + code + 
+                            serverLogger.i(ServerLogger.TAG_REGISTER_RESPONSE, "Registration response code: " + code + 
                                     ", message: " + (body.message != null ? body.message : "null"));
                         }
                         switch (code) {
                             case "PENDING_APPROVAL":
-                                Logger.i(Logger.TAG_API, "Registration pending approval for slot=" + slot.slotId);
+                                Logger.i(Logger.TAG_REGISTER_RESPONSE, "Registration pending approval for slot=" + slot.slotId);
                                 if (serverLogger != null) {
                                     String pendingLog = String.format("Registration pending approval - slot=%d, presenter=%s, supervisorEmail=%s, presenterEmail=%s, supervisorName=%s",
                                         slot.slotId, normalizedUsername, normalizedSupervisorEmail, normalizedPresenterEmail, normalizedSupervisorName);
-                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, pendingLog);
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, pendingLog);
                                     // Log that email should have been sent to supervisor
                                     String emailExpectedLog = String.format("Expected email to supervisor - slot=%d, supervisorEmail=%s, supervisorName=%s, presenterEmail=%s",
                                         slot.slotId, normalizedSupervisorEmail, normalizedSupervisorName, normalizedPresenterEmail);
-                                    Logger.i("EMAIL_" + Logger.TAG_API, emailExpectedLog);
-                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailExpectedLog);
+                                    Logger.i("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailExpectedLog);
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailExpectedLog);
                                 }
                                 // Show enhanced message with supervisor name
                                 String pendingMessage;
@@ -1434,16 +1438,16 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                                 loadSlots(); // Refresh to show pending status
                                 break;
                             case "REGISTERED":
-                                Logger.i(Logger.TAG_API, "Registration successful for slot=" + slot.slotId);
+                                Logger.i(Logger.TAG_REGISTER_RESPONSE, "Registration successful for slot=" + slot.slotId);
                                 if (serverLogger != null) {
                                     String successLog = String.format("Registration successful - slot=%d, presenter=%s, supervisorEmail=%s, presenterEmail=%s, supervisorName=%s",
                                         slot.slotId, normalizedUsername, normalizedSupervisorEmail, normalizedPresenterEmail, normalizedSupervisorName);
-                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, successLog);
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, successLog);
                                     // Log that email should have been sent to supervisor
                                     String emailExpectedLog = String.format("Expected email to supervisor - slot=%d, supervisorEmail=%s, supervisorName=%s, presenterEmail=%s",
                                         slot.slotId, normalizedSupervisorEmail, normalizedSupervisorName, normalizedPresenterEmail);
-                                    Logger.i("EMAIL_" + Logger.TAG_API, emailExpectedLog);
-                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_API, emailExpectedLog);
+                                    Logger.i("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailExpectedLog);
+                                    serverLogger.i("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailExpectedLog);
                                 }
                                 Toast.makeText(PresenterSlotSelectionActivity.this, R.string.presenter_home_register_success, Toast.LENGTH_LONG).show();
 
@@ -1478,17 +1482,17 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                         String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
                         String errorDetails = String.format("Slot registration network failure - URL: %s, Error: %s, Message: %s, slot=%d, supervisorEmail=%s, presenterEmail=%s",
                             requestUrl, t.getClass().getSimpleName(), t.getMessage(), slotId, supervisorEmail, presenterEmail);
-                        Logger.e(Logger.TAG_API, errorDetails, t);
+                        Logger.e(Logger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         if (serverLogger != null) {
-                            serverLogger.e(ServerLogger.TAG_API, errorDetails, t);
+                            serverLogger.e(ServerLogger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         }
                         
                         // Note: If registration fails due to network error, email won't be sent
                         String emailNote = String.format("Registration failed - email NOT sent due to network error - slot=%d, supervisorEmail=%s",
                             slotId, supervisorEmail);
-                        Logger.w("EMAIL_" + Logger.TAG_API, emailNote);
+                        Logger.w("EMAIL_" + Logger.TAG_REGISTER_RESPONSE, emailNote);
                         if (serverLogger != null) {
-                            serverLogger.w("EMAIL_" + ServerLogger.TAG_API, emailNote);
+                            serverLogger.w("EMAIL_" + ServerLogger.TAG_REGISTER_RESPONSE, emailNote);
                         }
                         
                         String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(
@@ -1553,9 +1557,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                     if (current != null && "APPROVED".equals(current.approvalStatus)) {
                         // User is now approved - they were approved from waiting list!
                         approvedFromWaitingListSlotId = previous.slotId;
-                        Logger.i(Logger.TAG_UI, "User approved from waiting list for slot=" + previous.slotId);
+                        Logger.i(Logger.TAG_REGISTER_REQUEST, "User approved from waiting list for slot=" + previous.slotId);
                         if (serverLogger != null) {
-                            serverLogger.i(ServerLogger.TAG_UI, "User approved from waiting list for slot=" + previous.slotId);
+                            serverLogger.i(ServerLogger.TAG_REGISTER_REQUEST, "User approved from waiting list for slot=" + previous.slotId);
                         }
                     }
                 }
@@ -1577,9 +1581,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             }
                             cancelledSlotDetails.add(slotInfo);
                         }
-                        Logger.i(Logger.TAG_UI, "Pending registration cancelled for slot=" + previous.slotId);
+                        Logger.i(Logger.TAG_REGISTER_REQUEST, "Pending registration cancelled for slot=" + previous.slotId);
                         if (serverLogger != null) {
-                            serverLogger.i(ServerLogger.TAG_UI, "Pending registration cancelled for slot=" + previous.slotId);
+                            serverLogger.i(ServerLogger.TAG_REGISTER_REQUEST, "Pending registration cancelled for slot=" + previous.slotId);
                         }
                     }
                 }

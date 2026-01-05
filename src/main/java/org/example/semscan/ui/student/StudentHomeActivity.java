@@ -46,7 +46,7 @@ public class StudentHomeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_student_home);
 
-        Logger.i(Logger.TAG_UI, "StudentHomeActivity created");
+        Logger.i(Logger.TAG_SCREEN_VIEW, "StudentHomeActivity created");
         Logger.userAction("Open Student Home", "Student home screen opened");
 
         preferencesManager = PreferencesManager.getInstance(this);
@@ -59,16 +59,16 @@ public class StudentHomeActivity extends AppCompatActivity {
         serverLogger.updateUserContext(username, userRole);
 
         // Test logging to verify student context
-        serverLogger.i(ServerLogger.TAG_UI, "StudentHomeActivity created - User: " + username + ", Role: " + userRole);
+        serverLogger.i(ServerLogger.TAG_SCREEN_VIEW, "StudentHomeActivity created - User: " + username + ", Role: " + userRole);
 
         // Check if user is actually a participant
         if (!preferencesManager.isParticipant()) {
-            Logger.w(Logger.TAG_UI, "User is not a participant, navigating to role picker");
+            Logger.w(Logger.TAG_NAVIGATION, "User is not a participant, navigating to role picker");
             navigateToRolePicker();
             return;
         }
 
-        Logger.i(Logger.TAG_UI, "Student user authenticated, setting up UI");
+        Logger.i(Logger.TAG_SCREEN_VIEW, "Student user authenticated, setting up UI");
         if (serverLogger != null) {
             serverLogger.userAction("Student Authenticated", "Student home setup initialized");
         }
@@ -172,10 +172,10 @@ public class StudentHomeActivity extends AppCompatActivity {
     }
     
     private void checkForOpenSessions() {
-        Logger.i(Logger.TAG_UI, "Checking for open sessions before opening QR scanner");
+        Logger.i(Logger.TAG_QR_SCAN, "Checking for open sessions before opening QR scanner");
         
         if (serverLogger != null) {
-            serverLogger.i(ServerLogger.TAG_UI, "CHECKING OPEN SESSIONS - Before opening QR scanner");
+            serverLogger.i(ServerLogger.TAG_QR_SCAN, "CHECKING OPEN SESSIONS - Before opening QR scanner");
         }
         
         Call<List<Session>> call = apiService.getOpenSessions();
@@ -196,24 +196,24 @@ public class StudentHomeActivity extends AppCompatActivity {
                         }
                     }
                     
-                    Logger.i(Logger.TAG_UI, "Found " + openSessions.size() + " open sessions");
-                    
+                    Logger.i(Logger.TAG_QR_SCAN, "Found " + openSessions.size() + " open sessions");
+
                     if (serverLogger != null) {
-                        serverLogger.i(ServerLogger.TAG_UI, "OPEN SESSIONS CHECK - Found " + openSessions.size() + " open sessions");
+                        serverLogger.i(ServerLogger.TAG_QR_SCAN, "OPEN SESSIONS CHECK - Found " + openSessions.size() + " open sessions");
                     }
                     
                     if (openSessions.isEmpty()) {
                         // No open sessions - show error and don't open scanner
-                        Logger.w(Logger.TAG_UI, "No open sessions available - preventing QR scanner from opening");
-                        
+                        Logger.w(Logger.TAG_QR_SCAN, "No open sessions available - preventing QR scanner from opening");
+
                         if (serverLogger != null) {
-                            serverLogger.w(ServerLogger.TAG_UI, "QR SCANNER BLOCKED - No open sessions available");
+                            serverLogger.w(ServerLogger.TAG_QR_SCAN, "QR SCANNER BLOCKED - No open sessions available");
                         }
                         
                         showNoSessionsError();
                     } else {
                         // Open sessions available - proceed to open scanner
-                        Logger.i(Logger.TAG_UI, "Open sessions available - opening QR scanner");
+                        Logger.i(Logger.TAG_QR_SCAN, "Open sessions available - opening QR scanner");
                         
                         if (serverLogger != null) {
                             serverLogger.userAction("Navigate", "Launching ModernQRScannerActivity - " + openSessions.size() + " open sessions available");
@@ -224,10 +224,10 @@ public class StudentHomeActivity extends AppCompatActivity {
                     }
                 } else {
                     // API error - show error message
-                    Logger.e(Logger.TAG_UI, "Failed to check for open sessions - Status: " + response.code());
-                    
+                    Logger.e(Logger.TAG_QR_SCAN, "Failed to check for open sessions - Status: " + response.code());
+
                     if (serverLogger != null) {
-                        serverLogger.e(ServerLogger.TAG_UI, "FAILED TO CHECK OPEN SESSIONS - Status Code: " + response.code());
+                        serverLogger.e(ServerLogger.TAG_QR_SCAN, "FAILED TO CHECK OPEN SESSIONS - Status Code: " + response.code());
                     }
                     
                     showNoSessionsError();
@@ -236,10 +236,10 @@ public class StudentHomeActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<List<Session>> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Failed to check for open sessions", t);
-                
+                Logger.e(Logger.TAG_QR_SCAN, "Failed to check for open sessions", t);
+
                 if (serverLogger != null) {
-                    serverLogger.e(ServerLogger.TAG_UI, "NETWORK FAILURE - Failed to check open sessions: " + t.getMessage());
+                    serverLogger.e(ServerLogger.TAG_QR_SCAN, "NETWORK FAILURE - Failed to check open sessions: " + t.getMessage());
                 }
                 
                 // On network failure, show error but don't block (could be temporary network issue)
@@ -288,7 +288,7 @@ public class StudentHomeActivity extends AppCompatActivity {
         // Restore user data (username is critical for role selection)
         if (username != null && !username.isEmpty()) {
             preferencesManager.setUserName(username);
-            Logger.i(Logger.TAG_UI, "Preserved username when changing role: " + username);
+            Logger.i(Logger.TAG_NAVIGATION, "Preserved username when changing role: " + username);
         }
         if (firstName != null && !firstName.isEmpty()) {
             preferencesManager.setFirstName(firstName);
@@ -323,7 +323,7 @@ public class StudentHomeActivity extends AppCompatActivity {
     }
 
     private void performLogout() {
-        Logger.i(Logger.TAG_UI, "Performing logout");
+        Logger.i(Logger.TAG_LOGOUT, "Performing logout");
         if (serverLogger != null) {
             serverLogger.userAction("Logout", "Student logged out");
         }

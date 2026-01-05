@@ -62,7 +62,7 @@ public class ExportActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_export);
 
-        Logger.i(Logger.TAG_UI, "ExportActivity created");
+        Logger.i(Logger.TAG_EXPORT_REQUEST, "ExportActivity created");
 
         preferencesManager = PreferencesManager.getInstance(this);
         apiService = ApiClient.getInstance(this).getApiService();
@@ -85,7 +85,7 @@ public class ExportActivity extends AppCompatActivity {
             return;
         }
 
-        Logger.i(Logger.TAG_UI, "Auto-checking for pending requests on Export page open");
+        Logger.i(Logger.TAG_EXPORT_REQUEST, "Auto-checking for pending requests on Export page open");
 
         apiService.getPendingManualRequests(currentSessionId).enqueue(new Callback<List<ManualAttendanceResponse>>() {
             @Override
@@ -93,16 +93,16 @@ public class ExportActivity extends AppCompatActivity {
                                    Response<List<ManualAttendanceResponse>> response) {
                 if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
                     List<ManualAttendanceResponse> pendingRequests = response.body();
-                    Logger.i(Logger.TAG_UI, "Found " + pendingRequests.size() + " pending requests - showing review modal");
+                    Logger.i(Logger.TAG_EXPORT_REQUEST, "Found " + pendingRequests.size() + " pending requests - showing review modal");
                     showReviewModal(pendingRequests);
                 } else {
-                    Logger.i(Logger.TAG_UI, "No pending requests found on page open");
+                    Logger.i(Logger.TAG_EXPORT_REQUEST, "No pending requests found on page open");
                 }
             }
 
             @Override
             public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
-                Logger.w(Logger.TAG_UI, "Failed to check pending requests on open: " + t.getMessage());
+                Logger.w(Logger.TAG_EXPORT_REQUEST, "Failed to check pending requests on open: " + t.getMessage());
             }
         });
     }
@@ -152,10 +152,10 @@ public class ExportActivity extends AppCompatActivity {
         
         if (sessionDetails.length() > 0) {
             textSessionId.setText(sessionDetails.toString());
-            Logger.i(Logger.TAG_UI, "Export activity initialized with session details");
+            Logger.i(Logger.TAG_EXPORT_REQUEST, "Export activity initialized with session details");
         } else {
             textSessionId.setText("No session data available");
-            Logger.e(Logger.TAG_UI, "No session details provided in intent");
+            Logger.e(Logger.TAG_EXPORT_REQUEST, "No session details provided in intent");
         }
     }
     
@@ -197,7 +197,7 @@ public class ExportActivity extends AppCompatActivity {
         // API key no longer required - removed authentication
         
         if (currentSessionId == null || currentSessionId <= 0) {
-            Logger.e(Logger.TAG_UI, "Export failed - no session ID available");
+            Logger.e(Logger.TAG_EXPORT_REQUEST, "Export failed - no session ID available");
             ToastUtils.showError(this, "No session data available");
             return;
         }
@@ -248,7 +248,7 @@ public class ExportActivity extends AppCompatActivity {
                         try {
                             errorBody = response.errorBody().string();
                         } catch (Exception e) {
-                            Logger.e(Logger.TAG_UI, "Error reading pending requests response body", e);
+                            Logger.e(Logger.TAG_EXPORT_REQUEST, "Error reading pending requests response body", e);
                         }
                     }
                     
@@ -261,7 +261,7 @@ public class ExportActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Failed to check pending requests", t);
+                Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to check pending requests", t);
                 String errorMessage = getString(R.string.error_load_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
                     errorMessage = getString(R.string.error_network_timeout);
@@ -307,7 +307,7 @@ public class ExportActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Failed to refresh pending requests", t);
+                Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to refresh pending requests", t);
                 // Don't show error toast for refresh - it's just a background update
             }
         });
@@ -420,7 +420,7 @@ public class ExportActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<ManualAttendanceResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Failed to approve request", t);
+                Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to approve request", t);
                 String errorMessage = getString(R.string.error_operation_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
                     errorMessage = getString(R.string.error_network_timeout);
@@ -460,7 +460,7 @@ public class ExportActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<ManualAttendanceResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Failed to reject request", t);
+                Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to reject request", t);
                 String errorMessage = getString(R.string.error_operation_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
                     errorMessage = getString(R.string.error_network_timeout);
@@ -488,7 +488,7 @@ public class ExportActivity extends AppCompatActivity {
         // API key no longer required - removed authentication
         
         if (currentSessionId == null) {
-            Logger.e(Logger.TAG_UI, "Export failed - no session ID available");
+            Logger.e(Logger.TAG_EXPORT_REQUEST, "Export failed - no session ID available");
             ToastUtils.showError(this, "No session data available");
             return;
         }
@@ -497,7 +497,7 @@ public class ExportActivity extends AppCompatActivity {
         boolean isExcel = true;
         String formatLabel = "Excel (.xlsx)";
         
-        Logger.i(Logger.TAG_UI, "Starting export upload - Session ID: " + currentSessionId + ", Format: " + formatLabel);
+        Logger.i(Logger.TAG_EXPORT_REQUEST, "Starting export upload - Session ID: " + currentSessionId + ", Format: " + formatLabel);
         uploadSessionData(currentSessionId, isExcel);
     }
     
@@ -544,7 +544,7 @@ public class ExportActivity extends AppCompatActivity {
                         try {
                             errorBody = response.errorBody().string();
                         } catch (Exception e) {
-                            Logger.e(Logger.TAG_UI, "Error reading export upload response body", e);
+                            Logger.e(Logger.TAG_EXPORT_REQUEST, "Error reading export upload response body", e);
                         }
                     }
                     
@@ -569,7 +569,7 @@ public class ExportActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<ApiService.UploadResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Export upload network failure", t);
+                Logger.e(Logger.TAG_EXPORT_REQUEST, "Export upload network failure", t);
                 String errorMessage = getString(R.string.error_export_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
                     errorMessage = getString(R.string.error_network_timeout);
@@ -615,17 +615,17 @@ public class ExportActivity extends AppCompatActivity {
                         fos.write(response.body().bytes());
                         fos.close();
                         
-                        Logger.i(Logger.TAG_UI, "Export file saved: " + filename + " (" + file.length() + " bytes)");
+                        Logger.i(Logger.TAG_EXPORT_REQUEST, "Export file saved: " + filename + " (" + file.length() + " bytes)");
                         
                         // Share the file
                         shareFile(file, mimeType);
                         
-                        Logger.i(Logger.TAG_UI, "Export completed successfully - Session: " + sessionId);
+                        Logger.i(Logger.TAG_EXPORT_REQUEST, "Export completed successfully - Session: " + sessionId);
                         Toast.makeText(ExportActivity.this, "Export successful", Toast.LENGTH_SHORT).show();
                         
                         // Note: Navigation to home happens after email sending completes
                     } catch (IOException e) {
-                        Logger.e(Logger.TAG_UI, "Failed to save export file", e);
+                        Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to save export file", e);
                         Toast.makeText(ExportActivity.this, R.string.error_file_save_failed, Toast.LENGTH_SHORT).show();
                     }
                 } else {
@@ -635,7 +635,7 @@ public class ExportActivity extends AppCompatActivity {
                         try {
                             errorBody = response.errorBody().string();
                         } catch (Exception e) {
-                            Logger.e(Logger.TAG_UI, "Error reading export response body", e);
+                            Logger.e(Logger.TAG_EXPORT_REQUEST, "Error reading export response body", e);
                         }
                     }
                     
@@ -649,7 +649,7 @@ public class ExportActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<ResponseBody> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Export network failure", t);
+                Logger.e(Logger.TAG_EXPORT_REQUEST, "Export network failure", t);
                 String errorMessage = getString(R.string.error_export_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
                     errorMessage = getString(R.string.error_network_timeout);
@@ -662,7 +662,7 @@ public class ExportActivity extends AppCompatActivity {
     }
     
     private void shareFile(File file, String mimeType) {
-        Logger.i(Logger.TAG_UI, "Sending export file via email automatically: " + file.getName() + " (" + mimeType + ")");
+        Logger.i(Logger.TAG_EXPORT_REQUEST, "Sending export file via email automatically: " + file.getName() + " (" + mimeType + ")");
         
         try {
             // Read file content using try-with-resources to ensure FileInputStream is always closed
@@ -683,7 +683,7 @@ public class ExportActivity extends AppCompatActivity {
             sendExportEmailToRecipients(recipients, subject, htmlContent, file, fileBytes, mimeType);
             
         } catch (Exception e) {
-            Logger.e(Logger.TAG_UI, "Failed to send file via email", e);
+            Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to send file via email", e);
             Toast.makeText(this, R.string.error_email_failed, Toast.LENGTH_SHORT).show();
         }
     }
@@ -703,7 +703,7 @@ public class ExportActivity extends AppCompatActivity {
         
         if (validRecipients.isEmpty()) {
             Toast.makeText(this, "No email recipients configured", Toast.LENGTH_LONG).show();
-            Logger.w(Logger.TAG_UI, "No valid email recipients found in config");
+            Logger.w(Logger.TAG_EXPORT_REQUEST, "No valid email recipients found in config");
             return;
         }
         
@@ -741,7 +741,7 @@ public class ExportActivity extends AppCompatActivity {
                     
                     if (response.isSuccessful() && response.body() != null && response.body().success) {
                         successCount[0]++;
-                        Logger.i(Logger.TAG_API, "Export email sent successfully to: " + email);
+                        Logger.i(Logger.TAG_EXPORT_SUCCESS, "Export email sent successfully to: " + email);
                     } else {
                         failCount[0]++;
                         String errorMessage = "Email sending failed";
@@ -766,7 +766,7 @@ public class ExportActivity extends AppCompatActivity {
                                     }
                                 }
                             } catch (Exception e) {
-                                Logger.e(Logger.TAG_API, "Failed to read error body", e);
+                                Logger.e(Logger.TAG_EXPORT_SUCCESS, "Failed to read error body", e);
                             }
                         }
                         
@@ -777,7 +777,7 @@ public class ExportActivity extends AppCompatActivity {
                             errorMessage = "Email server authentication failed. Please check SMTP credentials in backend configuration.";
                         }
                         
-                        Logger.e(Logger.TAG_API, "Failed to send export email to: " + email + ", code: " + response.code() + ", error: " + errorMessage);
+                        Logger.e(Logger.TAG_EXPORT_SUCCESS, "Failed to send export email to: " + email + ", code: " + response.code() + ", error: " + errorMessage);
                         
                         // Store error message for final toast
                         final String finalErrorMessage = errorMessage;
@@ -817,7 +817,7 @@ public class ExportActivity extends AppCompatActivity {
                 public void onFailure(Call<ApiService.TestEmailResponse> call, Throwable t) {
                     completedCount[0]++;
                     failCount[0]++;
-                    Logger.e(Logger.TAG_API, "Error sending export email to: " + email, t);
+                    Logger.e(Logger.TAG_EXPORT_SUCCESS, "Error sending export email to: " + email, t);
                     
                     // Show result when all emails are sent
                     if (completedCount[0] >= totalRecipients) {
@@ -1097,7 +1097,7 @@ public class ExportActivity extends AppCompatActivity {
                     }
                 }
             } catch (Exception e) {
-                Logger.w(Logger.TAG_UI, "Failed to parse session date: " + sessionDate + " - " + e.getMessage());
+                Logger.w(Logger.TAG_EXPORT_REQUEST, "Failed to parse session date: " + sessionDate + " - " + e.getMessage());
             }
         }
         
@@ -1115,7 +1115,7 @@ public class ExportActivity extends AppCompatActivity {
                     }
                 }
             } catch (Exception e) {
-                Logger.w(Logger.TAG_UI, "Failed to extract date from timeSlot: " + sessionTimeSlot + " - " + e.getMessage());
+                Logger.w(Logger.TAG_EXPORT_REQUEST, "Failed to extract date from timeSlot: " + sessionTimeSlot + " - " + e.getMessage());
             }
         }
         
@@ -1153,7 +1153,7 @@ public class ExportActivity extends AppCompatActivity {
                     }
                 }
             } catch (Exception e) {
-                Logger.w(Logger.TAG_UI, "Failed to parse timeSlot: " + sessionTimeSlot + " - " + e.getMessage());
+                Logger.w(Logger.TAG_EXPORT_REQUEST, "Failed to parse timeSlot: " + sessionTimeSlot + " - " + e.getMessage());
             }
         }
         
@@ -1181,7 +1181,7 @@ public class ExportActivity extends AppCompatActivity {
         
         filename.append(extension);
         
-        Logger.i(Logger.TAG_UI, "Generated export filename: " + filename.toString());
+        Logger.i(Logger.TAG_EXPORT_REQUEST, "Generated export filename: " + filename.toString());
         return filename.toString();
     }
     
