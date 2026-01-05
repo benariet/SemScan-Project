@@ -149,7 +149,7 @@ public class WaitingListController {
             response.setEntries(List.of(dto));
 
             // Log API response to database
-            databaseLoggerService.logAction("INFO", "API_WAITING_LIST_ADD_RESPONSE",
+            databaseLoggerService.logAction("INFO", "WAITING_LIST_ADD_API_RETURNED",
                     String.format("Waiting list add API response for user %s, slot %d: success=true, position=%d",
                             presenterUsername.trim(), slotId, entry.getPosition()),
                     presenterUsername.trim(),
@@ -219,7 +219,7 @@ public class WaitingListController {
         LoggerUtil.logApiRequest(logger, "DELETE", endpoint, null);
 
         // Log API request to database
-        databaseLoggerService.logAction("INFO", "API_WAITING_LIST_CANCEL_REQUEST",
+        databaseLoggerService.logAction("INFO", "WAITING_LIST_CANCEL_REQUEST",
                 String.format("Waiting list cancel API called for user %s, slot %d", username.trim(), slotId),
                 username.trim(),
                 String.format("slotId=%d", slotId));
@@ -228,7 +228,7 @@ public class WaitingListController {
             waitingListService.removeFromWaitingList(slotId, username.trim());
 
             // Log API response to database
-            databaseLoggerService.logAction("INFO", "API_WAITING_LIST_CANCEL_RESPONSE",
+            databaseLoggerService.logAction("INFO", "WAITING_LIST_CANCEL_RESPONSE",
                     String.format("Waiting list cancel API response for user %s, slot %d: success=true", username.trim(), slotId),
                     username.trim(),
                     String.format("slotId=%d,success=true,code=REMOVED_FROM_WAITING_LIST,httpStatus=200", slotId));

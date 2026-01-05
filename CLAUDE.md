@@ -111,18 +111,70 @@ src/main/java/edu/bgu/semscanapi/
 - `stack_trace` - Full stack trace for errors
 - `source` - API or MOBILE
 
+### Log Tag Naming Paradigm
+
+**Format:** `FEATURE_ACTION` or `FEATURE_ACTION_RESULT`
+
+| Component | Description | Examples |
+|-----------|-------------|----------|
+| **FEATURE** | The domain/module | `AUTH`, `REGISTRATION`, `WAITING_LIST`, `ATTENDANCE`, `EMAIL`, `FCM` |
+| **ACTION** | What is happening | `LOGIN`, `REGISTER`, `CANCEL`, `JOIN`, `PROMOTE`, `SEND` |
+| **RESULT** (optional) | The outcome | `SUCCESS`, `FAILED`, `ERROR`, `BLOCKED` |
+
+**Examples:**
+- `AUTH_LOGIN_SUCCESS` - Authentication feature, login action, success result
+- `REGISTRATION_API_REQUEST` - Registration feature, API request action
+- `WAITING_LIST_DEGREE_MISMATCH` - Waiting list feature, degree mismatch result
+- `ATTENDANCE_OPEN_BLOCKED` - Attendance feature, open action blocked
+
+**API Request/Response Tags:**
+- `{FEATURE}_API_REQUEST` - HTTP request for a feature
+- `{FEATURE}_API_RESPONSE` - HTTP response for a feature
+- Feature is derived from endpoint URL (e.g., `/register` → `REGISTRATION`)
+
+**DO NOT use generic tags like:**
+- ❌ `API_REQUEST`, `API_RESPONSE` (too generic)
+- ❌ `SemScan-API`, `SemScan-UI` (not descriptive)
+- ❌ `ERROR`, `INFO` (use level field instead)
+
 ### Key Log Tags
-- LOGIN_ATTEMPT, LOGIN_SUCCESS, LOGIN_FAILED
-- API_REGISTER_REQUEST, API_REGISTER_RESPONSE
-- REGISTRATION_ATTEMPT, REGISTRATION_SLOT_STATE, SLOT_REGISTRATION_SUCCESS
-- SLOT_REGISTRATION_FAILED (with payload: reason=PHD_EXCLUSIVE, reason=MSC_BLOCKS_PHD)
-- CANCELLATION_ATTEMPT, CANCELLATION_SLOT_STATE, CANCELLATION_SUCCESS
-- API_WAITING_LIST_ADD_RESPONSE, API_WAITING_LIST_CANCEL_REQUEST
-- WAITING_LIST_DEGREE_MISMATCH (user tried to join queue with different degree than position 1)
-- WAITING_LIST_BLOCKED_MSC_EXISTS (PhD tried to join WL for slot with MSc)
-- WAITING_LIST_PHD_SKIPPED_MSC_EXISTS
-- APPROVAL_ATTEMPT, EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT
-- WAITING_LIST_PROMOTED_AFTER_CANCELLATION
+
+**Authentication:**
+- `AUTH_LOGIN_ATTEMPT`, `AUTH_LOGIN_SUCCESS`, `AUTH_LOGIN_FAILED`
+
+**Registration:**
+- `SLOT_REGISTRATION_FAILED` (with payload: reason=PHD_EXCLUSIVE, reason=MSC_BLOCKS_PHD, reason=SLOT_FULL)
+- `SLOT_REGISTRATION_SUCCESS`
+- `SLOT_REGISTRATION_DB_ERROR`, `SLOT_REGISTRATION_ERROR`
+
+**Waiting List:**
+- `WAITING_LIST_ADD_FAILED` (with payload: reason=DEGREE_MISMATCH, reason=ALREADY_ON_LIST, reason=LIST_FULL)
+- `WAITING_LIST_PROMOTED_AFTER_CANCELLATION`
+- `WAITING_LIST_AUTO_PROMOTE_FAILED`
+- `WAITING_LIST_DATA_INCONSISTENCY`
+
+**Attendance:**
+- `ATTENDANCE_OPEN_FAILED`, `ATTENDANCE_REOPEN_BLOCKED`, `ATTENDANCE_OPEN_BLOCKED`
+- `ATTENDANCE_SESSION_NOT_FOUND`, `ATTENDANCE_SESSION_NOT_OPEN`, `ATTENDANCE_WINDOW_CLOSED`
+- `ATTENDANCE_DUPLICATE`, `ATTENDANCE_RECORDING_ERROR`
+
+**Manual Attendance:**
+- `MANUAL_ATTENDANCE_SESSION_NOT_FOUND`, `MANUAL_ATTENDANCE_OUTSIDE_WINDOW`
+- `MANUAL_ATTENDANCE_APPROVE_NOT_FOUND`, `MANUAL_ATTENDANCE_REJECT_NOT_FOUND`
+
+**Registration Approval:**
+- `REGISTRATION_APPROVAL_INVALID_TOKEN`, `REGISTRATION_APPROVAL_TOKEN_NOT_FOUND`
+- `REGISTRATION_DECLINE_TOKEN_INVALID`, `REGISTRATION_DECLINE_INVALID_STATUS`
+
+**Email:**
+- `EMAIL_REGISTRATION_APPROVAL_EMAIL_FAILED`, `EMAIL_SEND_FAILED`, `EMAIL_SEND_ERROR`
+- `EMAIL_REGISTRATION_NO_SUPERVISOR_EMAIL`
+
+**FCM Notifications:**
+- `FCM_NOTIFICATION_FAILED`
+
+**Session:**
+- `SESSION_CREATION_FAILED`, `SESSION_NOT_FOUND`, `SESSION_RETRIEVAL_ERROR`
 
 ## Capacity System - PhD/MSc Exclusivity
 
@@ -467,14 +519,22 @@ cd SemScan-API && ./gradlew test
 ./gradlew test --tests "PresenterHomeServiceTest"
 ```
 
-### Test Users (BGU Accounts)
-| Username | Password | Degree |
-|----------|----------|--------|
-| benariet | Taltal123! | MSc |
-| amarrev | Revital1990% | MSc |
-| talguest2 | tc2xqVds | PhD |
-| talguest3 | kbm7Xzfk | MSc |
-| talguest4 | atpgK2zc | MSc |
+### Test Users
+| Username | Password | Name | Degree |
+|----------|----------|------|--------|
+| `talguest2` | `tc2xqVds` | Ron Levy | PhD |
+| `testphd1` | `Test123!` | Alex Cohen | PhD |
+| `testphd2` | `Test123!` | Maya Levi | PhD |
+| `amarrev` | `Revital1990%` | Revital Amar | MSc |
+| `benariet` | `Taltal123!` | Tal Ben Arie | MSc |
+| `talguest3` | `kbm7Xzfk` | Dana Katz | MSc |
+| `talguest4` | `atpgK2zc` | Jhon Smith | MSc |
+| `testmsc1` | `Test123!` | Yael Stern | MSc |
+| `testmsc2` | `Test123!` | Oren Golan | MSc |
+| `testmsc3` | `Test123!` | Noa Shapira | MSc |
+| `testmsc4` | `Test123!` | Eitan Peretz | MSc |
+
+**Note:** Users starting with `test` bypass BGU authentication (all use `Test123!`). Others authenticate via BGU SOAP.
 
 ## Critical Test Cases
 
@@ -1073,6 +1133,34 @@ FROM app_logs
 WHERE source = 'MOBILE'
 ORDER BY log_id DESC LIMIT 10;
 ```
+
+### Mobile vs API Timestamp Sync (MUST TEST)
+Test that mobile log timestamps match server time (Israel timezone).
+
+**Bug fixed:** 2026-01-05 - Mobile logs were showing 2 hours behind API logs (UTC vs Israel time).
+
+| Source | Expected Timestamp |
+|--------|-------------------|
+| API logs | Server time (Israel) |
+| MOBILE logs | Server time (Israel) - converted from epoch |
+
+**How to test:**
+1. Note current server time: `date '+%H:%M:%S'`
+2. Perform action on mobile app (login, refresh slots)
+3. Check logs immediately
+
+**Database verification:**
+```sql
+-- Compare API and MOBILE timestamps - should be within seconds of each other
+SELECT log_timestamp, source, tag
+FROM app_logs
+ORDER BY log_id DESC LIMIT 10;
+
+-- Server time check
+SELECT NOW() as server_time;
+```
+
+**Expected:** MOBILE log_timestamp should match server time (not 2 hours behind).
 
 ### Registration with Missing Supervisor (EDGE CASE)
 Test registration when user has no supervisor linked.

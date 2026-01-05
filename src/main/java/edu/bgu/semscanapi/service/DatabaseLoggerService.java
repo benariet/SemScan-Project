@@ -191,46 +191,113 @@ public class DatabaseLoggerService {
     @Async
     @Transactional
     public void logApiAction(String method, String endpoint, String tag, String bguUsername, String payload) {
-        logAction("INFO", tag != null ? tag : "API_REQUEST", 
+        logAction("INFO", tag != null ? tag : "API_ACTION",
             String.format("%s %s", method, endpoint), bguUsername, payload);
     }
     
     /**
-     * Log API request with body
+     * Log API request with body - derives feature from endpoint URL
      */
     @Async
     @Transactional
     public void logApiRequest(String method, String endpoint, String bguUsername, String requestBody) {
+        String feature = deriveFeatureFromEndpoint(endpoint);
         // Truncate body to prevent huge database entries (max 10000 characters)
         String truncatedBody = truncateString(requestBody, 10000);
         String payload = truncatedBody != null ? String.format("requestBody=%s", truncatedBody) : null;
-        logAction("INFO", "API_REQUEST", 
+        logAction("INFO", feature + "_API_REQUEST",
             String.format("%s %s", method, endpoint), bguUsername, payload);
     }
-    
+
     /**
-     * Log API response
+     * Log API response - derives feature from endpoint URL
      */
     @Async
     @Transactional
     public void logApiResponse(String method, String endpoint, int statusCode, String bguUsername) {
+        String feature = deriveFeatureFromEndpoint(endpoint);
         String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
-        logAction(level, "API_RESPONSE", 
+        logAction(level, feature + "_API_RESPONSE",
             String.format("%s %s - Status: %d", method, endpoint, statusCode), bguUsername, null);
     }
-    
+
     /**
-     * Log API response with body
+     * Log API response with body - derives feature from endpoint URL
      */
     @Async
     @Transactional
     public void logApiResponse(String method, String endpoint, int statusCode, String bguUsername, String responseBody) {
+        String feature = deriveFeatureFromEndpoint(endpoint);
         String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
         // Truncate body to prevent huge database entries (max 10000 characters)
         String truncatedBody = truncateString(responseBody, 10000);
         String payload = truncatedBody != null ? String.format("responseBody=%s", truncatedBody) : null;
-        logAction(level, "API_RESPONSE", 
+        logAction(level, feature + "_API_RESPONSE",
             String.format("%s %s - Status: %d", method, endpoint, statusCode), bguUsername, payload);
+    }
+
+    /**
+     * Derive feature name from endpoint URL pattern
+     */
+    private String deriveFeatureFromEndpoint(String endpoint) {
+        if (endpoint == null || endpoint.isBlank()) {
+            return "API";
+        }
+        String lowerEndpoint = endpoint.toLowerCase();
+
+        // Registration endpoints
+        if (lowerEndpoint.contains("/register")) {
+            return "REGISTRATION";
+        }
+        // Waiting list endpoints
+        if (lowerEndpoint.contains("/waiting-list")) {
+            return "WAITING_LIST";
+        }
+        // Auth endpoints
+        if (lowerEndpoint.contains("/auth/login")) {
+            return "AUTH_LOGIN";
+        }
+        if (lowerEndpoint.contains("/auth/setup")) {
+            return "AUTH_SETUP";
+        }
+        // Attendance endpoints
+        if (lowerEndpoint.contains("/attendance")) {
+            return "ATTENDANCE";
+        }
+        // Approval endpoints
+        if (lowerEndpoint.contains("/approve") || lowerEndpoint.contains("/decline")) {
+            return "APPROVAL";
+        }
+        // Config endpoints
+        if (lowerEndpoint.contains("/config")) {
+            return "CONFIG";
+        }
+        // User endpoints
+        if (lowerEndpoint.contains("/users")) {
+            return "USER";
+        }
+        // Presenter home endpoints
+        if (lowerEndpoint.contains("/presenters") && lowerEndpoint.contains("/home")) {
+            return "PRESENTER_HOME";
+        }
+        // Slots endpoints
+        if (lowerEndpoint.contains("/slots")) {
+            return "SLOT";
+        }
+        // Export endpoints
+        if (lowerEndpoint.contains("/export")) {
+            return "EXPORT";
+        }
+        // QR endpoints
+        if (lowerEndpoint.contains("/qr")) {
+            return "QR";
+        }
+        // FCM endpoints
+        if (lowerEndpoint.contains("/fcm")) {
+            return "FCM";
+        }
+        // Default
+        return "API";
     }
     
     /**

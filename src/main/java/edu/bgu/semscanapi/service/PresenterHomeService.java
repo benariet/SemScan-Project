@@ -51,6 +51,7 @@ public class PresenterHomeService {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final DateTimeFormatter DISPLAY_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy 'at' HH:mm");
     private static final ZoneId ISRAEL_TIMEZONE = ZoneId.of("Asia/Jerusalem");
 
     private final UserRepository userRepository;
@@ -1931,7 +1932,12 @@ public class PresenterHomeService {
             return panel;
         }
 
-        LocalDateTime openWindow = start.minusMinutes(10);
+        // Get configurable window values from AppConfigService (same as openAttendance method)
+        Integer windowBeforeMinutes = appConfigService != null
+                ? appConfigService.getIntegerConfig("presenter_slot_open_window_before_minutes", 0)
+                : 0;
+
+        LocalDateTime openWindow = start.minusMinutes(windowBeforeMinutes);
         LocalDateTime openedAt = slot.getAttendanceOpenedAt();
         LocalDateTime closesAt = slot.getAttendanceClosesAt();
         String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
@@ -1942,7 +1948,7 @@ public class PresenterHomeService {
             panel.setAlreadyOpen(true);
             panel.setStatus(openedByPresenter ? "Attendance already open" : "Attendance currently open");
             panel.setOpenQrUrl(buildQrUrl(slot.getLegacySessionId()));
-            panel.setWarning("Registration closes at " + DATE_TIME_FORMAT.format(closesAt));
+            panel.setWarning("Registration closes " + DISPLAY_DATE_TIME_FORMAT.format(closesAt));
             panel.setOpenedAt(DATE_TIME_FORMAT.format(openedAt));
             panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
             panel.setSessionId(slot.getLegacySessionId());
@@ -1953,8 +1959,11 @@ public class PresenterHomeService {
         if (now.isBefore(openWindow)) {
             panel.setCanOpen(false);
             panel.setAlreadyOpen(false);
-            panel.setStatus("You can open attendance 10 minutes before start");
-            panel.setWarning("Opens at " + DATE_TIME_FORMAT.format(openWindow));
+            String statusMsg = windowBeforeMinutes > 0
+                    ? String.format("You can open attendance %d minutes before start", windowBeforeMinutes)
+                    : "You can open attendance when the slot starts";
+            panel.setStatus(statusMsg);
+            panel.setWarning("Opens " + DISPLAY_DATE_TIME_FORMAT.format(openWindow));
             panel.setOpenQrUrl(null);
             panel.setOpenedAt(null);
             panel.setClosesAt(null);

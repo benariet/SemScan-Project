@@ -1,5 +1,24 @@
 # SemScan Test Plan
 
+## Test Users
+| Username | Password | Name | Degree |
+|----------|----------|------|--------|
+| `talguest2` | `tc2xqVds` | Ron Levy | PhD |
+| `testphd1` | `Test123!` | Alex Cohen | PhD |
+| `testphd2` | `Test123!` | Maya Levi | PhD |
+| `amarrev` | `Revital1990%` | Revital Amar | MSc |
+| `benariet` | `Taltal123!` | Tal Ben Arie | MSc |
+| `talguest3` | `kbm7Xzfk` | Dana Katz | MSc |
+| `talguest4` | `atpgK2zc` | Jhon Smith | MSc |
+| `testmsc1` | `Test123!` | Yael Stern | MSc |
+| `testmsc2` | `Test123!` | Oren Golan | MSc |
+| `testmsc3` | `Test123!` | Noa Shapira | MSc |
+| `testmsc4` | `Test123!` | Eitan Peretz | MSc |
+
+**Note:** Users starting with `test` bypass BGU authentication (all use `Test123!`). Others authenticate via BGU SOAP.
+
+---
+
 ## Part 1: API-Level Edge Case Tests (Automated - Claude can run)
 
 These tests can be run via curl/SQL without UI interaction.
@@ -395,29 +414,6 @@ UPDATE slots SET status = 'SEMI' WHERE slot_id = 234;
 ```sql
 SELECT * FROM waiting_list WHERE slot_id = 234 AND presenter_username = 'testphd1';
 ```
-
----
-
-## Test Users
-
-### Real BGU Accounts
-| Username | Password | Degree |
-|----------|----------|--------|
-| benariet | Taltal123! | PhD |
-| talguest2 | tc2xqVds | PhD |
-| talguest3 | kbm7Xzfk | MSc |
-| talguest4 | atpgK2zc | MSc |
-| amarrev | Revital1990% | MSc |
-
-### Test Bypass Users (password: Test123!)
-| Username | Degree |
-|----------|--------|
-| testphd1 | PhD |
-| testphd2 | PhD |
-| testmsc1 | MSc |
-| testmsc2 | MSc |
-| testmsc3 | MSc |
-| testmsc4 | MSc |
 
 ---
 

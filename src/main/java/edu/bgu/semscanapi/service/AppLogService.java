@@ -13,7 +13,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -24,8 +26,9 @@ import java.util.stream.Collectors;
  */
 @Service
 public class AppLogService {
-    
+
     private static final Logger logger = LoggerUtil.getLogger(AppLogService.class);
+    private static final ZoneId ISRAEL_TIMEZONE = ZoneId.of("Asia/Jerusalem");
     
     @Autowired
     private AppLogRepository appLogRepository;
@@ -275,10 +278,9 @@ public class AppLogService {
 
     private LocalDateTime toLocalDateTime(Long epochMillis) {
         if (epochMillis == null) {
-            return LocalDateTime.now();
+            return LocalDateTime.now(ISRAEL_TIMEZONE);
         }
-        return LocalDateTime.ofEpochSecond(epochMillis / 1000, (int) (epochMillis % 1000) * 1_000_000,
-                java.time.ZoneOffset.UTC);
+        return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ISRAEL_TIMEZONE);
     }
 
     /**
