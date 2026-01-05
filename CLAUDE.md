@@ -103,6 +103,7 @@ src/main/java/edu/bgu/semscanapi/
 - `tag` - Event type (LOGIN_SUCCESS, REGISTRATION_ATTEMPT, etc.)
 - `message` - Human-readable description
 - `bgu_username` - User who triggered action (FK to users)
+- `user_full_name` - User's full name (first + last) for readability
 - `device_info` - "Samsung SM-G991B (Android 12, SDK 31)"
 - `app_version` - Mobile app version
 - `payload` - Request/response details
@@ -117,8 +118,9 @@ src/main/java/edu/bgu/semscanapi/
 - SLOT_REGISTRATION_FAILED (with payload: reason=PHD_EXCLUSIVE, reason=MSC_BLOCKS_PHD)
 - CANCELLATION_ATTEMPT, CANCELLATION_SLOT_STATE, CANCELLATION_SUCCESS
 - API_WAITING_LIST_ADD_RESPONSE, API_WAITING_LIST_CANCEL_REQUEST
-- WAITING_LIST_ADD_FAILED (with payload: reason=PHD_EXCLUSIVE, reason=MSC_BLOCKS_PHD)
-- WAITING_LIST_PROMOTION_BLOCKED_PHD_EXCLUSIVE, WAITING_LIST_PHD_SKIPPED_MSC_EXISTS
+- WAITING_LIST_DEGREE_MISMATCH (user tried to join queue with different degree than position 1)
+- WAITING_LIST_BLOCKED_MSC_EXISTS (PhD tried to join WL for slot with MSc)
+- WAITING_LIST_PHD_SKIPPED_MSC_EXISTS
 - APPROVAL_ATTEMPT, EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT
 - WAITING_LIST_PROMOTED_AFTER_CANCELLATION
 
@@ -130,14 +132,14 @@ src/main/java/edu/bgu/semscanapi/
 1. **PhD takes exclusive slot**: When a PhD registers, no MSc can register (slot is locked)
 2. **MSc blocks PhD**: When any MSc is registered, PhD cannot register
 3. **3 MSc per slot**: Up to 3 MSc students can share a slot (if no PhD)
-4. **Waiting list respects exclusivity**: PhD can't join waiting list if MSc exists, and vice versa
+4. **Waiting list is "typed"**: First person to join sets the queue type (PhD-only or MSc-only)
 
 ### Configuration:
 - **PhD weight**: 3 (takes entire slot capacity)
 - **MSc weight**: 1
 - **Slot capacity**: 3
 
-### Scenarios:
+### Registration Scenarios:
 | Slot State | PhD tries to register | MSc tries to register |
 |------------|----------------------|----------------------|
 | Empty | ✅ Success (takes whole slot) | ✅ Success |
@@ -146,11 +148,32 @@ src/main/java/edu/bgu/semscanapi/
 | Has 2 MSc | ❌ `PHD_BLOCKED_BY_MSC` | ✅ Success |
 | Has 3 MSc | ❌ `PHD_BLOCKED_BY_MSC` | ❌ `SLOT_FULL` |
 
-### Waiting List Scenarios:
-| Slot State | PhD joins waiting list | MSc joins waiting list |
-|------------|------------------------|------------------------|
-| Has PhD | ❌ Blocked (exclusive) | ❌ Blocked (exclusive) |
-| Has MSc | ❌ Blocked (can't promote) | ✅ Success |
+### Waiting List Scenarios (First-Sets-Type Queue):
+When a PhD has a slot, the waiting list is open but **typed by whoever joins first**:
+- If MSc joins first → queue becomes MSc-only
+- If PhD joins first → queue becomes PhD-only
+- Only same-degree users can join after the first person
+- When waiting list empties completely, type resets
+
+| Slot State | WL Empty | WL has MSc first | WL has PhD first |
+|------------|----------|------------------|------------------|
+| Has PhD | ✅ Anyone can join (sets type) | ✅ MSc only | ✅ PhD only |
+| Has MSc | ✅ MSc can join | ✅ MSc only | N/A (PhD blocked) |
+
+**When PhD cancels:**
+- If waiting list has MSc → MSc users get promoted (up to 3)
+- If waiting list has PhD → PhD gets promoted (takes whole slot)
+- Slot "converts" based on who gets promoted
+
+**Example flow:**
+```
+1. Ron (PhD) has slot → WL empty, open to all
+2. Alice (MSc) joins WL → WL type = MSc-only
+3. Bob (PhD) tries to join → ❌ Blocked (queue is MSc-only)
+4. Carol (MSc) joins → position 2
+5. Ron cancels → Alice promoted, Carol promoted
+6. WL empty → type resets
+```
 
 ## Slot Colors (Mobile UI)
 - **Green**: Available (0 registrations)
@@ -160,14 +183,14 @@ src/main/java/edu/bgu/semscanapi/
 ## Build Rules
 
 ### APK Naming
-After building the Android APK, always rename `SemScan-debug.apk` to `semscan.apk`:
+After building the Android APK, rename `SemScan-debug.apk` to include the version:
 ```bash
-cp "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "SemScan/build/outputs/apk/debug/semscan.apk"
+cp "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "SemScan/build/outputs/apk/debug/semscan-1.0.0.apk"
 ```
 
 ## Build Locations
-- **APK**: `SemScan/build/outputs/apk/debug/semscan.apk`
-- **JAR**: `SemScan-API/build/libs/SemScan-API-0.0.1-SNAPSHOT.jar`
+- **APK**: `SemScan/build/outputs/apk/debug/semscan-1.0.0.apk`
+- **JAR**: `SemScan-API/build/libs/SemScan-API-1.0.0.jar`
 
 ## Deployment
 
@@ -181,10 +204,10 @@ cp "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "SemScan/build/outputs/ap
 After building, upload files to server:
 ```bash
 # Upload APK
-curl -k -u "webmaster:$SEMSCAN_PASSWORD" -T "SemScan/build/outputs/apk/debug/semscan.apk" "sftp://132.72.50.53/opt/semscan-api/semscan.apk"
+curl -k -u "webmaster:$SEMSCAN_PASSWORD" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0.apk" "sftp://132.72.50.53/opt/semscan-api/semscan-1.0.0.apk"
 
 # Upload JAR (keep full version name, overwrites existing)
-curl -k -u "webmaster:$SEMSCAN_PASSWORD" -T "SemScan-API/build/libs/SemScan-API-0.0.1-SNAPSHOT.jar" "sftp://132.72.50.53/opt/semscan-api/SemScan-API-0.0.1-SNAPSHOT.jar"
+curl -k -u "webmaster:$SEMSCAN_PASSWORD" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api/SemScan-API-1.0.0.jar"
 
 # Restart the API service after JAR upload
 echo "$SEMSCAN_PASSWORD" | ssh -o StrictHostKeyChecking=no webmaster@132.72.50.53 "echo '$SEMSCAN_PASSWORD' | sudo -S systemctl restart semscan-api"
@@ -224,7 +247,7 @@ mysql -u semscan_admin -pTAL1234 semscan_db -e "SELECT * FROM app_logs ORDER BY 
 ```bash
 adb devices
 for device in $(adb devices | grep device$ | cut -f1); do
-  adb -s $device install -r SemScan/build/outputs/apk/debug/semscan.apk
+  adb -s $device install -r SemScan/build/outputs/apk/debug/semscan-1.0.0.apk
 done
 ```
 
@@ -464,13 +487,28 @@ PhD and MSc students are mutually exclusive in a slot. These scenarios must be t
 | MSc blocked by PhD | Slot has PhD | ❌ `SLOT_LOCKED` |
 | PhD blocked by MSc | Slot has any MSc | ❌ `PHD_BLOCKED_BY_MSC` |
 | MSc can join MSc | Slot has 1-2 MSc | ✅ Success |
-| PhD can't join waiting list with MSc | Slot has MSc | ❌ Blocked |
-| MSc can't join waiting list with PhD | Slot has PhD | ❌ Blocked |
+| PhD can't join waiting list with MSc | Slot has MSc | ❌ Blocked (can't be promoted) |
 
 **How to test:**
 1. Login as `talguest2` (PhD) - try to register for slot with MSc → Should fail with "slot has MSc presenters"
 2. Login as `talguest3` (MSc) - try to register for slot with PhD → Should fail with "slot is reserved by PhD"
-3. Test waiting list joins with same rules
+
+### Waiting List First-Sets-Type Queue Tests (MUST TEST)
+When a PhD has a slot, the waiting list is open. First person to join sets the queue type.
+
+| Scenario | Setup | Expected Result |
+|----------|-------|-----------------|
+| PhD joins WL for PhD slot (empty WL) | Slot has PhD, WL empty | ✅ Success, WL type = PhD-only |
+| MSc joins WL for PhD slot (empty WL) | Slot has PhD, WL empty | ✅ Success, WL type = MSc-only |
+| PhD joins WL when MSc is first | Slot has PhD, WL has MSc | ❌ Blocked (queue is MSc-only) |
+| MSc joins WL when PhD is first | Slot has PhD, WL has PhD | ❌ Blocked (queue is PhD-only) |
+| Same-degree joins existing WL | WL has same degree | ✅ Success |
+
+**How to test:**
+1. Login as `talguest2` (PhD), find slot with another PhD registered
+2. Join waiting list → Should succeed (first in queue, sets type to PhD-only)
+3. Login as `benariet` (MSc), try to join same waiting list → Should fail "queue is currently PhD-only"
+4. Or reverse: MSc joins first, then PhD is blocked
 
 ### Registration Limit Tests
 | User | Limit | Test |
@@ -498,6 +536,603 @@ Slots from past dates should NOT allow registration:
 1. Check slot list includes past dates
 2. Verify past slots do NOT show "Register Now" button
 3. Verify past slots show appropriate message (e.g., "Slot date has passed")
+
+### Declined Registration Re-registration Flow (MUST TEST)
+Users with DECLINED registrations should be able to re-register for the same slot.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | User registers for slot | Registration created, status = PENDING |
+| 2 | Supervisor clicks decline link | Status → DECLINED |
+| 3 | User opens app, views slot | "Register Now" button visible |
+| 4 | User clicks Register | New registration created (updates old record) |
+| 5 | Check database | Old DECLINED record updated to PENDING |
+
+**How to test:**
+1. Login as any test user (e.g., `benariet`)
+2. Register for an available slot
+3. Check email for supervisor approval link
+4. Click the "Decline" link in the email
+5. Refresh the app
+6. Verify the same slot now shows "Register Now" button
+7. Register again - should succeed
+
+**Database verification:**
+```sql
+SELECT slot_id, presenter_username, approval_status, registered_at
+FROM slot_registration WHERE presenter_username = 'benariet';
+```
+
+**Bug fixed:** 2026-01-04 - DECLINED registrations were blocking re-registration in UI and API.
+
+### Expired Registration Re-registration Flow
+Same as above but for EXPIRED registrations (token expired before supervisor action).
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | User registers for slot | Status = PENDING |
+| 2 | Token expires (14 days) or manually set EXPIRED | Status → EXPIRED |
+| 3 | User opens app, views slot | "Register Now" button visible |
+| 4 | User clicks Register | New registration created |
+
+### Supervisor Approval Flow (MUST TEST)
+Complete end-to-end flow from registration to supervisor action.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Presenter registers for slot | Status = PENDING, email queued |
+| 2 | Check email_queue table | Email with type REGISTRATION_APPROVAL |
+| 3 | Wait for email processing (2 min) | Email sent to supervisor |
+| 4 | Supervisor opens email | Contains Approve/Decline links |
+| 5a | Click Approve link | HTML success page, status → APPROVED |
+| 5b | Click Decline link | HTML page with reason form |
+| 6 | If declined with reason | Reason saved in DB |
+| 7 | Presenter opens app | Shows "Approved" or "Declined" status |
+
+**How to test:**
+1. Login as `talguest3` (MSc)
+2. Register for an empty slot
+3. Check database: `SELECT * FROM email_queue WHERE email_type = 'REGISTRATION_APPROVAL' ORDER BY id DESC LIMIT 1;`
+4. Wait 2 minutes for email processing, or check supervisor's email directly
+5. Click Approve/Decline link in email
+6. Verify token expires after 14 days (configurable)
+
+**Database verification:**
+```sql
+SELECT slot_id, presenter_username, approval_status, approval_token,
+       supervisor_approved_at, supervisor_declined_at, supervisor_declined_reason
+FROM slot_registration WHERE presenter_username = 'talguest3';
+```
+
+### Waiting List Promotion Flow (MUST TEST)
+When a registration is cancelled, the first person on waiting list gets promoted.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | User A registers for slot (MSc) | Status = PENDING/APPROVED |
+| 2 | Slot becomes full | capacity = 3, 3 MSc registered |
+| 3 | User B joins waiting list | Position = 1 in waiting_list |
+| 4 | User A cancels registration | User A removed from slot |
+| 5 | System promotes User B | User B moved to slot_registration |
+| 6 | Promotion notification sent | FCM notification to User B |
+| 7 | User B sees "Pending Approval" | In app, waiting for supervisor |
+
+**How to test:**
+1. Fill a slot with 3 MSc users (use talguest3, talguest4, benariet)
+2. Login as another user and join waiting list
+3. Cancel one of the registered users
+4. Verify waiting list user was promoted automatically
+5. Check FCM notification was sent
+
+**Database verification:**
+```sql
+-- Check waiting list before/after
+SELECT * FROM waiting_list WHERE slot_id = X;
+-- Check registration after promotion
+SELECT * FROM slot_registration WHERE slot_id = X;
+-- Check promotion record
+SELECT * FROM waiting_list_promotions WHERE slot_id = X;
+```
+
+### Cancellation Flow (MUST TEST)
+Test cancelling registrations at different approval stages.
+
+| Scenario | Initial Status | Expected Result |
+|----------|---------------|-----------------|
+| Cancel PENDING registration | PENDING | Record deleted, no email |
+| Cancel APPROVED registration | APPROVED | Record deleted, cancellation email sent |
+| Cancel when waiting list exists | Any | First waiting list user promoted |
+| Cancel only registration in slot | Any | Slot becomes available (green) |
+
+**How to test:**
+1. Register for a slot, then cancel before approval → should work silently
+2. Get a slot approved, then cancel → cancellation notification sent
+3. With waiting list: cancel and verify automatic promotion
+
+### QR Attendance Flow (MUST TEST)
+Presenter opens attendance window, participants scan QR code.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Presenter views their registered slot | "Open Attendance" button visible |
+| 2 | Presenter clicks Open Attendance | QR code displayed, timer starts |
+| 3 | Participant opens app | "Scan QR" option available |
+| 4 | Participant scans QR code | Attendance marked, confirmation shown |
+| 5 | Timer expires (15 min) | Session auto-closes |
+| 6 | Late participant tries to scan | "Session closed" error |
+
+**How to test:**
+1. Login as presenter (talguest3) with approved slot
+2. Open attendance window on slot's date/time
+3. Login as participant (benariet) on different device
+4. Scan the QR code
+5. Verify attendance record in database
+
+**Database verification:**
+```sql
+SELECT * FROM attendance WHERE session_id = X;
+SELECT * FROM sessions WHERE seminar_id = X;
+```
+
+### Manual Attendance Request Flow (MUST TEST)
+Participant requests manual attendance (e.g., phone died).
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Participant opens session in app | "Request Manual Attendance" button |
+| 2 | Clicks request, enters reason | Request submitted |
+| 3 | Presenter sees pending request | In presenter's attendance list |
+| 4 | Presenter approves/rejects | Status updated |
+| 5 | Participant sees result | Attendance confirmed or rejected |
+
+**Time window:** Manual requests allowed within configured window (default: 10 min before to 15 min after session).
+
+### FCM Push Notification Flow (MUST TEST)
+Test push notifications for various events.
+
+| Event | Notification Title | Notification Body | Recipient |
+|-------|-------------------|-------------------|-----------|
+| Registration approved | "Registration Approved!" | "Your supervisor approved your registration for [date]" | Presenter |
+| Registration declined | "Registration Declined" | "Your supervisor declined your registration. Reason: [reason]" | Presenter |
+| Promoted from waiting list | "Slot Available!" | "You've been promoted from the waiting list for [date]" | Promoted user |
+
+#### FCM Token Registration Test (MUST TEST)
+Test that FCM tokens are registered correctly for new and existing users.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | New user logs in for first time | Redirected to FirstTimeSetupActivity |
+| 2 | User completes setup (degree, supervisor) | User record created in `users` table |
+| 3 | After setup completes | FCM token registered in `fcm_tokens` table |
+| 4 | Check database | Token exists with correct username |
+
+**First-time user flow:**
+```
+Login → FirstTimeSetupActivity → upsertUser() → registerFcmToken()
+```
+
+**Existing user flow:**
+```
+Login → registerFcmToken() → Home screen
+```
+
+**How to test first-time user:**
+1. Create a new BGU account or use one that hasn't logged in before
+2. Login to the app
+3. Complete the first-time setup form
+4. Check database for FCM token
+
+**Database verification:**
+```sql
+-- Check FCM token was registered
+SELECT * FROM fcm_tokens WHERE bgu_username = 'newuser';
+
+-- Check user exists (must exist before FCM token)
+SELECT * FROM users WHERE bgu_username = 'newuser';
+```
+
+**Bug fixed:** 2026-01-04 - FCM token registration was failing for first-time users because it happened before user record was created (FK constraint violation).
+
+#### FCM Approval Notification Test (MUST TEST)
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | User registers for slot | Registration created, PENDING status |
+| 2 | Supervisor clicks approve link | Status → APPROVED |
+| 3 | User receives push notification | Title: "Registration Approved!" |
+| 4 | Notification contains slot date | Body mentions the slot date |
+
+**How to test:**
+1. Login as `talguest3` on Android device
+2. Register for an available slot
+3. Check supervisor's email for approval link
+4. Click approve link
+5. Verify notification appears on device within seconds
+
+#### FCM Decline Notification Test (MUST TEST)
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | User registers for slot | Registration created, PENDING status |
+| 2 | Supervisor clicks decline link | Decline form shown |
+| 3 | Supervisor enters reason and submits | Status → DECLINED |
+| 4 | User receives push notification | Title: "Registration Declined" |
+| 5 | Notification shows reason | Body includes decline reason |
+
+#### FCM Waiting List Promotion Test (MUST TEST)
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Fill slot with 3 MSc users | Slot is full |
+| 2 | User B joins waiting list | Position = 1 |
+| 3 | User A cancels registration | Slot has opening |
+| 4 | System promotes User B | User B moved to registrations |
+| 5 | User B receives notification | Title: "Slot Available!" |
+
+**How to test:**
+1. Fill a slot (e.g., talguest3, talguest4, benariet)
+2. Login as another user (e.g., amarrev) and join waiting list
+3. Cancel one of the registered users
+4. Verify amarrev receives push notification
+
+**Database verification:**
+```sql
+-- Check FCM token exists for user
+SELECT * FROM fcm_tokens WHERE bgu_username = 'testuser';
+
+-- Check notification was attempted (check server logs)
+-- journalctl -u semscan-api | grep "FCM"
+```
+
+#### FCM Error Handling Test
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| User has no FCM token | Notification skipped, no error |
+| Invalid FCM token | Token removed from database, logged as warning |
+| Firebase service unavailable | Logged as error, operation continues |
+| User not in database | FCM token not saved (FK constraint) |
+
+**Note:** FCM failures should never block the main operation (approval, promotion, etc.)
+
+### Session Timeout Flow (MUST TEST)
+Test that expired sessions redirect to login.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Login to app | Session token stored |
+| 2 | Wait for token expiry (or revoke server-side) | Token becomes invalid |
+| 3 | Perform any API action | 401/403 response |
+| 4 | App receives 401/403 | SESSION_EXPIRED broadcast |
+| 5 | BaseActivity handles broadcast | Auto-redirect to login |
+| 6 | User sees login screen | Message: "Session expired" |
+
+**How to test manually:**
+1. Login normally
+2. On server, revoke the user's token or wait for expiry
+3. Try to refresh slot list
+4. Verify app redirects to login with appropriate message
+
+### Waiting List Business Rules (MUST TEST)
+Test that waiting list rejections are logged as WARN (not ERROR) since they're expected behavior.
+
+**First-Sets-Type Queue System**: When a PhD-occupied slot has an empty waiting list, the first person to join sets the queue type. Only same-degree users can join after.
+
+| Scenario | Setup | Expected Result | Log Tag (WARN level) |
+|----------|-------|-----------------|---------------------|
+| PhD joins PhD slot first | PhD slot, empty waiting list | ✅ Success, queue type = PhD | - |
+| MSc joins PhD slot first | PhD slot, empty waiting list | ✅ Success, queue type = MSc | - |
+| PhD joins after MSc | PhD slot, MSc in position 1 | ❌ Rejected (queue is MSc-only) | `WAITING_LIST_DEGREE_MISMATCH` |
+| MSc joins after PhD | PhD slot, PhD in position 1 | ❌ Rejected (queue is PhD-only) | `WAITING_LIST_DEGREE_MISMATCH` |
+| Same degree joins | PhD slot, queue type matches | ✅ Success | - |
+| Already on this list | User already on slot's waiting list | Rejected as duplicate | `WAITING_LIST_ALREADY_ON_LIST` |
+| Already on another list | User on different slot's waiting list | Rejected (1 list max) | `WAITING_LIST_ALREADY_ON_ANOTHER` |
+| Has active registration | User has PENDING/APPROVED for slot | Cannot also join waiting list | `WAITING_LIST_HAS_ACTIVE_REGISTRATION` |
+| Waiting list full | List at capacity (default: 3) | Rejected | `WAITING_LIST_FULL` |
+
+**How to test first-sets-type queue:**
+1. Find slot with PhD registered and **empty** waiting list
+2. Login as `talguest3` (MSc) → Join waiting list → Should succeed (sets queue to MSc-only)
+3. Login as `talguest2` (PhD) → Try to join same slot → Should fail with "queue is currently MSc-only"
+4. Login as `talguest4` (MSc) → Join waiting list → Should succeed (same degree)
+5. Have both MSc users cancel → Queue resets
+6. Login as `talguest2` (PhD) → Join waiting list → Should succeed (now sets queue to PhD-only)
+
+**Database verification:**
+```sql
+-- Check recent waiting list rejections are WARN not ERROR
+SELECT log_timestamp, level, tag, message, bgu_username
+FROM app_logs
+WHERE tag LIKE 'WAITING_LIST_%'
+ORDER BY log_id DESC LIMIT 10;
+
+-- Check queue type (degree of position 1)
+SELECT slot_id, presenter_username, degree, position
+FROM waiting_list
+WHERE slot_id = X
+ORDER BY position ASC;
+
+-- Should see level='WARN' for business rules, level='ERROR' only for true errors
+```
+
+**Log levels summary:**
+- **WARN**: Business rule rejections (degree mismatch, list full, already on list, etc.)
+- **ERROR**: True errors (user not found, database error, null values)
+
+### First-Time User Setup Flow (MUST TEST)
+Test the complete flow for a new user logging in for the first time.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | New user enters BGU credentials | Login succeeds via SOAP |
+| 2 | System detects first login | Redirected to FirstTimeSetupActivity |
+| 3 | User selects degree (MSc/PhD) | Degree stored |
+| 4 | User selects/enters supervisor | Supervisor linked |
+| 5 | User clicks Save | User record created in `users` table |
+| 6 | After save completes | FCM token registered |
+| 7 | Redirected to home screen | Shows presenter/participant options |
+
+**How to test:**
+1. Use a BGU account that hasn't logged in before
+2. Or delete user from database: `DELETE FROM users WHERE bgu_username = 'testuser';`
+3. Login and complete setup
+4. Verify user record and FCM token created
+
+**Database verification:**
+```sql
+SELECT * FROM users WHERE bgu_username = 'testuser';
+SELECT * FROM fcm_tokens WHERE bgu_username = 'testuser';
+```
+
+### Username Normalization Flow (MUST TEST)
+Test that usernames are normalized consistently across the system.
+
+| Input | Expected Normalized |
+|-------|---------------------|
+| `User@bgu.ac.il` | `user` |
+| `USER` | `user` |
+| `User` | `user` |
+| `  user  ` | `user` |
+| `USER@BGU.AC.IL` | `user` |
+
+**How to test:**
+1. Login with username in different cases (e.g., `BENARIET@bgu.ac.il`)
+2. Verify login succeeds and finds existing user record
+3. Check logs use normalized username
+
+**Database verification:**
+```sql
+-- All should return same user
+SELECT * FROM users WHERE bgu_username = 'benariet';
+```
+
+### Slot Status Transitions (MUST TEST)
+Test that slot status (FREE/SEMI/FULL) updates correctly.
+
+| Action | Before Status | After Status |
+|--------|---------------|--------------|
+| First MSc registers | FREE | SEMI |
+| Second MSc registers | SEMI | SEMI |
+| Third MSc registers (slot full) | SEMI | FULL |
+| One MSc cancels | FULL | SEMI |
+| All MSc cancel | SEMI | FREE |
+| PhD registers (takes whole slot) | FREE | FULL |
+
+**How to test:**
+1. Find empty slot, verify status = FREE
+2. Register MSc user, verify status = SEMI
+3. Continue registering until full
+4. Cancel and verify status decrements
+
+**Database verification:**
+```sql
+SELECT slot_id, status, capacity FROM slots WHERE slot_id = X;
+SELECT COUNT(*) as registrations FROM slot_registration
+WHERE slot_id = X AND approval_status IN ('PENDING', 'APPROVED');
+```
+
+### One Approved Registration Auto-Cancel (MUST TEST)
+When user gets one registration approved, other pending registrations are auto-cancelled.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | User registers for Slot A | Status = PENDING |
+| 2 | User registers for Slot B | Status = PENDING |
+| 3 | User joins waiting list for Slot C | Position = 1 |
+| 4 | Supervisor approves Slot A | Slot A → APPROVED |
+| 5 | System auto-cancels others | Slot B deleted, removed from Slot C waiting list |
+
+**How to test:**
+1. Register same user for multiple available slots
+2. Approve one registration via supervisor link
+3. Verify other registrations cancelled
+
+**Database verification:**
+```sql
+-- Should only show one APPROVED, no PENDING
+SELECT * FROM slot_registration WHERE presenter_username = 'testuser';
+-- Should be empty
+SELECT * FROM waiting_list WHERE presenter_username = 'testuser';
+```
+
+### Waiting List Position Management (MUST TEST)
+Test that positions stay contiguous when users leave.
+
+| Step | Action | Positions Before | Positions After |
+|------|--------|------------------|-----------------|
+| 1 | User A joins | - | A=1 |
+| 2 | User B joins | A=1 | A=1, B=2 |
+| 3 | User C joins | A=1, B=2 | A=1, B=2, C=3 |
+| 4 | User B cancels | A=1, B=2, C=3 | A=1, C=2 |
+| 5 | User A promoted | A=1, C=2 | C=1 |
+
+**How to test:**
+1. Fill a slot so waiting list is needed
+2. Add 3 users to waiting list
+3. Have middle user cancel
+4. Verify positions are 1, 2 (not 1, 3)
+
+**Database verification:**
+```sql
+SELECT presenter_username, position FROM waiting_list
+WHERE slot_id = X ORDER BY position;
+-- Positions should be contiguous: 1, 2, 3...
+```
+
+### Duplicate Registration Prevention (MUST TEST)
+Test that users cannot register twice for same slot.
+
+| Scenario | Expected Response |
+|----------|-------------------|
+| User registers, then registers again (PENDING) | `ALREADY_REGISTERED` |
+| User registers, approved, registers again | `ALREADY_APPROVED` |
+| User registers, declined, registers again | Success (re-registration allowed) |
+| User registers, expired, registers again | Success (re-registration allowed) |
+
+**How to test:**
+1. Register for a slot
+2. Try to register again → Should fail
+3. Get declined, try again → Should succeed
+
+### Invalid Request Handling (MUST TEST)
+Test API validation and error responses.
+
+| Scenario | Expected Response | HTTP Status |
+|----------|-------------------|-------------|
+| Missing `presenterUsername` | "Presenter username is required" | 400 |
+| Invalid `slotId` (non-existent) | "Slot not found" | 404 |
+| Invalid `slotId` (negative) | Validation error | 400 |
+| Empty request body | "Request body is null" | 400 |
+| Invalid supervisor email format | Validation error | 400 |
+
+**How to test with curl:**
+```bash
+# Missing username
+curl -X POST "http://132.72.50.53:8080/api/v1/slots/999/waiting-list" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Non-existent slot
+curl -X POST "http://132.72.50.53:8080/api/v1/slots/99999/waiting-list" \
+  -H "Content-Type: application/json" \
+  -d '{"presenterUsername": "testuser"}'
+```
+
+### Concurrent Registration Handling (EDGE CASE)
+Test race condition when two users try to get last spot.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Slot has 1 spot left | capacity - registered = 1 |
+| 2 | User A and User B click Register simultaneously | Both requests hit server |
+| 3 | Database constraint enforces | One succeeds, one fails |
+| 4 | Failed user sees | "Slot is full" message |
+
+**How to test:**
+1. Create slot with capacity 1
+2. Use two browser tabs/devices
+3. Click Register at same time
+4. Verify only one registration exists
+
+### Announcement Banner Flow (MUST TEST)
+Test system-wide announcements via `announce_config` table.
+
+| Field | Description |
+|-------|-------------|
+| `is_active` | 1 = show banner, 0 = hide |
+| `title` | Banner title |
+| `message` | Banner message text |
+| `is_blocking` | 1 = must dismiss, 0 = can ignore |
+| `start_at` / `end_at` | Display window (NULL = always) |
+
+**How to test:**
+1. Enable announcement in database:
+```sql
+UPDATE announce_config SET
+  is_active = 1,
+  title = 'Test Announcement',
+  message = 'This is a test message',
+  is_blocking = 0
+WHERE id = 1;
+```
+2. Open app → Should see banner
+3. Disable: `UPDATE announce_config SET is_active = 0 WHERE id = 1;`
+
+### Device Info Logging (MUST TEST)
+Test that mobile device info is captured in logs.
+
+**Expected X-Device-Info format:**
+```
+Samsung SM-G991B (Android 12, SDK 31)
+```
+
+**How to test:**
+1. Perform any action from mobile app
+2. Check app_logs table for device_info column
+
+**Database verification:**
+```sql
+SELECT log_timestamp, tag, device_info, app_version
+FROM app_logs
+WHERE source = 'MOBILE'
+ORDER BY log_id DESC LIMIT 10;
+```
+
+### Registration with Missing Supervisor (EDGE CASE)
+Test registration when user has no supervisor linked.
+
+| Scenario | Expected Result |
+|----------|-----------------|
+| User has no supervisor, provides in request | Registration succeeds |
+| User has no supervisor, doesn't provide | Error: "Supervisor information required" |
+| User has supervisor linked | Uses linked supervisor |
+
+**How to test:**
+1. Remove supervisor from user: `UPDATE users SET supervisor_id = NULL WHERE bgu_username = 'testuser';`
+2. Try to register without providing supervisor → Should fail
+3. Try to register with supervisor in request → Should succeed
+
+### Null/Empty Field Handling (EDGE CASE)
+Test graceful handling of optional fields.
+
+| Field | If NULL/Empty | Expected |
+|-------|---------------|----------|
+| `topic` | NULL | Stored as NULL, email shows "N/A" |
+| `seminar_abstract` | NULL | Stored as NULL |
+| `supervisor_name` | Empty string | Stored as empty |
+| `national_id_number` | NULL | Stored as NULL |
+
+**How to test:**
+1. Register with minimal fields (only required ones)
+2. Verify registration succeeds
+3. Check approval email renders correctly with "N/A" for missing fields
+
+### Idempotent Approval Operations (MUST TEST)
+Test that clicking approve/decline twice doesn't cause errors.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Supervisor clicks Approve link | Success page shown |
+| 2 | Supervisor clicks same link again | Success page (already approved) |
+| 3 | Check database | Single approval, not duplicated |
+
+**How to test:**
+1. Register for slot, get approval email
+2. Click approve link → Success
+3. Click approve link again → Still success (idempotent)
+4. Verify `supervisor_approved_at` only set once
+
+### Attendance Duplicate Prevention (MUST TEST)
+Test that scanning QR twice doesn't create duplicate attendance.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Student scans QR | Attendance recorded |
+| 2 | Student scans same QR again | "Already marked attendance" |
+| 3 | Check database | Single attendance record |
+
+**Database verification:**
+```sql
+SELECT COUNT(*) FROM attendance
+WHERE session_id = X AND student_username = 'testuser';
+-- Should always be 1, never 2
+```
 
 ## Troubleshooting
 
@@ -603,6 +1238,7 @@ CREATE TABLE `app_logs` (
   `source` enum('API','MOBILE') NOT NULL DEFAULT 'API',
   `correlation_id` varchar(50) DEFAULT NULL,
   `bgu_username` varchar(50) DEFAULT NULL,
+  `user_full_name` varchar(200) DEFAULT NULL,
   `user_role` enum('PARTICIPANT','PRESENTER','BOTH','UNKNOWN') DEFAULT 'UNKNOWN',
   `device_info` varchar(255) DEFAULT NULL,
   `app_version` varchar(50) DEFAULT NULL,

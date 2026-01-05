@@ -217,12 +217,12 @@ public class PresenterHomeService {
                 return new PresenterSlotRegistrationResponse(false, errorMsg, "MISSING_USERNAME");
             }
 
-            // CRITICAL: Check if presenter already registered FIRST (before any slot reads)
-            // This avoids unnecessary slot locks if already registered
-            if (registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, presenterUsername)) {
-                logger.info("Presenter {} already registered to slot {}", presenterUsername, slotId);
-                databaseLoggerService.logBusinessEvent("SLOT_REGISTRATION_ALREADY", 
-                    String.format("Presenter %s already registered to slot %s", presenterUsername, slotId), presenterUsername);
+            // CRITICAL: Check if presenter has ACTIVE registration (PENDING/APPROVED) FIRST
+            // DECLINED/EXPIRED registrations should NOT block re-registration
+            if (registrationRepository.existsActiveRegistration(slotId, presenterUsername)) {
+                logger.info("Presenter {} already has active registration in slot {}", presenterUsername, slotId);
+                databaseLoggerService.logBusinessEvent("SLOT_REGISTRATION_ALREADY",
+                    String.format("Presenter %s already has active registration in slot %s", presenterUsername, slotId), presenterUsername);
                 return new PresenterSlotRegistrationResponse(true, "Already registered for this slot", "ALREADY_IN_SLOT");
             }
 
@@ -1577,12 +1577,18 @@ public class PresenterHomeService {
                                             String presenterUsername,
                                             User.Degree presenterDegree,
                                             List<SeminarSlotRegistration> presenterRegistrations) {
+        // Only count PENDING/APPROVED as "registered elsewhere" - DECLINED/EXPIRED don't count
         boolean alreadyRegisteredElsewhere = presenterRegistrations.stream()
-                .map(SeminarSlotRegistration::getSlotId)
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING
+                            || reg.getApprovalStatus() == ApprovalStatus.APPROVED)
                 .findFirst()
                 .isPresent();
 
+        // Only consider PENDING and APPROVED registrations as "in slot"
+        // DECLINED and EXPIRED registrations should NOT block re-registration
         Set<Long> presenterSlotIds = presenterRegistrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING
+                            || reg.getApprovalStatus() == ApprovalStatus.APPROVED)
                 .map(SeminarSlotRegistration::getSlotId)
                 .collect(Collectors.toSet());
 
