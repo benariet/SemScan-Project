@@ -57,7 +57,7 @@ public class Session {
     @SerializedName(value = "seminar_id", alternate = {"seminarId"})
     private Long seminarId;
     
-    @SerializedName(value = "start_time", alternate = {"startTime"})
+    @SerializedName(value = "start_time", alternate = {"startTime", "startTimeEpoch"})
     @JsonAdapter(TimestampDeserializer.class)
     private long startTime;
     

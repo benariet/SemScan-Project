@@ -201,7 +201,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="horizontal"
-                    android:background="@drawable/bg_card_orange_light_gradient"
+                    android:background="@drawable/bg_card_blue_light_gradient"
                     android:paddingStart="20dp"
                     android:paddingEnd="20dp"
                     android:gravity="center_vertical">
@@ -211,7 +211,7 @@
                         android:layout_height="48dp"
                         android:layout_marginEnd="16dp"
                         app:cardCornerRadius="24dp"
-                        app:cardBackgroundColor="@color/icon_container_orange"
+                        app:cardBackgroundColor="@color/icon_container_blue"
                         app:cardElevation="0dp">
 
                         <FrameLayout

@@ -21,9 +21,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+
+import java.util.EnumMap;
+import java.util.Map;
 
 import org.example.semscan.R;
 import org.example.semscan.data.api.ApiClient;
@@ -304,11 +309,17 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
 
     private void generateQr(String content) {
         try {
+            // Configure QR code hints for minimal margin and high error correction
+            Map<EncodeHintType, Object> hints = new EnumMap<>(EncodeHintType.class);
+            hints.put(EncodeHintType.MARGIN, 1); // Minimal quiet zone (default is 4)
+            hints.put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.H); // High error correction for better scanning
+
+            int size = 800; // Larger size for better quality
             QRCodeWriter writer = new QRCodeWriter();
-            BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512);
-            Bitmap bitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.RGB_565);
-            for (int x = 0; x < 512; x++) {
-                for (int y = 0; y < 512; y++) {
+            BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, size, size, hints);
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565);
+            for (int x = 0; x < size; x++) {
+                for (int y = 0; y < size; y++) {
                     bitmap.setPixel(x, y, bitMatrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
                 }
             }

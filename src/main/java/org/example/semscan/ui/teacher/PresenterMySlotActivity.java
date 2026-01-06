@@ -35,6 +35,7 @@ import retrofit2.Response;
 public class PresenterMySlotActivity extends AppCompatActivity {
 
     private View layoutSlotDetails;
+    private View layoutWaitingList;
     private View layoutEmpty;
     private ProgressBar progressBar;
     private TextView textSlotTitle;
@@ -42,14 +43,22 @@ public class PresenterMySlotActivity extends AppCompatActivity {
     private TextView textSlotLocation;
     private TextView textSlotPresenters;
     private MaterialButton btnCancel;
-    private MaterialButton btnChangeSlot;
     private MaterialButton btnGoToSlots;
+
+    // Waiting list views
+    private TextView textWaitingPosition;
+    private TextView textWaitingSlotTitle;
+    private TextView textWaitingSlotSchedule;
+    private TextView textWaitingSlotLocation;
+    private TextView textWaitingSlotPresenters;
+    private MaterialButton btnCancelWaitingList;
 
     private PreferencesManager preferencesManager;
     private ApiService apiService;
     private ServerLogger serverLogger;
 
     private ApiService.MySlotSummary currentSlot;
+    private ApiService.WaitingListSlotSummary currentWaitingListSlot;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -84,6 +93,7 @@ public class PresenterMySlotActivity extends AppCompatActivity {
 
     private void initializeViews() {
         layoutSlotDetails = findViewById(R.id.container_slot_details);
+        layoutWaitingList = findViewById(R.id.container_waiting_list);
         layoutEmpty = findViewById(R.id.container_empty_state);
         progressBar = findViewById(R.id.progress_bar);
         textSlotTitle = findViewById(R.id.text_slot_title);
@@ -91,14 +101,21 @@ public class PresenterMySlotActivity extends AppCompatActivity {
         textSlotLocation = findViewById(R.id.text_slot_location);
         textSlotPresenters = findViewById(R.id.text_slot_presenters);
         btnCancel = findViewById(R.id.btn_cancel_slot);
-        btnChangeSlot = findViewById(R.id.btn_change_slot);
         btnGoToSlots = findViewById(R.id.btn_go_to_slots);
+
+        // Waiting list views
+        textWaitingPosition = findViewById(R.id.text_waiting_position);
+        textWaitingSlotTitle = findViewById(R.id.text_waiting_slot_title);
+        textWaitingSlotSchedule = findViewById(R.id.text_waiting_slot_schedule);
+        textWaitingSlotLocation = findViewById(R.id.text_waiting_slot_location);
+        textWaitingSlotPresenters = findViewById(R.id.text_waiting_slot_presenters);
+        btnCancelWaitingList = findViewById(R.id.btn_cancel_waiting_list);
     }
 
     private void setupInteractions() {
         btnCancel.setOnClickListener(v -> cancelRegistration());
-        btnChangeSlot.setOnClickListener(v -> openSlotSelection());
         btnGoToSlots.setOnClickListener(v -> openSlotSelection());
+        btnCancelWaitingList.setOnClickListener(v -> cancelWaitingList());
     }
 
     private void openSlotSelection() {
@@ -129,7 +146,9 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                     return;
                 }
                 currentSlot = response.body().mySlot;
+                currentWaitingListSlot = response.body().myWaitingListSlot;
                 renderSlot();
+                renderWaitingListSlot();
             }
 
             @Override
@@ -152,9 +171,13 @@ public class PresenterMySlotActivity extends AppCompatActivity {
     }
 
     private void renderSlot() {
-        if (currentSlot == null || currentSlot.slotId == null) {
+        boolean hasSlot = currentSlot != null && currentSlot.slotId != null;
+        boolean hasWaitingList = currentWaitingListSlot != null && currentWaitingListSlot.slotId != null;
+
+        if (!hasSlot) {
             layoutSlotDetails.setVisibility(View.GONE);
-            layoutEmpty.setVisibility(View.VISIBLE);
+            // Only show empty state if also no waiting list
+            layoutEmpty.setVisibility(hasWaitingList ? View.GONE : View.VISIBLE);
             return;
         }
 
@@ -174,6 +197,48 @@ public class PresenterMySlotActivity extends AppCompatActivity {
         } else {
             textSlotPresenters.setVisibility(View.VISIBLE);
             textSlotPresenters.setText(presenters);
+        }
+    }
+
+    private void renderWaitingListSlot() {
+        if (currentWaitingListSlot == null || currentWaitingListSlot.slotId == null) {
+            layoutWaitingList.setVisibility(View.GONE);
+            return;
+        }
+
+        layoutWaitingList.setVisibility(View.VISIBLE);
+
+        // Show position in queue
+        textWaitingPosition.setText(getString(R.string.presenter_my_slot_waiting_position,
+                currentWaitingListSlot.position, currentWaitingListSlot.totalInQueue));
+
+        // Format title
+        String day = currentWaitingListSlot.dayOfWeek != null ? currentWaitingListSlot.dayOfWeek : "";
+        String date = currentWaitingListSlot.date != null ? currentWaitingListSlot.date : "";
+        textWaitingSlotTitle.setText(getString(R.string.presenter_home_slot_title_format, day, date));
+
+        // Time range
+        textWaitingSlotSchedule.setText(currentWaitingListSlot.timeRange != null ? currentWaitingListSlot.timeRange : "");
+
+        // Location
+        List<String> parts = new ArrayList<>();
+        if (!TextUtils.isEmpty(currentWaitingListSlot.room)) {
+            parts.add(getString(R.string.room_with_label, currentWaitingListSlot.room));
+        }
+        if (!TextUtils.isEmpty(currentWaitingListSlot.building)) {
+            parts.add(getString(R.string.building_with_label, currentWaitingListSlot.building));
+        }
+        String location = TextUtils.join(" • ", parts);
+        textWaitingSlotLocation.setText(location);
+        textWaitingSlotLocation.setVisibility(TextUtils.isEmpty(location) ? View.GONE : View.VISIBLE);
+
+        // Registered presenters
+        String presenters = formatPresenters(currentWaitingListSlot.registeredPresenters);
+        if (TextUtils.isEmpty(presenters)) {
+            textWaitingSlotPresenters.setVisibility(View.GONE);
+        } else {
+            textWaitingSlotPresenters.setVisibility(View.VISIBLE);
+            textWaitingSlotPresenters.setText(presenters);
         }
     }
 
@@ -327,6 +392,58 @@ public class PresenterMySlotActivity extends AppCompatActivity {
                             serverLogger.e(ServerLogger.TAG_CANCEL_FAILED, errorDetails, t);
                         }
                         Toast.makeText(PresenterMySlotActivity.this, R.string.presenter_my_slot_cancel_error, Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private void cancelWaitingList() {
+        Logger.userAction("Cancel Waiting List", "User clicked cancel waiting list");
+        if (serverLogger != null) {
+            serverLogger.userAction("Cancel Waiting List", "User clicked cancel waiting list for slot=" +
+                    (currentWaitingListSlot != null ? currentWaitingListSlot.slotId : "null"));
+        }
+
+        if (currentWaitingListSlot == null || currentWaitingListSlot.slotId == null) {
+            Toast.makeText(this, R.string.presenter_my_slot_cancel_waiting_list_error, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        final String username = preferencesManager.getUserName();
+        if (TextUtils.isEmpty(username)) {
+            Toast.makeText(this, R.string.presenter_my_slot_no_user_error, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        final String normalizedUsername = username.trim().toLowerCase(Locale.US);
+        final Long slotId = currentWaitingListSlot.slotId;
+
+        setLoading(true);
+        apiService.leaveWaitingList(slotId, normalizedUsername)
+                .enqueue(new Callback<ApiService.WaitingListResponse>() {
+                    @Override
+                    public void onResponse(Call<ApiService.WaitingListResponse> call, Response<ApiService.WaitingListResponse> response) {
+                        setLoading(false);
+                        if (response.isSuccessful()) {
+                            Logger.i(Logger.TAG_CANCEL_SUCCESS, "Successfully cancelled waiting list for slot=" + slotId);
+                            if (serverLogger != null) {
+                                serverLogger.i(ServerLogger.TAG_CANCEL_SUCCESS, "Successfully cancelled waiting list for slot=" + slotId +
+                                        ", user=" + normalizedUsername);
+                            }
+                            Toast.makeText(PresenterMySlotActivity.this, R.string.presenter_my_slot_cancel_waiting_list_success, Toast.LENGTH_LONG).show();
+                            loadSlot();
+                        } else {
+                            Toast.makeText(PresenterMySlotActivity.this, R.string.presenter_my_slot_cancel_waiting_list_error, Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiService.WaitingListResponse> call, Throwable t) {
+                        setLoading(false);
+                        Logger.e(Logger.TAG_CANCEL_FAILED, "Cancel waiting list network failure", t);
+                        if (serverLogger != null) {
+                            serverLogger.e(ServerLogger.TAG_CANCEL_FAILED, "Cancel waiting list network failure", t);
+                        }
+                        Toast.makeText(PresenterMySlotActivity.this, R.string.presenter_my_slot_cancel_waiting_list_error, Toast.LENGTH_LONG).show();
                     }
                 });
     }

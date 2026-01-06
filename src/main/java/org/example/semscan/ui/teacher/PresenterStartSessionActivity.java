@@ -51,7 +51,6 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
     private View cardSessionSuccess;
     private View cardSessionCanceled;
     private View layoutEmptyState;
-    private View layoutBottomButton;
     private View layoutLocation;
     private TextView textSuccessOpenedAt;
     private TextView textSuccessClosedAt;
@@ -119,7 +118,6 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
 
         // Layout views
         layoutEmptyState = findViewById(R.id.layout_empty_state);
-        layoutBottomButton = findViewById(R.id.layout_bottom_button);
         layoutLocation = findViewById(R.id.layout_location);
 
         // Success card views
@@ -202,7 +200,6 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         cardSessionSuccess.setVisibility(View.GONE);
         cardSessionCanceled.setVisibility(View.GONE);
         layoutEmptyState.setVisibility(View.GONE);
-        layoutBottomButton.setVisibility(View.VISIBLE);
 
         textSlotTitle.setText(getString(R.string.presenter_home_slot_title_format,
                 safe(currentSlot.dayOfWeek), safe(currentSlot.date)));
@@ -236,7 +233,6 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         cardSessionSuccess.setVisibility(View.VISIBLE);
         cardSessionCanceled.setVisibility(View.GONE);
         layoutEmptyState.setVisibility(View.GONE);
-        layoutBottomButton.setVisibility(View.GONE);
 
         // Populate success card with session details
         if (successOpenedAt != null) {
@@ -263,7 +259,6 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         cardSessionSuccess.setVisibility(View.GONE);
         cardSessionCanceled.setVisibility(View.VISIBLE);
         layoutEmptyState.setVisibility(View.GONE);
-        layoutBottomButton.setVisibility(View.GONE);
     }
 
     private void showEmptyState() {
@@ -271,7 +266,6 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
         cardSessionSuccess.setVisibility(View.GONE);
         cardSessionCanceled.setVisibility(View.GONE);
         layoutEmptyState.setVisibility(View.VISIBLE);
-        layoutBottomButton.setVisibility(View.GONE);
     }
 
     private void attemptOpenSession() {

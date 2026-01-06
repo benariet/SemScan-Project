@@ -54,6 +54,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
     private ApiService apiService;
     private ServerLogger serverLogger;
     private boolean hasRegisteredSlot = false;
+    private boolean canOpenSession = false;
 
     private MaterialCardView cardPresentationDetails;
     private LinearLayout presentationDetailsHeader;
@@ -224,7 +225,10 @@ public class PresenterHomeActivity extends AppCompatActivity {
                 if (!response.isSuccessful() || response.body() == null || response.body().presenter == null) return;
                 ApiService.PresenterHomeResponse body = response.body();
                 hasRegisteredSlot = body.mySlot != null && body.mySlot.slotId != null;
-                setCardsEnabled(hasRegisteredSlot);
+                // Only enable Start Session card if registration is APPROVED (canOpen=true)
+                canOpenSession = hasRegisteredSlot && body.attendance != null && body.attendance.canOpen;
+                setStartSessionEnabled(canOpenSession);
+                setMySlotEnabled(hasRegisteredSlot);
             }
             @Override public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) { Logger.e(Logger.TAG_SLOTS_LOAD, "Failed to check registration status", t); }
         });
@@ -268,6 +272,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
     private void setupClickListeners() {
         cardStartSession.setOnClickListener(v -> {
             if (!hasRegisteredSlot) { Toast.makeText(this, R.string.presenter_select_slot_first, Toast.LENGTH_SHORT).show(); return; }
+            if (!canOpenSession) { Toast.makeText(this, R.string.presenter_waiting_approval, Toast.LENGTH_SHORT).show(); return; }
             openStartSession();
         });
         cardEnrollSlot.setOnClickListener(v -> {
@@ -286,9 +291,17 @@ public class PresenterHomeActivity extends AppCompatActivity {
     }
 
     private void setCardsEnabled(boolean enabled) {
-        cardStartSession.setClickable(enabled); cardStartSession.setFocusable(enabled); cardStartSession.setAlpha(enabled ? 1.0f : 0.6f);
+        setStartSessionEnabled(enabled);
+        setMySlotEnabled(enabled);
+    }
+
+    private void setStartSessionEnabled(boolean enabled) {
+        cardStartSession.setClickable(enabled); cardStartSession.setFocusable(enabled); cardStartSession.setAlpha(enabled ? 1.0f : 0.5f);
         if (cardStartSessionInner != null) cardStartSessionInner.setBackgroundResource(enabled ? R.drawable.bg_card_orange_light_gradient : R.drawable.bg_card_disabled);
-        cardMySlot.setClickable(enabled); cardMySlot.setFocusable(enabled); cardMySlot.setAlpha(enabled ? 1.0f : 0.6f);
+    }
+
+    private void setMySlotEnabled(boolean enabled) {
+        cardMySlot.setClickable(enabled); cardMySlot.setFocusable(enabled); cardMySlot.setAlpha(enabled ? 1.0f : 0.5f);
         if (cardMySlotInner != null) cardMySlotInner.setBackgroundResource(enabled ? R.drawable.bg_card_orange_light_gradient : R.drawable.bg_card_disabled);
     }
 

@@ -658,9 +658,10 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
             private final TextView textTitle;
             private final TextView textDate;
             private final TextView textPresenter;
+            private final TextView textTopic;
             private final TextView textTimeRange;
-            private final TextView textDuration;
-            private final TextView textDescription;
+            private final View layoutPresenter;
+            private final View layoutTopic;
             private final TextView badgeStatus;
 
             SessionViewHolder(@NonNull View itemView) {
@@ -668,9 +669,10 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
                 textTitle = itemView.findViewById(R.id.text_session_title);
                 textDate = itemView.findViewById(R.id.text_session_date);
                 textPresenter = itemView.findViewById(R.id.text_session_presenter);
+                textTopic = itemView.findViewById(R.id.text_session_topic);
                 textTimeRange = itemView.findViewById(R.id.text_session_time_range);
-                textDuration = itemView.findViewById(R.id.text_session_duration);
-                textDescription = itemView.findViewById(R.id.text_session_description);
+                layoutPresenter = itemView.findViewById(R.id.layout_presenter);
+                layoutTopic = itemView.findViewById(R.id.layout_topic);
                 badgeStatus = itemView.findViewById(R.id.badge_session_status);
             }
 
@@ -680,113 +682,80 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
                 String dayOfWeek = "";
                 String timeStr = "Unknown time";
                 String timeRangeStr = "";
-                String durationStr = "";
-                
+
                 if (session.getStartTime() > 0) {
                     java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault());
                     java.text.SimpleDateFormat dayFormat = new java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault());
                     java.text.SimpleDateFormat timeFormat = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault());
-                    
+
                     java.util.Date startDate = new java.util.Date(session.getStartTime());
                     dateStr = dateFormat.format(startDate);
                     dayOfWeek = dayFormat.format(startDate);
                     timeStr = timeFormat.format(startDate);
-                    
+
                     // Build time range if end time is available
                     if (session.getEndTime() != null && session.getEndTime() > 0) {
                         String endTimeStr = timeFormat.format(new java.util.Date(session.getEndTime()));
                         timeRangeStr = timeStr + " - " + endTimeStr;
-                        
-                        // Calculate duration
-                        long durationMs = session.getEndTime() - session.getStartTime();
-                        long durationHours = durationMs / (1000 * 60 * 60);
-                        long durationMinutes = (durationMs % (1000 * 60 * 60)) / (1000 * 60);
-                        
-                        if (durationHours > 0) {
-                            durationStr = durationHours + "h " + durationMinutes + "m";
-                        } else {
-                            durationStr = durationMinutes + "m";
-                        }
                     } else {
                         timeRangeStr = timeStr;
                     }
                 }
 
-                // Set title - use topic if available, otherwise use a default title
-                String title = "Seminar Session";
-                if (session.getTopic() != null && !session.getTopic().trim().isEmpty()) {
-                    title = session.getTopic();
-                }
-                textTitle.setText(title);
+                // Set title - always "Seminar Session" (topic shown separately)
+                textTitle.setText("Seminar Session");
 
-                // Set date with day of week and time
-                StringBuilder dateTimeBuilder = new StringBuilder();
-                if (!dayOfWeek.isEmpty()) {
-                    dateTimeBuilder.append(dayOfWeek).append(", ");
-                }
-                dateTimeBuilder.append(dateStr);
-                if (!timeStr.isEmpty()) {
-                    dateTimeBuilder.append(" • ").append(timeStr);
-                }
-                textDate.setText(dateTimeBuilder.toString());
-
-                // Set presenter name on separate line
+                // Set presenter name
                 if (session.getPresenterName() != null && !session.getPresenterName().trim().isEmpty()) {
-                    textPresenter.setText("Presenter: " + session.getPresenterName());
-                    textPresenter.setVisibility(View.VISIBLE);
+                    textPresenter.setText(session.getPresenterName());
+                    if (layoutPresenter != null) layoutPresenter.setVisibility(View.VISIBLE);
                 } else {
-                    textPresenter.setVisibility(View.GONE);
+                    textPresenter.setText("Unknown Presenter");
+                    if (layoutPresenter != null) layoutPresenter.setVisibility(View.VISIBLE);
                 }
 
-                // Set time range if available
-                if (!timeRangeStr.isEmpty() && session.getEndTime() != null && session.getEndTime() > 0) {
-                    textTimeRange.setText("Time: " + timeRangeStr);
-                    textTimeRange.setVisibility(View.VISIBLE);
-                } else if (!timeStr.isEmpty()) {
-                    textTimeRange.setText("Time: " + timeStr);
-                    textTimeRange.setVisibility(View.VISIBLE);
-                } else {
-                    textTimeRange.setVisibility(View.GONE);
+                // Set topic
+                if (textTopic != null) {
+                    if (session.getTopic() != null && !session.getTopic().trim().isEmpty()) {
+                        textTopic.setText(session.getTopic());
+                        if (layoutTopic != null) layoutTopic.setVisibility(View.VISIBLE);
+                    } else {
+                        textTopic.setText("No topic specified");
+                        if (layoutTopic != null) layoutTopic.setVisibility(View.VISIBLE);
+                    }
                 }
 
-                // Set duration if available
-                if (!durationStr.isEmpty()) {
-                    textDuration.setText("Duration: " + durationStr);
-                    textDuration.setVisibility(View.VISIBLE);
-                } else {
-                    textDuration.setVisibility(View.GONE);
+                // Set date with day of week
+                StringBuilder dateBuilder = new StringBuilder();
+                if (!dayOfWeek.isEmpty()) {
+                    dateBuilder.append(dayOfWeek).append(", ");
                 }
+                dateBuilder.append(dateStr);
+                textDate.setText(dateBuilder.toString());
 
-                // Hide description
-                textDescription.setVisibility(View.GONE);
+                // Set time range
+                textTimeRange.setText(timeRangeStr);
 
                 // Set status badge
                 String status = session.getStatus() != null ? session.getStatus() : "OPEN";
                 badgeStatus.setText(status);
-                
-                // Set badge color based on selection
-                if (selected) {
-                    badgeStatus.setBackground(ContextCompat.getDrawable(itemView.getContext(), R.drawable.bg_slot_status));
-                    badgeStatus.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.white));
-                } else {
-                    badgeStatus.setBackground(ContextCompat.getDrawable(itemView.getContext(), R.drawable.bg_slot_status));
-                    badgeStatus.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.white));
-                }
+                badgeStatus.setBackground(ContextCompat.getDrawable(itemView.getContext(), R.drawable.bg_badge_open));
 
                 // Set card selection state
                 itemView.setOnClickListener(clickListener);
                 itemView.setSelected(selected);
-                
-                // Change card elevation/background based on selection
+
+                // Change card elevation/stroke based on selection
                 if (itemView instanceof com.google.android.material.card.MaterialCardView) {
                     com.google.android.material.card.MaterialCardView card = (com.google.android.material.card.MaterialCardView) itemView;
                     if (selected) {
                         card.setCardElevation(8f);
-                        card.setStrokeWidth(2);
+                        card.setStrokeWidth(3);
                         card.setStrokeColor(ContextCompat.getColor(itemView.getContext(), R.color.primary_blue));
                     } else {
                         card.setCardElevation(4f);
-                        card.setStrokeWidth(0);
+                        card.setStrokeWidth(1);
+                        card.setStrokeColor(0xFFFFE0B2); // Light orange stroke
                     }
                 }
             }
