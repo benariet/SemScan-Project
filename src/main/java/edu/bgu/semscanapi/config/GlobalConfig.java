@@ -427,7 +427,7 @@ public class GlobalConfig {
 
     /**
      * Maximum approved registrations per user (regardless of degree)
-     * Default: 1 - user can only have one approved slot
+     * Default: 1 - user can only present once per degree (one approved slot ever)
      */
     public int getMaxApprovedRegistrations() {
         if (appConfigService != null) {

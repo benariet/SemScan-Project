@@ -728,7 +728,7 @@ public class RegistrationApprovalService {
                 String.format("Registration approved for slotId=%d, presenter=%s", slotId, presenterUsername),
                 presenterUsername);
 
-        // BUSINESS RULE: Users can only have 1 approved registration at a time
+        // BUSINESS RULE: Users can only present once per degree (one approved registration ever)
         // Automatically cancel all other pending registrations for this user
         List<SeminarSlotRegistration> allUserRegistrations = registrationRepository.findByIdPresenterUsername(presenterUsername);
         List<SeminarSlotRegistration> otherPendingRegistrations = allUserRegistrations.stream()

@@ -275,10 +275,10 @@ public class PresenterHomeService {
                     ? globalConfig.getMaxPendingRegistrationsPhd()
                     : globalConfig.getMaxPendingRegistrationsMsc();
 
-            // Enforce registration limits
+            // Enforce registration limits (once per degree - students can only present once during their degree)
             if (approvedCount >= maxApproved) {
-                String errorMsg = String.format("%s students can have at most %d approved registration%s",
-                        presenterDegree, maxApproved, maxApproved == 1 ? "" : "s");
+                String errorMsg = String.format("%s students can only present once per degree",
+                        presenterDegree);
                 databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
                     String.format("slotId=%s,reason=REGISTRATION_LIMIT_EXCEEDED,approvedCount=%d,maxApproved=%d",
                             slotId, approvedCount, maxApproved));
