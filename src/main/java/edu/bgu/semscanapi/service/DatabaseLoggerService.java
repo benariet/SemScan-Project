@@ -7,8 +7,9 @@ import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.PrintWriter;
@@ -22,14 +23,20 @@ import java.util.Optional;
  */
 @Service
 public class DatabaseLoggerService {
-    
+
     private static final Logger logger = LoggerUtil.getLogger(DatabaseLoggerService.class);
-    
+
     @Autowired
     private AppLogRepository appLogRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
+
+    // Self-injection to bypass Spring proxy limitation for @Transactional on self-invocations
+    // @Lazy breaks the circular dependency during bean creation
+    @Lazy
+    @Autowired
+    private DatabaseLoggerService self;
     
     // Thread-local storage for device info (set by controllers/interceptors)
     private static final ThreadLocal<String> currentDeviceInfo = new ThreadLocal<>();
@@ -59,17 +66,18 @@ public class DatabaseLoggerService {
      * @param bguUsername Optional user BGU username
      * @param payload Optional payload/context
      */
-    @Async
-    @Transactional
     public void logAction(String level, String tag, String message, String bguUsername, String payload) {
-        logActionWithDevice(level, tag, message, bguUsername, payload, currentDeviceInfo.get(), currentAppVersion.get());
+        // Capture ThreadLocal values synchronously before transactional call
+        String deviceInfo = currentDeviceInfo.get();
+        String appVersion = currentAppVersion.get();
+        // Use self-injection to go through proxy for @Transactional to work
+        self.logActionWithDevice(level, tag, message, bguUsername, payload, deviceInfo, appVersion);
     }
 
     /**
      * Log an action with explicit device info
      */
-    @Async
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logActionWithDevice(String level, String tag, String message, String bguUsername, String payload,
                                     String deviceInfo, String appVersion) {
         try {
@@ -127,9 +135,11 @@ public class DatabaseLoggerService {
      * @param bguUsername Optional user BGU username
      * @param payload Optional payload/context
      */
-    @Async
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logError(String tag, String message, Throwable throwable, String bguUsername, String payload) {
+        // Capture ThreadLocal values synchronously
+        String deviceInfo = currentDeviceInfo.get();
+        String appVersion = currentAppVersion.get();
         try {
             AppLog appLog = new AppLog();
             appLog.setLogTimestamp(LocalDateTime.now());
@@ -139,9 +149,7 @@ public class DatabaseLoggerService {
             appLog.setSource(AppLog.Source.API); // API source for server-side errors
             appLog.setCorrelationId(LoggerUtil.getCurrentCorrelationId());
 
-            // Set device info if available
-            String deviceInfo = currentDeviceInfo.get();
-            String appVersion = currentAppVersion.get();
+            // Set device info if available (already captured above)
             if (deviceInfo != null && !deviceInfo.isBlank()) {
                 appLog.setDeviceInfo(deviceInfo);
             }
@@ -188,8 +196,6 @@ public class DatabaseLoggerService {
     /**
      * Log API request action
      */
-    @Async
-    @Transactional
     public void logApiAction(String method, String endpoint, String tag, String bguUsername, String payload) {
         logAction("INFO", tag != null ? tag : "API_ACTION",
             String.format("%s %s", method, endpoint), bguUsername, payload);
@@ -198,8 +204,6 @@ public class DatabaseLoggerService {
     /**
      * Log API request with body - derives feature from endpoint URL
      */
-    @Async
-    @Transactional
     public void logApiRequest(String method, String endpoint, String bguUsername, String requestBody) {
         String feature = deriveFeatureFromEndpoint(endpoint);
         // Truncate body to prevent huge database entries (max 10000 characters)
@@ -212,8 +216,6 @@ public class DatabaseLoggerService {
     /**
      * Log API response - derives feature from endpoint URL
      */
-    @Async
-    @Transactional
     public void logApiResponse(String method, String endpoint, int statusCode, String bguUsername) {
         String feature = deriveFeatureFromEndpoint(endpoint);
         String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
@@ -224,8 +226,6 @@ public class DatabaseLoggerService {
     /**
      * Log API response with body - derives feature from endpoint URL
      */
-    @Async
-    @Transactional
     public void logApiResponse(String method, String endpoint, int statusCode, String bguUsername, String responseBody) {
         String feature = deriveFeatureFromEndpoint(endpoint);
         String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
@@ -303,39 +303,31 @@ public class DatabaseLoggerService {
     /**
      * Log business event/action
      */
-    @Async
-    @Transactional
     public void logBusinessEvent(String event, String details, String bguUsername) {
         logAction("INFO", "BUSINESS_EVENT", String.format("%s: %s", event, details), bguUsername, null);
     }
-    
+
     /**
      * Log authentication event
      */
-    @Async
-    @Transactional
     public void logAuthentication(String event, String bguUsername, String details) {
         logAction("INFO", "AUTHENTICATION", String.format("%s - User: %s", event, bguUsername), bguUsername, details);
     }
-    
+
     /**
      * Log attendance event
      */
-    @Async
-    @Transactional
     public void logAttendance(String event, String studentUsername, Long sessionId, String method) {
-        logAction("INFO", "ATTENDANCE", 
+        logAction("INFO", "ATTENDANCE",
             String.format("%s - Student: %s, Session: %s, Method: %s", event, studentUsername, sessionId, method),
             studentUsername, String.format("sessionId=%s,method=%s", sessionId, method));
     }
-    
+
     /**
      * Log session event
      */
-    @Async
-    @Transactional
     public void logSessionEvent(String event, Long sessionId, Long seminarId, String presenterUsername) {
-        logAction("INFO", "SESSION", 
+        logAction("INFO", "SESSION",
             String.format("%s - Session: %s, Seminar: %s, Presenter: %s", event, sessionId, seminarId, presenterUsername),
             presenterUsername, String.format("sessionId=%s,seminarId=%s", sessionId, seminarId));
     }

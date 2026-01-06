@@ -174,9 +174,11 @@ public class AppLogService {
             try {
                 Optional<User> user = userRepository.findByBguUsername(normalizedUsername);
                 if (user.isPresent()) {
-                    // User exists - safe to set bgu_username
+                    // User exists - safe to set bgu_username, full name, and role
+                    User u = user.get();
                     appLog.setBguUsername(normalizedUsername);
-                    appLog.setUserRole(deriveUserRole(user.get()));
+                    appLog.setUserFullName(buildFullName(u));
+                    appLog.setUserRole(deriveUserRole(u));
                     logger.debug("Set bgu_username={} for log entry (user exists)", normalizedUsername);
                 } else {
                     // User doesn't exist - don't set bgu_username to avoid foreign key violation
@@ -328,5 +330,32 @@ public class AppLogService {
 
     public List<AppLog> getLogsByUserAndLevel(String bguUsername, String level) {
         return appLogRepository.findByBguUsernameAndLevel(bguUsername, level);
+    }
+
+    /**
+     * Build full name from user's first and last name
+     */
+    private String buildFullName(User user) {
+        if (user == null) {
+            return null;
+        }
+        String firstName = user.getFirstName();
+        String lastName = user.getLastName();
+
+        if ((firstName == null || firstName.isBlank()) && (lastName == null || lastName.isBlank())) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        if (firstName != null && !firstName.isBlank()) {
+            sb.append(firstName.trim());
+        }
+        if (lastName != null && !lastName.isBlank()) {
+            if (sb.length() > 0) {
+                sb.append(" ");
+            }
+            sb.append(lastName.trim());
+        }
+        return sb.toString();
     }
 }

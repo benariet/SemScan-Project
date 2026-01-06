@@ -8,6 +8,7 @@ import edu.bgu.semscanapi.dto.PresenterHomeResponse.PresenterSummary;
 import edu.bgu.semscanapi.dto.PresenterHomeResponse.RegisteredPresenter;
 import edu.bgu.semscanapi.dto.PresenterHomeResponse.SlotCard;
 import edu.bgu.semscanapi.dto.PresenterHomeResponse.SlotState;
+import edu.bgu.semscanapi.dto.PresenterHomeResponse.WaitingListSlotSummary;
 import edu.bgu.semscanapi.dto.PresenterOpenAttendanceResponse;
 import edu.bgu.semscanapi.dto.PresenterSlotRegistrationRequest;
 import edu.bgu.semscanapi.dto.PresenterSlotRegistrationResponse;
@@ -160,9 +161,33 @@ public class PresenterHomeService {
 
         MySlotSummary mySlotSummary = buildMySlotSummary(mySlotEntity, mySlotRegistrations, registeredUsers);
 
+        // Find user's waiting list entry (if any)
+        WaitingListSlotSummary waitingListSlotSummary = null;
+        if (hasValidUsername) {
+            List<WaitingListEntry> userWaitingListEntries = waitingListService.getWaitingListEntriesForUser(presenterUsername);
+            if (!userWaitingListEntries.isEmpty()) {
+                // User can only be on one waiting list at a time, take the first
+                WaitingListEntry waitingEntry = userWaitingListEntries.get(0);
+                SeminarSlot waitingSlot = slotsById.get(waitingEntry.getSlotId());
+                if (waitingSlot == null) {
+                    // Slot might not be in upcoming slots, fetch it
+                    waitingSlot = seminarSlotRepository.findById(waitingEntry.getSlotId()).orElse(null);
+                }
+                if (waitingSlot != null) {
+                    List<SeminarSlotRegistration> waitingSlotRegistrations =
+                            registrationsBySlot.getOrDefault(waitingSlot.getSlotId(),
+                                    registrationRepository.findByIdSlotId(waitingSlot.getSlotId()));
+                    int totalInQueue = (int) waitingListService.getWaitingListCount(waitingSlot.getSlotId());
+                    waitingListSlotSummary = buildWaitingListSlotSummary(
+                            waitingSlot, waitingEntry, waitingSlotRegistrations, registeredUsers, totalInQueue);
+                }
+            }
+        }
+
         PresenterHomeResponse response = new PresenterHomeResponse();
         response.setPresenter(buildPresenterSummary(presenter, presenterUsername, !presenterRegistrations.isEmpty()));
         response.setMySlot(mySlotSummary);
+        response.setMyWaitingListSlot(waitingListSlotSummary);
         response.setSlotCatalog(buildSlotCatalog(slots,
                 registrationsBySlot,
                 registeredUsers,
@@ -233,7 +258,8 @@ public class PresenterHomeService {
             // Retrieve all registrations for this user across all slots to check registration limits
             List<SeminarSlotRegistration> userRegistrations = registrationRepository.findByIdPresenterUsername(presenterUsername);
             
-            // Count approved and pending registrations: PhD max 1 approved + 1 pending, MSc max 1 approved + 2 pending
+            // Count approved and pending registrations
+            // Limits are configurable via app_config: registration.max_approved, registration.max_pending.phd, registration.max_pending.msc
             long approvedCount = userRegistrations.stream()
                     .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED)
                     .count();
@@ -242,39 +268,32 @@ public class PresenterHomeService {
                     .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING)
                     .filter(reg -> reg.getApprovalTokenExpiresAt() == null || now.isBefore(reg.getApprovalTokenExpiresAt()))
                     .count();
-            
+
+            // Get configurable limits
+            int maxApproved = globalConfig.getMaxApprovedRegistrations();
+            int maxPending = presenterDegree == User.Degree.PhD
+                    ? globalConfig.getMaxPendingRegistrationsPhd()
+                    : globalConfig.getMaxPendingRegistrationsMsc();
+
             // Enforce registration limits
-            if (presenterDegree == User.Degree.PhD) {
-                // PhD: Max 1 approved, Max 1 pending
-                if (approvedCount >= 1) {
-                    String errorMsg = "PhD students can have at most 1 approved registration";
-                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                        String.format("slotId=%s,reason=REGISTRATION_LIMIT_EXCEEDED,approvedCount=%d", slotId, approvedCount));
-                    return new PresenterSlotRegistrationResponse(false, errorMsg, "REGISTRATION_LIMIT_EXCEEDED");
-                }
-                if (pendingCount >= 1) {
-                    String errorMsg = "PhD students can have at most 1 pending approval";
-                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                        String.format("slotId=%s,reason=PENDING_LIMIT_EXCEEDED,pendingCount=%d", slotId, pendingCount));
-                    return new PresenterSlotRegistrationResponse(false, errorMsg, "PENDING_LIMIT_EXCEEDED");
-                }
-            } else {
-                // MSc: Max 1 approved, Max 2 pending
-                if (approvedCount >= 1) {
-                    String errorMsg = "MSc students can have at most 1 approved registration";
-                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                        String.format("slotId=%s,reason=REGISTRATION_LIMIT_EXCEEDED,approvedCount=%d", slotId, approvedCount));
-                    return new PresenterSlotRegistrationResponse(false, errorMsg, "REGISTRATION_LIMIT_EXCEEDED");
-                }
-                if (pendingCount >= 2) {
-                    String errorMsg = "MSc students can have at most 2 pending approvals";
-                    databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                        String.format("slotId=%s,reason=PENDING_LIMIT_EXCEEDED,pendingCount=%d", slotId, pendingCount));
-                    return new PresenterSlotRegistrationResponse(false, errorMsg, "PENDING_LIMIT_EXCEEDED");
-                }
+            if (approvedCount >= maxApproved) {
+                String errorMsg = String.format("%s students can have at most %d approved registration%s",
+                        presenterDegree, maxApproved, maxApproved == 1 ? "" : "s");
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                    String.format("slotId=%s,reason=REGISTRATION_LIMIT_EXCEEDED,approvedCount=%d,maxApproved=%d",
+                            slotId, approvedCount, maxApproved));
+                return new PresenterSlotRegistrationResponse(false, errorMsg, "REGISTRATION_LIMIT_EXCEEDED");
+            }
+            if (pendingCount >= maxPending) {
+                String errorMsg = String.format("%s students can have at most %d pending approval%s",
+                        presenterDegree, maxPending, maxPending == 1 ? "" : "s");
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                    String.format("slotId=%s,reason=PENDING_LIMIT_EXCEEDED,pendingCount=%d,maxPending=%d",
+                            slotId, pendingCount, maxPending));
+                return new PresenterSlotRegistrationResponse(false, errorMsg, "PENDING_LIMIT_EXCEEDED");
             }
             
-            // NOTE: Registration limits are already enforced above (PhD: max 1 approved + 1 pending, MSc: max 1 approved + 2 pending)
+            // NOTE: Registration limits are configurable via app_config table (see GlobalConfig)
             // CRITICAL BUSINESS RULE: Being on a waiting list for another slot does NOT prevent registration for other slots
             // Users can register for available/empty slots even if they're on a waiting list for a different slot
             // Only actual registrations (approved/pending) count towards the limits, NOT waiting list entries
@@ -325,11 +344,22 @@ public class PresenterHomeService {
             slot = seminarSlotRepository.findById(slotId)
                     .orElseThrow(() -> {
                         String errorMsg = "Slot not found: " + slotId;
-                        databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, normalizedUsername, 
+                        databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, normalizedUsername,
                             String.format("slotId=%s,reason=SLOT_NOT_FOUND", slotId));
                         return new IllegalArgumentException(errorMsg);
                     });
-            
+
+            // Validate slot date is not in the past
+            LocalDate slotDate = slot.getSlotDate();
+            LocalDate today = LocalDate.now();
+            if (slotDate != null && slotDate.isBefore(today)) {
+                String errorMsg = String.format("Cannot register for past slot %d (date: %s, today: %s)", slotId, slotDate, today);
+                logger.warn(errorMsg);
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                    String.format("slotId=%s,reason=SLOT_DATE_PASSED,slotDate=%s,today=%s", slotId, slotDate, today));
+                return new PresenterSlotRegistrationResponse(false, "Cannot register for slots in the past", "SLOT_DATE_PASSED");
+            }
+
             // Check slot capacity using effective capacity (PhD counts as 2, MSc counts as 1)
             // CRITICAL FIX: Count BOTH approved AND pending registrations against capacity
             int capacity = slot.getCapacity() != null ? slot.getCapacity() : 0;
@@ -1180,9 +1210,20 @@ public class PresenterHomeService {
 
         if (!registrationRepository.existsByIdSlotIdAndIdPresenterUsername(slotId, presenterUsername)) {
             String errorMsg = "Presenter is not registered for this slot";
-            databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername, 
+            databaseLoggerService.logError("ATTENDANCE_OPEN_FAILED", errorMsg, null, presenterUsername,
                 String.format("slotId=%s,reason=NOT_REGISTERED", slotId));
             return new PresenterOpenAttendanceResponse(false, errorMsg, "NOT_REGISTERED", null, null, null, null, null);
+        }
+
+        // CRITICAL: Check if registration is APPROVED - only approved presenters can open attendance
+        SeminarSlotRegistrationId regId = new SeminarSlotRegistrationId(slotId, presenterUsername);
+        Optional<SeminarSlotRegistration> registration = registrationRepository.findById(regId);
+        if (registration.isEmpty() || registration.get().getApprovalStatus() != ApprovalStatus.APPROVED) {
+            String status = registration.map(r -> r.getApprovalStatus() != null ? r.getApprovalStatus().name() : "UNKNOWN").orElse("NOT_FOUND");
+            String errorMsg = "Your registration must be approved by your supervisor before you can open attendance. Current status: " + status;
+            databaseLoggerService.logAction("WARN", "ATTENDANCE_OPEN_BLOCKED", errorMsg, presenterUsername,
+                String.format("slotId=%s,reason=NOT_APPROVED,status=%s", slotId, status));
+            return new PresenterOpenAttendanceResponse(false, errorMsg, "NOT_APPROVED", null, null, null, null, null);
         }
 
         // CRITICAL: Get current time in Israel timezone to match slot times
@@ -1556,6 +1597,37 @@ public class PresenterHomeService {
         return summary;
     }
 
+    private WaitingListSlotSummary buildWaitingListSlotSummary(SeminarSlot slot,
+                                                                WaitingListEntry waitingEntry,
+                                                                List<SeminarSlotRegistration> registrations,
+                                                                Map<String, User> registeredUsers,
+                                                                int totalInQueue) {
+        if (slot == null || waitingEntry == null) {
+            return null;
+        }
+
+        WaitingListSlotSummary summary = new WaitingListSlotSummary();
+        summary.setSlotId(slot.getSlotId());
+        summary.setSemesterLabel(slot.getSemesterLabel());
+        summary.setDate(formatDate(slot.getSlotDate()));
+        summary.setDayOfWeek(formatDayOfWeek(slot.getSlotDate()));
+        summary.setTimeRange(formatTimeRange(slot.getStartTime(), slot.getEndTime()));
+        summary.setRoom(slot.getRoom());
+        summary.setBuilding(slot.getBuilding());
+        summary.setPosition(waitingEntry.getPosition());
+        summary.setTotalInQueue(totalInQueue);
+
+        // Get the currently registered presenters for this slot
+        List<RegisteredPresenter> registeredPresenters = registrations.stream()
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING
+                            || reg.getApprovalStatus() == ApprovalStatus.APPROVED)
+                .map(reg -> toRegisteredPresenter(reg, registeredUsers))
+                .collect(Collectors.toList());
+        summary.setRegisteredPresenters(registeredPresenters);
+
+        return summary;
+    }
+
     private SeminarSlot findNextSlotForPresenter(List<SeminarSlotRegistration> registrations,
                                                  Map<Long, SeminarSlot> slotsById) {
         return registrations.stream()
@@ -1924,6 +1996,17 @@ public class PresenterHomeService {
             return panel;
         }
 
+        // CRITICAL: Check if presenter's registration is APPROVED before allowing attendance open
+        SeminarSlotRegistrationId regId = new SeminarSlotRegistrationId(slot.getSlotId(), presenterUsername);
+        Optional<SeminarSlotRegistration> registration = registrationRepository.findById(regId);
+        if (registration.isEmpty() || registration.get().getApprovalStatus() != ApprovalStatus.APPROVED) {
+            panel.setCanOpen(false);
+            panel.setAlreadyOpen(false);
+            panel.setStatus("Waiting for supervisor approval");
+            panel.setWarning("You can open attendance after your supervisor approves your registration");
+            return panel;
+        }
+
         LocalDateTime now = nowIsrael();
         LocalDateTime start = toSlotStart(slot);
         if (start == null) {
@@ -1945,14 +2028,40 @@ public class PresenterHomeService {
         if (openedAt != null && closesAt != null && now.isBefore(closesAt) && slot.getLegacySessionId() != null) {
             boolean openedByPresenter = Objects.equals(presenterUsername, openedBy);
             panel.setCanOpen(false);
-            panel.setAlreadyOpen(true);
-            panel.setStatus(openedByPresenter ? "Attendance already open" : "Attendance currently open");
-            panel.setOpenQrUrl(buildQrUrl(slot.getLegacySessionId()));
-            panel.setWarning("Registration closes " + DISPLAY_DATE_TIME_FORMAT.format(closesAt));
+            // Only set alreadyOpen=true for the presenter who opened the session
+            // Other presenters should see "Open session" button (but will get IN_PROGRESS error if they try)
+            panel.setAlreadyOpen(openedByPresenter);
+            panel.setStatus(openedByPresenter ? "Attendance already open" : "Another presenter has an open session");
+            // Only provide QR URL/payload to the presenter who opened it
+            if (openedByPresenter) {
+                panel.setOpenQrUrl(buildQrUrl(slot.getLegacySessionId()));
+                panel.setQrPayload(buildQrPayload(slot.getLegacySessionId()));
+                panel.setSessionId(slot.getLegacySessionId());
+            } else {
+                panel.setOpenQrUrl(null);
+                panel.setQrPayload(null);
+                panel.setSessionId(null);
+            }
+            panel.setWarning(openedByPresenter
+                ? "Registration closes " + DISPLAY_DATE_TIME_FORMAT.format(closesAt)
+                : "Wait for the current session to close");
             panel.setOpenedAt(DATE_TIME_FORMAT.format(openedAt));
             panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
-            panel.setSessionId(slot.getLegacySessionId());
-            panel.setQrPayload(buildQrPayload(slot.getLegacySessionId()));
+            return panel;
+        }
+
+        // Check if session was already opened and is now closed (past closesAt)
+        // This prevents re-opening a session after it has been closed
+        if (openedAt != null && closesAt != null && !now.isBefore(closesAt)) {
+            panel.setCanOpen(false);
+            panel.setAlreadyOpen(false);
+            panel.setStatus("Session already completed");
+            panel.setWarning("A session was already opened for this slot and cannot be reopened");
+            panel.setOpenQrUrl(null);
+            panel.setOpenedAt(DATE_TIME_FORMAT.format(openedAt));
+            panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
+            panel.setSessionId(null);
+            panel.setQrPayload(null);
             return panel;
         }
 

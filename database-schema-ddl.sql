@@ -39,8 +39,8 @@ CREATE TABLE app_config (
     config_value TEXT NOT NULL,
     config_type ENUM('STRING', 'INTEGER', 'BOOLEAN', 'JSON') NOT NULL,
     target_system ENUM('MOBILE', 'API', 'BOTH') NOT NULL,
-    category VARCHAR(50),
     description TEXT,
+    tags VARCHAR(255) DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
 );
@@ -302,7 +302,6 @@ CREATE INDEX idx_slots_date ON slots(slot_date);
 CREATE INDEX idx_slots_status ON slots(status);
 
 CREATE INDEX idx_app_config_target_system ON app_config(target_system);
-CREATE INDEX idx_app_config_category ON app_config(category);
 CREATE INDEX idx_app_config_key ON app_config(config_key);
 
 CREATE INDEX idx_email_queue_status ON email_queue(status);
@@ -362,42 +361,57 @@ CREATE INDEX idx_attendance_status ON attendance(request_status);
 --  INITIAL DATA
 -- =====================================================================
 
-INSERT INTO app_config (config_key, config_value, config_type, category, target_system, description) VALUES
-('server_url', 'http://132.72.50.53:8080', 'STRING', 'NETWORK', 'BOTH', 'Base server URL for API calls'),
-('export_email_recipients', 'benariet@bgu.ac.il,talbnwork@gmail.com', 'STRING', 'EMAIL', 'BOTH', 'Comma-separated email recipients for export emails'),
-('support_email', 'benariet@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'Support email for bug reports and feedback'),
-('email_domain', '@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'Email domain suffix for username-based emails'),
-('test_email_recipient', 'talbnwork@gmail.com', 'STRING', 'EMAIL', 'BOTH', 'Test email recipient address'),
-('connection_timeout_seconds', '30', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP connection timeout in seconds'),
-('read_timeout_seconds', '30', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP read timeout in seconds'),
-('write_timeout_seconds', '30', 'INTEGER', 'NETWORK', 'MOBILE', 'HTTP write timeout in seconds'),
-('manual_attendance_window_before_minutes', '10', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes before session start for manual attendance'),
-('manual_attendance_window_after_minutes', '15', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes after session start for manual attendance'),
-('max_export_file_size_mb', '50', 'INTEGER', 'EXPORT', 'MOBILE', 'Maximum export file size in MB'),
-('toast_duration_error', '10000', 'INTEGER', 'UI', 'MOBILE', 'Toast duration for errors in milliseconds'),
-('toast_duration_success', '5000', 'INTEGER', 'UI', 'MOBILE', 'Toast duration for success messages in milliseconds'),
-('toast_duration_info', '6000', 'INTEGER', 'UI', 'MOBILE', 'Toast duration for info messages in milliseconds'),
-('config_cache_ttl_hours', '24', 'INTEGER', 'SYSTEM', 'MOBILE', 'Configuration cache TTL in hours'),
-('presenter_slot_open_window_before_minutes', '0', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes before slot start when presenter can open (0 = only at/after slot start)'),
-('presenter_slot_open_window_after_minutes', '999', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes after slot start when presenter can still open (999 = no limit)'),
-('presenter_close_session_duration_minutes', '10', 'INTEGER', 'ATTENDANCE', 'BOTH', 'Minutes after session opens before auto-close (attendance window duration)'),
-('student_attendance_window_before_minutes', '0', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes before session start for student attendance'),
-('student_attendance_window_after_minutes', '10', 'INTEGER', 'ATTENDANCE', 'MOBILE', 'Minutes after session start for student attendance'),
-('waiting_list_approval_window_hours', '168', 'INTEGER', 'WAITING_LIST', 'BOTH', 'Hours user has to approve waiting list slot'),
-('email_from_name', 'SemScan System', 'STRING', 'EMAIL', 'BOTH', 'Email sender display name'),
-('email_reply_to', 'noreply@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'Email reply-to address'),
-('email_bcc_list', 'admin@bgu.ac.il', 'STRING', 'EMAIL', 'BOTH', 'BCC recipients for emails (comma-separated)'),
-('waiting.list.limit.per.slot', '3', 'INTEGER', 'REGISTRATION', 'BOTH', 'Maximum number of users on waiting list per slot'),
-('phd.capacity.weight', '3', 'INTEGER', 'REGISTRATION', 'BOTH', 'How many capacity slots a PhD registration counts as (PhD takes entire slot)'),
-('APP_VERSION', '1.0.0', 'STRING', 'APP', 'MOBILE', 'Current mobile app version number'),
-('email_queue_max_retries', '3', 'INTEGER', 'EMAIL', 'API', 'Maximum retry attempts for failed emails'),
-('email_queue_initial_backoff_minutes', '5', 'INTEGER', 'EMAIL', 'API', 'Initial backoff time in minutes before first retry'),
-('email_queue_backoff_multiplier', '3', 'INTEGER', 'EMAIL', 'API', 'Multiplier for exponential backoff'),
-('email_queue_batch_size', '50', 'INTEGER', 'EMAIL', 'API', 'Maximum emails to process per batch'),
-('approval_reminder_interval_days', '2', 'INTEGER', 'EMAIL', 'API', 'Days between supervisor reminder emails'),
-('approval_token_expiry_days', '14', 'INTEGER', 'EMAIL', 'API', 'Days until supervisor approval link expires'),
-('promotion_offer_expiry_hours', '48', 'INTEGER', 'WAITING_LIST', 'API', 'Hours until waiting list promotion offer expires'),
-('expiration_warning_hours_before', '48', 'INTEGER', 'EMAIL', 'API', 'Hours before expiry to send warning email to student');
+INSERT INTO app_config (config_key, config_value, config_type, target_system, description, tags) VALUES
+-- Registration & Capacity
+('phd.capacity.weight', '3', 'INTEGER', 'BOTH', 'Capacity weight for PhD registrations. PhD students take more slot capacity than MSc. Example: If PhD weight is 3 and slot capacity is 3, one PhD fills entire slot. MSc weight is 1.', '#REGISTRATION #CAPACITY'),
+('registration.max_approved', '1', 'INTEGER', 'API', 'Maximum APPROVED registrations any user can have at once. When one registration is approved, all other pending registrations are auto-cancelled. Typically 1 (one presentation per student).', '#REGISTRATION #LIMIT'),
+('registration.max_pending.msc', '2', 'INTEGER', 'API', 'Maximum PENDING registrations an MSc student can have while waiting for supervisor approval. Allows registering for multiple slots as backups. When one is approved, others auto-cancel. Default: 2.', '#REGISTRATION #LIMIT'),
+('registration.max_pending.phd', '1', 'INTEGER', 'API', 'Maximum PENDING registrations a PhD student can have while waiting for supervisor approval. Usually lower than MSc because PhD slots are scarcer (they take full capacity). Default: 1.', '#REGISTRATION #LIMIT'),
+
+-- Waiting List
+('waiting.list.limit.per.slot', '3', 'INTEGER', 'BOTH', 'Maximum users allowed on waiting list for a single slot. When limit reached, new users see "Waiting list is full". Prevents infinitely long queues. Default: 3.', '#WAITINGLIST'),
+('waiting_list_approval_window_hours', '168', 'INTEGER', 'BOTH', 'Hours a user has to respond when promoted from waiting list. User receives push notification and email. If no response within this window, next person in queue is offered the slot. Default: 168 hours (7 days).', '#WAITINGLIST #EXPIRY'),
+('promotion_offer_expiry_hours', '48', 'INTEGER', 'API', 'Hours a user has to accept waiting list promotion before it expires. When promoted, user has this many hours to confirm. After expiration, next person is offered the slot. Default: 48 hours.', '#WAITINGLIST #EXPIRY'),
+
+-- Attendance Windows
+('presenter_close_session_duration_minutes', '15', 'INTEGER', 'BOTH', 'How long (in minutes) an attendance session stays open after the presenter opens it. When this time expires, the session auto-closes and no more QR scans are accepted. Default: 15 minutes.', '#ATTENDANCE #TIMEOUT'),
+('presenter_slot_open_window_before_minutes', '0', 'INTEGER', 'MOBILE', 'Minutes before the slot start time when presenter can begin opening attendance. Example: If set to 0, presenter can only open at slot start time or later. If set to 10, can open 10 minutes early.', '#ATTENDANCE'),
+('presenter_slot_open_window_after_minutes', '15', 'INTEGER', 'MOBILE', 'Minutes after the slot end time when presenter can still open attendance. Example: If set to 15 and slot ends at 15:00, presenter can open until 15:15. After this, "Open Attendance" is disabled.', '#ATTENDANCE'),
+('student_attendance_window_before_minutes', '0', 'INTEGER', 'MOBILE', 'Minutes before the session starts when students can begin scanning QR for attendance. Usually 0 (no early scanning allowed).', '#ATTENDANCE'),
+('student_attendance_window_after_minutes', '10', 'INTEGER', 'MOBILE', 'Minutes after the session starts during which students can mark attendance via QR scan. Example: If set to 10 and session starts at 14:00, QR scanning works until 14:10.', '#ATTENDANCE'),
+('manual_attendance_window_before_minutes', '10', 'INTEGER', 'MOBILE', 'Minutes before the session starts when students can begin requesting manual attendance. Example: If set to 10 and session starts at 14:00, manual requests accepted from 13:50.', '#ATTENDANCE'),
+('manual_attendance_window_after_minutes', '15', 'INTEGER', 'MOBILE', 'Minutes after the session officially starts during which students can still request manual attendance. Example: If set to 15 and session starts at 14:00, manual requests accepted until 14:15.', '#ATTENDANCE'),
+
+-- Email Settings
+('approval_token_expiry_days', '14', 'INTEGER', 'API', 'Number of days until the supervisor approval link expires. After expiration, clicking the link shows "Token expired" and registration status changes to EXPIRED. Student must re-register. Default: 14 days.', '#APPROVAL #EXPIRY'),
+('approval_reminder_interval_days', '2', 'INTEGER', 'API', 'Number of days between automatic reminder emails sent to supervisors who have not responded. Example: If set to 2, reminders sent every 2 days until supervisor responds or token expires.', '#EMAIL'),
+('expiration_warning_hours_before', '48', 'INTEGER', 'API', 'Hours before supervisor approval token expires when warning email is sent to student. Example: If set to 48 and token expires in 14 days, warning sent on day 12.', '#EMAIL #EXPIRY'),
+('email_from_name', 'SemScan System', 'STRING', 'BOTH', 'Display name shown as the sender in emails. Recipients see this name instead of the raw email address. Example: "SemScan System" appears as sender in inbox.', '#EMAIL'),
+('email_reply_to', 'noreply@bgu.ac.il', 'STRING', 'BOTH', 'Reply-to address in system emails. When recipients click Reply, their email addresses this instead of the system sender.', '#EMAIL'),
+('email_domain', '@bgu.ac.il', 'STRING', 'BOTH', 'Email domain suffix appended to usernames when constructing email addresses. Example: If set to "@bgu.ac.il" and username is "john", email becomes "john@bgu.ac.il".', '#EMAIL'),
+('email_bcc_list', 'benariet@bgu.ac.il', 'STRING', 'BOTH', 'Comma-separated list of email addresses to BCC on all system emails. Useful for admin monitoring. Example: "admin@bgu.ac.il,backup@bgu.ac.il"', '#EMAIL'),
+('export_email_recipients', 'benariet@bgu.ac.il,talbnwork@gmail.com', 'STRING', 'BOTH', 'Comma-separated list of email addresses that receive attendance export files when presenter exports data.', '#EMAIL'),
+('support_email', 'benariet@bgu.ac.il', 'STRING', 'BOTH', 'Email address displayed to users for support requests, bug reports, and feedback. Shown in error messages and help screens.', '#EMAIL'),
+('test_email_recipient', 'talbnwork@gmail.com', 'STRING', 'BOTH', 'Email address used for testing email functionality. Test emails sent here to verify SMTP works without affecting real users.', '#EMAIL #DEBUG'),
+('email_queue_max_retries', '3', 'INTEGER', 'API', 'Maximum retry attempts for a failed email before marking as permanently FAILED. After this many attempts, email stops retrying. Default: 3 retries.', '#EMAIL'),
+('email_queue_initial_backoff_minutes', '5', 'INTEGER', 'API', 'Initial wait time (in minutes) before first retry after email fails. Subsequent retries use exponential backoff (this value × multiplier). Default: 5 minutes.', '#EMAIL'),
+('email_queue_backoff_multiplier', '3', 'INTEGER', 'API', 'Multiplier for exponential backoff when retrying failed emails. Example: If initial backoff is 5 min and multiplier is 3, retries at 5min, 15min, 45min.', '#EMAIL'),
+('email_queue_batch_size', '50', 'INTEGER', 'API', 'Maximum number of pending emails processed in each batch. Limits database load and prevents timeout. Example: If set to 50, only 50 emails sent per cycle.', '#EMAIL'),
+('email_queue_process_interval_seconds', '120', 'INTEGER', 'API', 'How often (in seconds) the email queue processor runs to check for pending emails. Lower = faster delivery but more DB queries. Default: 120 seconds (2 min).', '#EMAIL'),
+
+-- Network & Timeouts
+('server_url', 'http://132.72.50.53:8080', 'STRING', 'BOTH', 'Base URL for all API calls from mobile app. Must include protocol and port. Example: "http://132.72.50.53:8080". Change when migrating to new server or HTTPS.', '#NETWORK'),
+('connection_timeout_seconds', '30', 'INTEGER', 'MOBILE', 'HTTP connection timeout in seconds for API calls. If server does not respond within this time, request fails with timeout error. Increase for slow networks.', '#NETWORK #TIMEOUT'),
+('read_timeout_seconds', '30', 'INTEGER', 'MOBILE', 'HTTP read timeout in seconds for API calls. Maximum time to wait for response data after connection is established.', '#NETWORK #TIMEOUT'),
+('write_timeout_seconds', '30', 'INTEGER', 'MOBILE', 'HTTP write timeout in seconds for API calls. Maximum time allowed to send request data to server.', '#NETWORK #TIMEOUT'),
+
+-- Mobile App
+('APP_VERSION', '1.0.0', 'STRING', 'MOBILE', 'Current version of the mobile app. Used for version checking and displaying in app settings. Update this when releasing a new APK.', '#VERSION'),
+('config_cache_ttl_hours', '24', 'INTEGER', 'MOBILE', 'How long (in hours) mobile app caches configuration before fetching fresh values. Lower = more frequent updates but more network requests. Default: 24 hours.', '#CACHE'),
+('max_export_file_size_mb', '50', 'INTEGER', 'MOBILE', 'Maximum allowed export file size in megabytes. Prevents extremely large exports that could cause memory issues or slow downloads.', '#EXPORT'),
+('toast_duration_error', '10000', 'INTEGER', 'MOBILE', 'Duration in milliseconds to display error toast messages. Error toasts show longer to ensure users notice problems. Default: 10000ms (10 seconds).', '#UI'),
+('toast_duration_success', '5000', 'INTEGER', 'MOBILE', 'Duration in milliseconds to display success toast messages. Can be shorter since they confirm expected behavior. Default: 5000ms (5 seconds).', '#UI'),
+('toast_duration_info', '6000', 'INTEGER', 'MOBILE', 'Duration in milliseconds to display informational toast messages. Default: 6000ms (6 seconds).', '#UI');
 
 -- =====================================================================
 --  VERIFICATION

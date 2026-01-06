@@ -14,5 +14,5 @@ public interface AppConfigRepository extends JpaRepository<AppConfig, Long> {
 
     List<AppConfig> findByTargetSystemIn(List<AppConfig.TargetSystem> targetSystems);
 
-    List<AppConfig> findByCategory(String category);
+    List<AppConfig> findByTagsContaining(String tag);
 }

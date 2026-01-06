@@ -998,6 +998,13 @@ public class WaitingListService {
     }
 
     /**
+     * Get all waiting list entries for a user (across all slots)
+     */
+    public List<WaitingListEntry> getWaitingListEntriesForUser(String presenterUsername) {
+        return waitingListRepository.findByPresenterUsername(presenterUsername);
+    }
+
+    /**
      * Get the count of people on the waiting list for a slot
      * @param slotId The slot ID
      * @return The number of people on the waiting list

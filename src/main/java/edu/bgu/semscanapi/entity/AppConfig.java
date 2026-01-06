@@ -30,11 +30,11 @@ public class AppConfig {
     @Column(name = "target_system", nullable = false, length = 10)
     private TargetSystem targetSystem;
 
-    @Column(name = "category", length = 50)
-    private String category;
-
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "tags", length = 255)
+    private String tags;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -106,20 +106,20 @@ public class AppConfig {
         this.targetSystem = targetSystem;
     }
 
-    public String getCategory() {
-        return category;
-    }
-
-    public void setCategory(String category) {
-        this.category = category;
-    }
-
     public String getDescription() {
         return description;
     }
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -397,53 +397,91 @@ done
 
 ## Configuration Keys (app_config table) - ACTUAL VALUES
 
-### Mobile Only (target_system=MOBILE)
-| Key | Value | Description |
-|-----|-------|-------------|
-| `APP_VERSION` | 1.0.0 | Current mobile app version |
-| `config_cache_ttl_hours` | 24 | Config cache TTL in hours |
-| `connection_timeout_seconds` | 30 | HTTP connection timeout |
-| `read_timeout_seconds` | 30 | HTTP read timeout |
-| `write_timeout_seconds` | 30 | HTTP write timeout |
-| `toast_duration_error` | 10000 | Error toast duration (ms) |
-| `toast_duration_success` | 5000 | Success toast duration (ms) |
-| `toast_duration_info` | 6000 | Info toast duration (ms) |
-| `manual_attendance_window_before_minutes` | 10 | Before session for manual attendance |
-| `manual_attendance_window_after_minutes` | 15 | After session for manual attendance |
-| `student_attendance_window_before_minutes` | 0 | Before session for student attendance |
-| `student_attendance_window_after_minutes` | 10 | After session for student attendance |
-| `presenter_slot_open_window_before_minutes` | 0 | Before slot time presenter can open |
-| `presenter_slot_open_window_after_minutes` | 999 | After slot time presenter can open |
-| `max_export_file_size_mb` | 50 | Max export file size |
+### Tags Reference
+Search configs by tag: `SELECT * FROM app_config WHERE tags LIKE '%#EMAIL%';`
 
-### API Only (target_system=API)
-| Key | Value | Description |
-|-----|-------|-------------|
-| `approval_reminder_interval_days` | 2 | Days between supervisor reminders |
-| `approval_token_expiry_days` | 14 | Days until approval link expires |
-| `email_queue_max_retries` | 3 | Max retry attempts for emails |
-| `email_queue_initial_backoff_minutes` | 5 | Initial retry delay |
-| `email_queue_backoff_multiplier` | 3 | Backoff multiplier (5→15→45 min) |
-| `email_queue_batch_size` | 50 | Emails per batch |
-| `email_queue_process_interval_seconds` | 120 | Queue processing interval |
-| `expiration_warning_hours_before` | 48 | Hours before expiry to warn |
-| `promotion_offer_expiry_hours` | 48 | Hours for promotion offer |
+| Tag | Description |
+|-----|-------------|
+| `#APPROVAL` | Supervisor approval flow |
+| `#ATTENDANCE` | QR/manual attendance windows |
+| `#CACHE` | Caching settings |
+| `#CAPACITY` | Slot capacity rules |
+| `#DEBUG` | Testing only |
+| `#EMAIL` | Email sending settings |
+| `#EXPIRY` | Expiration settings |
+| `#EXPORT` | Data export |
+| `#LIMIT` | Maximum limits |
+| `#NETWORK` | HTTP/connection settings |
+| `#REGISTRATION` | Slot registration |
+| `#TIMEOUT` | Time limits |
+| `#UI` | User interface (toasts) |
+| `#VERSION` | App version |
+| `#WAITINGLIST` | Waiting list settings |
 
-### Shared (target_system=BOTH)
-| Key | Value | Description |
-|-----|-------|-------------|
-| `server_url` | http://132.72.50.53:8080 | API server URL |
-| `phd.capacity.weight` | 3 | PhD capacity weight (takes entire slot) |
-| `waiting.list.limit.per.slot` | 3 | Max waiting list per slot |
-| `waiting_list_approval_window_hours` | 168 | Hours to respond (7 days) |
-| `presenter_close_session_duration_minutes` | 15 | Session auto-close duration |
-| `email_from_name` | SemScan System | Email sender name |
-| `email_reply_to` | noreply@bgu.ac.il | Reply-to address |
-| `email_bcc_list` | benariet@bgu.ac.il | BCC recipients |
-| `email_domain` | @bgu.ac.il | Email domain suffix |
-| `export_email_recipients` | benariet@bgu.ac.il,talbnwork@gmail.com | Export email recipients |
-| `support_email` | benariet@bgu.ac.il | Support email |
-| `test_email_recipient` | talbnwork@gmail.com | Test email recipient |
+**Note:** `target_system` column (MOBILE/API/BOTH) indicates where config is used. Tags are for functional categorization only.
+
+### Registration & Capacity (#REGISTRATION)
+| Key | Value | Tags | Description |
+|-----|-------|------|-------------|
+| `phd.capacity.weight` | 3 | `#REGISTRATION #CAPACITY` | PhD takes entire slot (weight=3, capacity=3) |
+| `registration.max_approved` | 1 | `#REGISTRATION #LIMIT` | Max approved registrations per user |
+| `registration.max_pending.msc` | 2 | `#REGISTRATION #LIMIT` | Max pending registrations for MSc |
+| `registration.max_pending.phd` | 1 | `#REGISTRATION #LIMIT` | Max pending registrations for PhD |
+
+### Waiting List (#WAITINGLIST)
+| Key | Value | Tags | Description |
+|-----|-------|------|-------------|
+| `waiting.list.limit.per.slot` | 3 | `#WAITINGLIST` | Max users on waiting list per slot |
+| `waiting_list_approval_window_hours` | 168 | `#WAITINGLIST #EXPIRY` | Hours to respond when promoted (7 days) |
+| `promotion_offer_expiry_hours` | 48 | `#WAITINGLIST #EXPIRY` | Hours for promotion offer to expire |
+
+### Attendance Windows (#ATTENDANCE)
+| Key | Value | Tags | Description |
+|-----|-------|------|-------------|
+| `presenter_close_session_duration_minutes` | 15 | `#ATTENDANCE #TIMEOUT` | Session auto-close after opening |
+| `presenter_slot_open_window_before_minutes` | 0 | `#ATTENDANCE` | Minutes before slot presenter can open |
+| `presenter_slot_open_window_after_minutes` | 15 | `#ATTENDANCE` | Minutes after slot presenter can open |
+| `student_attendance_window_before_minutes` | 0 | `#ATTENDANCE` | Minutes before session for QR scan |
+| `student_attendance_window_after_minutes` | 10 | `#ATTENDANCE` | Minutes after session for QR scan |
+| `manual_attendance_window_before_minutes` | 10 | `#ATTENDANCE` | Minutes before session for manual request |
+| `manual_attendance_window_after_minutes` | 15 | `#ATTENDANCE` | Minutes after session for manual request |
+
+### Email Settings (#EMAIL)
+| Key | Value | Tags | Description |
+|-----|-------|------|-------------|
+| `approval_token_expiry_days` | 14 | `#APPROVAL #EXPIRY` | Days until supervisor link expires |
+| `approval_reminder_interval_days` | 2 | `#EMAIL` | Days between supervisor reminders |
+| `expiration_warning_hours_before` | 48 | `#EMAIL #EXPIRY` | Hours before expiry to warn student |
+| `email_from_name` | SemScan System | `#EMAIL` | Email sender display name |
+| `email_reply_to` | noreply@bgu.ac.il | `#EMAIL` | Reply-to address |
+| `email_domain` | @bgu.ac.il | `#EMAIL` | Email domain suffix |
+| `email_bcc_list` | benariet@bgu.ac.il | `#EMAIL` | BCC recipients (comma-separated) |
+| `export_email_recipients` | benariet@bgu.ac.il,talbnwork@gmail.com | `#EMAIL` | Export recipients |
+| `support_email` | benariet@bgu.ac.il | `#EMAIL` | Support contact |
+| `test_email_recipient` | talbnwork@gmail.com | `#EMAIL #DEBUG` | Test email recipient |
+| `email_queue_max_retries` | 3 | `#EMAIL` | Max retry attempts |
+| `email_queue_initial_backoff_minutes` | 5 | `#EMAIL` | Initial retry delay |
+| `email_queue_backoff_multiplier` | 3 | `#EMAIL` | Backoff multiplier (5→15→45 min) |
+| `email_queue_batch_size` | 50 | `#EMAIL` | Emails per batch |
+| `email_queue_process_interval_seconds` | 120 | `#EMAIL` | Queue check interval |
+
+### Network & Timeouts (#NETWORK)
+| Key | Value | Tags | Description |
+|-----|-------|------|-------------|
+| `server_url` | http://132.72.50.53:8080 | `#NETWORK` | API base URL |
+| `connection_timeout_seconds` | 30 | `#NETWORK #TIMEOUT` | HTTP connection timeout |
+| `read_timeout_seconds` | 30 | `#NETWORK #TIMEOUT` | HTTP read timeout |
+| `write_timeout_seconds` | 30 | `#NETWORK #TIMEOUT` | HTTP write timeout |
+
+### Mobile App (target_system=MOBILE)
+| Key | Value | Tags | Description |
+|-----|-------|------|-------------|
+| `APP_VERSION` | 1.0.0 | `#VERSION` | Current mobile app version |
+| `config_cache_ttl_hours` | 24 | `#CACHE` | Config cache TTL in hours |
+| `max_export_file_size_mb` | 50 | `#EXPORT` | Max export file size |
+| `toast_duration_error` | 10000 | `#UI` | Error toast duration (ms) |
+| `toast_duration_success` | 5000 | `#UI` | Success toast duration (ms) |
+| `toast_duration_info` | 6000 | `#UI` | Info toast duration (ms) |
 
 ## Response Codes
 
@@ -733,6 +771,26 @@ Presenter opens attendance window, participants scan QR code.
 SELECT * FROM attendance WHERE session_id = X;
 SELECT * FROM sessions WHERE seminar_id = X;
 ```
+
+### Session Open Time Window (MUST TEST)
+Presenters should only be able to open attendance within the slot's time window.
+
+| Scenario | Slot Time | Current Time | Expected Result |
+|----------|-----------|--------------|-----------------|
+| Before slot starts | 14:00-15:00 | 13:30 | ❌ Cannot open (too early) |
+| During slot time | 14:00-15:00 | 14:30 | ✅ Can open |
+| After slot ends + 15 min | 14:00-15:00 | 15:20 | ❌ Cannot open (too late) |
+
+**Bug fixed:** 2026-01-05 - Changed `presenter_slot_open_window_after_minutes` from 999 to 15.
+
+**Current config:**
+- `presenter_slot_open_window_before_minutes`: 0 (can open at slot start time)
+- `presenter_slot_open_window_after_minutes`: 15 (can open up to 15 min after slot ends)
+
+**How to test:**
+1. Find a slot with end_time in the past (e.g., ended at 15:00)
+2. Try to open attendance more than 15 minutes after end time (e.g., at 15:20)
+3. Should show error "Too late: Attendance window closed"
 
 ### Manual Attendance Request Flow (MUST TEST)
 Participant requests manual attendance (e.g., phone died).
@@ -1308,8 +1366,8 @@ CREATE TABLE `app_config` (
   `config_value` text NOT NULL,
   `config_type` enum('STRING','INTEGER','BOOLEAN','JSON') NOT NULL,
   `target_system` enum('MOBILE','API','BOTH') NOT NULL,
-  `category` varchar(50) DEFAULT NULL,
   `description` text,
+  `tags` varchar(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`config_id`),
