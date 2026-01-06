@@ -24,6 +24,13 @@ SemScan is a **seminar attendance tracking system** for BGU (Ben-Gurion Universi
 
 If a code review suggests performance improvements, ask: "Is this actually needed for 20 users?" The answer is almost always NO.
 
+### Code Style for New Code
+When writing **new** code (not refactoring existing code):
+- Keep functions/methods small and focused (ideally < 50 lines)
+- Avoid "god classes" - split large files into smaller, single-responsibility classes
+- Extract reusable logic into helper methods
+- **Note**: Don't refactor existing large methods just for aesthetics - only apply this to new code
+
 ## Project Structure
 
 ### Android App (`SemScan/`)
