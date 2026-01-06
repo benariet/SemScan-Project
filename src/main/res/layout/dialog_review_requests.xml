@@ -39,7 +39,7 @@
             android:layout_weight="1"
             android:text="Approve All Safe"
             android:textSize="12sp"
-            android:textColor="@color/white"
+            android:textColor="@color/button_pastel_blue_text"
             android:background="@drawable/button_primary"
             android:layout_marginEnd="4dp" />
 
@@ -86,7 +86,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Continue to Export"
-            android:textColor="@color/white"
+            android:textColor="@color/button_pastel_blue_text"
             android:background="@drawable/button_primary"
             android:layout_marginStart="8dp" />
 

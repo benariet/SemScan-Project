@@ -20,7 +20,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="24dp"
+        android:padding="8dp"
         android:clipToPadding="false">
 
         <LinearLayout
@@ -43,24 +43,28 @@
                 android:id="@+id/text_instructions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:text="@string/presenter_attendance_qr_instructions"
                 android:textAlignment="center"
                 android:textColor="@color/gray_600"
                 android:textSize="14sp" />
 
+            <!-- QR Code (large for scanning from distance) -->
             <FrameLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp">
+                android:layout_marginTop="8dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp">
 
                 <ImageView
                     android:id="@+id/image_qr_code"
-                    android:layout_width="260dp"
-                    android:layout_height="260dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitCenter"
                     android:contentDescription="@string/presenter_attendance_qr_title"
-                    android:background="@drawable/qr_background"
-                    android:padding="12dp" />
+                    android:background="@color/white" />
 
                 <ProgressBar
                     android:id="@+id/progress_refresh"
@@ -126,7 +130,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_cancel_session"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    style="@style/SemScanButtonPrimary"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -135,7 +139,7 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_end_session"
-                    style="@style/Widget.MaterialComponents.Button"
+                    style="@style/SemScanButtonPrimary"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"

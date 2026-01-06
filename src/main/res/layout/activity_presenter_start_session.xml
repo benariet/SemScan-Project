@@ -28,22 +28,26 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:fillViewport="true">
+            android:fillViewport="true"
+            android:clipToPadding="false">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="32dp">
 
-                <!-- Slot Details Card -->
+                <!-- Slot Details Card - Pastel Orange -->
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_slot_details"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:cardCornerRadius="12dp"
                     app:cardElevation="2dp"
-                    app:cardBackgroundColor="@color/white"
+                    app:cardBackgroundColor="#FFF8E1"
                     android:visibility="gone">
 
                     <LinearLayout
@@ -63,7 +67,7 @@
                                 android:layout_width="24dp"
                                 android:layout_height="24dp"
                                 android:src="@drawable/ic_calendar"
-                                android:tint="@color/primary_blue"
+                                android:tint="#F57C00"
                                 android:contentDescription="Calendar" />
 
                             <TextView
@@ -95,7 +99,7 @@
                                 android:layout_width="20dp"
                                 android:layout_height="20dp"
                                 android:src="@drawable/ic_time"
-                                android:tint="@color/gray_500"
+                                android:tint="#F57C00"
                                 android:contentDescription="Time" />
 
                             <TextView
@@ -120,7 +124,7 @@
                                 android:layout_width="20dp"
                                 android:layout_height="20dp"
                                 android:src="@drawable/ic_location"
-                                android:tint="@color/gray_500"
+                                android:tint="#F57C00"
                                 android:contentDescription="Location" />
 
                             <TextView
@@ -132,19 +136,39 @@
                                 android:textSize="15sp" />
                         </LinearLayout>
 
-                        <!-- Status/Info -->
+                        <!-- Status/Info - simple text style -->
                         <TextView
                             android:id="@+id/text_session_status"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="16dp"
-                            android:padding="12dp"
-                            android:background="@drawable/rounded_background"
-                            android:backgroundTint="#FFF3E0"
-                            android:textColor="#E65100"
+                            android:textColor="@color/gray_500"
                             android:textSize="13sp"
                             android:gravity="center"
                             android:visibility="gone" />
+
+                        <!-- Subtitle text -->
+                        <TextView
+                            android:id="@+id/text_subtitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/presenter_start_session_subtitle"
+                            android:textColor="@color/gray_500"
+                            android:textSize="13sp"
+                            android:gravity="center"
+                            android:layout_marginTop="20dp" />
+
+                        <!-- Open Session Button - Pastel Orange -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_start_session"
+                            android:layout_width="match_parent"
+                            android:layout_height="56dp"
+                            android:layout_marginTop="12dp"
+                            android:backgroundTint="#FFE0B2"
+                            android:textColor="#E65100"
+                            android:text="@string/presenter_start_session_button"
+                            android:textSize="16sp"
+                            android:enabled="false" />
 
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -384,37 +408,6 @@
 
             </LinearLayout>
         </ScrollView>
-
-        <!-- Bottom Button Section -->
-        <LinearLayout
-            android:id="@+id/layout_bottom_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp"
-            android:background="@color/white"
-            android:elevation="8dp">
-
-            <TextView
-                android:id="@+id/text_subtitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/presenter_start_session_subtitle"
-                android:textColor="@color/gray_600"
-                android:textSize="13sp"
-                android:gravity="center"
-                android:layout_marginBottom="12dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_start_session"
-                style="@style/SemScanButtonPrimary"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="@string/presenter_start_session_button"
-                android:textSize="16sp"
-                android:enabled="false" />
-
-        </LinearLayout>
 
     </LinearLayout>
 

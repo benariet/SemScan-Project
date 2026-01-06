@@ -214,6 +214,7 @@
     <!-- Presenter Home (revamped) -->
     <string name="presenter_home_welcome_default">Welcome, Presenter!</string>
     <string name="presenter_select_slot_first">Please select a presentation slot first</string>
+    <string name="presenter_waiting_approval">Waiting for supervisor approval before you can open attendance</string>
     <string name="presenter_home_supervisor_required_in_settings">Please set your supervisor info in Settings first</string>
     <string name="welcome_user">Welcome, %1$s!</string>
     <string name="welcome_default">Welcome!</string>
@@ -239,6 +240,11 @@
     <string name="presenter_my_slot_cancel_error">Could not cancel registration. Please try again.</string>
     <string name="presenter_my_slot_no_slot_error">No slot to cancel.</string>
     <string name="presenter_my_slot_no_user_error">User information missing. Please log in again.</string>
+    <string name="presenter_my_slot_waiting_list_header">Waiting List</string>
+    <string name="presenter_my_slot_waiting_position">Position %1$d of %2$d</string>
+    <string name="presenter_my_slot_cancel_waiting_list">Cancel waiting list</string>
+    <string name="presenter_my_slot_cancel_waiting_list_success">Removed from waiting list.</string>
+    <string name="presenter_my_slot_cancel_waiting_list_error">Could not cancel waiting list. Please try again.</string>
 
     <!-- Presenter Slot Details -->
     <string name="presenter_home_slot_title_format">%1$s • %2$s</string>
@@ -332,9 +338,9 @@
     <string name="presenter_attendance_qr_end_session">End Session</string>
     <string name="presenter_attendance_qr_cancel_session">Cancel Session</string>
     <string name="presenter_attendance_qr_end_confirm_title">End Session</string>
-    <string name="presenter_attendance_qr_end_confirm_message">End this session? Participants will not be able to scan QR.</string>
+    <string name="presenter_attendance_qr_end_confirm_message">Are you sure you want to end this session?\n\nIMPORTANT: You will NOT be able to open a new session for this slot after ending.</string>
     <string name="presenter_attendance_qr_cancel_confirm_title">Cancel Session</string>
-    <string name="presenter_attendance_qr_cancel_confirm_message">Cancel this session? This will close it and return home.</string>
+    <string name="presenter_attendance_qr_cancel_confirm_message">Are you sure you want to cancel this session?\n\nIMPORTANT: You will NOT be able to open a new session for this slot after canceling.</string>
     <string name="presenter_attendance_qr_end_success">Session ended successfully</string>
     <string name="presenter_attendance_qr_end_error">Failed to end session</string>
     <string name="presenter_attendance_qr_auto_close_message">Session automatically closed after 15 minutes</string>

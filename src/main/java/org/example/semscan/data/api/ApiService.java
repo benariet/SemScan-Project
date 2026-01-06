@@ -223,6 +223,7 @@ public interface ApiService {
     class PresenterHomeResponse {
         public PresenterSummary presenter;
         public MySlotSummary mySlot;
+        public WaitingListSlotSummary myWaitingListSlot;
         public List<SlotCard> slotCatalog;
         public AttendancePanel attendance;
     }
@@ -244,6 +245,19 @@ public interface ApiService {
         public String room;
         public String building;
         public List<PresenterCoPresenter> coPresenters;
+    }
+
+    class WaitingListSlotSummary {
+        public Long slotId;
+        public String semesterLabel;
+        public String date;
+        public String dayOfWeek;
+        public String timeRange;
+        public String room;
+        public String building;
+        public int position;
+        public int totalInQueue;
+        public List<PresenterCoPresenter> registeredPresenters;
     }
 
     class PresenterCoPresenter {

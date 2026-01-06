@@ -103,8 +103,8 @@
                 android:text="Submit Request"
                 android:textAllCaps="false"
                 android:textStyle="bold"
-                android:backgroundTint="@color/primary_blue"
-                android:textColor="@color/white" />
+                android:backgroundTint="@color/button_pastel_blue"
+                android:textColor="@color/button_pastel_blue_text" />
 
         </LinearLayout>
 

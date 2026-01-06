@@ -3,12 +3,12 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp"
-    android:layout_marginStart="16dp"
-    android:layout_marginEnd="16dp"
+    android:layout_marginBottom="16dp"
     app:cardCornerRadius="16dp"
     app:cardElevation="4dp"
-    app:cardBackgroundColor="@color/white"
+    app:cardBackgroundColor="#FFF8E1"
+    app:strokeColor="#FFE0B2"
+    app:strokeWidth="1dp"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground">
@@ -19,85 +19,31 @@
         android:orientation="vertical"
         android:padding="20dp">
 
+        <!-- Header row with title and status badge -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/text_session_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/text_session_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Seminar Session"
-                    android:textStyle="bold"
-                    android:textSize="18sp"
-                    android:textColor="@color/gray_900" />
-
-                <TextView
-                    android:id="@+id/text_session_date"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Date and time"
-                    android:textColor="@color/gray_700"
-                    android:textSize="14sp"
-                    android:layout_marginTop="4dp" />
-
-                <TextView
-                    android:id="@+id/text_session_presenter"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Presenter"
-                    android:textColor="@color/gray_600"
-                    android:textSize="13sp"
-                    android:layout_marginTop="4dp" />
-
-                <TextView
-                    android:id="@+id/text_session_time_range"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Time range"
-                    android:textColor="@color/gray_600"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/text_session_duration"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Duration"
-                    android:textColor="@color/gray_600"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/text_session_description"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Session description"
-                    android:textColor="@color/gray_600"
-                    android:textSize="13sp"
-                    android:layout_marginTop="8dp"
-                    android:visibility="gone" />
-
-            </LinearLayout>
+                android:text="Seminar Session"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="@color/gray_900" />
 
             <TextView
                 android:id="@+id/badge_session_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
-                android:background="@drawable/bg_slot_status"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
+                android:background="@drawable/bg_badge_open"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
                 android:paddingTop="6dp"
                 android:paddingBottom="6dp"
                 android:text="OPEN"
@@ -106,6 +52,137 @@
                 android:textStyle="bold" />
 
         </LinearLayout>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="#FFE0B2" />
+
+        <!-- Presenter name -->
+        <LinearLayout
+            android:id="@+id/layout_presenter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_person"
+                android:tint="#F57C00"
+                android:contentDescription="Presenter" />
+
+            <TextView
+                android:id="@+id/text_session_presenter"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="Presenter Name"
+                android:textColor="@color/gray_800"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <!-- Topic -->
+        <LinearLayout
+            android:id="@+id/layout_topic"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_topic"
+                android:tint="#F57C00"
+                android:contentDescription="Topic" />
+
+            <TextView
+                android:id="@+id/text_session_topic"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="Topic"
+                android:textColor="@color/gray_700"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <!-- Date and Time -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_calendar"
+                android:tint="#F57C00"
+                android:contentDescription="Date" />
+
+            <TextView
+                android:id="@+id/text_session_date"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="Date and time"
+                android:textColor="@color/gray_700"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <!-- Time range -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_time"
+                android:tint="#F57C00"
+                android:contentDescription="Time" />
+
+            <TextView
+                android:id="@+id/text_session_time_range"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="Time range"
+                android:textColor="@color/gray_700"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <!-- Hidden fields for compatibility -->
+        <TextView
+            android:id="@+id/text_session_duration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/text_session_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
 
     </LinearLayout>
 

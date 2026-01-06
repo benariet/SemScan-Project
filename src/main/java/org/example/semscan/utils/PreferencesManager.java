@@ -58,9 +58,9 @@ public class PreferencesManager {
                     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             );
-            Logger.i(Logger.TAG_UI, "EncryptedSharedPreferences initialized successfully");
+            Logger.i(Logger.TAG_PREFERENCES, "EncryptedSharedPreferences initialized successfully");
         } catch (GeneralSecurityException | IOException e) {
-            Logger.e(Logger.TAG_UI, "Failed to initialize EncryptedSharedPreferences", e);
+            Logger.e(Logger.TAG_PREFERENCES, "Failed to initialize EncryptedSharedPreferences", e);
             // Fallback: don't store password if encryption fails
             encryptedPrefs = null;
         }
@@ -294,17 +294,17 @@ public class PreferencesManager {
      */
     public void setSavedPassword(String password) {
         if (encryptedPrefs == null) {
-            Logger.w(Logger.TAG_UI, "Cannot save password: EncryptedSharedPreferences not available");
+            Logger.w(Logger.TAG_PREFERENCES, "Cannot save password: EncryptedSharedPreferences not available");
             logToServer("Cannot save password: EncryptedSharedPreferences not available");
             return;
         }
         if (password == null || password.isEmpty()) {
             encryptedPrefs.edit().remove(KEY_SAVED_PASSWORD).apply();
-            Logger.i(Logger.TAG_UI, "Cleared saved password");
+            Logger.i(Logger.TAG_PREFERENCES, "Cleared saved password");
             logToServer("Cleared saved password (encrypted storage)");
         } else {
             encryptedPrefs.edit().putString(KEY_SAVED_PASSWORD, password).apply();
-            Logger.i(Logger.TAG_UI, "Password saved securely");
+            Logger.i(Logger.TAG_PREFERENCES, "Password saved securely");
             logToServer("Password saved securely (AES256-GCM encrypted)");
         }
     }
@@ -314,7 +314,7 @@ public class PreferencesManager {
      */
     public String getSavedPassword() {
         if (encryptedPrefs == null) {
-            Logger.w(Logger.TAG_UI, "Cannot retrieve password: EncryptedSharedPreferences not available");
+            Logger.w(Logger.TAG_PREFERENCES, "Cannot retrieve password: EncryptedSharedPreferences not available");
             return null;
         }
         String password = encryptedPrefs.getString(KEY_SAVED_PASSWORD, null);
@@ -336,7 +336,7 @@ public class PreferencesManager {
         if (encryptedPrefs != null) {
             encryptedPrefs.edit().remove(KEY_SAVED_PASSWORD).apply();
         }
-        Logger.i(Logger.TAG_UI, "Cleared saved credentials");
+        Logger.i(Logger.TAG_PREFERENCES, "Cleared saved credentials");
         logToServer("Cleared saved credentials (username, password, remember me)");
     }
 

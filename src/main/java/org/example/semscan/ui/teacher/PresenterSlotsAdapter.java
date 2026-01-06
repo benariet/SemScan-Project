@@ -146,7 +146,9 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
         for (int i = 0; i < count; i++) {
             ApiService.PresenterCoPresenter presenter = waitingList.get(i);
             String name = (presenter != null && presenter.name != null) ? presenter.name.trim() : "";
-            priorities.add("    #" + (i + 1) + " - " + name);
+            String degree = (presenter != null && presenter.degree != null) ? presenter.degree.trim() : "";
+            String displayName = degree.isEmpty() ? name : degree + ", " + name;
+            priorities.add("    #" + (i + 1) + " - " + displayName);
         }
         return TextUtils.join("\n", priorities);
     }
@@ -200,10 +202,10 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             if (slot.slotId != null && totalOccupied > 0) {
                 String capacityDebug = String.format("Slot %d capacity: approved=%d, pending=%d, total=%d, capacity=%d, isFull=%s",
                     slot.slotId, approved, pending, totalOccupied, slot.capacity, isFull);
-                Logger.i(Logger.TAG_UI, capacityDebug);
+                Logger.i(Logger.TAG_SLOT_DETAILS, capacityDebug);
                 ServerLogger serverLogger = ServerLogger.getInstance(context);
                 if (serverLogger != null) {
-                    serverLogger.i(ServerLogger.TAG_UI, capacityDebug);
+                    serverLogger.i(ServerLogger.TAG_SLOT_DETAILS, capacityDebug);
                 }
             }
             
@@ -284,17 +286,17 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             // Allow registration attempt even if canRegister is false (server will validate)
             itemView.setOnClickListener(v -> {
                 // Log slot click action
-                Logger.userAction("Slot Clicked", "User clicked slot=" + (slot != null ? slot.slotId : "null") + 
+                Logger.i(Logger.TAG_SLOT_DETAILS, "User clicked slot=" + (slot != null ? slot.slotId : "null") +
                     ", isFull=" + isFull);
-                
+
                 // Check if user is registered in this slot
-                boolean isUserRegisteredInThisSlot = slot.alreadyRegistered || 
-                        "APPROVED".equals(slot.approvalStatus) || 
+                boolean isUserRegisteredInThisSlot = slot.alreadyRegistered ||
+                        "APPROVED".equals(slot.approvalStatus) ||
                         "PENDING_APPROVAL".equals(slot.approvalStatus);
-                
+
                 // If user is already registered in this slot, don't show registration dialog
                 if (isUserRegisteredInThisSlot) {
-                    Logger.userAction("Slot Clicked - Already Registered", "User clicked slot=" + (slot != null ? slot.slotId : "null") + 
+                    Logger.i(Logger.TAG_SLOT_DETAILS, "User clicked slot=" + (slot != null ? slot.slotId : "null") +
                         " but is already registered. Not showing registration dialog.");
                     if (listener != null) {
                         listener.onSlotClicked(slot, isFull);
@@ -304,7 +306,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
                 
                 // If slot is full and user is not registered, offer waiting list via toast
                 if (isFull && !slot.onWaitingList) {
-                    Logger.userAction("Full Slot Clicked", "User clicked full slot=" + (slot != null ? slot.slotId : "null") + 
+                    Logger.i(Logger.TAG_SLOT_DETAILS, "User clicked full slot=" + (slot != null ? slot.slotId : "null") +
                         ", showing waiting list offer toast");
                     android.widget.Toast.makeText(context, 
                         context.getString(R.string.presenter_slot_full_offer_waiting_list),
@@ -332,7 +334,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             } else {
                 registerButton.setVisibility(View.VISIBLE);
                 registerButton.setOnClickListener(v -> {
-                    Logger.userAction("Register Slot", "Attempting to register for slot=" + slot.slotId);
+                    Logger.i(Logger.TAG_REGISTER_REQUEST, "Attempting to register for slot=" + slot.slotId);
                     if (listener != null) {
                         listener.onRegisterClicked(slot);
                     }
@@ -354,7 +356,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             
             // Log waiting list status for debugging
             if (slot.onWaitingList) {
-                Logger.i(Logger.TAG_UI, "Slot " + slot.slotId + " - User is on waiting list: onWaitingList=" + 
+                Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Slot " + slot.slotId + " - User is on waiting list: onWaitingList=" +
                     slot.onWaitingList + ", waitingListCount=" + slot.waitingListCount);
             }
             
@@ -377,7 +379,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             if (showWaitingList) {
                 waitingListButton.setVisibility(View.VISIBLE);
                 waitingListButton.setOnClickListener(v -> {
-                    Logger.userAction("Join Waiting List", "Attempting to join waiting list for slot=" + slot.slotId);
+                    Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Attempting to join waiting list for slot=" + slot.slotId);
                     if (listener != null) {
                         listener.onJoinWaitingList(slot);
                     }
@@ -386,21 +388,21 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
                 waitingListButton.setVisibility(View.GONE);
                 // Log why button is hidden
                 if (slot.onWaitingList) {
-                    Logger.i(Logger.TAG_UI, "Join Waiting List button hidden - user already on waiting list for slot=" + slot.slotId);
+                    Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - user already on waiting list for slot=" + slot.slotId);
                 } else if (isUserRegisteredInThisSlot) {
-                    Logger.i(Logger.TAG_UI, "Join Waiting List button hidden - user already registered in slot=" + slot.slotId);
+                    Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - user already registered in slot=" + slot.slotId);
                 } else if (!isFull) {
-                    Logger.i(Logger.TAG_UI, "Join Waiting List button hidden - slot is not full, slot=" + slot.slotId);
+                    Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - slot is not full, slot=" + slot.slotId);
                 } else if (isWaitingListFull) {
-                    Logger.i(Logger.TAG_UI, "Join Waiting List button hidden - waiting list is full (1/1), slot=" + slot.slotId);
+                    Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - waiting list is full (1/1), slot=" + slot.slotId);
                 }
             }
-            
+
             // Show/hide cancel waiting list button
             if (slot.onWaitingList) {
                 cancelWaitingListButton.setVisibility(View.VISIBLE);
                 cancelWaitingListButton.setOnClickListener(v -> {
-                    Logger.userAction("Cancel Waiting List", "Attempting to cancel waiting list for slot=" + slot.slotId);
+                    Logger.i(Logger.TAG_WAITING_LIST_LEAVE, "Attempting to cancel waiting list for slot=" + slot.slotId);
                     if (listener != null) {
                         listener.onCancelWaitingList(slot);
                     }

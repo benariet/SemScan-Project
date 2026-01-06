@@ -21,9 +21,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+
+import java.util.EnumMap;
+import java.util.Map;
 
 import org.example.semscan.R;
 import org.example.semscan.data.api.ApiClient;
@@ -240,7 +245,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
             standardFormat.setTimeZone(israelTz);
             return standardFormat.parse(timestamp).getTime();
         } catch (Exception e) {
-            Logger.w(Logger.TAG_UI, "Failed to parse timestamp: " + timestamp + " - " + e.getMessage());
+            Logger.w(Logger.TAG_ATTENDANCE_CLOSE, "Failed to parse timestamp: " + timestamp + " - " + e.getMessage());
             return 0;
         }
     }
@@ -304,17 +309,23 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
 
     private void generateQr(String content) {
         try {
+            // Configure QR code hints for minimal margin and high error correction
+            Map<EncodeHintType, Object> hints = new EnumMap<>(EncodeHintType.class);
+            hints.put(EncodeHintType.MARGIN, 1); // Minimal quiet zone (default is 4)
+            hints.put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.H); // High error correction for better scanning
+
+            int size = 800; // Larger size for better quality
             QRCodeWriter writer = new QRCodeWriter();
-            BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512);
-            Bitmap bitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.RGB_565);
-            for (int x = 0; x < 512; x++) {
-                for (int y = 0; y < 512; y++) {
+            BitMatrix bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, size, size, hints);
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565);
+            for (int x = 0; x < size; x++) {
+                for (int y = 0; y < size; y++) {
                     bitmap.setPixel(x, y, bitMatrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
                 }
             }
             imageQr.setImageBitmap(bitmap);
         } catch (WriterException e) {
-            Logger.e(Logger.TAG_UI, "Failed to generate session QR", e);
+            Logger.e(Logger.TAG_ATTENDANCE_CLOSE, "Failed to generate session QR", e);
             Toast.makeText(this, R.string.presenter_start_session_error_load, Toast.LENGTH_LONG).show();
         }
     }
@@ -350,7 +361,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                     // Session close time has been reached - auto-close the session
                     long durationMs = getAutoCloseDurationMs();
                     long elapsedTime = currentTime - (sessionClosesAtMs - durationMs);
-                    Logger.i(Logger.TAG_UI, "Auto-closing session. Close time reached. Elapsed: " + (elapsedTime / 1000) + " seconds");
+                    Logger.i(Logger.TAG_ATTENDANCE_CLOSE, "Auto-closing session. Close time reached. Elapsed: " + (elapsedTime / 1000) + " seconds");
                     isAutoClosing = true;
                     
                     // Show a toast notification
@@ -459,7 +470,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                 btnEndSession.setEnabled(true);
                 btnCancelSession.setEnabled(true);
                 Toast.makeText(PresenterAttendanceQrActivity.this, R.string.presenter_attendance_qr_end_error, Toast.LENGTH_SHORT).show();
-                Logger.e(Logger.TAG_API, "Failed to cancel session", t);
+                Logger.e(Logger.TAG_ATTENDANCE_CLOSE, "Failed to cancel session", t);
                 // Even on failure, allow user to go back
                 finish();
             }
@@ -489,9 +500,9 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                     String sessionCloseTime = formatTime(System.currentTimeMillis());
                     String sessionCloseLog = String.format("Session closed at %s | Session ID: %s, Slot ID: %s",
                         sessionCloseTime, sessionId, slotId != null ? slotId : "unknown");
-                    Logger.i(Logger.TAG_UI, sessionCloseLog);
+                    Logger.i(Logger.TAG_ATTENDANCE_CLOSE, sessionCloseLog);
                     if (serverLogger != null) {
-                        serverLogger.i(ServerLogger.TAG_UI, sessionCloseLog);
+                        serverLogger.i(ServerLogger.TAG_ATTENDANCE_CLOSE, sessionCloseLog);
                     }
 
                     Logger.userAction("End Session", "Session " + sessionId + " ended successfully");
@@ -515,7 +526,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                 btnEndSession.setEnabled(true);
                 btnCancelSession.setEnabled(true);
                 Toast.makeText(PresenterAttendanceQrActivity.this, R.string.presenter_attendance_qr_end_error, Toast.LENGTH_SHORT).show();
-                Logger.e(Logger.TAG_API, "Failed to end session", t);
+                Logger.e(Logger.TAG_ATTENDANCE_CLOSE, "Failed to end session", t);
             }
         });
     }
@@ -535,14 +546,14 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
                     // There are pending requests - go to Export page for approval
                     int pendingCount = response.body().size();
-                    Logger.i(Logger.TAG_UI, "Found " + pendingCount + " pending manual requests - navigating to Export page");
+                    Logger.i(Logger.TAG_ATTENDANCE_CLOSE, "Found " + pendingCount + " pending manual requests - navigating to Export page");
                     Toast.makeText(PresenterAttendanceQrActivity.this,
                         "You have " + pendingCount + " pending attendance request(s) to review",
                         Toast.LENGTH_LONG).show();
                     fetchSlotDetailsForExport();
                 } else {
                     // No pending requests - auto-upload and show success screen
-                    Logger.i(Logger.TAG_UI, "No pending manual requests - auto-uploading export");
+                    Logger.i(Logger.TAG_ATTENDANCE_CLOSE, "No pending manual requests - auto-uploading export");
                     autoUploadAndFinish();
                 }
             }
@@ -553,7 +564,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                 btnEndSession.setEnabled(true);
                 btnCancelSession.setEnabled(true);
                 // On failure to check, just go to success screen
-                Logger.w(Logger.TAG_API, "Failed to check pending requests, proceeding to success screen: " + t.getMessage());
+                Logger.w(Logger.TAG_ATTENDANCE_CLOSE, "Failed to check pending requests, proceeding to success screen: " + t.getMessage());
                 autoUploadAndFinish();
             }
         });
@@ -564,7 +575,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
      * Used for both manual and auto close.
      */
     private void autoUploadAndFinish() {
-        Logger.i(Logger.TAG_UI, "Auto-uploading export for session " + sessionId);
+        Logger.i(Logger.TAG_ATTENDANCE_CLOSE, "Auto-uploading export for session " + sessionId);
 
         apiService.uploadExport(sessionId, "xlsx").enqueue(new Callback<ApiService.UploadResponse>() {
             @Override
@@ -575,13 +586,13 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                     if (response.body().records != null && response.body().records > 0) {
                         attendeeCount = response.body().records;
                     }
-                    Logger.i(Logger.TAG_UI, "Export uploaded successfully - " + attendeeCount + " records");
+                    Logger.i(Logger.TAG_ATTENDANCE_CLOSE, "Export uploaded successfully - " + attendeeCount + " records");
                     setSessionClosedResultWithCount(attendeeCount);
                     finish();
                 } else {
                     // Export failed (e.g., 409 due to pending manual requests)
                     // Fetch actual attendance count from API
-                    Logger.w(Logger.TAG_UI, "Export upload failed - " +
+                    Logger.w(Logger.TAG_ATTENDANCE_CLOSE, "Export upload failed - " +
                         (response.body() != null ? response.body().message : "Unknown error") +
                         ". Fetching attendance count separately.");
                     fetchAttendanceCountAndFinish();
@@ -590,7 +601,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<ApiService.UploadResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Export upload network error", t);
+                Logger.e(Logger.TAG_ATTENDANCE_CLOSE, "Export upload network error", t);
                 // Network error - still try to get attendance count
                 fetchAttendanceCountAndFinish();
             }
@@ -615,9 +626,9 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                 int attendeeCount = 0;
                 if (response.isSuccessful() && response.body() != null) {
                     attendeeCount = response.body().size();
-                    Logger.i(Logger.TAG_UI, "Fetched attendance count: " + attendeeCount + " records");
+                    Logger.i(Logger.TAG_ATTENDANCE_CLOSE, "Fetched attendance count: " + attendeeCount + " records");
                 } else {
-                    Logger.w(Logger.TAG_UI, "Failed to fetch attendance count");
+                    Logger.w(Logger.TAG_ATTENDANCE_CLOSE, "Failed to fetch attendance count");
                 }
                 setSessionClosedResultWithCount(attendeeCount);
                 finish();
@@ -625,7 +636,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<List<org.example.semscan.data.model.Attendance>> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Failed to fetch attendance count", t);
+                Logger.e(Logger.TAG_ATTENDANCE_CLOSE, "Failed to fetch attendance count", t);
                 setSessionClosedResult();
                 finish();
             }
@@ -693,7 +704,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
                     
                     @Override
                     public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) {
-                        Logger.e(Logger.TAG_API, "Failed to fetch slot details for export", t);
+                        Logger.e(Logger.TAG_ATTENDANCE_CLOSE, "Failed to fetch slot details for export", t);
                         // Navigate anyway without slot details
                         navigateToExport();
                     }
@@ -725,7 +736,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
      */
     private void handleAutoCloseExport() {
         if (sessionId == null) {
-            Logger.w(Logger.TAG_UI, "Cannot handle auto-close export - sessionId is null");
+            Logger.w(Logger.TAG_ATTENDANCE_CLOSE, "Cannot handle auto-close export - sessionId is null");
             setSessionClosedResult();
             finish();
             return;

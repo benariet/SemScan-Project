@@ -49,6 +49,77 @@ public class ApiLoggingInterceptor implements Interceptor {
     }
     
     /**
+     * Derive a specific tag from the API endpoint path.
+     * Format: {FEATURE}_API_{REQUEST|RESPONSE}
+     * Examples: AUTH_LOGIN_API_REQUEST, REGISTRATION_API_RESPONSE
+     */
+    private String deriveTagFromPath(String path, boolean isRequest) {
+        String suffix = isRequest ? "_API_REQUEST" : "_API_RESPONSE";
+
+        if (path == null || path.isEmpty()) {
+            return "API" + suffix;
+        }
+
+        String lowerPath = path.toLowerCase();
+
+        // Auth endpoints
+        if (lowerPath.contains("/auth/login")) {
+            return "AUTH_LOGIN" + suffix;
+        }
+        if (lowerPath.contains("/auth/setup")) {
+            return "AUTH_SETUP" + suffix;
+        }
+
+        // Registration endpoints
+        if (lowerPath.contains("/register")) {
+            return "REGISTRATION" + suffix;
+        }
+
+        // Waiting list endpoints
+        if (lowerPath.contains("/waiting-list")) {
+            return "WAITING_LIST" + suffix;
+        }
+
+        // Attendance endpoints
+        if (lowerPath.contains("/attendance")) {
+            return "ATTENDANCE" + suffix;
+        }
+
+        // Config endpoints
+        if (lowerPath.contains("/config")) {
+            return "CONFIG" + suffix;
+        }
+
+        // User endpoints
+        if (lowerPath.contains("/users") || lowerPath.contains("/upsert")) {
+            return "USER" + suffix;
+        }
+
+        // Presenter home endpoints
+        if (lowerPath.contains("/presenters") && lowerPath.contains("/home")) {
+            return "PRESENTER_HOME" + suffix;
+        }
+
+        // Slots endpoints
+        if (lowerPath.contains("/slots")) {
+            return "SLOT" + suffix;
+        }
+
+        // FCM endpoints
+        if (lowerPath.contains("/fcm")) {
+            return "FCM" + suffix;
+        }
+
+        // Approval endpoints
+        if (lowerPath.contains("/approve") || lowerPath.contains("/decline")) {
+            return "APPROVAL" + suffix;
+        }
+
+        // Default
+        return "API" + suffix;
+    }
+
+    /**
      * Sanitize passwords from JSON strings to prevent logging sensitive data.
      * Replaces password values with "***" while preserving JSON structure.
      */
@@ -108,7 +179,8 @@ public class ApiLoggingInterceptor implements Interceptor {
                 
                 // Only log to ServerLogger if NOT the logs endpoint (to avoid recursion)
                 if (!isLogsEndpoint) {
-                    getServerLogger().i(ServerLogger.TAG_API, requestLog);
+                    String requestTag = deriveTagFromPath(path, true);
+                    getServerLogger().i(requestTag, requestLog);
                 }
             }
             
@@ -128,7 +200,8 @@ public class ApiLoggingInterceptor implements Interceptor {
         
         // Only log to ServerLogger if NOT the logs endpoint
         if (!isLogsEndpoint) {
-            getServerLogger().api(method, path, requestDetails);
+            String requestTag = deriveTagFromPath(path, true);
+            getServerLogger().i(requestTag, requestDetails);
         } else {
             // Still log to Android Logcat for debugging
             Log.i(TAG, requestDetails);
@@ -166,7 +239,8 @@ public class ApiLoggingInterceptor implements Interceptor {
                 
                 // Only log to ServerLogger if NOT the logs endpoint
                 if (!isLogsEndpoint) {
-                    getServerLogger().i(ServerLogger.TAG_API, responseLog);
+                    String responseTag = deriveTagFromPath(path, false);
+                    getServerLogger().i(responseTag, responseLog);
                 }
             }
             
@@ -192,11 +266,16 @@ public class ApiLoggingInterceptor implements Interceptor {
         
         // Only log to ServerLogger if NOT the logs endpoint
         if (!isLogsEndpoint) {
+            String responseTag = deriveTagFromPath(path, false);
             if (response.isSuccessful()) {
-                getServerLogger().apiResponse(method, path, statusCode, responseDetails);
+                getServerLogger().i(responseTag, responseDetails);
             } else {
-                // responseDetails already includes sanitized response body (if present)
-                getServerLogger().apiError(method, path, statusCode, responseDetails);
+                // 4xx = WARN (business/client errors), 5xx = ERROR (server errors)
+                if (statusCode >= 500) {
+                    getServerLogger().e(responseTag, responseDetails);
+                } else {
+                    getServerLogger().w(responseTag, responseDetails);
+                }
             }
         } else {
             // Still log to Android Logcat for debugging

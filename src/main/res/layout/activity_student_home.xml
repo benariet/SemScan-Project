@@ -4,14 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background_light">
+    android:background="@drawable/bg_gradient_main">
 
     <!-- AppBar with Gradient and Rounded Bottom -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="70dp"
-        android:background="@drawable/bg_appbar_participant"
+        android:background="@drawable/bg_appbar_rounded"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
         app:title="@string/student_home_title"
         app:titleTextColor="@color/white"
@@ -43,10 +43,10 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_scan_attendance"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="80dp"
                     android:layout_marginBottom="16dp"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="4dp"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="8dp"
                     app:strokeWidth="0dp"
                     app:cardBackgroundColor="@android:color/transparent"
                     android:clickable="true"
@@ -55,62 +55,54 @@
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:orientation="horizontal"
-                        android:background="@drawable/bg_button_orange_gradient"
-                        android:padding="20dp"
-                        android:gravity="center_vertical"
-                        android:minHeight="100dp">
+                        android:background="@drawable/bg_card_orange_light_gradient"
+                        android:paddingStart="20dp"
+                        android:paddingEnd="20dp"
+                        android:gravity="center_vertical">
 
                         <com.google.android.material.card.MaterialCardView
-                            android:layout_width="56dp"
-                            android:layout_height="56dp"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
                             android:layout_marginEnd="16dp"
-                            app:cardCornerRadius="28dp"
-                            app:cardBackgroundColor="@color/white"
+                            app:cardCornerRadius="24dp"
+                            app:cardBackgroundColor="@color/icon_container_orange"
                             app:cardElevation="0dp">
 
-                            <ImageView
+                            <FrameLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
-                                android:src="@drawable/ic_qr_scanner"
-                                android:contentDescription="@string/scan_attendance"
-                                android:padding="14dp"
-                                app:tint="@color/icon_blue" />
+                                android:padding="12dp">
+
+                                <ImageView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:src="@drawable/ic_qr_scanner"
+                                    android:contentDescription="@string/scan_attendance"
+                                    android:scaleType="fitCenter"
+                                    app:tint="@color/white" />
+
+                            </FrameLayout>
 
                         </com.google.android.material.card.MaterialCardView>
 
-                        <LinearLayout
+                        <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/scan_attendance"
-                                android:textSize="18sp"
-                                android:textStyle="bold"
-                                android:textColor="@color/white" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Scan QR to mark attendance"
-                                android:textSize="13sp"
-                                android:textColor="@color/white"
-                                android:alpha="0.9"
-                                android:layout_marginTop="4dp" />
-
-                        </LinearLayout>
+                            android:text="@string/scan_attendance"
+                            android:textSize="19sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/gray_900"
+                            android:lineSpacingMultiplier="1.2" />
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/ic_arrow_forward"
                             android:contentDescription="@string/next"
-                            app:tint="@color/white" />
+                            app:tint="@color/gray_700" />
 
                     </LinearLayout>
 
@@ -120,10 +112,10 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_manual_attendance"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="80dp"
                     android:layout_marginBottom="16dp"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="4dp"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="8dp"
                     app:strokeWidth="0dp"
                     app:cardBackgroundColor="@android:color/transparent"
                     android:clickable="true"
@@ -132,62 +124,54 @@
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:orientation="horizontal"
-                        android:background="@drawable/bg_button_orange_gradient"
-                        android:padding="20dp"
-                        android:gravity="center_vertical"
-                        android:minHeight="100dp">
+                        android:background="@drawable/bg_card_orange_light_gradient"
+                        android:paddingStart="20dp"
+                        android:paddingEnd="20dp"
+                        android:gravity="center_vertical">
 
                         <com.google.android.material.card.MaterialCardView
-                            android:layout_width="56dp"
-                            android:layout_height="56dp"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
                             android:layout_marginEnd="16dp"
-                            app:cardCornerRadius="28dp"
-                            app:cardBackgroundColor="@color/white"
+                            app:cardCornerRadius="24dp"
+                            app:cardBackgroundColor="@color/icon_container_orange"
                             app:cardElevation="0dp">
 
-                            <ImageView
+                            <FrameLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
-                                android:src="@drawable/ic_edit"
-                                android:contentDescription="@string/manual_attendance_request"
-                                android:padding="14dp"
-                                app:tint="@color/icon_blue" />
+                                android:padding="12dp">
+
+                                <ImageView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:src="@drawable/ic_edit"
+                                    android:contentDescription="@string/manual_attendance_request"
+                                    android:scaleType="fitCenter"
+                                    app:tint="@color/white" />
+
+                            </FrameLayout>
 
                         </com.google.android.material.card.MaterialCardView>
 
-                        <LinearLayout
+                        <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/manual_attendance_request"
-                                android:textSize="18sp"
-                                android:textStyle="bold"
-                                android:textColor="@color/white" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Request manual attendance"
-                                android:textSize="13sp"
-                                android:textColor="@color/white"
-                                android:alpha="0.9"
-                                android:layout_marginTop="4dp" />
-
-                        </LinearLayout>
+                            android:text="@string/manual_attendance_request"
+                            android:textSize="19sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/gray_900"
+                            android:lineSpacingMultiplier="1.2" />
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/ic_arrow_forward"
                             android:contentDescription="@string/next"
-                            app:tint="@color/white" />
+                            app:tint="@color/gray_700" />
 
                     </LinearLayout>
 
@@ -203,10 +187,10 @@
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btn_change_role"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="80dp"
                 android:layout_marginBottom="16dp"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="4dp"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="8dp"
                 app:strokeWidth="0dp"
                 app:cardBackgroundColor="@android:color/transparent"
                 android:clickable="true"
@@ -215,28 +199,35 @@
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:orientation="horizontal"
-                    android:background="@drawable/bg_button_orange_gradient"
-                    android:padding="20dp"
-                    android:gravity="center_vertical"
-                    android:minHeight="80dp">
+                    android:background="@drawable/bg_card_blue_light_gradient"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"
+                    android:gravity="center_vertical">
 
                     <com.google.android.material.card.MaterialCardView
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:layout_marginEnd="16dp"
                         app:cardCornerRadius="24dp"
-                        app:cardBackgroundColor="@color/white"
+                        app:cardBackgroundColor="@color/icon_container_blue"
                         app:cardElevation="0dp">
 
-                        <ImageView
+                        <FrameLayout
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:src="@drawable/ic_swap_horiz"
-                            android:contentDescription="@string/change_role"
-                            android:padding="12dp"
-                            app:tint="@color/icon_blue" />
+                            android:padding="12dp">
+
+                            <ImageView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:src="@drawable/ic_swap_horiz"
+                                android:contentDescription="@string/change_role"
+                                android:scaleType="fitCenter"
+                                app:tint="@color/white" />
+
+                        </FrameLayout>
 
                     </com.google.android.material.card.MaterialCardView>
 
@@ -245,16 +236,17 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/change_role"
-                        android:textSize="18sp"
+                        android:textSize="19sp"
                         android:textStyle="bold"
-                        android:textColor="@color/white" />
+                        android:textColor="@color/gray_900"
+                        android:lineSpacingMultiplier="1.2" />
 
                     <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
                         android:src="@drawable/ic_arrow_forward"
                         android:contentDescription="@string/next"
-                        app:tint="@color/white" />
+                        app:tint="@color/gray_700" />
 
                 </LinearLayout>
 

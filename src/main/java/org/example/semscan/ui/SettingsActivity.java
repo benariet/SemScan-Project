@@ -58,7 +58,7 @@ public class SettingsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
 
-        Logger.i(Logger.TAG_UI, "SettingsActivity created");
+        Logger.i(Logger.TAG_SCREEN_VIEW, "SettingsActivity created");
 
         preferencesManager = PreferencesManager.getInstance(this);
         apiService = ApiClient.getInstance(this).getApiService();
@@ -125,7 +125,7 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void loadCurrentSettings() {
-        Logger.i(Logger.TAG_UI, "Loading current settings");
+        Logger.i(Logger.TAG_SETTINGS_CHANGE, "Loading current settings");
 
         // Load Username (read-only)
         String username = preferencesManager.getUserName();
@@ -213,10 +213,10 @@ public class SettingsActivity extends AppCompatActivity {
                         btnSave.setText(R.string.save);
 
                         if (response.isSuccessful()) {
-                            Logger.i(Logger.TAG_UI, "Settings saved to server successfully");
+                            Logger.i(Logger.TAG_SETTINGS_CHANGE, "Settings saved to server successfully");
                             Toast.makeText(SettingsActivity.this, "Settings saved successfully!", Toast.LENGTH_SHORT).show();
                         } else {
-                            Logger.w(Logger.TAG_UI, "Failed to save settings to server: " + response.code());
+                            Logger.w(Logger.TAG_SETTINGS_CHANGE, "Failed to save settings to server: " + response.code());
                             Toast.makeText(SettingsActivity.this, "Saved locally, but failed to sync to server", Toast.LENGTH_LONG).show();
                         }
                     });
@@ -227,7 +227,7 @@ public class SettingsActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         btnSave.setEnabled(true);
                         btnSave.setText(R.string.save);
-                        Logger.e(Logger.TAG_UI, "Failed to save settings to server", t);
+                        Logger.e(Logger.TAG_SETTINGS_CHANGE, "Failed to save settings to server", t);
                         Toast.makeText(SettingsActivity.this, "Saved locally, but failed to sync to server", Toast.LENGTH_LONG).show();
                     });
                 }
@@ -236,7 +236,7 @@ public class SettingsActivity extends AppCompatActivity {
         } catch (Exception e) {
             btnSave.setEnabled(true);
             btnSave.setText(R.string.save);
-            Logger.e(Logger.TAG_UI, "Failed to save settings", e);
+            Logger.e(Logger.TAG_SETTINGS_CHANGE, "Failed to save settings", e);
             Toast.makeText(this, R.string.error_save_failed, Toast.LENGTH_LONG).show();
         }
     }
@@ -253,7 +253,7 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void performLogout() {
-        Logger.i(Logger.TAG_UI, "Performing logout");
+        Logger.i(Logger.TAG_LOGOUT, "Performing logout");
         preferencesManager.clearUserData();
         // Note: Do NOT clear saved credentials here - "Remember Me" should persist after logout
 
@@ -302,7 +302,7 @@ public class SettingsActivity extends AppCompatActivity {
                 Toast.makeText(this, "No email app found. Please send an email to " + supportEmail, Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
-            Logger.e(Logger.TAG_UI, "Failed to open email intent", e);
+            Logger.e(Logger.TAG_NAVIGATION, "Failed to open email intent", e);
             String supportEmail = ConfigManager.getInstance(this).getSupportEmail();
             Toast.makeText(this, "Failed to open email. Please send an email to " + supportEmail, Toast.LENGTH_LONG).show();
         }
@@ -324,11 +324,11 @@ public class SettingsActivity extends AppCompatActivity {
     private void fetchUserProfileFromServer() {
         String username = preferencesManager.getUserName();
         if (username == null || username.isEmpty()) {
-            Logger.w(Logger.TAG_UI, "Cannot fetch user profile - no username");
+            Logger.w(Logger.TAG_SETTINGS_CHANGE, "Cannot fetch user profile - no username");
             return;
         }
 
-        Logger.i(Logger.TAG_UI, "Fetching user profile from server for: " + username);
+        Logger.i(Logger.TAG_SETTINGS_CHANGE, "Fetching user profile from server for: " + username);
 
         Call<ApiService.UserProfileResponse> call = apiService.getUserProfile(username);
         call.enqueue(new Callback<ApiService.UserProfileResponse>() {
@@ -336,7 +336,7 @@ public class SettingsActivity extends AppCompatActivity {
             public void onResponse(Call<ApiService.UserProfileResponse> call, Response<ApiService.UserProfileResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     ApiService.UserProfileResponse profile = response.body();
-                    Logger.i(Logger.TAG_UI, "User profile fetched successfully");
+                    Logger.i(Logger.TAG_SETTINGS_CHANGE, "User profile fetched successfully");
 
                     // Update national ID from server if available
                     if (profile.nationalIdNumber != null && !profile.nationalIdNumber.isEmpty()) {
@@ -345,16 +345,16 @@ public class SettingsActivity extends AppCompatActivity {
                             // Also save to preferences for offline access
                             preferencesManager.setNationalId(profile.nationalIdNumber);
                         });
-                        Logger.i(Logger.TAG_UI, "National ID populated from server");
+                        Logger.i(Logger.TAG_SETTINGS_CHANGE, "National ID populated from server");
                     }
                 } else {
-                    Logger.w(Logger.TAG_UI, "Failed to fetch user profile: " + response.code());
+                    Logger.w(Logger.TAG_SETTINGS_CHANGE, "Failed to fetch user profile: " + response.code());
                 }
             }
 
             @Override
             public void onFailure(Call<ApiService.UserProfileResponse> call, Throwable t) {
-                Logger.e(Logger.TAG_UI, "Failed to fetch user profile from server", t);
+                Logger.e(Logger.TAG_SETTINGS_CHANGE, "Failed to fetch user profile from server", t);
                 // Silently fail - use local data
             }
         });

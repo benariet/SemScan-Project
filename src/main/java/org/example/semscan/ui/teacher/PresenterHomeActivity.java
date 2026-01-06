@@ -54,6 +54,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
     private ApiService apiService;
     private ServerLogger serverLogger;
     private boolean hasRegisteredSlot = false;
+    private boolean canOpenSession = false;
 
     private MaterialCardView cardPresentationDetails;
     private LinearLayout presentationDetailsHeader;
@@ -89,8 +90,8 @@ public class PresenterHomeActivity extends AppCompatActivity {
         setupClickListeners();
         loadPresentationDetails();
         checkRegistrationStatus();
-        Logger.userAction("Open Presenter Home", "Presenter home screen opened");
-        if (serverLogger != null) serverLogger.userAction("Open Presenter Home", "Presenter home screen opened");
+        Logger.i(Logger.TAG_SCREEN_VIEW, "PresenterHomeActivity opened");
+        if (serverLogger != null) serverLogger.i(ServerLogger.TAG_SCREEN_VIEW, "PresenterHomeActivity opened");
     }
 
     private void initializeViews() {
@@ -152,7 +153,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
             iconExpand.startAnimation(rotate);
         }
         if (presentationDetailsContent != null) presentationDetailsContent.setVisibility(isPresentationDetailsExpanded ? View.VISIBLE : View.GONE);
-        Logger.userAction("Toggle Presentation Details", "Expanded: " + isPresentationDetailsExpanded);
+        Logger.i(Logger.TAG_NAVIGATION, "Toggle Presentation Details: expanded=" + isPresentationDetailsExpanded);
     }
 
     private void loadPresentationDetails() {
@@ -190,8 +191,8 @@ public class PresenterHomeActivity extends AppCompatActivity {
         Toast.makeText(this, R.string.presentation_details_saved, Toast.LENGTH_SHORT).show();
         updatePresentationDetailsStatus();
         if (isPresentationDetailsExpanded) togglePresentationDetails();
-        Logger.userAction("Save Presentation Details", "Topic: " + topic);
-        if (serverLogger != null) serverLogger.userAction("Save Presentation Details", "Saved");
+        Logger.i(Logger.TAG_SETTINGS_CHANGE, "Presentation details saved: topic=" + topic);
+        if (serverLogger != null) serverLogger.i(ServerLogger.TAG_SETTINGS_CHANGE, "Presentation details saved");
     }
 
     private void updatePresentationDetailsStatus() {
@@ -217,16 +218,19 @@ public class PresenterHomeActivity extends AppCompatActivity {
 
     private void checkRegistrationStatus() {
         final String username = preferencesManager.getUserName();
-        if (username == null || username.trim().isEmpty()) { Logger.w(Logger.TAG_UI, "No username cached"); return; }
+        if (username == null || username.trim().isEmpty()) { Logger.w(Logger.TAG_PREFERENCES, "No username cached"); return; }
         final String normalizedUsername = username.trim().toLowerCase(Locale.US);
         apiService.getPresenterHome(normalizedUsername).enqueue(new Callback<ApiService.PresenterHomeResponse>() {
             @Override public void onResponse(Call<ApiService.PresenterHomeResponse> call, Response<ApiService.PresenterHomeResponse> response) {
                 if (!response.isSuccessful() || response.body() == null || response.body().presenter == null) return;
                 ApiService.PresenterHomeResponse body = response.body();
                 hasRegisteredSlot = body.mySlot != null && body.mySlot.slotId != null;
-                setCardsEnabled(hasRegisteredSlot);
+                // Only enable Start Session card if registration is APPROVED (canOpen=true)
+                canOpenSession = hasRegisteredSlot && body.attendance != null && body.attendance.canOpen;
+                setStartSessionEnabled(canOpenSession);
+                setMySlotEnabled(hasRegisteredSlot);
             }
-            @Override public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) { Logger.e(Logger.TAG_UI, "Failed", t); }
+            @Override public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) { Logger.e(Logger.TAG_SLOTS_LOAD, "Failed to check registration status", t); }
         });
     }
 
@@ -268,6 +272,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
     private void setupClickListeners() {
         cardStartSession.setOnClickListener(v -> {
             if (!hasRegisteredSlot) { Toast.makeText(this, R.string.presenter_select_slot_first, Toast.LENGTH_SHORT).show(); return; }
+            if (!canOpenSession) { Toast.makeText(this, R.string.presenter_waiting_approval, Toast.LENGTH_SHORT).show(); return; }
             openStartSession();
         });
         cardEnrollSlot.setOnClickListener(v -> {
@@ -286,9 +291,17 @@ public class PresenterHomeActivity extends AppCompatActivity {
     }
 
     private void setCardsEnabled(boolean enabled) {
-        cardStartSession.setClickable(enabled); cardStartSession.setFocusable(enabled); cardStartSession.setAlpha(enabled ? 1.0f : 0.6f);
+        setStartSessionEnabled(enabled);
+        setMySlotEnabled(enabled);
+    }
+
+    private void setStartSessionEnabled(boolean enabled) {
+        cardStartSession.setClickable(enabled); cardStartSession.setFocusable(enabled); cardStartSession.setAlpha(enabled ? 1.0f : 0.5f);
         if (cardStartSessionInner != null) cardStartSessionInner.setBackgroundResource(enabled ? R.drawable.bg_card_orange_light_gradient : R.drawable.bg_card_disabled);
-        cardMySlot.setClickable(enabled); cardMySlot.setFocusable(enabled); cardMySlot.setAlpha(enabled ? 1.0f : 0.6f);
+    }
+
+    private void setMySlotEnabled(boolean enabled) {
+        cardMySlot.setClickable(enabled); cardMySlot.setFocusable(enabled); cardMySlot.setAlpha(enabled ? 1.0f : 0.5f);
         if (cardMySlotInner != null) cardMySlotInner.setBackgroundResource(enabled ? R.drawable.bg_card_orange_light_gradient : R.drawable.bg_card_disabled);
     }
 

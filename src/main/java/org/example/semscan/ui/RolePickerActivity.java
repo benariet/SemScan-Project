@@ -35,7 +35,7 @@ public class RolePickerActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_role_picker);
         
-        Logger.i(Logger.TAG_UI, "RolePickerActivity created");
+        Logger.i(Logger.TAG_SCREEN_VIEW, "RolePickerActivity created");
         
         preferencesManager = PreferencesManager.getInstance(this);
         
@@ -48,8 +48,8 @@ public class RolePickerActivity extends AppCompatActivity {
             // CRITICAL: Validate username before auto-navigation
             String username = preferencesManager.getUserName();
             if (username == null || username.isEmpty()) {
-                Logger.e(Logger.TAG_UI, "ERROR: Username is NULL or empty in RolePickerActivity.onCreate()!");
-                Logger.e(Logger.TAG_UI, "User has role but no username. This should not happen. Redirecting to login.");
+                Logger.e(Logger.TAG_SESSION_EXPIRED, "ERROR: Username is NULL or empty in RolePickerActivity.onCreate()!");
+                Logger.e(Logger.TAG_SESSION_EXPIRED, "User has role but no username. This should not happen. Redirecting to login.");
                 Toast.makeText(this, "Username not found. Please log in again.", Toast.LENGTH_LONG).show();
                 // Navigate back to login
                 Intent intent = new Intent(this, LoginActivity.class);
@@ -60,10 +60,10 @@ public class RolePickerActivity extends AppCompatActivity {
             }
             
             String currentRole = preferencesManager.getUserRole();
-            Logger.i(Logger.TAG_UI, "User already has role: " + currentRole + " with username: " + username + ", navigating to home");
+            Logger.i(Logger.TAG_NAVIGATION, "User already has role: " + currentRole + " with username: " + username + ", navigating to home");
             navigateToHome();
         } else {
-            Logger.i(Logger.TAG_UI, "No role selected, showing role picker");
+            Logger.i(Logger.TAG_SCREEN_VIEW, "No role selected, showing role picker");
         }
     }
     
@@ -94,7 +94,7 @@ public class RolePickerActivity extends AppCompatActivity {
         }
 
         textWelcomeMessage.setText(getString(R.string.welcome_user, displayName));
-        Logger.i(Logger.TAG_UI, "Welcome message set for: " + displayName);
+        Logger.i(Logger.TAG_SCREEN_VIEW, "Welcome message set for: " + displayName);
     }
 
     private void setupToolbar() {
@@ -146,7 +146,7 @@ public class RolePickerActivity extends AppCompatActivity {
     }
 
     private void performLogout() {
-        Logger.i(Logger.TAG_UI, "Performing logout from role picker");
+        Logger.i(Logger.TAG_LOGOUT, "Performing logout from role picker");
         preferencesManager.clearUserData();
         // Note: Do NOT clear saved credentials here - "Remember Me" should persist after logout
 
@@ -176,13 +176,13 @@ public class RolePickerActivity extends AppCompatActivity {
     
     private void selectRole(String role) {
         Logger.userAction("Select Role", "User selected role: " + role);
-        Logger.i(Logger.TAG_UI, "Setting user role to: " + role);
+        Logger.i(Logger.TAG_NAVIGATION, "Setting user role to: " + role);
         
         // CRITICAL: Ensure username is preserved when setting role
         String username = preferencesManager.getUserName();
         if (username == null || username.isEmpty()) {
-            Logger.e(Logger.TAG_UI, "ERROR: Username is NULL or empty in RolePickerActivity!");
-            Logger.e(Logger.TAG_UI, "Cannot set role without username. User must log in again.");
+            Logger.e(Logger.TAG_SESSION_EXPIRED, "ERROR: Username is NULL or empty in RolePickerActivity!");
+            Logger.e(Logger.TAG_SESSION_EXPIRED, "Cannot set role without username. User must log in again.");
             Toast.makeText(this, "Username not found. Please log in again.", Toast.LENGTH_LONG).show();
             // Navigate back to login
             Intent intent = new Intent(this, org.example.semscan.ui.auth.LoginActivity.class);
@@ -192,16 +192,16 @@ public class RolePickerActivity extends AppCompatActivity {
             return;
         }
         
-        Logger.i(Logger.TAG_UI, "Setting role with username: " + username);
+        Logger.i(Logger.TAG_NAVIGATION, "Setting role with username: " + username);
         preferencesManager.setUserRole(role);
-        
+
         // Final check: Log all values before navigation
-        Logger.i(Logger.TAG_UI, "=== Role Selected ===");
-        Logger.i(Logger.TAG_UI, "Username: " + preferencesManager.getUserName());
-        Logger.i(Logger.TAG_UI, "Role: " + preferencesManager.getUserRole());
-        Logger.i(Logger.TAG_UI, "Is Participant: " + preferencesManager.isParticipant());
-        Logger.i(Logger.TAG_UI, "Is Presenter: " + preferencesManager.isPresenter());
-        Logger.i(Logger.TAG_UI, "=====================");
+        Logger.i(Logger.TAG_NAVIGATION, "=== Role Selected ===");
+        Logger.i(Logger.TAG_NAVIGATION, "Username: " + preferencesManager.getUserName());
+        Logger.i(Logger.TAG_NAVIGATION, "Role: " + preferencesManager.getUserRole());
+        Logger.i(Logger.TAG_NAVIGATION, "Is Participant: " + preferencesManager.isParticipant());
+        Logger.i(Logger.TAG_NAVIGATION, "Is Presenter: " + preferencesManager.isPresenter());
+        Logger.i(Logger.TAG_NAVIGATION, "=====================");
         
         navigateToHome();
     }
@@ -218,12 +218,12 @@ public class RolePickerActivity extends AppCompatActivity {
             targetActivity = "StudentHomeActivity";
         } else {
             // This shouldn't happen, but just in case
-            Logger.w(Logger.TAG_UI, "No valid role found for navigation");
+            Logger.w(Logger.TAG_NAVIGATION, "No valid role found for navigation");
             Toast.makeText(this, "Please select a role", Toast.LENGTH_SHORT).show();
             return;
         }
         
-        Logger.i(Logger.TAG_UI, "Navigating to: " + targetActivity);
+        Logger.i(Logger.TAG_NAVIGATION, "Navigating to: " + targetActivity);
         
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);

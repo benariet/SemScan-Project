@@ -61,7 +61,7 @@ public class SemScanApplication extends Application {
                 serverLogger.shutdown();
             }
         } catch (Exception e) {
-            Logger.e(Logger.TAG_API, "Error shutting down ServerLogger: " + e.getMessage());
+            Logger.e(Logger.TAG_APP_START, "Error shutting down ServerLogger: " + e.getMessage());
         }
 
         try {
@@ -70,7 +70,7 @@ public class SemScanApplication extends Application {
                 configManager.shutdown();
             }
         } catch (Exception e) {
-            Logger.e(Logger.TAG_API, "Error shutting down ConfigManager: " + e.getMessage());
+            Logger.e(Logger.TAG_APP_START, "Error shutting down ConfigManager: " + e.getMessage());
         }
     }
 }
