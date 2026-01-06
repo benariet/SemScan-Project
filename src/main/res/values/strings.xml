@@ -197,7 +197,7 @@
     <string name="setup_participation_both_description">I both present and attend seminars.</string>
     <string name="setup_participation_presenter_locked">PhD students are registered as presenters.</string>
     <string name="setup_msc_title">MSc Role Selection</string>
-    <string name="setup_msc_prompt">For this semester, what fits best?</string>
+    <string name="setup_msc_prompt">What best describes your role?</string>
     <string name="setup_msc_option_presenter">I am a presenter</string>
     <string name="setup_msc_option_participant">I am a participant</string>
     <string name="setup_msc_option_both">I am both presenter and participant</string>
