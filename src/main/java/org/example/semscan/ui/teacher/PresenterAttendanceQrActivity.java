@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -81,7 +82,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     private TextView textValidUntil;
     private ProgressBar progressRefresh;
     private com.google.android.material.button.MaterialButton btnEndSession;
-    private com.google.android.material.button.MaterialButton btnCancelSession;
+    private Button btnCancelSession;
 
     private ApiService apiService;
     private ServerLogger serverLogger;

@@ -48,9 +48,18 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
 
         preferencesManager = PreferencesManager.getInstance(this);
+
+        // Check if user is already logged in (has username and completed setup)
+        // This handles the case where app is killed by Android and restarted
+        if (isUserAlreadyLoggedIn()) {
+            Logger.i(Logger.TAG_NAVIGATION, "User already logged in, navigating directly to home screen");
+            navigateToHomeScreen();
+            return; // Don't show login UI
+        }
+
+        setContentView(R.layout.activity_login);
 
         editUsername = findViewById(R.id.edit_username);
         editPassword = findViewById(R.id.edit_password);
@@ -75,6 +84,59 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         Logger.i(Logger.TAG_SCREEN_VIEW, "LoginActivity created");
+    }
+
+    /**
+     * Check if the user is already logged in.
+     * User is considered logged in if they have a username saved AND completed initial setup.
+     */
+    private boolean isUserAlreadyLoggedIn() {
+        String username = preferencesManager.getUserName();
+        boolean hasSetupCompleted = preferencesManager.hasCompletedInitialSetup();
+        boolean hasRole = preferencesManager.hasRole();
+
+        Logger.i(Logger.TAG_NAVIGATION, "Checking if user is logged in - username: " + username +
+                ", setupCompleted: " + hasSetupCompleted + ", hasRole: " + hasRole);
+
+        // User is logged in if they have a username AND either:
+        // 1. Completed initial setup and have a role, OR
+        // 2. Completed initial setup (role will be determined at RolePickerActivity)
+        return username != null && !username.isEmpty() && hasSetupCompleted;
+    }
+
+    /**
+     * Navigate directly to the appropriate home screen without showing login UI.
+     * This is called when user is already logged in but app was killed by Android.
+     */
+    private void navigateToHomeScreen() {
+        // Refresh config in background
+        try {
+            ConfigManager.getInstance(this).refreshConfig();
+        } catch (Exception e) {
+            Logger.e(Logger.TAG_CONFIG_LOAD, "Failed to refresh config on auto-login: " + e.getMessage());
+        }
+
+        // Register FCM token
+        registerFcmToken();
+
+        Intent intent;
+        String role = preferencesManager.getUserRole();
+
+        if (role != null && role.equals("PRESENTER")) {
+            Logger.i(Logger.TAG_NAVIGATION, "Auto-navigating to PresenterHomeActivity");
+            intent = new Intent(this, PresenterHomeActivity.class);
+        } else if (role != null && role.equals("PARTICIPANT")) {
+            Logger.i(Logger.TAG_NAVIGATION, "Auto-navigating to StudentHomeActivity");
+            intent = new Intent(this, org.example.semscan.ui.student.StudentHomeActivity.class);
+        } else {
+            // No specific role - go to RolePickerActivity
+            Logger.i(Logger.TAG_NAVIGATION, "Auto-navigating to RolePickerActivity (no role set)");
+            intent = new Intent(this, RolePickerActivity.class);
+        }
+
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 
     private void handleLogin() {

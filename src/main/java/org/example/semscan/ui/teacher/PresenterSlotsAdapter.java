@@ -8,6 +8,7 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -15,8 +16,6 @@ import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.recyclerview.widget.RecyclerView;
-
-import com.google.android.material.button.MaterialButton;
 
 import org.example.semscan.R;
 import org.example.semscan.data.api.ApiService;
@@ -158,9 +157,9 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
         private final TextView title;
         private final TextView statusText;
         private final LinearLayout layoutSlotContent;
-        private final MaterialButton registerButton;
-        private final MaterialButton waitingListButton;
-        private final MaterialButton cancelWaitingListButton;
+        private final Button registerButton;
+        private final Button waitingListButton;
+        private final Button cancelWaitingListButton;
 
         SlotViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -235,7 +234,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             String pendingNames = formatNamesForDisplay(slot.pendingPresenters, 5);
             if (pendingNames != null && !pendingNames.isEmpty()) {
                 if (statusBuilder.length() > 0) {
-                    statusBuilder.append("\n\n");
+                    statusBuilder.append("\n\n\n"); // Extra spacing between sections
                 }
                 statusBuilder.append("Pending:\n").append(pendingNames);
             }
@@ -244,7 +243,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             String wlNames = formatWaitingListPriorities(slot.waitingListEntries, 5);
             if (wlNames != null && !wlNames.isEmpty()) {
                 if (statusBuilder.length() > 0) {
-                    statusBuilder.append("\n\n");
+                    statusBuilder.append("\n\n\n"); // Extra spacing between sections
                 }
                 statusBuilder.append("Waiting List Priorities:\n").append(wlNames);
             }

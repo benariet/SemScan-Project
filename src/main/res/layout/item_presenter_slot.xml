@@ -34,10 +34,11 @@
             android:id="@+id/text_slot_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="8dp"
             android:textColor="@color/gray_900"
             android:textSize="14sp"
-            android:textStyle="normal" />
+            android:textStyle="normal"
+            android:lineSpacingExtra="4dp" />
 
         <!-- Details Text (approved/pending/waiting counts) -->
         <TextView
@@ -69,51 +70,51 @@
             android:gravity="end">
 
             <!-- Register Button (Only for available slots) -->
-            <com.google.android.material.button.MaterialButton
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_register_slot"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
+                android:minHeight="40dp"
+                android:background="@drawable/btn_outlined_blue"
                 android:text="@string/presenter_slot_register_button"
                 android:textSize="12sp"
                 android:textStyle="bold"
-                android:textColor="@color/icon_blue"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                app:backgroundTint="@color/white"
-                app:cornerRadius="20dp"
-                app:elevation="2dp"
+                android:textColor="#007BFF"
+                android:textAllCaps="true"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
                 android:visibility="gone" />
 
             <!-- Waiting List Button (Only for full slots) -->
-            <com.google.android.material.button.MaterialButton
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_waiting_list"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
+                android:minHeight="40dp"
+                android:background="@drawable/btn_outlined_blue"
                 android:text="@string/presenter_slot_join_waiting_list"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:textColor="@color/icon_blue"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                app:backgroundTint="@color/white"
-                app:cornerRadius="20dp"
-                app:elevation="2dp"
+                android:textColor="#007BFF"
+                android:textAllCaps="true"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:visibility="gone" />
 
-            <!-- Cancel Waiting List Button -->
-            <com.google.android.material.button.MaterialButton
+            <!-- Cancel Waiting List Button (Destructive Style - White Fill) -->
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_cancel_waiting_list"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
+                android:minHeight="40dp"
+                android:background="@drawable/btn_destructive_white"
                 android:text="@string/presenter_slot_cancel_waiting_list"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:textColor="@color/accent_red"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                app:backgroundTint="@color/white"
-                app:cornerRadius="20dp"
-                app:elevation="2dp"
+                android:textColor="#FF3B30"
+                android:textAllCaps="true"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:visibility="gone" />
 
         </LinearLayout>
