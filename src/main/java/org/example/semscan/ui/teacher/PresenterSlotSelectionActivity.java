@@ -260,6 +260,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         apiService.getPresenterHome(normalizedUsername).enqueue(new Callback<ApiService.PresenterHomeResponse>() {
             @Override
             public void onResponse(Call<ApiService.PresenterHomeResponse> call, Response<ApiService.PresenterHomeResponse> response) {
+                if (isFinishing() || isDestroyed()) return;
                 setLoading(false);
                 if (!response.isSuccessful() || response.body() == null) {
                     Toast.makeText(PresenterSlotSelectionActivity.this, R.string.error_slot_load_failed, Toast.LENGTH_SHORT).show();
@@ -331,6 +332,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
             @Override
             public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 setLoading(false);
                 String errorMessage = getString(R.string.error_slot_load_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
@@ -555,8 +557,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         apiService.joinWaitingList(slot.slotId, request)
                 .enqueue(new Callback<ApiService.WaitingListResponse>() {
                     @Override
-                    public void onResponse(Call<ApiService.WaitingListResponse> call, 
+                    public void onResponse(Call<ApiService.WaitingListResponse> call,
                                          Response<ApiService.WaitingListResponse> response) {
+                        if (isFinishing() || isDestroyed()) return;
                         Logger.apiResponse("POST", apiEndpoint, response.code(), "Join waiting list response received");
                         if (serverLogger != null) {
                             serverLogger.apiResponse("POST", apiEndpoint, response.code(), "Join waiting list response received");
@@ -622,17 +625,18 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
                     @Override
                     public void onFailure(Call<ApiService.WaitingListResponse> call, Throwable t) {
+                        if (isFinishing() || isDestroyed()) return;
                         String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
-                        String errorDetails = "Join waiting list network failure - URL: " + requestUrl + 
+                        String errorDetails = "Join waiting list network failure - URL: " + requestUrl +
                                 ", Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
                         Logger.e(Logger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         if (serverLogger != null) {
                             serverLogger.e(ServerLogger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         }
-                        
+
                         String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(
                             PresenterSlotSelectionActivity.this, t);
-                        Toast.makeText(PresenterSlotSelectionActivity.this, 
+                        Toast.makeText(PresenterSlotSelectionActivity.this,
                             "Cannot join waiting list: " + errorMessage,
                             Toast.LENGTH_LONG).show();
                     }
@@ -679,8 +683,9 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         apiService.leaveWaitingList(slot.slotId, normalizedUsername)
                 .enqueue(new Callback<ApiService.WaitingListResponse>() {
                     @Override
-                    public void onResponse(Call<ApiService.WaitingListResponse> call, 
+                    public void onResponse(Call<ApiService.WaitingListResponse> call,
                                          Response<ApiService.WaitingListResponse> response) {
+                        if (isFinishing() || isDestroyed()) return;
                         Logger.apiResponse("DELETE", apiEndpoint, response.code(), "Leave waiting list response received");
                         if (serverLogger != null) {
                             serverLogger.apiResponse("DELETE", apiEndpoint, response.code(), "Leave waiting list response received");
@@ -748,23 +753,24 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
                     @Override
                     public void onFailure(Call<ApiService.WaitingListResponse> call, Throwable t) {
+                        if (isFinishing() || isDestroyed()) return;
                         String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
-                        String errorDetails = "Leave waiting list network failure - URL: " + requestUrl + 
+                        String errorDetails = "Leave waiting list network failure - URL: " + requestUrl +
                                 ", Error: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage();
                         Logger.e(Logger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         if (serverLogger != null) {
                             serverLogger.e(ServerLogger.TAG_REGISTER_RESPONSE, errorDetails, t);
                         }
-                        
+
                         String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(
                             PresenterSlotSelectionActivity.this, t);
-                        Toast.makeText(PresenterSlotSelectionActivity.this, 
+                        Toast.makeText(PresenterSlotSelectionActivity.this,
                             "Cannot leave waiting list: " + errorMessage,
                             Toast.LENGTH_LONG).show();
                     }
                 });
     }
-    
+
     private void showRegistrationDialog(ApiService.SlotCard slot) {
         Logger.i(Logger.TAG_REGISTER_REQUEST, "Showing registration confirmation dialog for slot=" + (slot != null ? slot.slotId : "null"));
         if (serverLogger != null) {
@@ -1225,6 +1231,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                 .enqueue(new Callback<ApiService.PresenterRegisterResponse>() {
                     @Override
                     public void onResponse(Call<ApiService.PresenterRegisterResponse> call, Response<ApiService.PresenterRegisterResponse> response) {
+                        if (isFinishing() || isDestroyed()) return;
                         String apiEndpoint = "api/v1/presenters/" + normalizedUsername + "/home/slots/" + slotId + "/register";
                         Logger.apiResponse("POST", apiEndpoint, response.code(), "Registration response received");
                         if (serverLogger != null) {
@@ -1479,6 +1486,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
                     @Override
                     public void onFailure(Call<ApiService.PresenterRegisterResponse> call, Throwable t) {
+                        if (isFinishing() || isDestroyed()) return;
                         String requestUrl = call.request() != null ? call.request().url().toString() : "unknown";
                         String errorDetails = String.format("Slot registration network failure - URL: %s, Error: %s, Message: %s, slot=%d, supervisorEmail=%s, presenterEmail=%s",
                             requestUrl, t.getClass().getSimpleName(), t.getMessage(), slotId, supervisorEmail, presenterEmail);

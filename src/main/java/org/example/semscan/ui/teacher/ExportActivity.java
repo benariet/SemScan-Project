@@ -91,6 +91,7 @@ public class ExportActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<List<ManualAttendanceResponse>> call,
                                    Response<List<ManualAttendanceResponse>> response) {
+                if (isFinishing() || isDestroyed()) return;
                 if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
                     List<ManualAttendanceResponse> pendingRequests = response.body();
                     Logger.i(Logger.TAG_EXPORT_REQUEST, "Found " + pendingRequests.size() + " pending requests - showing review modal");
@@ -102,6 +103,7 @@ public class ExportActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.w(Logger.TAG_EXPORT_REQUEST, "Failed to check pending requests on open: " + t.getMessage());
             }
         });
@@ -208,6 +210,7 @@ public class ExportActivity extends AppCompatActivity {
         call.enqueue(new Callback<List<ManualAttendanceResponse>>() {
             @Override
             public void onResponse(Call<List<ManualAttendanceResponse>> call, Response<List<ManualAttendanceResponse>> response) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.i("ExportActivity", "=== API RESPONSE DEBUG ===");
                 Logger.i("ExportActivity", "Response successful: " + response.isSuccessful());
                 Logger.i("ExportActivity", "Response code: " + response.code());
@@ -261,6 +264,7 @@ public class ExportActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to check pending requests", t);
                 String errorMessage = getString(R.string.error_load_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
@@ -289,13 +293,14 @@ public class ExportActivity extends AppCompatActivity {
         call.enqueue(new Callback<List<ManualAttendanceResponse>>() {
             @Override
             public void onResponse(Call<List<ManualAttendanceResponse>> call, Response<List<ManualAttendanceResponse>> response) {
+                if (isFinishing() || isDestroyed()) return;
                 if (response.isSuccessful() && response.body() != null) {
                     List<ManualAttendanceResponse> pendingRequests = response.body();
                     Logger.i("ExportActivity", "Refreshed pending requests: " + pendingRequests.size() + " remaining");
-                    
+
                     // Update the adapter with the new list
                     requestAdapter.updateRequests(pendingRequests);
-                    
+
                     // If there are no more pending requests, we could optionally show a message
                     // but we should NOT automatically trigger export
                     if (pendingRequests.isEmpty()) {
@@ -304,9 +309,10 @@ public class ExportActivity extends AppCompatActivity {
                     }
                 }
             }
-            
+
             @Override
             public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to refresh pending requests", t);
                 // Don't show error toast for refresh - it's just a background update
             }
@@ -404,22 +410,24 @@ public class ExportActivity extends AppCompatActivity {
         call.enqueue(new Callback<ManualAttendanceResponse>() {
             @Override
             public void onResponse(Call<ManualAttendanceResponse> call, Response<ManualAttendanceResponse> response) {
+                if (isFinishing() || isDestroyed()) return;
                 if (response.isSuccessful()) {
-                    Logger.apiResponse("POST", "api/v1/attendance/" + request.getAttendanceId() + "/approve", 
+                    Logger.apiResponse("POST", "api/v1/attendance/" + request.getAttendanceId() + "/approve",
                         response.code(), "Request approved successfully");
                     Toast.makeText(ExportActivity.this, "Request approved", Toast.LENGTH_SHORT).show();
                     // Refresh the list WITHOUT triggering export
                     // Export should only happen when user clicks the Export button, not when approving requests
                     refreshPendingRequestsOnly();
                 } else {
-                    Logger.apiError("POST", "api/v1/attendance/" + request.getAttendanceId() + "/approve", 
+                    Logger.apiError("POST", "api/v1/attendance/" + request.getAttendanceId() + "/approve",
                         response.code(), "Failed to approve request");
                     Toast.makeText(ExportActivity.this, "Failed to approve request", Toast.LENGTH_SHORT).show();
                 }
             }
-            
+
             @Override
             public void onFailure(Call<ManualAttendanceResponse> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to approve request", t);
                 String errorMessage = getString(R.string.error_operation_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
@@ -431,7 +439,7 @@ public class ExportActivity extends AppCompatActivity {
             }
         });
     }
-    
+
     private void rejectRequest(ManualAttendanceResponse request) {
         // API key no longer required - removed authentication
         
@@ -444,22 +452,24 @@ public class ExportActivity extends AppCompatActivity {
         call.enqueue(new Callback<ManualAttendanceResponse>() {
             @Override
             public void onResponse(Call<ManualAttendanceResponse> call, Response<ManualAttendanceResponse> response) {
+                if (isFinishing() || isDestroyed()) return;
                 if (response.isSuccessful()) {
-                    Logger.apiResponse("POST", "api/v1/attendance/" + request.getAttendanceId() + "/reject", 
+                    Logger.apiResponse("POST", "api/v1/attendance/" + request.getAttendanceId() + "/reject",
                         response.code(), "Request rejected successfully");
                     Toast.makeText(ExportActivity.this, "Request rejected", Toast.LENGTH_SHORT).show();
                     // Refresh the list WITHOUT triggering export
                     // Export should only happen when user clicks the Export button, not when rejecting requests
                     refreshPendingRequestsOnly();
                 } else {
-                    Logger.apiError("POST", "api/v1/attendance/" + request.getAttendanceId() + "/reject", 
+                    Logger.apiError("POST", "api/v1/attendance/" + request.getAttendanceId() + "/reject",
                         response.code(), "Failed to reject request");
                     Toast.makeText(ExportActivity.this, "Failed to reject request", Toast.LENGTH_SHORT).show();
                 }
             }
-            
+
             @Override
             public void onFailure(Call<ManualAttendanceResponse> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to reject request", t);
                 String errorMessage = getString(R.string.error_operation_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
@@ -517,6 +527,7 @@ public class ExportActivity extends AppCompatActivity {
         call.enqueue(new Callback<ApiService.UploadResponse>() {
             @Override
             public void onResponse(Call<ApiService.UploadResponse> call, Response<ApiService.UploadResponse> response) {
+                if (isFinishing() || isDestroyed()) return;
                 if (response.isSuccessful() && response.body() != null) {
                     ApiService.UploadResponse body = response.body();
                     Logger.apiResponse("POST", endpoint, response.code(),
@@ -569,6 +580,7 @@ public class ExportActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<ApiService.UploadResponse> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.e(Logger.TAG_EXPORT_REQUEST, "Export upload network failure", t);
                 String errorMessage = getString(R.string.error_export_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
@@ -605,6 +617,7 @@ public class ExportActivity extends AppCompatActivity {
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                if (isFinishing() || isDestroyed()) return;
                 if (response.isSuccessful() && response.body() != null) {
                     try {
                         Logger.apiResponse("GET", endpoint, response.code(), "Export data received successfully");
@@ -649,6 +662,7 @@ public class ExportActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<ResponseBody> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.e(Logger.TAG_EXPORT_REQUEST, "Export network failure", t);
                 String errorMessage = getString(R.string.error_export_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
@@ -737,6 +751,7 @@ public class ExportActivity extends AppCompatActivity {
             apiService.sendTestEmail(request).enqueue(new Callback<ApiService.TestEmailResponse>() {
                 @Override
                 public void onResponse(Call<ApiService.TestEmailResponse> call, Response<ApiService.TestEmailResponse> response) {
+                    if (isFinishing() || isDestroyed()) return;
                     completedCount[0]++;
                     
                     if (response.isSuccessful() && response.body() != null && response.body().success) {
@@ -815,6 +830,7 @@ public class ExportActivity extends AppCompatActivity {
                 
                 @Override
                 public void onFailure(Call<ApiService.TestEmailResponse> call, Throwable t) {
+                    if (isFinishing() || isDestroyed()) return;
                     completedCount[0]++;
                     failCount[0]++;
                     Logger.e(Logger.TAG_EXPORT_SUCCESS, "Error sending export email to: " + email, t);

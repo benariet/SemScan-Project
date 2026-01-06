@@ -137,6 +137,7 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
         call.enqueue(new Callback<List<Session>>() {
             @Override
             public void onResponse(Call<List<Session>> call, Response<List<Session>> response) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.i(Logger.TAG_MANUAL_ATTENDANCE, "═══════════════════════════════════════════════════════════");
                 Logger.i(Logger.TAG_MANUAL_ATTENDANCE, "OPEN SESSIONS API RESPONSE");
                 Logger.i(Logger.TAG_MANUAL_ATTENDANCE, "═══════════════════════════════════════════════════════════");
@@ -251,13 +252,14 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<List<Session>> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 Logger.e(Logger.TAG_MANUAL_ATTENDANCE, "Failed to check active sessions", t);
-                
+
                 if (serverLogger != null) {
                     serverLogger.e(ServerLogger.TAG_MANUAL_ATTENDANCE, "❌ NETWORK FAILURE - Failed to get open sessions | " +
                         "Exception: " + t.getClass().getSimpleName() + ", Message: " + t.getMessage(), t);
                 }
-                
+
                 String errorMessage = getString(R.string.error_load_failed);
                 if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
                     errorMessage = getString(R.string.error_network_timeout);
@@ -403,6 +405,7 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
         call.enqueue(new Callback<ManualAttendanceResponse>() {
             @Override
             public void onResponse(Call<ManualAttendanceResponse> call, Response<ManualAttendanceResponse> response) {
+                if (isFinishing() || isDestroyed()) return;
                 long requestDuration = System.currentTimeMillis() - requestStartTime;
                 Logger.i(Logger.TAG_MANUAL_ATTENDANCE, "═══════════════════════════════════════════════════════════");
                 Logger.i(Logger.TAG_MANUAL_ATTENDANCE, "RESPONSE RECEIVED");
@@ -515,6 +518,7 @@ public class ManualAttendanceRequestActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(Call<ManualAttendanceResponse> call, Throwable t) {
+                if (isFinishing() || isDestroyed()) return;
                 long requestDuration = System.currentTimeMillis() - requestStartTime;
                 Logger.e(Logger.TAG_MANUAL_ATTENDANCE, "═══════════════════════════════════════════════════════════");
                 Logger.e(Logger.TAG_MANUAL_ATTENDANCE, "❌ NETWORK FAILURE - REQUEST DID NOT REACH SERVER");
