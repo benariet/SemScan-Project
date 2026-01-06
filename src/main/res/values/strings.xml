@@ -184,7 +184,7 @@
     <string name="setup_degree_title">Select Degree</string>
     <string name="setup_degree_prompt">Which degree are you enrolled in?</string>
     <string name="setup_degree_msc">MSc</string>
-    <string name="setup_degree_msc_description">MSc students present once per semester.</string>
+    <string name="setup_degree_msc_description">MSc students present once per degree.</string>
     <string name="setup_degree_phd">PhD</string>
     <string name="setup_degree_phd_description">PhD students take a full presentation slot.</string>
     <string name="setup_participation_title">Choose Participation</string>
