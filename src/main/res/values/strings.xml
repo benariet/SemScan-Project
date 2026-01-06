@@ -271,7 +271,6 @@
     <string name="presenter_slot_join_waiting_list">Join Waiting List</string>
     <string name="presenter_slot_cancel_waiting_list">Cancel Waiting List</string>
     <string name="presenter_slot_waiting_list_title">Join Waiting List</string>
-    <string name="presenter_slot_waiting_list_message">This slot is full. You\'ll be notified if a spot opens up.</string>
     <string name="presenter_home_slot_state_available">Available</string>
     <string name="presenter_home_slot_state_partial">Partially booked</string>
     <string name="presenter_home_slot_state_full">Full</string>
