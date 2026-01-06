@@ -125,7 +125,8 @@ public class WaitingListService {
         if (existing.isPresent()) {
             String errorMsg = String.format("User is already on the waiting list for slotId=%d", slotId);
             logger.warn("{} - presenterUsername={}, existingPosition={}", errorMsg, normalizedUsername, existing.get().getPosition());
-            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
+            // Business rule rejection - log as WARN, not ERROR
+            databaseLoggerService.logAction("WARN", "WAITING_LIST_ALREADY_ON_LIST", errorMsg, normalizedUsername,
                     String.format("slotId=%d,presenterUsername=%s,existingPosition=%d", slotId, normalizedUsername, existing.get().getPosition()));
             throw new IllegalStateException("User is already on the waiting list for this slot");
         }
@@ -139,12 +140,13 @@ public class WaitingListService {
             // Find which slot they're on the waiting list for (for better error message)
             List<WaitingListEntry> existingEntries = waitingListRepository.findByPresenterUsername(normalizedUsername);
             Long existingSlotId = existingEntries.isEmpty() ? null : existingEntries.get(0).getSlotId();
-            String errorMsg = String.format("You can only be on 1 waiting list at once. Please wait for notification or cancel your current waiting list entry (slotId=%d)", 
+            String errorMsg = String.format("You can only be on 1 waiting list at once. Please wait for notification or cancel your current waiting list entry (slotId=%d)",
                     existingSlotId != null ? existingSlotId : "unknown");
-            logger.warn("{} - presenterUsername={}, existingSlotId={}, requestedSlotId={}", 
+            logger.warn("{} - presenterUsername={}, existingSlotId={}, requestedSlotId={}",
                     errorMsg, normalizedUsername, existingSlotId, slotId);
-            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
-                    String.format("slotId=%d,presenterUsername=%s,existingSlotId=%s,reason=ALREADY_ON_ANOTHER_WAITING_LIST", 
+            // Business rule rejection - log as WARN, not ERROR
+            databaseLoggerService.logAction("WARN", "WAITING_LIST_ALREADY_ON_ANOTHER", errorMsg, normalizedUsername,
+                    String.format("slotId=%d,presenterUsername=%s,existingSlotId=%s,reason=ALREADY_ON_ANOTHER_WAITING_LIST",
                             slotId, normalizedUsername, existingSlotId != null ? existingSlotId.toString() : "unknown"));
             throw new IllegalStateException("You can only be on 1 waiting list at once. Please wait for notification or cancel your current waiting list entry.");
         }
@@ -155,7 +157,8 @@ public class WaitingListService {
         if (hasActiveRegistration) {
             String errorMsg = String.format("User has active registration (PENDING/APPROVED) for slotId=%d", slotId);
             logger.warn("{} - presenterUsername={}", errorMsg, normalizedUsername);
-            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
+            // Business rule rejection - log as WARN, not ERROR
+            databaseLoggerService.logAction("WARN", "WAITING_LIST_HAS_ACTIVE_REGISTRATION", errorMsg, normalizedUsername,
                     String.format("slotId=%d,presenterUsername=%s", slotId, normalizedUsername));
             throw new IllegalStateException("User already has an active registration for this slot");
         }
@@ -180,8 +183,11 @@ public class WaitingListService {
         }
 
         // PhD/MSc exclusivity rules for waiting list:
-        // 1. If PhD already registered (approved or pending), slot is locked - no one can join waiting list
-        // 2. If user is PhD and MSc already registered, PhD can't join waiting list (they'd never get promoted anyway)
+        // 1. If PhD already registered, waiting list is open but "typed" by first joiner
+        // 2. If MSc already registered, PhD can't join waiting list (they'd never get promoted anyway)
+        // 3. First person to join waiting list sets the "type" (PhD-only or MSc-only)
+        // 4. Only same-degree users can join after that
+        // 5. When waiting list empties completely, type resets
         List<SeminarSlotRegistration> allRegistrations = registrationRepository.findByIdSlotId(slotId);
         List<SeminarSlotRegistration> activeRegistrations = allRegistrations.stream()
                 .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.APPROVED ||
@@ -193,21 +199,45 @@ public class WaitingListService {
         boolean existingMsc = activeRegistrations.stream()
                 .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
 
-        // Rule 1: If PhD already registered (approved or pending), slot is locked
+        // Rule 1: If PhD already registered, waiting list is open but typed
+        // First person to join sets the type, only same-degree can join after
         if (existingPhd) {
-            String errorMsg = "Slot already has a PhD presenter - slot is exclusive, waiting list closed";
-            logger.warn("{} - slotId={}, presenterUsername={}", errorMsg, slotId, normalizedUsername);
-            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
-                    String.format("slotId=%d,presenterUsername=%s,reason=PHD_EXCLUSIVE", slotId, normalizedUsername));
-            throw new IllegalStateException("Slot is reserved by a PhD presenter - waiting list closed");
+            List<WaitingListEntry> currentWaitingList = waitingListRepository.findBySlotIdOrderByPositionAsc(slotId);
+
+            if (!currentWaitingList.isEmpty()) {
+                // Waiting list has entries - check the type (degree of position 1)
+                User.Degree queueType = currentWaitingList.get(0).getDegree();
+
+                if (user.getDegree() != queueType) {
+                    // User's degree doesn't match queue type
+                    String errorMsg = String.format("Waiting list is currently %s-only (first in queue is %s)",
+                            queueType, queueType);
+                    logger.warn("{} - slotId={}, presenterUsername={}, userDegree={}, queueType={}",
+                            errorMsg, slotId, normalizedUsername, user.getDegree(), queueType);
+                    databaseLoggerService.logAction("WARN", "WAITING_LIST_DEGREE_MISMATCH", errorMsg, normalizedUsername,
+                            String.format("slotId=%d,presenterUsername=%s,userDegree=%s,queueType=%s",
+                                    slotId, normalizedUsername, user.getDegree(), queueType));
+                    throw new IllegalStateException(String.format(
+                            "Cannot join waiting list - queue is currently %s-only", queueType));
+                }
+                // User's degree matches queue type - allow (fall through)
+                logger.info("User {} ({}) joining waiting list for PhD slot {} - queue type is {} (matches)",
+                        normalizedUsername, user.getDegree(), slotId, queueType);
+            } else {
+                // Waiting list is empty - user is first, they set the type
+                logger.info("User {} ({}) is first to join waiting list for PhD slot {} - setting queue type to {}",
+                        normalizedUsername, user.getDegree(), slotId, user.getDegree());
+            }
+            // Fall through to allow joining
         }
 
-        // Rule 2: If user is PhD and MSc already registered, PhD can't join waiting list
+        // Rule 2: If MSc already registered, PhD can't join waiting list (they can't be promoted anyway)
         if (user.getDegree() == User.Degree.PhD && existingMsc) {
             String errorMsg = "PhD cannot join waiting list - slot already has MSc presenters";
             logger.warn("{} - slotId={}, presenterUsername={}, mscCount={}", errorMsg, slotId, normalizedUsername,
                     activeRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count());
-            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
+            // Business rule rejection - log as WARN, not ERROR
+            databaseLoggerService.logAction("WARN", "WAITING_LIST_BLOCKED_MSC_EXISTS", errorMsg, normalizedUsername,
                     String.format("slotId=%d,presenterUsername=%s,reason=MSC_BLOCKS_PHD,mscCount=%d",
                             slotId, normalizedUsername,
                             activeRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count()));
@@ -249,8 +279,9 @@ public class WaitingListService {
         if (currentCount >= waitingListLimit) {
             String errorMsg = String.format("Waiting list for slot %d is full (limit: %d)", slotId, waitingListLimit);
             logger.warn("{} - presenterUsername={}, currentCount={}", errorMsg, normalizedUsername, currentCount);
-            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, null, normalizedUsername,
-                    String.format("slotId=%d,presenterUsername=%s,currentCount=%d,limit=%d,reason=WAITING_LIST_FULL", 
+            // Business rule rejection - log as WARN, not ERROR
+            databaseLoggerService.logAction("WARN", "WAITING_LIST_FULL", errorMsg, normalizedUsername,
+                    String.format("slotId=%d,presenterUsername=%s,currentCount=%d,limit=%d,reason=WAITING_LIST_FULL",
                             slotId, normalizedUsername, currentCount, waitingListLimit));
             throw new IllegalStateException("Waiting list is full. Please try again later.");
         }
@@ -761,6 +792,21 @@ public class WaitingListService {
         promotion.setStatus(WaitingListPromotion.PromotionStatus.PENDING);
         waitingListPromotionRepository.save(promotion);
 
+        // After promoting this user, check if there's room for more promotions
+        // (e.g., MSc only takes 1/3 capacity, so more people can be promoted)
+        // This is done asynchronously to avoid blocking the confirmation response
+        try {
+            boolean morePromotions = offerPromotionToNextFromWaitingList(slotId);
+            if (morePromotions) {
+                logger.info("Offered promotion to next person in waiting list for slotId={} after {} confirmed",
+                        slotId, username);
+            }
+        } catch (Exception e) {
+            // Don't fail the confirmation if offering next promotion fails
+            logger.error("Failed to offer promotion to next person after {} confirmed for slotId={}: {}",
+                    username, slotId, e.getMessage());
+        }
+
         return Optional.of(newRegistration);
     }
 
@@ -949,6 +995,13 @@ public class WaitingListService {
     public Optional<WaitingListEntry> getWaitingListEntryForUser(String presenterUsername) {
         List<WaitingListEntry> entries = waitingListRepository.findByPresenterUsername(presenterUsername);
         return entries.isEmpty() ? Optional.empty() : Optional.of(entries.get(0));
+    }
+
+    /**
+     * Get all waiting list entries for a user (across all slots)
+     */
+    public List<WaitingListEntry> getWaitingListEntriesForUser(String presenterUsername) {
+        return waitingListRepository.findByPresenterUsername(presenterUsername);
     }
 
     /**

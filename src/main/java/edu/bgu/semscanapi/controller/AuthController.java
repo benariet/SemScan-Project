@@ -79,7 +79,18 @@ public class AuthController {
                         String.format("username=%s", request.getUsername()));
             }
 
-            boolean authenticated = bguAuthSoapService.validateUser(request.getUsername(), request.getPassword());
+            // TEST BYPASS: Allow test users to login without BGU auth (REMOVE FOR PRODUCTION)
+            String tempUsername = request.getUsername().trim().toLowerCase(Locale.ROOT);
+            if (tempUsername.contains("@")) {
+                tempUsername = tempUsername.substring(0, tempUsername.indexOf('@'));
+            }
+            boolean authenticated;
+            if (tempUsername.startsWith("test") && "Test123!".equals(request.getPassword())) {
+                authenticated = true;
+                logger.info("TEST BYPASS: Allowing test user {} to login", tempUsername);
+            } else {
+                authenticated = bguAuthSoapService.validateUser(request.getUsername(), request.getPassword());
+            }
 
             if (!authenticated) {
                 logger.warn("BGU authentication failed for user: {}", request.getUsername());

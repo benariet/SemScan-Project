@@ -399,18 +399,28 @@ public class RequestLoggingFilter implements Filter {
     }
     
     /**
-     * Extract username from request body or query parameters
+     * Extract username from request body, query parameters, or URL path
      * This helps populate MDC context for logging when username is not yet set
      */
     private String extractUsernameFromRequest(HttpServletRequest request, String requestBody) {
         try {
-            // Try to extract from query parameters first (for DELETE requests)
+            // 1. Try to extract from URL path (most common for presenter endpoints)
+            // Patterns like: /presenters/{username}/home, /users/{username}/fcm-token
+            String uri = request.getRequestURI();
+            if (uri != null) {
+                String extracted = extractUsernameFromPath(uri);
+                if (extracted != null && !extracted.trim().isEmpty()) {
+                    return extracted.trim();
+                }
+            }
+
+            // 2. Try to extract from query parameters (for DELETE requests)
             String usernameParam = request.getParameter("username");
             if (usernameParam != null && !usernameParam.trim().isEmpty()) {
                 return usernameParam.trim();
             }
-            
-            // Try to extract from request body (for POST requests with JSON)
+
+            // 3. Try to extract from request body (for POST requests with JSON)
             if (requestBody != null && !requestBody.trim().isEmpty() && requestBody.trim().startsWith("{")) {
                 // Simple JSON parsing to extract username fields
                 // Look for: "username", "presenterUsername", "bguUsername", "presenter_username"
@@ -432,7 +442,54 @@ public class RequestLoggingFilter implements Filter {
             // If extraction fails, just return null - don't break request processing
             logger.debug("Failed to extract username from request: {}", e.getMessage());
         }
-        
+
+        return null;
+    }
+
+    /**
+     * Extract username from URL path patterns
+     * Examples:
+     *   /api/v1/presenters/benariet/home -> benariet
+     *   /api/v1/users/benariet/fcm-token -> benariet
+     *   /api/v1/presenters/benariet/home/slots/5/register -> benariet
+     */
+    private String extractUsernameFromPath(String uri) {
+        if (uri == null || uri.isEmpty()) {
+            return null;
+        }
+
+        try {
+            // Pattern 1: /presenters/{username}/...
+            java.util.regex.Pattern presenterPattern = java.util.regex.Pattern.compile(
+                "/presenters/([a-zA-Z0-9_]+)(/|$)"
+            );
+            java.util.regex.Matcher presenterMatcher = presenterPattern.matcher(uri);
+            if (presenterMatcher.find()) {
+                return presenterMatcher.group(1);
+            }
+
+            // Pattern 2: /users/{username}/... (e.g., /users/benariet/fcm-token)
+            java.util.regex.Pattern userPattern = java.util.regex.Pattern.compile(
+                "/users/([a-zA-Z0-9_]+)(/|$)"
+            );
+            java.util.regex.Matcher userMatcher = userPattern.matcher(uri);
+            if (userMatcher.find()) {
+                return userMatcher.group(1);
+            }
+
+            // Pattern 3: /auth/setup/{username}
+            java.util.regex.Pattern setupPattern = java.util.regex.Pattern.compile(
+                "/auth/setup/([a-zA-Z0-9_]+)(/|$)"
+            );
+            java.util.regex.Matcher setupMatcher = setupPattern.matcher(uri);
+            if (setupMatcher.find()) {
+                return setupMatcher.group(1);
+            }
+
+        } catch (Exception e) {
+            logger.debug("Failed to extract username from path: {}", e.getMessage());
+        }
+
         return null;
     }
 }

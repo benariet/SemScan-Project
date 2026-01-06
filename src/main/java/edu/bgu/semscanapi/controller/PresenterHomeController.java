@@ -72,7 +72,7 @@ public class PresenterHomeController {
 
         // Log API request to database with full payload
         if (databaseLoggerService != null) {
-            databaseLoggerService.logAction("INFO", "API_REGISTER_REQUEST",
+            databaseLoggerService.logAction("INFO", "SLOT_REGISTRATION_API_CALLED",
                     String.format("Registration API called for presenter %s, slot %d", presenterUsername, slotId),
                     presenterUsername,
                     String.format("slotId=%d,topic=%s,supervisorName=%s,supervisorEmail=%s,seminarAbstract=%s",
@@ -89,7 +89,7 @@ public class PresenterHomeController {
 
             // Log API response to database
             if (databaseLoggerService != null) {
-                databaseLoggerService.logAction("INFO", "API_REGISTER_RESPONSE",
+                databaseLoggerService.logAction("INFO", "SLOT_REGISTRATION_API_RETURNED",
                         String.format("Registration API response for presenter %s, slot %d: success=%s, code=%s",
                                 presenterUsername, slotId, response.isSuccess(), response.getCode()),
                         presenterUsername,
@@ -103,7 +103,7 @@ public class PresenterHomeController {
             LoggerUtil.logError(logger, "Presenter slot registration failed", ex);
             // Log error to database with full details
             if (databaseLoggerService != null) {
-                databaseLoggerService.logError("API_REGISTER_ERROR",
+                databaseLoggerService.logError("REGISTRATION_ERROR",
                         String.format("Registration failed for presenter %s, slot %d: %s", presenterUsername, slotId, ex.getMessage()),
                         ex, presenterUsername,
                         String.format("slotId=%d,errorType=IllegalArgumentException,httpStatus=404", slotId));
@@ -115,7 +115,7 @@ public class PresenterHomeController {
             LoggerUtil.logError(logger, "Unexpected error during slot registration", ex);
             // Log unexpected error to database with full stack trace
             if (databaseLoggerService != null) {
-                databaseLoggerService.logError("API_REGISTER_UNEXPECTED_ERROR",
+                databaseLoggerService.logError("REGISTRATION_UNEXPECTED_ERROR",
                         String.format("Unexpected error during registration for presenter %s, slot %d: %s",
                                 presenterUsername, slotId, ex.getMessage()),
                         ex, presenterUsername,
@@ -137,7 +137,7 @@ public class PresenterHomeController {
 
         // Log API request to database
         if (databaseLoggerService != null) {
-            databaseLoggerService.logAction("INFO", "API_UNREGISTER_REQUEST",
+            databaseLoggerService.logAction("INFO", "SLOT_CANCELLATION_API_CALLED",
                     String.format("Unregister API called for presenter %s, slot %d", presenterUsername, slotId),
                     presenterUsername,
                     String.format("slotId=%d", slotId));
@@ -149,7 +149,7 @@ public class PresenterHomeController {
 
             // Log API response to database
             if (databaseLoggerService != null) {
-                databaseLoggerService.logAction("INFO", "API_UNREGISTER_RESPONSE",
+                databaseLoggerService.logAction("INFO", "SLOT_CANCELLATION_API_RETURNED",
                         String.format("Unregister API response for presenter %s, slot %d: success=%s, code=%s",
                                 presenterUsername, slotId, response.isSuccess(), response.getCode()),
                         presenterUsername,
@@ -163,7 +163,7 @@ public class PresenterHomeController {
             LoggerUtil.logError(logger, "Presenter slot unregister failed", ex);
             // Log error to database with full details
             if (databaseLoggerService != null) {
-                databaseLoggerService.logError("API_UNREGISTER_ERROR",
+                databaseLoggerService.logError("CANCELLATION_ERROR",
                         String.format("Unregister failed for presenter %s, slot %d: %s", presenterUsername, slotId, ex.getMessage()),
                         ex, presenterUsername,
                         String.format("slotId=%d,errorType=IllegalArgumentException,httpStatus=404", slotId));
@@ -175,7 +175,7 @@ public class PresenterHomeController {
             LoggerUtil.logError(logger, "Unexpected error during slot unregister", ex);
             // Log unexpected error to database with full stack trace
             if (databaseLoggerService != null) {
-                databaseLoggerService.logError("API_UNREGISTER_UNEXPECTED_ERROR",
+                databaseLoggerService.logError("CANCELLATION_UNEXPECTED_ERROR",
                         String.format("Unexpected error during unregister for presenter %s, slot %d: %s",
                                 presenterUsername, slotId, ex.getMessage()),
                         ex, presenterUsername,

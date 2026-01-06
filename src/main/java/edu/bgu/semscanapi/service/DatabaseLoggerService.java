@@ -7,8 +7,9 @@ import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.PrintWriter;
@@ -22,14 +23,20 @@ import java.util.Optional;
  */
 @Service
 public class DatabaseLoggerService {
-    
+
     private static final Logger logger = LoggerUtil.getLogger(DatabaseLoggerService.class);
-    
+
     @Autowired
     private AppLogRepository appLogRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
+
+    // Self-injection to bypass Spring proxy limitation for @Transactional on self-invocations
+    // @Lazy breaks the circular dependency during bean creation
+    @Lazy
+    @Autowired
+    private DatabaseLoggerService self;
     
     // Thread-local storage for device info (set by controllers/interceptors)
     private static final ThreadLocal<String> currentDeviceInfo = new ThreadLocal<>();
@@ -59,17 +66,18 @@ public class DatabaseLoggerService {
      * @param bguUsername Optional user BGU username
      * @param payload Optional payload/context
      */
-    @Async
-    @Transactional
     public void logAction(String level, String tag, String message, String bguUsername, String payload) {
-        logActionWithDevice(level, tag, message, bguUsername, payload, currentDeviceInfo.get(), currentAppVersion.get());
+        // Capture ThreadLocal values synchronously before transactional call
+        String deviceInfo = currentDeviceInfo.get();
+        String appVersion = currentAppVersion.get();
+        // Use self-injection to go through proxy for @Transactional to work
+        self.logActionWithDevice(level, tag, message, bguUsername, payload, deviceInfo, appVersion);
     }
 
     /**
      * Log an action with explicit device info
      */
-    @Async
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logActionWithDevice(String level, String tag, String message, String bguUsername, String payload,
                                     String deviceInfo, String appVersion) {
         try {
@@ -95,9 +103,11 @@ public class DatabaseLoggerService {
                 try {
                     Optional<User> user = userRepository.findByBguUsername(normalizedUsername);
                     if (user.isPresent()) {
-                        // User exists - safe to set bgu_username
+                        // User exists - safe to set bgu_username and full name
+                        User u = user.get();
                         appLog.setBguUsername(normalizedUsername);
-                        appLog.setUserRole(deriveUserRole(user.get()));
+                        appLog.setUserFullName(buildFullName(u));
+                        appLog.setUserRole(deriveUserRole(u));
                         logger.debug("Set bgu_username={} for log action (user exists)", normalizedUsername);
                     } else {
                         // User doesn't exist - don't set bgu_username to avoid foreign key violation
@@ -125,9 +135,11 @@ public class DatabaseLoggerService {
      * @param bguUsername Optional user BGU username
      * @param payload Optional payload/context
      */
-    @Async
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logError(String tag, String message, Throwable throwable, String bguUsername, String payload) {
+        // Capture ThreadLocal values synchronously
+        String deviceInfo = currentDeviceInfo.get();
+        String appVersion = currentAppVersion.get();
         try {
             AppLog appLog = new AppLog();
             appLog.setLogTimestamp(LocalDateTime.now());
@@ -137,9 +149,7 @@ public class DatabaseLoggerService {
             appLog.setSource(AppLog.Source.API); // API source for server-side errors
             appLog.setCorrelationId(LoggerUtil.getCurrentCorrelationId());
 
-            // Set device info if available
-            String deviceInfo = currentDeviceInfo.get();
-            String appVersion = currentAppVersion.get();
+            // Set device info if available (already captured above)
             if (deviceInfo != null && !deviceInfo.isBlank()) {
                 appLog.setDeviceInfo(deviceInfo);
             }
@@ -158,9 +168,11 @@ public class DatabaseLoggerService {
                 try {
                     Optional<User> user = userRepository.findByBguUsername(normalizedUsername);
                     if (user.isPresent()) {
-                        // User exists - safe to set bgu_username
+                        // User exists - safe to set bgu_username and full name
+                        User u = user.get();
                         appLog.setBguUsername(normalizedUsername);
-                        appLog.setUserRole(deriveUserRole(user.get()));
+                        appLog.setUserFullName(buildFullName(u));
+                        appLog.setUserRole(deriveUserRole(u));
                         logger.debug("Set bgu_username={} for log error (user exists)", normalizedUsername);
                     } else {
                         // User doesn't exist - don't set bgu_username to avoid foreign key violation
@@ -184,87 +196,138 @@ public class DatabaseLoggerService {
     /**
      * Log API request action
      */
-    @Async
-    @Transactional
     public void logApiAction(String method, String endpoint, String tag, String bguUsername, String payload) {
-        logAction("INFO", tag != null ? tag : "API_REQUEST", 
+        logAction("INFO", tag != null ? tag : "API_ACTION",
             String.format("%s %s", method, endpoint), bguUsername, payload);
     }
     
     /**
-     * Log API request with body
+     * Log API request with body - derives feature from endpoint URL
      */
-    @Async
-    @Transactional
     public void logApiRequest(String method, String endpoint, String bguUsername, String requestBody) {
+        String feature = deriveFeatureFromEndpoint(endpoint);
         // Truncate body to prevent huge database entries (max 10000 characters)
         String truncatedBody = truncateString(requestBody, 10000);
         String payload = truncatedBody != null ? String.format("requestBody=%s", truncatedBody) : null;
-        logAction("INFO", "API_REQUEST", 
+        logAction("INFO", feature + "_API_REQUEST",
             String.format("%s %s", method, endpoint), bguUsername, payload);
     }
-    
+
     /**
-     * Log API response
+     * Log API response - derives feature from endpoint URL
      */
-    @Async
-    @Transactional
     public void logApiResponse(String method, String endpoint, int statusCode, String bguUsername) {
+        String feature = deriveFeatureFromEndpoint(endpoint);
         String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
-        logAction(level, "API_RESPONSE", 
+        logAction(level, feature + "_API_RESPONSE",
             String.format("%s %s - Status: %d", method, endpoint, statusCode), bguUsername, null);
     }
-    
+
     /**
-     * Log API response with body
+     * Log API response with body - derives feature from endpoint URL
      */
-    @Async
-    @Transactional
     public void logApiResponse(String method, String endpoint, int statusCode, String bguUsername, String responseBody) {
+        String feature = deriveFeatureFromEndpoint(endpoint);
         String level = statusCode >= 500 ? "ERROR" : (statusCode >= 400 ? "WARN" : "INFO");
         // Truncate body to prevent huge database entries (max 10000 characters)
         String truncatedBody = truncateString(responseBody, 10000);
         String payload = truncatedBody != null ? String.format("responseBody=%s", truncatedBody) : null;
-        logAction(level, "API_RESPONSE", 
+        logAction(level, feature + "_API_RESPONSE",
             String.format("%s %s - Status: %d", method, endpoint, statusCode), bguUsername, payload);
+    }
+
+    /**
+     * Derive feature name from endpoint URL pattern
+     */
+    private String deriveFeatureFromEndpoint(String endpoint) {
+        if (endpoint == null || endpoint.isBlank()) {
+            return "API";
+        }
+        String lowerEndpoint = endpoint.toLowerCase();
+
+        // Registration endpoints
+        if (lowerEndpoint.contains("/register")) {
+            return "REGISTRATION";
+        }
+        // Waiting list endpoints
+        if (lowerEndpoint.contains("/waiting-list")) {
+            return "WAITING_LIST";
+        }
+        // Auth endpoints
+        if (lowerEndpoint.contains("/auth/login")) {
+            return "AUTH_LOGIN";
+        }
+        if (lowerEndpoint.contains("/auth/setup")) {
+            return "AUTH_SETUP";
+        }
+        // Attendance endpoints
+        if (lowerEndpoint.contains("/attendance")) {
+            return "ATTENDANCE";
+        }
+        // Approval endpoints
+        if (lowerEndpoint.contains("/approve") || lowerEndpoint.contains("/decline")) {
+            return "APPROVAL";
+        }
+        // Config endpoints
+        if (lowerEndpoint.contains("/config")) {
+            return "CONFIG";
+        }
+        // User endpoints
+        if (lowerEndpoint.contains("/users")) {
+            return "USER";
+        }
+        // Presenter home endpoints
+        if (lowerEndpoint.contains("/presenters") && lowerEndpoint.contains("/home")) {
+            return "PRESENTER_HOME";
+        }
+        // Slots endpoints
+        if (lowerEndpoint.contains("/slots")) {
+            return "SLOT";
+        }
+        // Export endpoints
+        if (lowerEndpoint.contains("/export")) {
+            return "EXPORT";
+        }
+        // QR endpoints
+        if (lowerEndpoint.contains("/qr")) {
+            return "QR";
+        }
+        // FCM endpoints
+        if (lowerEndpoint.contains("/fcm")) {
+            return "FCM";
+        }
+        // Default
+        return "API";
     }
     
     /**
      * Log business event/action
      */
-    @Async
-    @Transactional
     public void logBusinessEvent(String event, String details, String bguUsername) {
         logAction("INFO", "BUSINESS_EVENT", String.format("%s: %s", event, details), bguUsername, null);
     }
-    
+
     /**
      * Log authentication event
      */
-    @Async
-    @Transactional
     public void logAuthentication(String event, String bguUsername, String details) {
         logAction("INFO", "AUTHENTICATION", String.format("%s - User: %s", event, bguUsername), bguUsername, details);
     }
-    
+
     /**
      * Log attendance event
      */
-    @Async
-    @Transactional
     public void logAttendance(String event, String studentUsername, Long sessionId, String method) {
-        logAction("INFO", "ATTENDANCE", 
+        logAction("INFO", "ATTENDANCE",
             String.format("%s - Student: %s, Session: %s, Method: %s", event, studentUsername, sessionId, method),
             studentUsername, String.format("sessionId=%s,method=%s", sessionId, method));
     }
-    
+
     /**
      * Log session event
      */
-    @Async
-    @Transactional
     public void logSessionEvent(String event, Long sessionId, Long seminarId, String presenterUsername) {
-        logAction("INFO", "SESSION", 
+        logAction("INFO", "SESSION",
             String.format("%s - Session: %s, Seminar: %s, Presenter: %s", event, sessionId, seminarId, presenterUsername),
             presenterUsername, String.format("sessionId=%s,seminarId=%s", sessionId, seminarId));
     }
@@ -302,6 +365,33 @@ public class DatabaseLoggerService {
             return AppLog.UserRole.PARTICIPANT;
         }
         return AppLog.UserRole.UNKNOWN;
+    }
+
+    /**
+     * Build full name from user's first and last name
+     */
+    private String buildFullName(User user) {
+        if (user == null) {
+            return null;
+        }
+        String firstName = user.getFirstName();
+        String lastName = user.getLastName();
+
+        if ((firstName == null || firstName.isBlank()) && (lastName == null || lastName.isBlank())) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        if (firstName != null && !firstName.isBlank()) {
+            sb.append(firstName.trim());
+        }
+        if (lastName != null && !lastName.isBlank()) {
+            if (sb.length() > 0) {
+                sb.append(" ");
+            }
+            sb.append(lastName.trim());
+        }
+        return sb.toString();
     }
     
     /**

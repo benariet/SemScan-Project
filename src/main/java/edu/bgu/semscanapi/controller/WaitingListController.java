@@ -149,7 +149,7 @@ public class WaitingListController {
             response.setEntries(List.of(dto));
 
             // Log API response to database
-            databaseLoggerService.logAction("INFO", "API_WAITING_LIST_ADD_RESPONSE",
+            databaseLoggerService.logAction("INFO", "WAITING_LIST_ADD_API_RETURNED",
                     String.format("Waiting list add API response for user %s, slot %d: success=true, position=%d",
                             presenterUsername.trim(), slotId, entry.getPosition()),
                     presenterUsername.trim(),
@@ -159,10 +159,8 @@ public class WaitingListController {
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), "User added to waiting list");
             return ResponseEntity.ok(response);
         } catch (IllegalStateException e) {
-            // Business logic errors (e.g., "waiting list full") - log as WARN, not ERROR
-            logger.warn("Business rule prevented action: {} - slotId={}, user={}", e.getMessage(), slotId, presenterUsername);
-            databaseLoggerService.logAction("WARN", "WAITING_LIST_ADD_BLOCKED", e.getMessage(), presenterUsername,
-                    String.format("slotId=%d,reason=%s", slotId, e.getMessage()));
+            // Business logic errors - already logged by service layer, just return response
+            // (Service logs specific tag like WAITING_LIST_BLOCKED_PHD_EXCLUSIVE)
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), e.getMessage());
             WaitingListResponse errorResponse = new WaitingListResponse();
             errorResponse.setOk(false);
@@ -171,10 +169,7 @@ public class WaitingListController {
             errorResponse.setSlotId(slotId);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         } catch (IllegalArgumentException e) {
-            String errorMsg = String.format("Invalid argument: %s", e.getMessage());
-            LoggerUtil.logError(logger, "Failed to add to waiting list", e);
-            databaseLoggerService.logError("WAITING_LIST_ADD_FAILED", errorMsg, e, presenterUsername,
-                    String.format("endpoint=%s,slotId=%d,exceptionType=IllegalArgumentException", endpoint, slotId));
+            // Validation errors - already logged by service layer, just return response
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.BAD_REQUEST.value(), e.getMessage());
             WaitingListResponse errorResponse = new WaitingListResponse();
             errorResponse.setOk(false);
@@ -224,7 +219,7 @@ public class WaitingListController {
         LoggerUtil.logApiRequest(logger, "DELETE", endpoint, null);
 
         // Log API request to database
-        databaseLoggerService.logAction("INFO", "API_WAITING_LIST_CANCEL_REQUEST",
+        databaseLoggerService.logAction("INFO", "WAITING_LIST_CANCEL_REQUEST",
                 String.format("Waiting list cancel API called for user %s, slot %d", username.trim(), slotId),
                 username.trim(),
                 String.format("slotId=%d", slotId));
@@ -233,7 +228,7 @@ public class WaitingListController {
             waitingListService.removeFromWaitingList(slotId, username.trim());
 
             // Log API response to database
-            databaseLoggerService.logAction("INFO", "API_WAITING_LIST_CANCEL_RESPONSE",
+            databaseLoggerService.logAction("INFO", "WAITING_LIST_CANCEL_RESPONSE",
                     String.format("Waiting list cancel API response for user %s, slot %d: success=true", username.trim(), slotId),
                     username.trim(),
                     String.format("slotId=%d,success=true,code=REMOVED_FROM_WAITING_LIST,httpStatus=200", slotId));

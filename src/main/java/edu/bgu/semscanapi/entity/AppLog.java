@@ -33,6 +33,9 @@ public class AppLog {
     @Column(name = "bgu_username")
     private String bguUsername;
 
+    @Column(name = "user_full_name", length = 200)
+    private String userFullName;
+
     @Column(name = "user_role")
     @Enumerated(EnumType.STRING)
     private UserRole userRole;
@@ -131,6 +134,14 @@ public class AppLog {
 
     public void setBguUsername(String bguUsername) {
         this.bguUsername = bguUsername;
+    }
+
+    public String getUserFullName() {
+        return userFullName;
+    }
+
+    public void setUserFullName(String userFullName) {
+        this.userFullName = userFullName;
     }
 
     public UserRole getUserRole() {

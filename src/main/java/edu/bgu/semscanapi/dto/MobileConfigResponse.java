@@ -81,8 +81,8 @@ public class MobileConfigResponse {
         response.emailReplyTo = configMap.getOrDefault("EMAIL_REPLY_TO", "noreply@bgu.ac.il");
         response.emailBccList = configMap.getOrDefault("EMAIL_BCC_LIST", "");
         response.appVersion = configMap.getOrDefault("APP_VERSION", "1.0");
-        response.waitingListLimitPerSlot = parseIntOrDefault(configMap.get("waiting.list.limit.per.slot"), 2);
-        response.phdCapacityWeight = parseIntOrDefault(configMap.get("phd.capacity.weight"), 2);
+        response.waitingListLimitPerSlot = parseIntOrDefault(configMap.get("WAITING.LIST.LIMIT.PER.SLOT"), 2);
+        response.phdCapacityWeight = parseIntOrDefault(configMap.get("PHD.CAPACITY.WEIGHT"), 2);
 
         return response;
     }

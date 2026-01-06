@@ -142,9 +142,9 @@ public class AppConfigService {
     }
 
     /**
-     * Get configs by category
+     * Get configs by tag (e.g., "#EMAIL", "#ATTENDANCE")
      */
-    public List<AppConfig> getConfigsByCategory(String category) {
-        return appConfigRepository.findByCategory(category);
+    public List<AppConfig> getConfigsByTag(String tag) {
+        return appConfigRepository.findByTagsContaining(tag);
     }
 }

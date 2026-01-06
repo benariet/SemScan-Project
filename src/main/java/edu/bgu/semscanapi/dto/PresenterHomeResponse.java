@@ -11,6 +11,7 @@ public class PresenterHomeResponse {
 
     private PresenterSummary presenter;
     private MySlotSummary mySlot;
+    private WaitingListSlotSummary myWaitingListSlot;
     private List<SlotCard> slotCatalog = new ArrayList<>();
     private AttendancePanel attendance;
 
@@ -28,6 +29,14 @@ public class PresenterHomeResponse {
 
     public void setMySlot(MySlotSummary mySlot) {
         this.mySlot = mySlot;
+    }
+
+    public WaitingListSlotSummary getMyWaitingListSlot() {
+        return myWaitingListSlot;
+    }
+
+    public void setMyWaitingListSlot(WaitingListSlotSummary myWaitingListSlot) {
+        this.myWaitingListSlot = myWaitingListSlot;
     }
 
     public List<SlotCard> getSlotCatalog() {
@@ -179,6 +188,99 @@ public class PresenterHomeResponse {
 
         public void setCoPresenters(List<RegisteredPresenter> coPresenters) {
             this.coPresenters = coPresenters;
+        }
+    }
+
+    public static class WaitingListSlotSummary {
+        private Long slotId;
+        private String date;
+        private String timeRange;
+        private String room;
+        private String building;
+        private String dayOfWeek;
+        private String semesterLabel;
+        private int position;
+        private int totalInQueue;
+        private List<RegisteredPresenter> registeredPresenters = new ArrayList<>();
+
+        public Long getSlotId() {
+            return slotId;
+        }
+
+        public void setSlotId(Long slotId) {
+            this.slotId = slotId;
+        }
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public String getTimeRange() {
+            return timeRange;
+        }
+
+        public void setTimeRange(String timeRange) {
+            this.timeRange = timeRange;
+        }
+
+        public String getRoom() {
+            return room;
+        }
+
+        public void setRoom(String room) {
+            this.room = room;
+        }
+
+        public String getBuilding() {
+            return building;
+        }
+
+        public void setBuilding(String building) {
+            this.building = building;
+        }
+
+        public String getDayOfWeek() {
+            return dayOfWeek;
+        }
+
+        public void setDayOfWeek(String dayOfWeek) {
+            this.dayOfWeek = dayOfWeek;
+        }
+
+        public String getSemesterLabel() {
+            return semesterLabel;
+        }
+
+        public void setSemesterLabel(String semesterLabel) {
+            this.semesterLabel = semesterLabel;
+        }
+
+        public int getPosition() {
+            return position;
+        }
+
+        public void setPosition(int position) {
+            this.position = position;
+        }
+
+        public int getTotalInQueue() {
+            return totalInQueue;
+        }
+
+        public void setTotalInQueue(int totalInQueue) {
+            this.totalInQueue = totalInQueue;
+        }
+
+        public List<RegisteredPresenter> getRegisteredPresenters() {
+            return registeredPresenters;
+        }
+
+        public void setRegisteredPresenters(List<RegisteredPresenter> registeredPresenters) {
+            this.registeredPresenters = registeredPresenters;
         }
     }
 

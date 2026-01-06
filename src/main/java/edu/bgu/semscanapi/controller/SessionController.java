@@ -1,6 +1,7 @@
 package edu.bgu.semscanapi.controller;
 
 import edu.bgu.semscanapi.dto.ErrorResponse;
+import edu.bgu.semscanapi.dto.SessionDTO;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.SessionService;
@@ -167,20 +168,20 @@ public class SessionController {
     }
     
     /**
-     * Get open sessions
+     * Get open sessions with enriched presenter name and topic
      */
     @GetMapping("/open")
     public ResponseEntity<Object> getOpenSessions() {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Retrieving all open sessions - Correlation ID: {}", correlationId);
+        logger.info("Retrieving all open sessions (enriched) - Correlation ID: {}", correlationId);
         LoggerUtil.logApiRequest(logger, "GET", "/api/v1/sessions/open", null);
-        
+
         try {
-            List<Session> sessions = sessionService.getOpenSessions();
-            logger.info("Retrieved {} open sessions", sessions.size());
-            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/sessions/open", 200, 
-                "List of " + sessions.size() + " open sessions");
-            
+            List<SessionDTO> sessions = sessionService.getOpenSessionsEnriched();
+            logger.info("Retrieved {} enriched open sessions", sessions.size());
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/sessions/open", 200,
+                "List of " + sessions.size() + " enriched open sessions");
+
             return ResponseEntity.ok(sessions);
             
         } catch (Exception e) {

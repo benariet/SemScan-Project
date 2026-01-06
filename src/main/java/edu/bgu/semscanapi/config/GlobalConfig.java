@@ -422,6 +422,55 @@ public class GlobalConfig {
     }
 
     // =============================================
+    // REGISTRATION LIMITS CONFIGURATION
+    // =============================================
+
+    /**
+     * Maximum approved registrations per user (regardless of degree)
+     * Default: 1 - user can only have one approved slot
+     */
+    public int getMaxApprovedRegistrations() {
+        if (appConfigService != null) {
+            try {
+                return appConfigService.getIntegerConfig("registration.max_approved", 1);
+            } catch (Exception e) {
+                // Fallback to default
+            }
+        }
+        return 1;
+    }
+
+    /**
+     * Maximum pending registrations for PhD students
+     * Default: 1 - PhD can only have one pending registration at a time
+     */
+    public int getMaxPendingRegistrationsPhd() {
+        if (appConfigService != null) {
+            try {
+                return appConfigService.getIntegerConfig("registration.max_pending.phd", 1);
+            } catch (Exception e) {
+                // Fallback to default
+            }
+        }
+        return 1;
+    }
+
+    /**
+     * Maximum pending registrations for MSc students
+     * Default: 2 - MSc can have up to 2 pending registrations
+     */
+    public int getMaxPendingRegistrationsMsc() {
+        if (appConfigService != null) {
+            try {
+                return appConfigService.getIntegerConfig("registration.max_pending.msc", 2);
+            } catch (Exception e) {
+                // Fallback to default
+            }
+        }
+        return 2;
+    }
+
+    // =============================================
     // EMAIL QUEUE CONFIGURATION
     // =============================================
 

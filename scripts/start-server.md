@@ -16,14 +16,14 @@
 
 # Or build and run JAR
 .\gradlew build
-java -jar build\libs\SemScan-API-0.0.1-SNAPSHOT.jar
+java -jar build\libs\SemScan-API-1.0.0.jar
 ```
 
 ## Option 3: Run from Command Line (if JAR exists)
 
 ```powershell
 # If you have a built JAR file
-java -jar build\libs\SemScan-API-0.0.1-SNAPSHOT.jar
+java -jar build\libs\SemScan-API-1.0.0.jar
 ```
 
 ## Verify Server is Running

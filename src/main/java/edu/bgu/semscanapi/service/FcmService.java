@@ -7,6 +7,7 @@ import com.google.firebase.messaging.Notification;
 import edu.bgu.semscanapi.config.FirebaseConfig;
 import edu.bgu.semscanapi.entity.FcmToken;
 import edu.bgu.semscanapi.repository.FcmTokenRepository;
+import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,9 @@ public class FcmService {
     private FcmTokenRepository fcmTokenRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private FirebaseConfig firebaseConfig;
 
     @Autowired(required = false)
@@ -46,6 +50,12 @@ public class FcmService {
         }
 
         String normalizedUsername = bguUsername.toLowerCase().trim();
+
+        // Check if user exists in database (foreign key constraint)
+        if (!userRepository.existsByBguUsername(normalizedUsername)) {
+            logger.warn("Cannot register FCM token: user {} does not exist in database yet", normalizedUsername);
+            return;
+        }
 
         Optional<FcmToken> existing = fcmTokenRepository.findByBguUsername(normalizedUsername);
 
