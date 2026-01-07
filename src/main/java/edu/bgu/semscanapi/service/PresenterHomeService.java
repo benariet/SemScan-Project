@@ -1957,16 +1957,16 @@ public class PresenterHomeService {
             int phdWeight = appConfigService.getIntegerConfig("phd.capacity.weight", 2);
             if (available < phdWeight) {
                 canRegister = false;
-                // Check if slot has MSc registrations - if so, PhD can't join waiting list either
+                // Check if slot has MSc registrations - warn PhD but allow waiting list
                 boolean slotHasMsc = allActiveRegs.stream()
                         .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
                 if (slotHasMsc) {
                     int mscCount = (int) allActiveRegs.stream()
                             .filter(reg -> User.Degree.MSc == reg.getDegree()).count();
                     card.setDisableReason(String.format(
-                        "⚠️ NOT RECOMMENDED: PhD requires FULL slot capacity. " +
-                        "This slot has %d MSc presenter(s). ALL MSc must cancel before you can register. " +
-                        "Consider choosing an empty slot instead.", mscCount));
+                        "⚠️ NOT RECOMMENDED to join waiting list! PhD requires FULL slot capacity. " +
+                        "This slot has %d MSc presenter(s). ALL %d MSc must cancel before you can get this slot. " +
+                        "Consider choosing an empty slot instead.", mscCount, mscCount));
                 } else {
                     card.setDisableReason("Not enough capacity for PhD presentation. Join waiting list instead.");
                 }

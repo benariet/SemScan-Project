@@ -231,17 +231,14 @@ public class WaitingListService {
             // Fall through to allow joining
         }
 
-        // Rule 2: If MSc already registered, PhD can't join waiting list (they can't be promoted anyway)
+        // Rule 2: If MSc already registered, warn PhD but allow joining (they need ALL MSc to cancel to be promoted)
         if (user.getDegree() == User.Degree.PhD && existingMsc) {
-            String errorMsg = "PhD cannot join waiting list - slot already has MSc presenters";
-            logger.warn("{} - slotId={}, presenterUsername={}, mscCount={}", errorMsg, slotId, normalizedUsername,
-                    activeRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count());
-            // Business rule rejection - log as WARN, not ERROR
-            databaseLoggerService.logAction("WARN", "WAITING_LIST_BLOCKED_MSC_EXISTS", errorMsg, normalizedUsername,
-                    String.format("slotId=%d,presenterUsername=%s,reason=MSC_BLOCKS_PHD,mscCount=%d",
-                            slotId, normalizedUsername,
-                            activeRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count()));
-            throw new IllegalStateException("Cannot join waiting list as PhD - slot has MSc presenters registered");
+            long mscCount = activeRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count();
+            String warnMsg = String.format("PhD joining waiting list for slot with %d MSc - ALL MSc must cancel for promotion", mscCount);
+            logger.warn("{} - slotId={}, presenterUsername={}", warnMsg, slotId, normalizedUsername);
+            databaseLoggerService.logAction("WARN", "WAITING_LIST_PHD_JOINING_MSC_SLOT", warnMsg, normalizedUsername,
+                    String.format("slotId=%d,presenterUsername=%s,mscCount=%d", slotId, normalizedUsername, mscCount));
+            // Allow joining but log warning - PhD understands the risk from UI message
         }
 
         // Get supervisor from User entity (preferred) or fall back to request parameters (backward compatibility)
