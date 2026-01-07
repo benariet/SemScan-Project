@@ -1961,7 +1961,12 @@ public class PresenterHomeService {
                 boolean slotHasMsc = allActiveRegs.stream()
                         .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
                 if (slotHasMsc) {
-                    card.setDisableReason("PhD cannot register - slot has MSc presenters.");
+                    int mscCount = (int) allActiveRegs.stream()
+                            .filter(reg -> User.Degree.MSc == reg.getDegree()).count();
+                    card.setDisableReason(String.format(
+                        "⚠️ NOT RECOMMENDED: PhD requires FULL slot capacity. " +
+                        "This slot has %d MSc presenter(s). ALL MSc must cancel before you can register. " +
+                        "Consider choosing an empty slot instead.", mscCount));
                 } else {
                     card.setDisableReason("Not enough capacity for PhD presentation. Join waiting list instead.");
                 }
