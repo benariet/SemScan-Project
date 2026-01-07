@@ -145,6 +145,12 @@
             android:theme="@style/Theme.SemScan"
             android:screenOrientation="portrait" />
 
+        <activity
+            android:name=".ui.teacher.ReviewRequestsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SemScan"
+            android:screenOrientation="portrait" />
+
         <!-- FileProvider for secure file sharing -->
         <provider
             android:name="androidx.core.content.FileProvider"

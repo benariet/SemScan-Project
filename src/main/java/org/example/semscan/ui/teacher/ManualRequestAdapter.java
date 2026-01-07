@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.example.semscan.R;
 import org.example.semscan.data.model.ManualAttendanceResponse;
+import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -81,45 +82,73 @@ public class ManualRequestAdapter extends RecyclerView.Adapter<ManualRequestAdap
         }
         
         public void bind(ManualAttendanceResponse request) {
-            // Set student name (you'll need to get this from user data)
-            textStudentName.setText("Student " + request.getStudentUsername());
-            
+            // Set student name - prefer full name, fall back to username
+            String displayName = request.getStudentName();
+            if (displayName == null || displayName.trim().isEmpty()) {
+                displayName = request.getStudentUsername();
+            }
+            textStudentName.setText(displayName);
+
             // Set request time
             if (request.getRequestedAt() != null) {
                 textRequestTime.setText(request.getRequestedAt());
             } else {
                 textRequestTime.setText("-");
             }
-            
+
             // Set reason
             textReason.setText(request.getReason() != null ? request.getReason() : "No reason provided");
-            
+
             // Set flags based on auto_flags JSON
             setFlags(request);
-            
+
             // Set button listeners
             btnApprove.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onApprove(request);
                 }
             });
-            
+
             btnReject.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onReject(request);
                 }
             });
         }
-        
+
         private void setFlags(ManualAttendanceResponse request) {
-            // Parse auto_flags JSON to determine flags
-            // For now, we'll show basic flags
-            textFlags.setText("✓ In window");
-            textFlags.setVisibility(View.VISIBLE);
-            textDuplicateWarning.setVisibility(View.GONE);
-            
-            // TODO: Parse auto_flags JSON to show actual flags
-            // This would be implemented based on the backend auto_flags structure
+            // Default values
+            boolean inWindow = true;
+            boolean isDuplicate = false;
+
+            // Parse auto_flags JSON if available
+            String autoFlags = request.getAutoFlags();
+            if (autoFlags != null && !autoFlags.isEmpty()) {
+                try {
+                    JSONObject flags = new JSONObject(autoFlags);
+                    inWindow = flags.optBoolean("inWindow", true);
+                    isDuplicate = flags.optBoolean("duplicate", false);
+                } catch (Exception e) {
+                    // Ignore parse errors, use defaults
+                }
+            }
+
+            // Show in-window status
+            if (inWindow) {
+                textFlags.setText("\u2713 In window");
+                textFlags.setVisibility(View.VISIBLE);
+            } else {
+                textFlags.setText("\u2717 Outside window");
+                textFlags.setVisibility(View.VISIBLE);
+            }
+
+            // Show duplicate warning if applicable
+            if (isDuplicate) {
+                textDuplicateWarning.setText("\u26A0 Duplicate");
+                textDuplicateWarning.setVisibility(View.VISIBLE);
+            } else {
+                textDuplicateWarning.setVisibility(View.GONE);
+            }
         }
     }
 }

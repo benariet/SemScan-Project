@@ -1,17 +1,15 @@
 package org.example.semscan.ui.teacher;
 
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.content.FileProvider;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -41,15 +39,17 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class ExportActivity extends AppCompatActivity {
-    
+
     private Button btnExport;
     private TextView textSessionId;
-    
+
     private PreferencesManager preferencesManager;
     private ApiService apiService;
-    
+
     private Long currentSessionId;
-    private ManualRequestAdapter requestAdapter;
+
+    // Launcher for ReviewRequestsActivity
+    private ActivityResultLauncher<Intent> reviewRequestsLauncher;
     
     // Session details for filename generation
     private String sessionDate;
@@ -67,10 +67,21 @@ public class ExportActivity extends AppCompatActivity {
         preferencesManager = PreferencesManager.getInstance(this);
         apiService = ApiClient.getInstance(this).getApiService();
 
+        // Initialize the activity result launcher
+        reviewRequestsLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == ReviewRequestsActivity.RESULT_CONTINUE_EXPORT) {
+                        Logger.i("ExportActivity", "User chose to continue with export from ReviewRequestsActivity");
+                        exportData();
+                    } else {
+                        Logger.i("ExportActivity", "User cancelled review requests");
+                    }
+                });
+
         initializeViews();
         setupToolbar();
         setupClickListeners();
-        setupRequestAdapter();
 
         // Auto-check for pending requests when page opens
         checkPendingRequestsOnOpen();
@@ -179,20 +190,6 @@ public class ExportActivity extends AppCompatActivity {
         });
     }
     
-    private void setupRequestAdapter() {
-        requestAdapter = new ManualRequestAdapter(new ManualRequestAdapter.OnRequestActionListener() {
-            @Override
-            public void onApprove(ManualAttendanceResponse request) {
-                approveRequest(request);
-            }
-            
-            @Override
-            public void onReject(ManualAttendanceResponse request) {
-                rejectRequest(request);
-            }
-        });
-    }
-    
     private void checkPendingRequests() {
         Logger.userAction("Check Pending Requests", "Checking for pending manual requests before export");
         
@@ -277,221 +274,14 @@ public class ExportActivity extends AppCompatActivity {
         });
     }
     
-    /**
-     * Refresh pending requests list without triggering export
-     * This is used when approving/rejecting requests - we just want to update the UI,
-     * not automatically proceed with export
-     */
-    private void refreshPendingRequestsOnly() {
-        if (currentSessionId == null || currentSessionId <= 0) {
-            return;
-        }
-        
-        Logger.api("GET", "api/v1/attendance/manual/pending-requests", "Session ID: " + currentSessionId + " (refresh only)");
-        
-        Call<List<ManualAttendanceResponse>> call = apiService.getPendingManualRequests(currentSessionId);
-        call.enqueue(new Callback<List<ManualAttendanceResponse>>() {
-            @Override
-            public void onResponse(Call<List<ManualAttendanceResponse>> call, Response<List<ManualAttendanceResponse>> response) {
-                if (isFinishing() || isDestroyed()) return;
-                if (response.isSuccessful() && response.body() != null) {
-                    List<ManualAttendanceResponse> pendingRequests = response.body();
-                    Logger.i("ExportActivity", "Refreshed pending requests: " + pendingRequests.size() + " remaining");
-
-                    // Update the adapter with the new list
-                    requestAdapter.updateRequests(pendingRequests);
-
-                    // If there are no more pending requests, we could optionally show a message
-                    // but we should NOT automatically trigger export
-                    if (pendingRequests.isEmpty()) {
-                        Logger.i("ExportActivity", "All pending requests have been resolved");
-                        // Don't auto-export - user must click Export button explicitly
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
-                if (isFinishing() || isDestroyed()) return;
-                Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to refresh pending requests", t);
-                // Don't show error toast for refresh - it's just a background update
-            }
-        });
-    }
-    
     private void showReviewModal(List<ManualAttendanceResponse> pendingRequests) {
-        Logger.i("ExportActivity", "=== SHOW REVIEW MODAL DEBUG ===");
-        Logger.i("ExportActivity", "Creating review modal for " + pendingRequests.size() + " requests");
-        
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        LayoutInflater inflater = getLayoutInflater();
-        View dialogView = inflater.inflate(R.layout.dialog_review_requests, null);
-        
-        TextView textPendingCount = dialogView.findViewById(R.id.text_pending_count);
-        RecyclerView recyclerRequests = dialogView.findViewById(R.id.recycler_requests);
-        Button btnApproveAllSafe = dialogView.findViewById(R.id.btn_approve_all_safe);
-        Button btnRejectAllDuplicates = dialogView.findViewById(R.id.btn_reject_all_duplicates);
-        Button btnCancelReview = dialogView.findViewById(R.id.btn_cancel_review);
-        Button btnContinueExport = dialogView.findViewById(R.id.btn_continue_export);
-        
-        Logger.i("ExportActivity", "Dialog view components found:");
-        Logger.i("ExportActivity", "  - textPendingCount: " + (textPendingCount != null));
-        Logger.i("ExportActivity", "  - recyclerRequests: " + (recyclerRequests != null));
-        Logger.i("ExportActivity", "  - btnApproveAllSafe: " + (btnApproveAllSafe != null));
-        Logger.i("ExportActivity", "  - btnRejectAllDuplicates: " + (btnRejectAllDuplicates != null));
-        Logger.i("ExportActivity", "  - btnCancelReview: " + (btnCancelReview != null));
-        Logger.i("ExportActivity", "  - btnContinueExport: " + (btnContinueExport != null));
-        
-        // Set up recycler view
-        recyclerRequests.setLayoutManager(new LinearLayoutManager(this));
-        recyclerRequests.setAdapter(requestAdapter);
-        requestAdapter.updateRequests(pendingRequests);
-        
-        // Update pending count
-        textPendingCount.setText(pendingRequests.size() + " pending requests");
-        
-        AlertDialog dialog = builder.setView(dialogView).create();
-        Logger.i("ExportActivity", "Dialog created successfully");
-        
-        // Set up button listeners
-        btnApproveAllSafe.setOnClickListener(v -> {
-            approveAllSafe(pendingRequests);
-            dialog.dismiss();
-        });
-        
-        btnRejectAllDuplicates.setOnClickListener(v -> {
-            rejectAllDuplicates(pendingRequests);
-            dialog.dismiss();
-        });
-        
-        btnCancelReview.setOnClickListener(v -> dialog.dismiss());
-        
-        btnContinueExport.setOnClickListener(v -> {
-            dialog.dismiss();
-            exportData();
-        });
-        
-        Logger.i("ExportActivity", "About to show dialog");
-        try {
-            dialog.show();
-            Logger.i("ExportActivity", "Dialog show() called successfully");
-        } catch (Exception e) {
-            Logger.e("ExportActivity", "Failed to show dialog", e);
-            // Fallback: handle pending requests directly
-            handlePendingRequestsDirectly(pendingRequests);
-        }
-    }
-    
-    private void approveRequest(ManualAttendanceResponse request) {
-        // API key no longer required - removed authentication
-        
-        // Debug logging to see what's in the request object
-        Logger.i("ExportActivity", "=== ATTENDANCE REQUEST DEBUG ===");
-        Logger.i("ExportActivity", "Attendance ID: '" + request.getAttendanceId() + "'");
-        Logger.i("ExportActivity", "Session ID: '" + request.getSessionId() + "'");
-        Logger.i("ExportActivity", "Student Username: '" + request.getStudentUsername() + "'");
-        Logger.i("ExportActivity", "Request Status: '" + request.getRequestStatus() + "'");
-        Logger.i("ExportActivity", "Manual Reason: '" + request.getReason() + "'");
-        Logger.i("ExportActivity", "Attendance object: " + request.toString());
-        
-        // Check if attendanceId is null
-        if (request.getAttendanceId() == null || request.getAttendanceId() <= 0) {
-            Logger.e("ExportActivity", "Attendance ID is null or empty - cannot approve request");
-            ToastUtils.showError(this, "Cannot approve request: Missing attendance ID");
-            return;
-        }
-        
-        Logger.userAction("Approve Request", "Approving manual request for student: " + request.getStudentUsername());
-        Logger.api("POST", "api/v1/attendance/" + request.getAttendanceId() + "/approve",
-                "Attendance ID: " + request.getAttendanceId());
+        Logger.i("ExportActivity", "Opening ReviewRequestsActivity for " + pendingRequests.size() + " requests");
 
-        Call<ManualAttendanceResponse> call = apiService.approveManualRequest(
-                request.getAttendanceId(), preferencesManager.getUserName());
-        call.enqueue(new Callback<ManualAttendanceResponse>() {
-            @Override
-            public void onResponse(Call<ManualAttendanceResponse> call, Response<ManualAttendanceResponse> response) {
-                if (isFinishing() || isDestroyed()) return;
-                if (response.isSuccessful()) {
-                    Logger.apiResponse("POST", "api/v1/attendance/" + request.getAttendanceId() + "/approve",
-                        response.code(), "Request approved successfully");
-                    Toast.makeText(ExportActivity.this, "Request approved", Toast.LENGTH_SHORT).show();
-                    // Refresh the list WITHOUT triggering export
-                    // Export should only happen when user clicks the Export button, not when approving requests
-                    refreshPendingRequestsOnly();
-                } else {
-                    Logger.apiError("POST", "api/v1/attendance/" + request.getAttendanceId() + "/approve",
-                        response.code(), "Failed to approve request");
-                    Toast.makeText(ExportActivity.this, "Failed to approve request", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ManualAttendanceResponse> call, Throwable t) {
-                if (isFinishing() || isDestroyed()) return;
-                Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to approve request", t);
-                String errorMessage = getString(R.string.error_operation_failed);
-                if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
-                    errorMessage = getString(R.string.error_network_timeout);
-                } else if (t instanceof java.net.UnknownHostException) {
-                    errorMessage = getString(R.string.error_server_unavailable);
-                }
-                ToastUtils.showError(ExportActivity.this, errorMessage);
-            }
-        });
+        Intent intent = new Intent(this, ReviewRequestsActivity.class);
+        intent.putExtra(ReviewRequestsActivity.EXTRA_SESSION_ID, currentSessionId);
+        reviewRequestsLauncher.launch(intent);
     }
 
-    private void rejectRequest(ManualAttendanceResponse request) {
-        // API key no longer required - removed authentication
-        
-        Logger.userAction("Reject Request", "Rejecting manual request for student: " + request.getStudentUsername());
-        Logger.api("POST", "api/v1/attendance/" + request.getAttendanceId() + "/reject",
-                "Attendance ID: " + request.getAttendanceId());
-
-        Call<ManualAttendanceResponse> call = apiService.rejectManualRequest(
-                request.getAttendanceId(), preferencesManager.getUserName());
-        call.enqueue(new Callback<ManualAttendanceResponse>() {
-            @Override
-            public void onResponse(Call<ManualAttendanceResponse> call, Response<ManualAttendanceResponse> response) {
-                if (isFinishing() || isDestroyed()) return;
-                if (response.isSuccessful()) {
-                    Logger.apiResponse("POST", "api/v1/attendance/" + request.getAttendanceId() + "/reject",
-                        response.code(), "Request rejected successfully");
-                    Toast.makeText(ExportActivity.this, "Request rejected", Toast.LENGTH_SHORT).show();
-                    // Refresh the list WITHOUT triggering export
-                    // Export should only happen when user clicks the Export button, not when rejecting requests
-                    refreshPendingRequestsOnly();
-                } else {
-                    Logger.apiError("POST", "api/v1/attendance/" + request.getAttendanceId() + "/reject",
-                        response.code(), "Failed to reject request");
-                    Toast.makeText(ExportActivity.this, "Failed to reject request", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ManualAttendanceResponse> call, Throwable t) {
-                if (isFinishing() || isDestroyed()) return;
-                Logger.e(Logger.TAG_EXPORT_REQUEST, "Failed to reject request", t);
-                String errorMessage = getString(R.string.error_operation_failed);
-                if (t instanceof java.net.SocketTimeoutException || t instanceof java.net.ConnectException) {
-                    errorMessage = getString(R.string.error_network_timeout);
-                } else if (t instanceof java.net.UnknownHostException) {
-                    errorMessage = getString(R.string.error_server_unavailable);
-                }
-                ToastUtils.showError(ExportActivity.this, errorMessage);
-            }
-        });
-    }
-    
-    private void approveAllSafe(List<ManualAttendanceResponse> requests) {
-        // TODO: Implement bulk approve logic based on auto_flags
-        Toast.makeText(this, "Approve All Safe - Not implemented yet", Toast.LENGTH_SHORT).show();
-    }
-    
-    private void rejectAllDuplicates(List<ManualAttendanceResponse> requests) {
-        // TODO: Implement bulk reject duplicates logic
-        Toast.makeText(this, "Reject All Duplicates - Not implemented yet", Toast.LENGTH_SHORT).show();
-    }
-    
     private void exportData() {
         Logger.userAction("Export Data", "User clicked export button");
         
@@ -1022,30 +812,6 @@ public class ExportActivity extends AppCompatActivity {
             return String.format("%.2f MB", bytes / (1024.0 * 1024.0));
         }
     }
-    
-    /**
-     * Provide a simple way to handle pending requests without dialog
-     * This can be called as a fallback if the dialog fails
-     */
-    private void handlePendingRequestsDirectly(List<ManualAttendanceResponse> pendingRequests) {
-        Logger.i("ExportActivity", "Handling pending requests directly - count: " + pendingRequests.size());
-        
-        // For now, just show a message and allow user to continue
-        // In a real implementation, you might want to show a simpler dialog or list
-        String message = "Found " + pendingRequests.size() + " pending manual attendance requests. " +
-                        "You can either:\n" +
-                        "1. Approve/reject them individually, or\n" +
-                        "2. Continue with export (requests will remain pending)";
-        
-        ToastUtils.showError(this, message);
-        
-        // For debugging, let's also log the details
-        for (ManualAttendanceResponse req : pendingRequests) {
-            Logger.i("ExportActivity", "Pending request - ID: " + req.getAttendanceId() + 
-                      ", Student: " + req.getStudentUsername() + ", Reason: " + req.getReason());
-        }
-    }
-    
     /**
      * Navigate to presenter home page
      */

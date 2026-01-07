@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layout_constraintTop_toTopOf="parent"
-        android:background="@drawable/header_gradient_background">
+        android:background="@drawable/bg_header_gradient">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
@@ -19,7 +19,7 @@
             android:layout_height="?attr/actionBarSize"
             app:title="Review Requests"
             app:titleTextColor="@android:color/white"
-            app:navigationIcon="@drawable/ic_back_arrow_white" />
+            app:navigationIcon="@drawable/ic_arrow_back_white" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -68,7 +68,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="APPROVE ALL SAFE"
-                    android:backgroundTint="@color/purple_500"
+                    android:backgroundTint="@color/primary_blue"
                     android:layout_marginEnd="8dp"/>
 
                 <com.google.android.material.button.MaterialButton
@@ -77,10 +77,33 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="REJECT DUPLICATES"
-                    android:backgroundTint="@color/purple_500"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:textColor="@color/primary_blue"
+                    app:strokeColor="@color/primary_blue"
                     android:layout_marginStart="8dp"/>
 
             </LinearLayout>
+
+            <!-- Loading indicator -->
+            <ProgressBar
+                android:id="@+id/progress_loading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="32dp"
+                android:visibility="visible" />
+
+            <!-- Empty state -->
+            <TextView
+                android:id="@+id/text_empty_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No pending requests"
+                android:textSize="16sp"
+                android:textColor="@color/gray_600"
+                android:gravity="center"
+                android:layout_marginTop="32dp"
+                android:visibility="gone" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recycler_requests"
@@ -97,7 +120,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="32dp"
         android:background="@android:color/white"
         android:elevation="8dp"
         app:layout_constraintBottom_toBottomOf="parent">
@@ -109,8 +135,8 @@
             android:layout_weight="1"
             android:text="CANCEL"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:textColor="@color/purple_500"
-            app:strokeColor="@color/purple_500"
+            android:textColor="@color/primary_blue"
+            app:strokeColor="@color/primary_blue"
             android:layout_marginEnd="8dp"/>
 
         <com.google.android.material.button.MaterialButton
@@ -119,7 +145,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="CONTINUE TO EXPORT"
-            android:backgroundTint="@color/purple_500"
+            android:backgroundTint="@color/primary_blue"
             android:layout_marginStart="8dp"/>
 
     </LinearLayout>

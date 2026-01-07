@@ -2,6 +2,7 @@ package org.example.semscan.ui.teacher;
 
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,6 +39,8 @@ public class ReviewRequestsActivity extends AppCompatActivity {
     public static final int RESULT_CANCELLED = RESULT_CANCELED;
 
     private TextView textPendingCount;
+    private TextView textEmptyState;
+    private ProgressBar progressLoading;
     private RecyclerView recyclerRequests;
     private MaterialButton btnApproveAllSafe;
     private MaterialButton btnRejectDuplicates;
@@ -79,6 +82,8 @@ public class ReviewRequestsActivity extends AppCompatActivity {
 
     private void initializeViews() {
         textPendingCount = findViewById(R.id.text_pending_count);
+        textEmptyState = findViewById(R.id.text_empty_state);
+        progressLoading = findViewById(R.id.progress_loading);
         recyclerRequests = findViewById(R.id.recycler_requests);
         btnApproveAllSafe = findViewById(R.id.btn_approve_all_safe);
         btnRejectDuplicates = findViewById(R.id.btn_reject_duplicates);
@@ -125,6 +130,11 @@ public class ReviewRequestsActivity extends AppCompatActivity {
     private void loadPendingRequests() {
         Logger.api("GET", "api/v1/attendance/manual/pending-requests", "Session ID: " + sessionId);
 
+        // Show loading
+        progressLoading.setVisibility(View.VISIBLE);
+        textEmptyState.setVisibility(View.GONE);
+        recyclerRequests.setVisibility(View.GONE);
+
         apiService.getPendingManualRequests(sessionId).enqueue(new Callback<List<ManualAttendanceResponse>>() {
             @Override
             public void onResponse(Call<List<ManualAttendanceResponse>> call,
@@ -139,6 +149,7 @@ public class ReviewRequestsActivity extends AppCompatActivity {
                 } else {
                     Logger.apiError("GET", "api/v1/attendance/manual/pending-requests",
                             response.code(), "Failed to load pending requests");
+                    progressLoading.setVisibility(View.GONE);
                     ToastUtils.showError(ReviewRequestsActivity.this, "Failed to load pending requests");
                 }
             }
@@ -146,6 +157,7 @@ public class ReviewRequestsActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<List<ManualAttendanceResponse>> call, Throwable t) {
                 if (isFinishing() || isDestroyed()) return;
+                progressLoading.setVisibility(View.GONE);
                 Logger.e("ReviewRequestsActivity", "Failed to load pending requests", t);
                 ToastUtils.showError(ReviewRequestsActivity.this, getString(R.string.error_load_failed));
             }
@@ -153,11 +165,23 @@ public class ReviewRequestsActivity extends AppCompatActivity {
     }
 
     private void updateUI() {
+        // Hide loading
+        progressLoading.setVisibility(View.GONE);
+
+        // Update adapter
         requestAdapter.updateRequests(pendingRequests);
-        textPendingCount.setText(pendingRequests.size() + " pending requests");
+
+        // Update count text with proper grammar (singular/plural)
+        int count = pendingRequests.size();
+        String countText = count == 1 ? "1 pending request" : count + " pending requests";
+        textPendingCount.setText(countText);
+
+        // Show/hide empty state
+        boolean hasRequests = !pendingRequests.isEmpty();
+        textEmptyState.setVisibility(hasRequests ? View.GONE : View.VISIBLE);
+        recyclerRequests.setVisibility(hasRequests ? View.VISIBLE : View.GONE);
 
         // Update button states
-        boolean hasRequests = !pendingRequests.isEmpty();
         btnApproveAllSafe.setEnabled(hasRequests);
         btnRejectDuplicates.setEnabled(hasRequests);
     }
@@ -285,6 +309,7 @@ public class ReviewRequestsActivity extends AppCompatActivity {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public void onBackPressed() {
         onCancelClicked();
     }
