@@ -199,36 +199,33 @@ public class WaitingListService {
         boolean existingMsc = activeRegistrations.stream()
                 .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
 
-        // Rule 1: If PhD already registered, waiting list is open but typed
+        // Rule 1: First-sets-type queue - applies to ALL slots
         // First person to join sets the type, only same-degree can join after
-        if (existingPhd) {
-            List<WaitingListEntry> currentWaitingList = waitingListRepository.findBySlotIdOrderByPositionAsc(slotId);
+        List<WaitingListEntry> currentWaitingList = waitingListRepository.findBySlotIdOrderByPositionAsc(slotId);
 
-            if (!currentWaitingList.isEmpty()) {
-                // Waiting list has entries - check the type (degree of position 1)
-                User.Degree queueType = currentWaitingList.get(0).getDegree();
+        if (!currentWaitingList.isEmpty()) {
+            // Waiting list has entries - check the type (degree of position 1)
+            User.Degree queueType = currentWaitingList.get(0).getDegree();
 
-                if (user.getDegree() != queueType) {
-                    // User's degree doesn't match queue type
-                    String errorMsg = String.format("Waiting list is currently %s-only (first in queue is %s)",
-                            queueType, queueType);
-                    logger.warn("{} - slotId={}, presenterUsername={}, userDegree={}, queueType={}",
-                            errorMsg, slotId, normalizedUsername, user.getDegree(), queueType);
-                    databaseLoggerService.logAction("WARN", "WAITING_LIST_DEGREE_MISMATCH", errorMsg, normalizedUsername,
-                            String.format("slotId=%d,presenterUsername=%s,userDegree=%s,queueType=%s",
-                                    slotId, normalizedUsername, user.getDegree(), queueType));
-                    throw new IllegalStateException(String.format(
-                            "Cannot join waiting list - queue is currently %s-only", queueType));
-                }
-                // User's degree matches queue type - allow (fall through)
-                logger.info("User {} ({}) joining waiting list for PhD slot {} - queue type is {} (matches)",
-                        normalizedUsername, user.getDegree(), slotId, queueType);
-            } else {
-                // Waiting list is empty - user is first, they set the type
-                logger.info("User {} ({}) is first to join waiting list for PhD slot {} - setting queue type to {}",
-                        normalizedUsername, user.getDegree(), slotId, user.getDegree());
+            if (user.getDegree() != queueType) {
+                // User's degree doesn't match queue type
+                String errorMsg = String.format("Waiting list is currently %s-only (first in queue is %s)",
+                        queueType, queueType);
+                logger.warn("{} - slotId={}, presenterUsername={}, userDegree={}, queueType={}",
+                        errorMsg, slotId, normalizedUsername, user.getDegree(), queueType);
+                databaseLoggerService.logAction("WARN", "WAITING_LIST_DEGREE_MISMATCH", errorMsg, normalizedUsername,
+                        String.format("slotId=%d,presenterUsername=%s,userDegree=%s,queueType=%s",
+                                slotId, normalizedUsername, user.getDegree(), queueType));
+                throw new IllegalStateException(String.format(
+                        "Cannot join waiting list - queue is currently %s-only", queueType));
             }
-            // Fall through to allow joining
+            // User's degree matches queue type - allow (fall through)
+            logger.info("User {} ({}) joining waiting list for slot {} - queue type is {} (matches)",
+                    normalizedUsername, user.getDegree(), slotId, queueType);
+        } else {
+            // Waiting list is empty - user is first, they set the type
+            logger.info("User {} ({}) is first to join waiting list for slot {} - setting queue type to {}",
+                    normalizedUsername, user.getDegree(), slotId, user.getDegree());
         }
 
         // Rule 2: If MSc already registered, warn PhD but allow joining (they need ALL MSc to cancel to be promoted)
