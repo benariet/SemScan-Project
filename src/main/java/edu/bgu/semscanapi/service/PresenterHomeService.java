@@ -1957,7 +1957,14 @@ public class PresenterHomeService {
             int phdWeight = appConfigService.getIntegerConfig("phd.capacity.weight", 2);
             if (available < phdWeight) {
                 canRegister = false;
-                card.setDisableReason("Not enough capacity for PhD presentation. Join waiting list instead.");
+                // Check if slot has MSc registrations - if so, PhD can't join waiting list either
+                boolean slotHasMsc = allActiveRegs.stream()
+                        .anyMatch(reg -> User.Degree.MSc == reg.getDegree());
+                if (slotHasMsc) {
+                    card.setDisableReason("PhD cannot register - slot has MSc presenters.");
+                } else {
+                    card.setDisableReason("Not enough capacity for PhD presentation. Join waiting list instead.");
+                }
             }
         } else if (presenterInThisSlot) {
             canRegister = false;
