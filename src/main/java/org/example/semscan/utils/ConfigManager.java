@@ -486,6 +486,17 @@ public class ConfigManager {
     }
 
     /**
+     * Check if manual attendance feature is enabled
+     * Default is true if not configured
+     */
+    public boolean isManualAttendanceEnabled() {
+        if (cachedConfig != null) {
+            return cachedConfig.manualAttendanceEnabled;
+        }
+        return true; // Fallback default - enabled
+    }
+
+    /**
      * Shutdown the ConfigManager, releasing all resources.
      * Should be called when the application is terminating.
      * This properly cleans up the ExecutorService to prevent memory leaks.

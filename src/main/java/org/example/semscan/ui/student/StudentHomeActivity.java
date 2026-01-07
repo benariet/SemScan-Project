@@ -23,6 +23,7 @@ import org.example.semscan.ui.RolePickerActivity;
 import org.example.semscan.ui.SettingsActivity;
 import org.example.semscan.ui.auth.LoginActivity;
 import org.example.semscan.ui.qr.ModernQRScannerActivity;
+import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.ServerLogger;
@@ -81,6 +82,13 @@ public class StudentHomeActivity extends AppCompatActivity {
         cardScanAttendance = findViewById(R.id.card_scan_attendance);
         cardManualAttendance = findViewById(R.id.card_manual_attendance);
         btnChangeRole = findViewById(R.id.btn_change_role);
+
+        // Hide manual attendance card if feature is disabled
+        ConfigManager configManager = ConfigManager.getInstance(this);
+        if (!configManager.isManualAttendanceEnabled()) {
+            cardManualAttendance.setVisibility(View.GONE);
+            Logger.i(Logger.TAG_PREFS, "Manual attendance feature is disabled - hiding button");
+        }
     }
 
     private void setupToolbar() {
