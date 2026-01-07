@@ -3,7 +3,7 @@
     <string name="app_name">SemScan</string>
     
     <!-- Role Selection -->
-    <string name="select_role">What am I today?</string>
+    <string name="select_role">What\'s my role today?</string>
     <string name="presenter">Presenter</string>
     <string name="student">Participant</string>
     <string name="participant">Participant</string>
@@ -184,20 +184,20 @@
     <string name="setup_degree_title">Select Degree</string>
     <string name="setup_degree_prompt">Which degree are you enrolled in?</string>
     <string name="setup_degree_msc">MSc</string>
-    <string name="setup_degree_msc_description">MSc participants present once per cycle.</string>
+    <string name="setup_degree_msc_description">MSc students present once per degree.</string>
     <string name="setup_degree_phd">PhD</string>
-    <string name="setup_degree_phd_description">PhD presenters manage schedules.</string>
+    <string name="setup_degree_phd_description">PhD students take a full presentation slot.</string>
     <string name="setup_participation_title">Choose Participation</string>
     <string name="setup_participation_prompt">How do you plan to participate in seminars?</string>
     <string name="setup_participation_presenter">Presenter only</string>
-    <string name="setup_participation_presenter_description">I lead sessions and manage attendance.</string>
+    <string name="setup_participation_presenter_description">I will present at seminars.</string>
     <string name="setup_participation_participant">Participant only</string>
-    <string name="setup_participation_participant_description">I join sessions to scan attendance.</string>
+    <string name="setup_participation_participant_description">I attend seminars as an audience member.</string>
     <string name="setup_participation_both">Both presenter and participant</string>
-    <string name="setup_participation_both_description">I switch roles by cycle.</string>
-    <string name="setup_participation_presenter_locked">PhD presenters are always presenters.</string>
+    <string name="setup_participation_both_description">I both present and attend seminars.</string>
+    <string name="setup_participation_presenter_locked">PhD students are registered as presenters.</string>
     <string name="setup_msc_title">MSc Role Selection</string>
-    <string name="setup_msc_prompt">For this semester, what fits best?</string>
+    <string name="setup_msc_prompt">What best describes your role?</string>
     <string name="setup_msc_option_presenter">I am a presenter</string>
     <string name="setup_msc_option_participant">I am a participant</string>
     <string name="setup_msc_option_both">I am both presenter and participant</string>
@@ -219,7 +219,7 @@
     <string name="welcome_user">Welcome, %1$s!</string>
     <string name="welcome_default">Welcome!</string>
     <string name="presenter_home_enroll_title">Select a presentation slot</string>
-    <string name="presenter_home_enroll_description">Browse upcoming seminar dates and enroll yourself.</string>
+    <string name="presenter_home_enroll_description">Browse available dates and register for a slot.</string>
     <string name="presenter_home_my_slot_card_title">My registered slot</string>
     <string name="presenter_home_my_slot_card_description">Review your assigned seminar details and make changes.</string>
 
@@ -259,7 +259,7 @@
     <string name="presenter_home_slot_waiting_list_line">On waiting list</string>
     <string name="presenter_home_slot_waiting_list_line_with_count">waiting list %1$d/%2$d</string>
     <string name="presenter_home_slot_waiting_list_line_with_name">waiting list %1$d/%2$d - %3$s</string>
-    <string name="presenter_slot_full_offer_waiting_list">This slot is full. Would you like to join the waiting list?</string>
+    <string name="presenter_slot_full_offer_waiting_list">Slot is full. Tap \'Join Waiting List\' to queue.</string>
     <string name="waiting_list_approved_title">Approved from Waiting List</string>
     <string name="waiting_list_approved_message">You have been approved for slot: %1$s</string>
     <string name="waiting_list_approved_message_generic">You have been approved from the waiting list!</string>
@@ -271,7 +271,6 @@
     <string name="presenter_slot_join_waiting_list">Join Waiting List</string>
     <string name="presenter_slot_cancel_waiting_list">Cancel Waiting List</string>
     <string name="presenter_slot_waiting_list_title">Join Waiting List</string>
-    <string name="presenter_slot_waiting_list_message">This slot is currently full. If any approvals are declined or expire, you will be notified and can register for this slot.</string>
     <string name="presenter_home_slot_state_available">Available</string>
     <string name="presenter_home_slot_state_partial">Partially booked</string>
     <string name="presenter_home_slot_state_full">Full</string>
@@ -293,7 +292,7 @@
     <string name="presenter_home_register_pending_generic">Registration submitted!\nWaiting for supervisor approval.\nSupervisors typically respond within 2 days.</string>
     <string name="presenter_home_register_already">Already registered for this slot.</string>
     <string name="presenter_home_register_full">Slot is full.</string>
-    <string name="presenter_home_register_conflict">Another slot already booked.</string>
+    <string name="presenter_home_register_conflict">You already have another slot booked.</string>
     <string name="presenter_slot_registered_in_another">You are registered in another slot</string>
     <string name="presenter_slot_supervisor_invitation_title">Send Invitation to Supervisor?</string>
     <string name="presenter_slot_supervisor_invitation_message">Send invitation email to your supervisor?</string>
@@ -307,10 +306,10 @@
 
     <!-- Presenter Start Session -->
     <string name="presenter_start_session_title">Open session QR</string>
-    <string name="presenter_start_session_subtitle">Using your registered slot to generate QR code.</string>
+    <string name="presenter_start_session_subtitle">Generate a QR code for your registered slot.</string>
     <string name="presenter_start_session_button">Open session</string>
     <string name="presenter_start_session_button_resume">View session QR</string>
-    <string name="presenter_start_session_empty">Not registered for a slot. Register first.</string>
+    <string name="presenter_start_session_empty">You\'re not registered for a slot yet.</string>
     <string name="presenter_start_session_error_no_user">Username not found. Please log in again.</string>
     <string name="presenter_start_session_status_open">Session already open</string>
     <string name="presenter_start_session_error_load">Failed to load slot details. Try again.</string>
@@ -326,7 +325,7 @@
 
     <!-- Presenter Attendance QR -->
     <string name="presenter_attendance_qr_title">Session QR</string>
-    <string name="presenter_attendance_qr_instructions">Ask students to scan this QR for attendance.</string>
+    <string name="presenter_attendance_qr_instructions">Have participants scan this QR to mark attendance.</string>
     <string name="presenter_attendance_qr_valid_until">Valid until %1$s</string>
     <string name="presenter_attendance_qr_opened_at">Opened at %1$s</string>
     <string name="presenter_attendance_qr_error_generic">Failed to load QR code</string>
@@ -338,9 +337,9 @@
     <string name="presenter_attendance_qr_end_session">End Session</string>
     <string name="presenter_attendance_qr_cancel_session">Cancel Session</string>
     <string name="presenter_attendance_qr_end_confirm_title">End Session</string>
-    <string name="presenter_attendance_qr_end_confirm_message">Are you sure you want to end this session?\n\nIMPORTANT: You will NOT be able to open a new session for this slot after ending.</string>
+    <string name="presenter_attendance_qr_end_confirm_message">Are you sure you want to end this session?\n\nIMPORTANT: You will NOT be able to open a new session for this slot once ended.</string>
     <string name="presenter_attendance_qr_cancel_confirm_title">Cancel Session</string>
-    <string name="presenter_attendance_qr_cancel_confirm_message">Are you sure you want to cancel this session?\n\nIMPORTANT: You will NOT be able to open a new session for this slot after canceling.</string>
+    <string name="presenter_attendance_qr_cancel_confirm_message">Are you sure you want to cancel this session?\n\nIMPORTANT: You will NOT be able to open a new session for this slot once cancelled.</string>
     <string name="presenter_attendance_qr_end_success">Session ended successfully</string>
     <string name="presenter_attendance_qr_end_error">Failed to end session</string>
     <string name="presenter_attendance_qr_auto_close_message">Session automatically closed after 15 minutes</string>
@@ -391,7 +390,7 @@
     <!-- Settings / Logout -->
     <string name="logout">Logout</string>
     <string name="logout_confirm_title">Log out</string>
-    <string name="logout_confirm_message">This will log you out.</string>
+    <string name="logout_confirm_message">Are you sure you want to log out?</string>
     <string name="logout_success">You have been logged out.</string>
     
     <!-- Permissions -->
@@ -429,5 +428,5 @@
     <string name="registration_details_incomplete">Please fill in all presentation details first</string>
 
     <!-- WiFi Warning -->
-    <string name="wifi_warning">This app works only on BGU-WIFI network!</string>
+    <string name="wifi_warning">This app requires the BGU-WIFI network.</string>
 </resources>

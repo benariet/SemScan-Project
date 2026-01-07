@@ -43,7 +43,8 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_scan_attendance"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="80dp"
                     android:layout_marginBottom="16dp"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="8dp"
@@ -55,11 +56,14 @@
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="80dp"
                         android:orientation="horizontal"
                         android:background="@drawable/bg_card_orange_light_gradient"
                         android:paddingStart="20dp"
                         android:paddingEnd="20dp"
+                        android:paddingTop="16dp"
+                        android:paddingBottom="16dp"
                         android:gravity="center_vertical">
 
                         <com.google.android.material.card.MaterialCardView
@@ -112,7 +116,8 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_manual_attendance"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="80dp"
                     android:layout_marginBottom="16dp"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="8dp"
@@ -124,11 +129,14 @@
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="80dp"
                         android:orientation="horizontal"
                         android:background="@drawable/bg_card_orange_light_gradient"
                         android:paddingStart="20dp"
                         android:paddingEnd="20dp"
+                        android:paddingTop="16dp"
+                        android:paddingBottom="16dp"
                         android:gravity="center_vertical">
 
                         <com.google.android.material.card.MaterialCardView
@@ -187,7 +195,8 @@
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btn_change_role"
                 android:layout_width="match_parent"
-                android:layout_height="80dp"
+                android:layout_height="wrap_content"
+                android:minHeight="80dp"
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="24dp"
                 app:cardElevation="8dp"
@@ -199,11 +208,14 @@
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="80dp"
                     android:orientation="horizontal"
                     android:background="@drawable/bg_card_blue_light_gradient"
                     android:paddingStart="20dp"
                     android:paddingEnd="20dp"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="16dp"
                     android:gravity="center_vertical">
 
                     <com.google.android.material.card.MaterialCardView

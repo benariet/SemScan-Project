@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/card_change_role"
     android:layout_width="match_parent"
-    android:layout_height="80dp"
+    android:layout_height="wrap_content"
+    android:minHeight="80dp"
     app:cardCornerRadius="24dp"
     app:cardElevation="8dp"
     app:strokeWidth="0dp"
@@ -14,11 +15,14 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="80dp"
         android:orientation="horizontal"
         android:background="@drawable/bg_card_blue_light_gradient"
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
         android:gravity="center_vertical">
 
         <!-- Pink Circular Icon Container -->

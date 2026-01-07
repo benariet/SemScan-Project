@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -42,7 +43,7 @@ public class PresenterMySlotActivity extends AppCompatActivity {
     private TextView textSlotSchedule;
     private TextView textSlotLocation;
     private TextView textSlotPresenters;
-    private MaterialButton btnCancel;
+    private Button btnCancel;
     private MaterialButton btnGoToSlots;
 
     // Waiting list views
@@ -51,7 +52,7 @@ public class PresenterMySlotActivity extends AppCompatActivity {
     private TextView textWaitingSlotSchedule;
     private TextView textWaitingSlotLocation;
     private TextView textWaitingSlotPresenters;
-    private MaterialButton btnCancelWaitingList;
+    private Button btnCancelWaitingList;
 
     private PreferencesManager preferencesManager;
     private ApiService apiService;

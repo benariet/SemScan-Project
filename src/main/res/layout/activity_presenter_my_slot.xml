@@ -10,7 +10,7 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/primary_blue"
+        android:background="@drawable/bg_header_gradient"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
         app:title="@string/presenter_my_slot_screen_title"
@@ -129,15 +129,18 @@
                             android:textSize="15sp"
                             android:visibility="gone" />
 
-                        <!-- Cancel Button - Inside Card -->
-                        <com.google.android.material.button.MaterialButton
+                        <!-- Cancel Button - Inside Card (Destructive Style) -->
+                        <androidx.appcompat.widget.AppCompatButton
                             android:id="@+id/btn_cancel_slot"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="20dp"
-                            android:backgroundTint="#BBDEFB"
-                            android:textColor="#1565C0"
-                            android:text="@string/presenter_my_slot_cancel_button" />
+                            android:minHeight="48dp"
+                            android:background="@drawable/button_destructive_outline"
+                            android:text="@string/presenter_my_slot_cancel_button"
+                            android:textColor="@color/destructive_red"
+                            android:textStyle="bold"
+                            android:textAllCaps="true" />
 
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -249,15 +252,18 @@
                             android:textSize="15sp"
                             android:visibility="gone" />
 
-                        <!-- Cancel Waiting List Button - Inside Card -->
-                        <com.google.android.material.button.MaterialButton
+                        <!-- Cancel Waiting List Button - Inside Card (Destructive Style) -->
+                        <androidx.appcompat.widget.AppCompatButton
                             android:id="@+id/btn_cancel_waiting_list"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="20dp"
-                            android:backgroundTint="#BBDEFB"
-                            android:textColor="#1565C0"
-                            android:text="@string/presenter_my_slot_cancel_waiting_list" />
+                            android:minHeight="48dp"
+                            android:background="@drawable/button_destructive_outline"
+                            android:text="@string/presenter_my_slot_cancel_waiting_list"
+                            android:textColor="@color/destructive_red"
+                            android:textStyle="bold"
+                            android:textAllCaps="true" />
 
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>

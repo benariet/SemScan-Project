@@ -32,6 +32,8 @@
     <color name="success_green">#FF4CAF50</color>
     <color name="warning_orange">#FFFF9800</color>
     <color name="error_red">#FFF44336</color>
+    <color name="error_red_light">#FFFFEBEE</color>
+    <color name="destructive_red">#FFFF3B30</color>
     <color name="info_blue">#FF2196F3</color>
     
     <!-- Material Design status colors -->
