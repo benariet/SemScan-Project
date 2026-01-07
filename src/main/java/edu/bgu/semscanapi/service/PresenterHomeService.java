@@ -411,6 +411,21 @@ public class PresenterHomeService {
                 return new PresenterSlotRegistrationResponse(false, errorMsg, "NO_SUPERVISOR");
             }
 
+            // CRITICAL: Validate supervisor email BEFORE creating registration
+            // This prevents registrations with blocked/invalid emails from being saved
+            EmailQueueService.EmailValidationResult emailValidation = emailQueueService.validateSupervisorEmail(
+                finalSupervisorEmail, presenterUsername);
+
+            if (!emailValidation.isValid()) {
+                String errorMsg = emailValidation.getErrorMessage();
+                String errorCode = emailValidation.getErrorCode();
+                logger.error("Registration rejected - supervisor email validation failed: {}", errorMsg);
+                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED",
+                    String.format("Registration rejected for %s on slot %d - %s", presenterUsername, slotId, errorMsg),
+                    null, presenterUsername, String.format("slotId=%d,reason=%s", slotId, errorCode));
+                return new PresenterSlotRegistrationResponse(false, errorMsg, errorCode);
+            }
+
             // Log pre-registration slot state
             databaseLoggerService.logAction("INFO", "REGISTRATION_SLOT_STATE",
                     String.format("Slot %d state before registration: capacity=%d, effectiveUsage=%d, projected=%d",
@@ -538,29 +553,18 @@ public class PresenterHomeService {
                     presenterUsername, String.format("slotId=%d,requestEmail=%s", slotId, supervisorEmail));
         }
         
-        // CRITICAL: Validate supervisor email BEFORE proceeding with registration
-        // If supervisor email is invalid or missing, REJECT the registration with a clear error
-        EmailQueueService.EmailValidationResult emailValidation = emailQueueService.validateSupervisorEmail(
-            supervisorEmail, presenterUsername);
-
-        if (!emailValidation.isValid()) {
-            // Registration REJECTED due to invalid/missing supervisor email
-            String errorMsg = emailValidation.getErrorMessage();
-            String errorCode = emailValidation.getErrorCode();
-
-            logger.error("📧 REGISTRATION REJECTED - Supervisor email validation failed: {}", errorMsg);
-            databaseLoggerService.logError("EMAIL_SUPERVISOR_VALIDATION_REJECTED",
-                String.format("Registration rejected for %s on slot %d - %s",
-                    presenterUsername, slotId, errorMsg),
-                null, presenterUsername, String.format("slotId=%d,errorCode=%s", slotId, errorCode));
-
-            // Return error to user with clear instructions
-            return new PresenterSlotRegistrationResponse(false, errorMsg, errorCode);
+        // Safety check: Email should already be validated before registration was saved
+        // This is a redundant check as a safety net
+        if (supervisorEmail == null || supervisorEmail.trim().isEmpty()) {
+            logger.error("📧 Supervisor email is missing after registration - this should not happen");
+            databaseLoggerService.logError("EMAIL_SUPERVISOR_EMAIL_MISSING_AFTER_SAVE",
+                String.format("Supervisor email missing for presenter %s on slot %d after save", presenterUsername, slotId),
+                null, presenterUsername, String.format("slotId=%d", slotId));
+            // Don't fail - registration is already saved, just skip email
+        } else {
+            supervisorEmail = supervisorEmail.trim();
+            logger.info("📧 Supervisor email ready for approval request: {}", supervisorEmail);
         }
-
-        // Supervisor email validated successfully
-        supervisorEmail = supervisorEmail.trim();
-        logger.info("📧 Supervisor email validated successfully: {} - proceeding with registration", supervisorEmail);
         
         if (supervisorEmail != null && !supervisorEmail.trim().isEmpty()) {
             try {
@@ -2051,18 +2055,24 @@ public class PresenterHomeService {
         }
 
         // Check if session was already opened and is now closed (past closesAt)
-        // This prevents re-opening a session after it has been closed
+        // Only block the presenter who already opened their session - other presenters can still open theirs
         if (openedAt != null && closesAt != null && !now.isBefore(closesAt)) {
-            panel.setCanOpen(false);
-            panel.setAlreadyOpen(false);
-            panel.setStatus("Session already completed");
-            panel.setWarning("A session was already opened for this slot and cannot be reopened");
-            panel.setOpenQrUrl(null);
-            panel.setOpenedAt(DATE_TIME_FORMAT.format(openedAt));
-            panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
-            panel.setSessionId(null);
-            panel.setQrPayload(null);
-            return panel;
+            boolean openedByThisPresenter = Objects.equals(presenterUsername, openedBy);
+            if (openedByThisPresenter) {
+                // This presenter already opened and closed their session - block them
+                panel.setCanOpen(false);
+                panel.setAlreadyOpen(false);
+                panel.setStatus("Session already completed");
+                panel.setWarning("You already opened your session for this slot");
+                panel.setOpenQrUrl(null);
+                panel.setOpenedAt(DATE_TIME_FORMAT.format(openedAt));
+                panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
+                panel.setSessionId(null);
+                panel.setQrPayload(null);
+                return panel;
+            }
+            // Another presenter's session closed - this presenter can still open theirs
+            // Continue to allow opening
         }
 
         if (now.isBefore(openWindow)) {
