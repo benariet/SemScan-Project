@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Authentication controller delegates login attempts to the BGU SOAP service
@@ -79,13 +80,18 @@ public class AuthController {
                         String.format("username=%s", request.getUsername()));
             }
 
-            // TEST BYPASS: Allow test users to login without BGU auth (REMOVE FOR PRODUCTION)
+            // TEST BYPASS: Allow specific test users to login without BGU SOAP validation
+            // These users exist in DB with proper data for testing purposes
+            Set<String> testUsers = Set.of(
+                    "testphd1", "testphd2", "testphd3",
+                    "testmsc1", "testmsc2", "testmsc3", "testmsc4", "testmsc5"
+            );
             String tempUsername = request.getUsername().trim().toLowerCase(Locale.ROOT);
             if (tempUsername.contains("@")) {
                 tempUsername = tempUsername.substring(0, tempUsername.indexOf('@'));
             }
             boolean authenticated;
-            if (tempUsername.startsWith("test") && "Test123!".equals(request.getPassword())) {
+            if (testUsers.contains(tempUsername) && "Test123!".equals(request.getPassword())) {
                 authenticated = true;
                 logger.info("TEST BYPASS: Allowing test user {} to login", tempUsername);
             } else {
