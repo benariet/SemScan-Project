@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -29,6 +30,31 @@ public class EmailQueueService {
     // Email validation pattern (RFC 5322 simplified)
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
         "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    );
+
+    // Generic/fake BGU emails that should be blocked (these route to real people!)
+    private static final Set<String> BLOCKED_GENERIC_EMAILS = Set.of(
+        "test@bgu.ac.il",
+        "supervisor@bgu.ac.il",
+        "prof@bgu.ac.il",
+        "professor@bgu.ac.il",
+        "advisor@bgu.ac.il",
+        "admin@bgu.ac.il",
+        "support@bgu.ac.il",
+        "info@bgu.ac.il",
+        "help@bgu.ac.il",
+        "user@bgu.ac.il",
+        "student@bgu.ac.il",
+        "phd@bgu.ac.il",
+        "msc@bgu.ac.il",
+        "new@bgu.ac.il",
+        "empty@bgu.ac.il",
+        "minimal@bgu.ac.il",
+        "sup1@bgu.ac.il",
+        "sup2@bgu.ac.il",
+        "sup3@bgu.ac.il",
+        "profa@bgu.ac.il",
+        "profb@bgu.ac.il"
     );
 
     // Human-readable datetime format
@@ -79,6 +105,11 @@ public class EmailQueueService {
         // Check for suspicious domains
         if (trimmed.endsWith("@example.com") || trimmed.endsWith("@test.com")) {
             return "Invalid email: test/example domain not allowed";
+        }
+
+        // Check for blocked generic BGU emails (these route to real people!)
+        if (BLOCKED_GENERIC_EMAILS.contains(trimmed)) {
+            return "Invalid email: generic address '" + email + "' is not allowed. Please use a real supervisor email.";
         }
 
         return null; // Valid
