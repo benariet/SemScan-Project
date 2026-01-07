@@ -40,9 +40,14 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
     private final List<ApiService.SlotCard> items = new ArrayList<>();
     private final SlotActionListener listener;
     private boolean userHasApprovedRegistration = false;
+    private String userDegree = null; // "PhD" or "MSc"
 
     PresenterSlotsAdapter(@NonNull SlotActionListener listener) {
         this.listener = listener;
+    }
+
+    void setUserDegree(String degree) {
+        this.userDegree = degree;
     }
 
     @NonNull
@@ -248,25 +253,47 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
                 statusBuilder.append("Waiting List Priorities:\n").append(wlNames);
             }
             
-            // Calculate available spots for display
-            int availableSpots = slot.capacity - approved;
+            // Use availableCount from API (accounts for both pending and approved)
+            int availableSpots = slot.availableCount;
             if (availableSpots < 0) availableSpots = 0;
             String capacityText = String.format(Locale.getDefault(), "%d/%d", availableSpots, slot.capacity);
 
             // Build final status text with capacity info
             // Use HTML for bigger availability text
             Spanned statusSpanned;
+
+            // Check if attendance session is in progress or completed
+            boolean hasAttendanceOpened = slot.attendanceOpenedAt != null && !slot.attendanceOpenedAt.isEmpty();
+            boolean sessionClosed = slot.hasClosedSession != null && slot.hasClosedSession;
+            String sessionStatusText = null;
+            if (sessionClosed) {
+                sessionStatusText = "<br/><font color='#666666'><i>Session completed</i></font>";
+            } else if (hasAttendanceOpened) {
+                sessionStatusText = "<br/><font color='#1976D2'><i>Session in progress</i></font>";
+            }
+
             if (statusBuilder.length() == 0) {
                 if (isFull) {
-                    statusSpanned = Html.fromHtml("<big><b>Full (0/" + slot.capacity + ")</b></big> - Join Waiting List", Html.FROM_HTML_MODE_LEGACY);
+                    String fullText = "<big><b>Full (0/" + slot.capacity + ")</b></big> - Join Waiting List";
+                    if (sessionStatusText != null) {
+                        fullText += sessionStatusText;
+                    }
+                    statusSpanned = Html.fromHtml(fullText, Html.FROM_HTML_MODE_LEGACY);
                 } else {
                     String availText = context.getString(R.string.presenter_home_slot_state_available) + " (" + capacityText + ")";
-                    statusSpanned = Html.fromHtml("<big><b>" + availText + "</b></big>", Html.FROM_HTML_MODE_LEGACY);
+                    String htmlText = "<big><b>" + availText + "</b></big>";
+                    if (sessionStatusText != null) {
+                        htmlText += sessionStatusText;
+                    }
+                    statusSpanned = Html.fromHtml(htmlText, Html.FROM_HTML_MODE_LEGACY);
                 }
             } else {
                 // Prepend capacity info to the names with extra spacing
-                String htmlText = "<big><b>" + capacityText + " Available</b></big><br/><br/>" +
-                    statusBuilder.toString().replace("\n", "<br/>");
+                String htmlText = "<big><b>" + capacityText + " Available</b></big>";
+                if (sessionStatusText != null) {
+                    htmlText += sessionStatusText;
+                }
+                htmlText += "<br/><br/>" + statusBuilder.toString().replace("\n", "<br/>");
                 statusSpanned = Html.fromHtml(htmlText, Html.FROM_HTML_MODE_LEGACY);
             }
 
@@ -370,17 +397,61 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             // 3. Slot is not full (unless PhD can't fit due to insufficient capacity)
             // 4. Waiting list is full (capacity is 1)
             // 5. User can register normally
+            // 6. Queue type mismatch (first-sets-type rule)
             boolean phdCantFit = !slot.canRegister && slot.disableReason != null &&
                     slot.disableReason.contains("waiting list");
+
+            // Check queue type mismatch - first person sets the queue type
+            boolean queueTypeMismatch = false;
+            if (slot.waitingListEntries != null && !slot.waitingListEntries.isEmpty() && userDegree != null) {
+                String queueType = slot.waitingListEntries.get(0).degree;
+                if (!userDegree.equals(queueType)) {
+                    queueTypeMismatch = true;
+                }
+            }
+
             boolean showWaitingList = (slotAtCapacity || phdCantFit) &&
                     !isUserRegisteredInThisSlot && !slot.onWaitingList &&
-                    !isWaitingListFull && !userHasApprovedRegistration;
+                    !isWaitingListFull && !userHasApprovedRegistration && !queueTypeMismatch;
+
+            // Check if slot has any MSc presenters (for PhD warning dialog)
+            boolean slotHasMscPresenters = false;
+            if (slot.pendingPresenters != null) {
+                for (ApiService.PresenterCoPresenter p : slot.pendingPresenters) {
+                    if ("MSc".equals(p.degree)) {
+                        slotHasMscPresenters = true;
+                        break;
+                    }
+                }
+            }
+
             if (showWaitingList) {
                 waitingListButton.setVisibility(View.VISIBLE);
+                // Show warning if PhD trying to join slot with MSc presenters
+                final boolean isUserPhd = "PhD".equals(userDegree);
+                final boolean needsPhdWarning = isUserPhd && slotHasMscPresenters;
                 waitingListButton.setOnClickListener(v -> {
                     Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Attempting to join waiting list for slot=" + slot.slotId);
-                    if (listener != null) {
-                        listener.onJoinWaitingList(slot);
+                    if (needsPhdWarning) {
+                        // Show warning dialog for PhD joining MSc slot waiting list
+                        new androidx.appcompat.app.AlertDialog.Builder(context)
+                                .setTitle("⚠️ Warning: Low Chance of Getting This Slot")
+                                .setMessage("This slot has MSc presenters registered.\n\n" +
+                                        "As a PhD student, you need the FULL slot capacity. " +
+                                        "ALL MSc presenters must cancel before you can get this slot.\n\n" +
+                                        "We strongly recommend choosing an EMPTY slot instead.\n\n" +
+                                        "Are you sure you want to join this waiting list?")
+                                .setPositiveButton("Join Anyway", (dialog, which) -> {
+                                    if (listener != null) {
+                                        listener.onJoinWaitingList(slot);
+                                    }
+                                })
+                                .setNegativeButton("Cancel", null)
+                                .show();
+                    } else {
+                        if (listener != null) {
+                            listener.onJoinWaitingList(slot);
+                        }
                     }
                 });
             } else {
@@ -394,6 +465,9 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
                     Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - slot is not full, slot=" + slot.slotId);
                 } else if (isWaitingListFull) {
                     Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - waiting list is full (1/1), slot=" + slot.slotId);
+                } else if (queueTypeMismatch) {
+                    String queueType = slot.waitingListEntries.get(0).degree;
+                    Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - queue is " + queueType + "-only, user is " + userDegree + ", slot=" + slot.slotId);
                 }
             }
 

@@ -148,13 +148,18 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
     private void renderSlots(ApiService.PresenterHomeResponse response) {
         List<ApiService.SlotCard> allSlots = response != null && response.slotCatalog != null
                 ? response.slotCatalog : Collections.emptyList();
-        
+
         // Filter out past slots
         List<ApiService.SlotCard> futureSlots = filterPastSlots(allSlots);
-        
+
         // Store current slots for limit checking
         currentSlots = futureSlots;
-        
+
+        // Set user degree for PhD warning dialog
+        if (response != null && response.presenter != null && response.presenter.degree != null) {
+            slotAdapter.setUserDegree(response.presenter.degree);
+        }
+
         slotAdapter.submitList(futureSlots);
         emptyState.setVisibility(futureSlots.isEmpty() ? View.VISIBLE : View.GONE);
 
@@ -619,7 +624,14 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             // Get user-friendly error message
                             String userMessage = ErrorMessageHelper.getWaitingListErrorMessage(
                                 PresenterSlotSelectionActivity.this, response.code(), errorMessage);
-                            Toast.makeText(PresenterSlotSelectionActivity.this, userMessage, Toast.LENGTH_LONG).show();
+
+                            // Check if it's a queue type mismatch - show dialog instead of toast
+                            if (userMessage != null && userMessage.startsWith("QUEUE_TYPE_MISMATCH:")) {
+                                String queueType = userMessage.substring("QUEUE_TYPE_MISMATCH:".length());
+                                showQueueTypeMismatchDialog(queueType);
+                            } else {
+                                Toast.makeText(PresenterSlotSelectionActivity.this, userMessage, Toast.LENGTH_LONG).show();
+                            }
                         }
                     }
 
@@ -769,6 +781,26 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
                             Toast.LENGTH_LONG).show();
                     }
                 });
+    }
+
+    /**
+     * Show dialog explaining why user can't join waiting list due to queue type mismatch.
+     * The waiting list uses a "first-sets-type" queue system.
+     */
+    private void showQueueTypeMismatchDialog(String queueType) {
+        String userDegree = "PhD".equals(queueType) ? "MSc" : "PhD";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Cannot Join Waiting List")
+                .setMessage("This waiting list is currently " + queueType + "-only.\n\n" +
+                        "How it works:\n" +
+                        "• The first person to join sets the queue type\n" +
+                        "• Only same-degree users can join after\n" +
+                        "• When the list empties, it resets\n\n" +
+                        "As a " + userDegree + " student, you cannot join this " + queueType + " queue.\n\n" +
+                        "Please look for another slot with an empty waiting list, or wait for this queue to empty and reset.")
+                .setPositiveButton("OK", null)
+                .show();
     }
 
     private void showRegistrationDialog(ApiService.SlotCard slot) {

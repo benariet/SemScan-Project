@@ -145,6 +145,13 @@ public class ErrorMessageHelper {
             return "The waiting list is full. Please try again later.";
         }
 
+        // Queue type mismatch - first-sets-type rule
+        if (lower.contains("queue is currently") && lower.contains("-only")) {
+            // Extract the queue type from message like "queue is currently PhD-only"
+            String queueType = lower.contains("phd-only") ? "PhD" : "MSc";
+            return "QUEUE_TYPE_MISMATCH:" + queueType;
+        }
+
         if (lower.contains("cannot join waiting list") || lower.contains("unable to join waiting list")) {
             return "Cannot join waiting list. You may already be registered or on another waiting list.";
         }
