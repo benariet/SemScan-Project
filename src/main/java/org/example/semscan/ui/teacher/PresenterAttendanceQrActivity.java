@@ -81,7 +81,7 @@ public class PresenterAttendanceQrActivity extends AppCompatActivity {
     private TextView textOpenedAt;
     private TextView textValidUntil;
     private ProgressBar progressRefresh;
-    private com.google.android.material.button.MaterialButton btnEndSession;
+    private Button btnEndSession;
     private Button btnCancelSession;
 
     private ApiService apiService;

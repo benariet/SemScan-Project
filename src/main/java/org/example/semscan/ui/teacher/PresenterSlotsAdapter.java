@@ -162,6 +162,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
 
         private final TextView title;
         private final TextView statusText;
+        private final TextView mySessionOpenBanner;
         private final LinearLayout layoutSlotContent;
         private final Button registerButton;
         private final Button waitingListButton;
@@ -172,6 +173,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             super(itemView);
             title = itemView.findViewById(R.id.text_slot_title);
             statusText = itemView.findViewById(R.id.text_slot_status);
+            mySessionOpenBanner = itemView.findViewById(R.id.text_my_session_open);
             layoutSlotContent = itemView.findViewById(R.id.layout_slot_content);
             registerButton = itemView.findViewById(R.id.btn_register_slot);
             waitingListButton = itemView.findViewById(R.id.btn_waiting_list);
@@ -192,7 +194,22 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             String titleText = context.getString(R.string.presenter_home_slot_title_format,
                     safe(slot.dayOfWeek), formattedDate);
             title.setText(titleText);
-            
+
+            // Show "MY SESSION IS OPEN" banner if the user has an open session for this slot
+            if (mySessionOpenBanner != null) {
+                if (slot.mySessionOpen) {
+                    String bannerText = "YOUR SESSION IS OPEN\nTap to resume or close";
+                    if (slot.mySessionClosesAt != null && !slot.mySessionClosesAt.isEmpty()) {
+                        bannerText = "YOUR SESSION IS OPEN\nCloses at " + slot.mySessionClosesAt.substring(11, 16) + " - Tap to resume";
+                    }
+                    mySessionOpenBanner.setText(bannerText);
+                    mySessionOpenBanner.setVisibility(View.VISIBLE);
+                    Logger.i(Logger.TAG_SLOT_DETAILS, "Showing MY SESSION OPEN banner for slot " + slot.slotId);
+                } else {
+                    mySessionOpenBanner.setVisibility(View.GONE);
+                }
+            }
+
             // Calculate slot capacity info early (needed for onClick handler)
             // Backend sends EFFECTIVE capacity usage (PhD=2, MSc=1)
             int approved = slot.approvedCount; // Effective capacity used by approved registrations

@@ -20,6 +20,21 @@
         android:padding="20dp"
         android:background="@drawable/bg_slot_green_gradient">
 
+        <!-- MY SESSION OPEN Banner - Only visible when user has open attendance session -->
+        <TextView
+            android:id="@+id/text_my_session_open"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:padding="12dp"
+            android:background="@drawable/bg_session_open_banner"
+            android:text="YOUR SESSION IS OPEN\nTap to resume or close"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:visibility="gone" />
+
         <!-- Date Text -->
         <TextView
             android:id="@+id/text_slot_title"

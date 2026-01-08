@@ -367,31 +367,10 @@ public class PresenterStartSessionActivity extends AppCompatActivity {
                         }
                     }
                     
+                    // NOTE: Frontend blocking removed - presenters can open sessions independently
+                    // The conflict detection above is kept for logging purposes only
                     if (foundConflict && conflictingSession != null) {
-                        // BLOCK: Another presenter has an open session - don't allow opening
-                        final Session conflictSession = conflictingSession; // Make final for lambda
-                        final String conflictPresenterName = conflictSession.getPresenterName() != null ? 
-                            conflictSession.getPresenterName() : "Unknown";
-                        final Long conflictSessionId = conflictSession.getSessionId();
-                        
-                        Logger.e(Logger.TAG_ATTENDANCE_OPEN, "❌ BLOCKED: Frontend detected conflict - another presenter has open session");
-                        if (serverLogger != null) {
-                            serverLogger.e(ServerLogger.TAG_ATTENDANCE_OPEN, "🚨 FRONTEND BLOCKED SESSION OPEN | " +
-                                "Another presenter (" + conflictPresenterName + ") has an OPEN session (ID: " + 
-                                conflictSessionId + ") for this slot. Backend should have returned IN_PROGRESS but didn't. " +
-                                "Frontend is blocking to prevent duplicate sessions.");
-                        }
-                        
-                        // Show error dialog and block
-                        runOnUiThread(() -> {
-                            showErrorDialog(
-                                getString(R.string.presenter_start_session_error_in_progress),
-                                getString(R.string.presenter_start_session_error_in_progress_message) + 
-                                    "\n\nDetected open session by: " + conflictPresenterName + 
-                                    " (Session ID: " + conflictSessionId + ")"
-                            );
-                        });
-                        return; // Don't proceed to backend
+                        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Another presenter has open session, but allowing this presenter to proceed (no blocking)");
                     }
                 } else {
                     Logger.w(Logger.TAG_ATTENDANCE_OPEN, "Failed to check for conflicting sessions: " + (response.code()));

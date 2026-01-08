@@ -147,14 +147,15 @@
                             android:gravity="center"
                             android:visibility="gone" />
 
-                        <!-- Subtitle text -->
+                        <!-- Subtitle text - important info about session timing -->
                         <TextView
                             android:id="@+id/text_subtitle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="@string/presenter_start_session_subtitle"
-                            android:textColor="@color/gray_500"
-                            android:textSize="13sp"
+                            android:textColor="@color/gray_700"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
                             android:gravity="center"
                             android:layout_marginTop="20dp" />
 
@@ -167,6 +168,7 @@
                             android:layout_marginTop="12dp"
                             android:text="@string/presenter_start_session_button"
                             android:textSize="16sp"
+                            app:cornerRadius="100dp"
                             android:enabled="false" />
 
                     </LinearLayout>

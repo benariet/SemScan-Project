@@ -304,6 +304,13 @@ public interface ApiService {
         public String waitingListUserName; // Name of user on waiting list (if current user is on it)
         public List<PresenterCoPresenter> pendingPresenters;  // List of pending registrations with names
         public List<PresenterCoPresenter> waitingListEntries; // List of waiting list entries with names
+
+        // My session indicator - true if CURRENT USER has an open attendance session for this slot
+        @SerializedName("mySessionOpen")
+        public boolean mySessionOpen;
+
+        @SerializedName("mySessionClosesAt")
+        public String mySessionClosesAt; // When current user's session closes (if open)
     }
 
     enum SlotState {
