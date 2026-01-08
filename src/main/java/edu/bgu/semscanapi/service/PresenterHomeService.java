@@ -1404,7 +1404,7 @@ public class PresenterHomeService {
         logger.info("Checking for other presenter's open sessions for slot {} (presenter: {})", slotId, presenterUsername);
         Session otherPresenterOpenSession = findOtherPresenterOpenSessionForSlot(presenterUsername, slotId, slot, allOpenSessions);
         if (otherPresenterOpenSession != null) {
-            logger.warn("BLOCKING: Presenter {} cannot open session for slot {} - found other presenter's open session {}", 
+            logger.warn("BLOCKING: Presenter {} cannot open session for slot {} - found other presenter's open session {}",
                 presenterUsername, slotId, otherPresenterOpenSession.getSessionId());
             // Get the other presenter's name for the error message
             String otherPresenterName = "another presenter";
@@ -1417,16 +1417,16 @@ public class PresenterHomeService {
                     otherPresenterName = otherSeminar.get().getPresenterUsername();
                 }
             }
-            
+
             String errorMsg = String.format("Another presenter (%s) has an active session for this time slot. Please wait for that session to end before opening a new one.", otherPresenterName);
-            logger.warn("Presenter {} cannot open session for slot {} - another presenter has an open session {}", 
+            logger.warn("Presenter {} cannot open session for slot {} - another presenter has an open session {}",
                 presenterUsername, slotId, otherPresenterOpenSession.getSessionId());
             databaseLoggerService.logError("ATTENDANCE_OPEN_BLOCKED", errorMsg, null, presenterUsername,
-                String.format("slotId=%s,otherSessionId=%s,otherPresenter=%s", slotId, 
+                String.format("slotId=%s,otherSessionId=%s,otherPresenter=%s", slotId,
                     otherPresenterOpenSession.getSessionId(), otherSeminar.map(Seminar::getPresenterUsername).orElse("unknown")));
             return new PresenterOpenAttendanceResponse(false, errorMsg, "IN_PROGRESS", null, null, null, null, null);
         }
-        
+
         // Clean up any closed session references in the slot
         if (slot.getLegacySessionId() != null) {
             Session slotReferencedSession = sessionRepository.findById(slot.getLegacySessionId()).orElse(null);
@@ -1931,6 +1931,22 @@ public class PresenterHomeService {
         card.setAttendanceClosesAt(slot.getAttendanceClosesAt() != null ? DATE_TIME_FORMAT.format(slot.getAttendanceClosesAt()) : null);
         card.setHasClosedSession(attendanceClosed);
 
+        // Check if CURRENT USER has an open session for this slot
+        boolean mySessionOpen = false;
+        String mySessionClosesAt = null;
+        if (presenterUsername != null && slot.getAttendanceOpenedBy() != null
+                && presenterUsername.equalsIgnoreCase(slot.getAttendanceOpenedBy())
+                && slot.getAttendanceClosesAt() != null
+                && now.isBefore(slot.getAttendanceClosesAt())
+                && !attendanceClosed) {
+            mySessionOpen = true;
+            mySessionClosesAt = DATE_TIME_FORMAT.format(slot.getAttendanceClosesAt());
+            logger.debug("User {} has an open session for slot {} that closes at {}",
+                    presenterUsername, slot.getSlotId(), mySessionClosesAt);
+        }
+        card.setMySessionOpen(mySessionOpen);
+        card.setMySessionClosesAt(mySessionClosesAt);
+
         // NOTE: Registration limits are enforced at the API level, not UI level
         // Being registered in another slot or on a waiting list does NOT block registration
         // Users can register for multiple slots as long as they're within limits (PhD: 1 approved + 1 pending, MSc: 1 approved + 2 pending)
@@ -2041,29 +2057,24 @@ public class PresenterHomeService {
         LocalDateTime closesAt = slot.getAttendanceClosesAt();
         String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
 
+        // Check if THIS presenter already has an open session
         if (openedAt != null && closesAt != null && now.isBefore(closesAt) && slot.getLegacySessionId() != null) {
             boolean openedByPresenter = Objects.equals(presenterUsername, openedBy);
-            panel.setCanOpen(false);
-            // Only set alreadyOpen=true for the presenter who opened the session
-            // Other presenters should see "Open session" button (but will get IN_PROGRESS error if they try)
-            panel.setAlreadyOpen(openedByPresenter);
-            panel.setStatus(openedByPresenter ? "Attendance already open" : "Another presenter has an open session");
-            // Only provide QR URL/payload to the presenter who opened it
             if (openedByPresenter) {
+                // This presenter already opened - show their QR
+                panel.setCanOpen(false);
+                panel.setAlreadyOpen(true);
+                panel.setStatus("Attendance already open");
                 panel.setOpenQrUrl(buildQrUrl(slot.getLegacySessionId()));
                 panel.setQrPayload(buildQrPayload(slot.getLegacySessionId()));
                 panel.setSessionId(slot.getLegacySessionId());
-            } else {
-                panel.setOpenQrUrl(null);
-                panel.setQrPayload(null);
-                panel.setSessionId(null);
+                panel.setWarning("Registration closes " + DISPLAY_DATE_TIME_FORMAT.format(closesAt));
+                panel.setOpenedAt(DATE_TIME_FORMAT.format(openedAt));
+                panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
+                return panel;
             }
-            panel.setWarning(openedByPresenter
-                ? "Registration closes " + DISPLAY_DATE_TIME_FORMAT.format(closesAt)
-                : "Wait for the current session to close");
-            panel.setOpenedAt(DATE_TIME_FORMAT.format(openedAt));
-            panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
-            return panel;
+            // Another presenter has an open session - but don't block this presenter
+            // They can still open their own session if they want
         }
 
         // Check if session was already opened and is now closed (past closesAt)

@@ -342,6 +342,8 @@ public class PresenterHomeResponse {
         private String waitingListUserName; // Username of first person on waiting list (or null)
         private List<RegisteredPresenter> pendingPresenters = new ArrayList<>(); // List of pending registrations with names
         private List<RegisteredPresenter> waitingListEntries = new ArrayList<>(); // List of waiting list entries with names
+        private boolean mySessionOpen; // True if CURRENT USER has an open attendance session for this slot
+        private String mySessionClosesAt; // When the current user's session closes (if open)
 
         public Long getSlotId() {
             return slotId;
@@ -541,6 +543,22 @@ public class PresenterHomeResponse {
 
         public void setWaitingListEntries(List<RegisteredPresenter> waitingListEntries) {
             this.waitingListEntries = waitingListEntries;
+        }
+
+        public boolean isMySessionOpen() {
+            return mySessionOpen;
+        }
+
+        public void setMySessionOpen(boolean mySessionOpen) {
+            this.mySessionOpen = mySessionOpen;
+        }
+
+        public String getMySessionClosesAt() {
+            return mySessionClosesAt;
+        }
+
+        public void setMySessionClosesAt(String mySessionClosesAt) {
+            this.mySessionClosesAt = mySessionClosesAt;
         }
     }
 
