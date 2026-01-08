@@ -34,6 +34,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
         void onRegisterClicked(ApiService.SlotCard slot);
         void onJoinWaitingList(ApiService.SlotCard slot);
         void onCancelWaitingList(ApiService.SlotCard slot);
+        void onCancelRegistration(ApiService.SlotCard slot);
         void onSlotClicked(ApiService.SlotCard slot, boolean isFull);
     }
 
@@ -165,6 +166,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
         private final Button registerButton;
         private final Button waitingListButton;
         private final Button cancelWaitingListButton;
+        private final Button cancelRegistrationButton;
 
         SlotViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -174,6 +176,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             registerButton = itemView.findViewById(R.id.btn_register_slot);
             waitingListButton = itemView.findViewById(R.id.btn_waiting_list);
             cancelWaitingListButton = itemView.findViewById(R.id.btn_cancel_waiting_list);
+            cancelRegistrationButton = itemView.findViewById(R.id.btn_cancel_registration);
         }
 
         void bind(final ApiService.SlotCard slot) {
@@ -482,6 +485,20 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
                 });
             } else {
                 cancelWaitingListButton.setVisibility(View.GONE);
+            }
+
+            // Show/hide cancel registration button
+            // Show when user has pending or approved registration in this slot
+            if (isUserRegisteredInThisSlot) {
+                cancelRegistrationButton.setVisibility(View.VISIBLE);
+                cancelRegistrationButton.setOnClickListener(v -> {
+                    Logger.i(Logger.TAG_REGISTER_REQUEST, "Attempting to cancel registration for slot=" + slot.slotId);
+                    if (listener != null) {
+                        listener.onCancelRegistration(slot);
+                    }
+                });
+            } else {
+                cancelRegistrationButton.setVisibility(View.GONE);
             }
 
         }

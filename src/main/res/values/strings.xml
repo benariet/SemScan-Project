@@ -236,6 +236,8 @@
     <string name="presenter_my_slot_change_button">Browse available slots</string>
     <string name="presenter_my_slot_change_button_short">Browse slots</string>
     <string name="presenter_my_slot_cancel_button">Cancel registration</string>
+    <string name="presenter_my_slot_cancel_title">Cancel Registration</string>
+    <string name="presenter_my_slot_cancel_message">Are you sure you want to cancel your registration for this slot?</string>
     <string name="presenter_my_slot_cancel_success">Your registration was cancelled.</string>
     <string name="presenter_my_slot_cancel_error">Could not cancel registration. Please try again.</string>
     <string name="presenter_my_slot_no_slot_error">No slot to cancel.</string>

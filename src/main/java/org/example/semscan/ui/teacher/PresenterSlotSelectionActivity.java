@@ -425,6 +425,81 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
         }
     }
 
+    @Override
+    public void onCancelRegistration(ApiService.SlotCard slot) {
+        Logger.i(Logger.TAG_CANCEL_REQUEST, "User clicked cancel registration for slot=" + (slot != null ? slot.slotId : "null"));
+        if (serverLogger != null) {
+            serverLogger.i(ServerLogger.TAG_CANCEL_REQUEST, "User clicked cancel registration for slot=" + (slot != null ? slot.slotId : "null"));
+        }
+
+        if (slot == null || slot.slotId == null) {
+            Toast.makeText(this, R.string.presenter_my_slot_no_slot_error, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        // Show confirmation dialog
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.presenter_my_slot_cancel_title)
+                .setMessage(R.string.presenter_my_slot_cancel_message)
+                .setPositiveButton(R.string.presenter_my_slot_cancel_button, (dialog, which) -> {
+                    performCancelRegistration(slot);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void performCancelRegistration(ApiService.SlotCard slot) {
+        final String username = preferencesManager.getUserName();
+        if (TextUtils.isEmpty(username)) {
+            Toast.makeText(this, R.string.presenter_start_session_error_no_user, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        final String normalizedUsername = username.trim().toLowerCase(Locale.US);
+        String apiEndpoint = "api/v1/presenters/" + normalizedUsername + "/home/slots/" + slot.slotId + "/cancel";
+        Logger.api("DELETE", apiEndpoint, "Cancelling registration for slot=" + slot.slotId);
+        if (serverLogger != null) {
+            serverLogger.api("DELETE", apiEndpoint, "Cancelling registration for slot=" + slot.slotId);
+        }
+
+        setLoading(true);
+        apiService.cancelSlotRegistration(normalizedUsername, slot.slotId)
+                .enqueue(new Callback<Void>() {
+                    @Override
+                    public void onResponse(Call<Void> call, Response<Void> response) {
+                        if (isFinishing() || isDestroyed()) return;
+                        setLoading(false);
+
+                        if (response.isSuccessful()) {
+                            Logger.i(Logger.TAG_CANCEL_SUCCESS, "Successfully cancelled registration for slot=" + slot.slotId);
+                            if (serverLogger != null) {
+                                serverLogger.i(ServerLogger.TAG_CANCEL_SUCCESS, "Successfully cancelled registration for slot=" + slot.slotId);
+                            }
+                            Toast.makeText(PresenterSlotSelectionActivity.this, R.string.presenter_my_slot_cancel_success, Toast.LENGTH_LONG).show();
+                            loadSlots();
+                        } else {
+                            Logger.apiError("DELETE", apiEndpoint, response.code(), "Failed to cancel registration");
+                            if (serverLogger != null) {
+                                serverLogger.apiError("DELETE", apiEndpoint, response.code(), "Failed to cancel registration");
+                            }
+                            Toast.makeText(PresenterSlotSelectionActivity.this, R.string.presenter_my_slot_cancel_error, Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<Void> call, Throwable t) {
+                        if (isFinishing() || isDestroyed()) return;
+                        setLoading(false);
+                        Logger.e(Logger.TAG_CANCEL_REQUEST, "Cancel registration network failure", t);
+                        if (serverLogger != null) {
+                            serverLogger.e(ServerLogger.TAG_CANCEL_REQUEST, "Cancel registration network failure", t);
+                        }
+                        String errorMessage = ErrorMessageHelper.getNetworkErrorMessage(PresenterSlotSelectionActivity.this, t);
+                        Toast.makeText(PresenterSlotSelectionActivity.this, errorMessage, Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
     /**
      * Join waiting list using topic and abstract from Settings.
      * Shows a warning dialog for PhD students about capacity requirements.
