@@ -1,6 +1,9 @@
 package org.example.semscan.ui.teacher;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -15,10 +18,13 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.cardview.widget.CardView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -42,6 +48,8 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class PresenterHomeActivity extends AppCompatActivity {
+
+    private static final int REQUEST_NOTIFICATION_PERMISSION = 1001;
 
     private CardView cardStartSession;
     private MaterialCardView cardEnrollSlot;
@@ -84,6 +92,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
         String userRole = preferencesManager.getUserRole();
         if (serverLogger != null) serverLogger.updateUserContext(username, userRole);
         if (!preferencesManager.isPresenter()) { navigateToRolePicker(); return; }
+        requestNotificationPermission();
         initializeViews();
         setupToolbar();
         setupPresentationDetailsCard();
@@ -338,4 +347,62 @@ public class PresenterHomeActivity extends AppCompatActivity {
     }
 
     @Override @SuppressWarnings("deprecation") public void onBackPressed() { moveTaskToBack(true); super.onBackPressed(); }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+                    showNotificationPermissionRationale();
+                } else {
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                            REQUEST_NOTIFICATION_PERMISSION);
+                }
+            }
+        }
+    }
+
+    private void showNotificationPermissionRationale() {
+        new AlertDialog.Builder(this)
+                .setTitle("Enable Notifications")
+                .setMessage("SemScan needs notification permission to alert you when your registration is approved or when you're promoted from a waiting list.")
+                .setPositiveButton("Allow", (dialog, which) -> {
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                            REQUEST_NOTIFICATION_PERMISSION);
+                })
+                .setNegativeButton("Not Now", null)
+                .show();
+    }
+
+    private void showNotificationSettingsDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Notifications Disabled")
+                .setMessage("To receive alerts about registration approvals and waiting list updates, please enable notifications in Settings.")
+                .setPositiveButton("Open Settings", (dialog, which) -> {
+                    Intent intent = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                    intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+                    startActivity(intent);
+                })
+                .setNegativeButton("Not Now", null)
+                .show();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_NOTIFICATION_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Logger.i(Logger.TAG_PREFS, "POST_NOTIFICATIONS permission granted");
+            } else {
+                Logger.w(Logger.TAG_PREFS, "POST_NOTIFICATIONS permission denied");
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+                        showNotificationSettingsDialog();
+                    }
+                }
+            }
+        }
+    }
 }

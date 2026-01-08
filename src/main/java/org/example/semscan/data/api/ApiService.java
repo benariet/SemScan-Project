@@ -635,6 +635,7 @@ public interface ApiService {
         public String appVersion;
         public int waitingListLimitPerSlot;
         public int phdCapacityWeight;
+        public boolean manualAttendanceEnabled;
     }
 
     // =============================

@@ -11,6 +11,8 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="80dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
         android:background="@drawable/bg_appbar_rounded"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
         app:title="@string/presenter_slot_selection_title"

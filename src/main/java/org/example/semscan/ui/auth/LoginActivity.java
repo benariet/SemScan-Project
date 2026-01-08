@@ -1,13 +1,19 @@
 package org.example.semscan.ui.auth;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import android.widget.CheckBox;
 import com.google.android.material.button.MaterialButton;
@@ -35,6 +41,7 @@ import retrofit2.Response;
 public class LoginActivity extends AppCompatActivity {
 
     private static final String DEFAULT_SKIP_USERNAME = "skiptester";
+    private static final int REQUEST_NOTIFICATION_PERMISSION = 1001;
 
     private TextInputEditText editUsername;
     private TextInputEditText editPassword;
@@ -60,6 +67,9 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_login);
+
+        // Request notification permission for Android 13+
+        requestNotificationPermission();
 
         editUsername = findViewById(R.id.edit_username);
         editPassword = findViewById(R.id.edit_password);
@@ -105,10 +115,91 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     /**
+     * Request notification permission for Android 13+ (API 33+).
+     * If previously denied, shows a dialog directing user to Settings.
+     */
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                // Check if we should show rationale (user denied before but can still ask)
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+                    // User denied before - show explanation dialog then request again
+                    Logger.i(Logger.TAG_PREFS, "Showing notification permission rationale");
+                    showNotificationPermissionRationale();
+                } else {
+                    // First time asking OR user selected "Don't ask again"
+                    // Try requesting - if it fails silently, user selected "Don't ask again"
+                    Logger.i(Logger.TAG_PREFS, "Requesting POST_NOTIFICATIONS permission");
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                            REQUEST_NOTIFICATION_PERMISSION);
+                }
+            } else {
+                Logger.i(Logger.TAG_PREFS, "POST_NOTIFICATIONS permission already granted");
+            }
+        }
+    }
+
+    /**
+     * Show a dialog explaining why we need notification permission.
+     */
+    private void showNotificationPermissionRationale() {
+        new AlertDialog.Builder(this)
+                .setTitle("Enable Notifications")
+                .setMessage("SemScan needs notification permission to alert you when your registration is approved or when you're promoted from a waiting list.")
+                .setPositiveButton("Allow", (dialog, which) -> {
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                            REQUEST_NOTIFICATION_PERMISSION);
+                })
+                .setNegativeButton("Not Now", null)
+                .show();
+    }
+
+    /**
+     * Show dialog directing user to app Settings to enable notifications.
+     */
+    private void showNotificationSettingsDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Notifications Disabled")
+                .setMessage("To receive alerts about registration approvals and waiting list updates, please enable notifications in Settings.")
+                .setPositiveButton("Open Settings", (dialog, which) -> {
+                    Intent intent = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                    intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+                    startActivity(intent);
+                })
+                .setNegativeButton("Not Now", null)
+                .show();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_NOTIFICATION_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Logger.i(Logger.TAG_PREFS, "POST_NOTIFICATIONS permission granted");
+            } else {
+                Logger.w(Logger.TAG_PREFS, "POST_NOTIFICATIONS permission denied");
+                // User denied - show dialog to open Settings
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+                        // User selected "Don't ask again" - must go to Settings
+                        showNotificationSettingsDialog();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Navigate directly to the appropriate home screen without showing login UI.
      * This is called when user is already logged in but app was killed by Android.
      */
     private void navigateToHomeScreen() {
+        // Request notification permission for Android 13+
+        requestNotificationPermission();
+
         // Refresh config in background
         try {
             ConfigManager.getInstance(this).refreshConfig();

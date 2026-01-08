@@ -1,6 +1,9 @@
 package org.example.semscan.ui.student;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -10,9 +13,12 @@ import android.widget.PopupMenu;
 import android.widget.Toast;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import com.google.android.material.card.MaterialCardView;
 
 import org.example.semscan.R;
@@ -23,6 +29,7 @@ import org.example.semscan.ui.RolePickerActivity;
 import org.example.semscan.ui.SettingsActivity;
 import org.example.semscan.ui.auth.LoginActivity;
 import org.example.semscan.ui.qr.ModernQRScannerActivity;
+import org.example.semscan.utils.ConfigManager;
 import org.example.semscan.utils.Logger;
 import org.example.semscan.utils.PreferencesManager;
 import org.example.semscan.utils.ServerLogger;
@@ -33,6 +40,8 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class StudentHomeActivity extends AppCompatActivity {
+
+    private static final int REQUEST_NOTIFICATION_PERMISSION = 1001;
 
     private MaterialCardView cardScanAttendance;
     private MaterialCardView cardManualAttendance;
@@ -68,6 +77,9 @@ public class StudentHomeActivity extends AppCompatActivity {
             return;
         }
 
+        // Request notification permission for Android 13+
+        requestNotificationPermission();
+
         Logger.i(Logger.TAG_SCREEN_VIEW, "Student user authenticated, setting up UI");
         if (serverLogger != null) {
             serverLogger.userAction("Student Authenticated", "Student home setup initialized");
@@ -81,6 +93,29 @@ public class StudentHomeActivity extends AppCompatActivity {
         cardScanAttendance = findViewById(R.id.card_scan_attendance);
         cardManualAttendance = findViewById(R.id.card_manual_attendance);
         btnChangeRole = findViewById(R.id.btn_change_role);
+
+        // Check manual attendance config and update visibility
+        updateManualAttendanceVisibility();
+    }
+
+    private void updateManualAttendanceVisibility() {
+        // Default: show button. Only hide if API explicitly says disabled.
+        apiService.getMobileConfig().enqueue(new Callback<ApiService.MobileConfigResponse>() {
+            @Override
+            public void onResponse(Call<ApiService.MobileConfigResponse> call, Response<ApiService.MobileConfigResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    boolean enabled = response.body().manualAttendanceEnabled;
+                    cardManualAttendance.setVisibility(enabled ? View.VISIBLE : View.GONE);
+                    Logger.i(Logger.TAG_PREFS, "Manual attendance enabled=" + enabled);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiService.MobileConfigResponse> call, Throwable t) {
+                // Keep visible on failure (default)
+                Logger.w(Logger.TAG_PREFS, "Failed to check manual attendance config: " + t.getMessage());
+            }
+        });
     }
 
     private void setupToolbar() {
@@ -369,5 +404,63 @@ public class StudentHomeActivity extends AppCompatActivity {
             serverLogger.flushLogs();
         }
         super.onDestroy();
+    }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+                    showNotificationPermissionRationale();
+                } else {
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                            REQUEST_NOTIFICATION_PERMISSION);
+                }
+            }
+        }
+    }
+
+    private void showNotificationPermissionRationale() {
+        new AlertDialog.Builder(this)
+                .setTitle("Enable Notifications")
+                .setMessage("SemScan needs notification permission to alert you when your registration is approved or when you're promoted from a waiting list.")
+                .setPositiveButton("Allow", (dialog, which) -> {
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                            REQUEST_NOTIFICATION_PERMISSION);
+                })
+                .setNegativeButton("Not Now", null)
+                .show();
+    }
+
+    private void showNotificationSettingsDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Notifications Disabled")
+                .setMessage("To receive alerts about registration approvals and waiting list updates, please enable notifications in Settings.")
+                .setPositiveButton("Open Settings", (dialog, which) -> {
+                    Intent intent = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                    intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+                    startActivity(intent);
+                })
+                .setNegativeButton("Not Now", null)
+                .show();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_NOTIFICATION_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Logger.i(Logger.TAG_PREFS, "POST_NOTIFICATIONS permission granted");
+            } else {
+                Logger.w(Logger.TAG_PREFS, "POST_NOTIFICATIONS permission denied");
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+                        showNotificationSettingsDialog();
+                    }
+                }
+            }
+        }
     }
 }
