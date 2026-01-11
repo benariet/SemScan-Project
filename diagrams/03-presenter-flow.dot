@@ -38,6 +38,9 @@ digraph PresenterFlow {
     // Start
     Home [label="Presenter Home Screen", fillcolor="#e8f5e9", color="#388e3c", penwidth=2];
 
+    // Session Open Banner (when session is active)
+    SessionBanner [label="SESSION OPEN BANNER\n(Red, pulsing)\n-----------\nTap to return to QR", fillcolor="#ffcdd2", color="#c62828", penwidth=2];
+
     // Start Session Button
     StartSessionBtn [label="Press Start Session\nbutton", fillcolor="#bbdefb", color="#1976d2"];
 
@@ -98,6 +101,11 @@ digraph PresenterFlow {
     QRDisplay -> EndSession [label="tap end"];
     QRDisplay -> CancelSession [label="tap cancel"];
     QRDisplay -> AutoClose [label="timeout"];
+    QRDisplay -> Home [label="press back", style=dashed];
+
+    // Session Banner flow (when user goes back with active session)
+    Home -> SessionBanner [label="has open\nsession", style=dashed, color="#c62828"];
+    SessionBanner -> QRDisplay [label="tap banner", color="#c62828"];
 
     // After Session - check pending
     EndSession -> HasPending;
