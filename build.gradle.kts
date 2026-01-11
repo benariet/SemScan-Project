@@ -1,5 +1,18 @@
 import java.io.ByteArrayOutputStream
 
+fun getGitCommitCount(): Int {
+    return try {
+        val output = ByteArrayOutputStream()
+        exec {
+            commandLine("git", "rev-list", "--count", "HEAD")
+            standardOutput = output
+        }
+        output.toString().trim().toInt()
+    } catch (e: Exception) {
+        1 // fallback
+    }
+}
+
 plugins {
     id("com.android.application") version "8.13.1"
     id("com.google.gms.google-services") version "4.4.4"
@@ -13,8 +26,8 @@ android {
         applicationId = "org.example.semscan"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = getGitCommitCount()
+        versionName = getGitCommitCount().toString()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
