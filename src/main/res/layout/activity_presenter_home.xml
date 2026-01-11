@@ -35,6 +35,9 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- SESSION OPEN BANNER - Shows when presenter has an active session -->
+            <include layout="@layout/card_session_open_banner" />
+
             <!-- Main Action Cards -->
             <LinearLayout
                 android:layout_width="match_parent"

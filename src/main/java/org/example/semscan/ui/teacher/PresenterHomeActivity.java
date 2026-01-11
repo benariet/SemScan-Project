@@ -64,6 +64,17 @@ public class PresenterHomeActivity extends AppCompatActivity {
     private boolean hasRegisteredSlot = false;
     private boolean canOpenSession = false;
 
+    // Session open banner
+    private com.google.android.material.card.MaterialCardView cardSessionOpenBanner;
+    private View pulseIndicator;
+    private boolean hasOpenSession = false;
+    private Long openSessionId;
+    private Long openSlotId;
+    private String openSessionQrPayload;
+    private String openSessionOpenedAt;
+    private String openSessionClosesAt;
+    private String openSessionSlotTitle;
+
     private MaterialCardView cardPresentationDetails;
     private LinearLayout presentationDetailsHeader;
     private LinearLayout presentationDetailsContent;
@@ -130,6 +141,14 @@ public class PresenterHomeActivity extends AppCompatActivity {
         editSupervisorName = findViewById(R.id.edit_supervisor_name);
         editSupervisorEmail = findViewById(R.id.edit_supervisor_email);
         btnSavePresentationDetails = findViewById(R.id.btn_save_presentation_details);
+
+        // Session open banner
+        cardSessionOpenBanner = findViewById(R.id.card_session_open_banner);
+        pulseIndicator = findViewById(R.id.pulse_indicator);
+        if (cardSessionOpenBanner != null) {
+            cardSessionOpenBanner.setOnClickListener(v -> openQrActivity());
+        }
+
         setCardsEnabled(false);
         updateEnrollSlotCardState();
     }
@@ -238,6 +257,21 @@ public class PresenterHomeActivity extends AppCompatActivity {
                 canOpenSession = hasRegisteredSlot && body.attendance != null && body.attendance.canOpen;
                 setStartSessionEnabled(canOpenSession);
                 setMySlotEnabled(hasRegisteredSlot);
+
+                // Check if user has an open session
+                if (body.attendance != null && body.attendance.alreadyOpen && body.attendance.sessionId != null) {
+                    hasOpenSession = true;
+                    openSessionId = body.attendance.sessionId;
+                    openSlotId = body.mySlot != null ? body.mySlot.slotId : null;
+                    openSessionQrPayload = body.attendance.qrPayload;
+                    openSessionOpenedAt = body.attendance.openedAt;
+                    openSessionClosesAt = body.attendance.closesAt;
+                    openSessionSlotTitle = body.mySlot != null ? (body.mySlot.date + " " + body.mySlot.timeRange) : "";
+                    showSessionOpenBanner();
+                } else {
+                    hasOpenSession = false;
+                    hideSessionOpenBanner();
+                }
             }
             @Override public void onFailure(Call<ApiService.PresenterHomeResponse> call, Throwable t) { Logger.e(Logger.TAG_SLOTS_LOAD, "Failed to check registration status", t); }
         });
@@ -320,6 +354,51 @@ public class PresenterHomeActivity extends AppCompatActivity {
     private void openSlotSelection(boolean s) { Intent i = new Intent(this, PresenterSlotSelectionActivity.class); i.putExtra(PresenterSlotSelectionActivity.EXTRA_SCROLL_TO_MY_SLOT, s); startActivity(i); }
     private void openMySlot() { startActivity(new Intent(this, PresenterMySlotActivity.class)); }
     private void openSettings() { startActivity(new Intent(this, SettingsActivity.class)); }
+
+    private void showSessionOpenBanner() {
+        if (cardSessionOpenBanner != null) {
+            cardSessionOpenBanner.setVisibility(View.VISIBLE);
+            // Start pulse animation
+            if (pulseIndicator != null) {
+                startPulseAnimation();
+            }
+            Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Showing session open banner for session " + openSessionId);
+        }
+    }
+
+    private void hideSessionOpenBanner() {
+        if (cardSessionOpenBanner != null) {
+            cardSessionOpenBanner.setVisibility(View.GONE);
+        }
+    }
+
+    private void startPulseAnimation() {
+        if (pulseIndicator == null) return;
+        android.view.animation.AlphaAnimation pulse = new android.view.animation.AlphaAnimation(1.0f, 0.3f);
+        pulse.setDuration(800);
+        pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
+        pulse.setRepeatMode(android.view.animation.Animation.REVERSE);
+        pulseIndicator.startAnimation(pulse);
+    }
+
+    private void openQrActivity() {
+        if (!hasOpenSession || openSessionId == null) {
+            Toast.makeText(this, "No open session found", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(this, PresenterAttendanceQrActivity.class);
+        intent.putExtra(PresenterAttendanceQrActivity.EXTRA_SESSION_ID, openSessionId);
+        intent.putExtra(PresenterAttendanceQrActivity.EXTRA_SLOT_ID, openSlotId);
+        intent.putExtra(PresenterAttendanceQrActivity.EXTRA_QR_PAYLOAD, openSessionQrPayload);
+        intent.putExtra(PresenterAttendanceQrActivity.EXTRA_OPENED_AT, openSessionOpenedAt);
+        intent.putExtra(PresenterAttendanceQrActivity.EXTRA_CLOSES_AT, openSessionClosesAt);
+        intent.putExtra(PresenterAttendanceQrActivity.EXTRA_SLOT_TITLE, openSessionSlotTitle);
+        intent.putExtra(PresenterAttendanceQrActivity.EXTRA_USERNAME, preferencesManager.getUserName());
+
+        Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Resuming session " + openSessionId + " from home banner");
+        startActivity(intent);
+    }
 
     private void changeRole() {
         String username = preferencesManager.getUserName();
