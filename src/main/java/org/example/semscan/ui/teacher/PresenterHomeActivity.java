@@ -65,6 +65,7 @@ public class PresenterHomeActivity extends AppCompatActivity {
     private boolean canOpenSession = false;
 
     // Session open banner
+    private static final int REQUEST_CODE_QR_SESSION = 1001;
     private com.google.android.material.card.MaterialCardView cardSessionOpenBanner;
     private View pulseIndicator;
     private boolean hasOpenSession = false;
@@ -348,7 +349,13 @@ public class PresenterHomeActivity extends AppCompatActivity {
         if (cardMySlotInner != null) cardMySlotInner.setBackgroundResource(enabled ? R.drawable.bg_card_orange_light_gradient : R.drawable.bg_card_disabled);
     }
 
-    @Override protected void onResume() { super.onResume(); loadPresentationDetails(); checkRegistrationStatus(); }
+    @Override protected void onResume() {
+        super.onResume();
+        // Hide banner immediately - will reappear if session is still open after API check
+        hideSessionOpenBanner();
+        loadPresentationDetails();
+        checkRegistrationStatus();
+    }
 
     private void openStartSession() { startActivity(new Intent(this, PresenterStartSessionActivity.class)); }
     private void openSlotSelection(boolean s) { Intent i = new Intent(this, PresenterSlotSelectionActivity.class); i.putExtra(PresenterSlotSelectionActivity.EXTRA_SCROLL_TO_MY_SLOT, s); startActivity(i); }
@@ -397,7 +404,21 @@ public class PresenterHomeActivity extends AppCompatActivity {
         intent.putExtra(PresenterAttendanceQrActivity.EXTRA_USERNAME, preferencesManager.getUserName());
 
         Logger.i(Logger.TAG_ATTENDANCE_OPEN, "Resuming session " + openSessionId + " from home banner");
-        startActivity(intent);
+        startActivityForResult(intent, REQUEST_CODE_QR_SESSION);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_QR_SESSION) {
+            if (resultCode == PresenterAttendanceQrActivity.RESULT_CODE_SESSION_CLOSED ||
+                resultCode == PresenterAttendanceQrActivity.RESULT_CODE_SESSION_CANCELED) {
+                // Session was closed or canceled - hide banner immediately
+                hasOpenSession = false;
+                hideSessionOpenBanner();
+                Logger.i(Logger.TAG_ATTENDANCE_CLOSE, "Session closed/canceled, hiding banner");
+            }
+        }
     }
 
     private void changeRole() {

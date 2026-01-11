@@ -315,9 +315,15 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void updateVersionDisplay() {
-        String version = ConfigManager.getInstance(this).getAppVersion();
+        String buildNumber;
+        try {
+            buildNumber = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            buildNumber = "?";
+        }
+        String serverVersion = ConfigManager.getInstance(this).getAppVersion();
         if (textVersion != null) {
-            textVersion.setText(getString(R.string.version, version));
+            textVersion.setText("Version " + serverVersion + "\nBuild " + buildNumber);
         }
     }
 
