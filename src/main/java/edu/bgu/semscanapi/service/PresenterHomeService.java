@@ -2059,9 +2059,13 @@ public class PresenterHomeService {
 
         // Check if THIS presenter already has an open session
         if (openedAt != null && closesAt != null && now.isBefore(closesAt) && slot.getLegacySessionId() != null) {
+            // Also verify the session is actually OPEN (not manually closed)
+            Session session = sessionRepository.findById(slot.getLegacySessionId()).orElse(null);
+            boolean sessionActuallyOpen = session != null && session.getStatus() == Session.SessionStatus.OPEN;
+
             boolean openedByPresenter = Objects.equals(presenterUsername, openedBy);
-            if (openedByPresenter) {
-                // This presenter already opened - show their QR
+            if (openedByPresenter && sessionActuallyOpen) {
+                // This presenter already opened and session is still OPEN - show their QR
                 panel.setCanOpen(false);
                 panel.setAlreadyOpen(true);
                 panel.setStatus("Attendance already open");
@@ -2073,8 +2077,7 @@ public class PresenterHomeService {
                 panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
                 return panel;
             }
-            // Another presenter has an open session - but don't block this presenter
-            // They can still open their own session if they want
+            // Session was manually closed - fall through to allow re-opening or show closed state
         }
 
         // Check if session was already opened and is now closed (past closesAt)
