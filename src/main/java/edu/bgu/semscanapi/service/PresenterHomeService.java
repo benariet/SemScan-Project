@@ -279,7 +279,7 @@ public class PresenterHomeService {
             if (approvedCount >= maxApproved) {
                 String errorMsg = String.format("%s students can only present once per degree",
                         presenterDegree);
-                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                databaseLoggerService.logAction("WARN", "SLOT_REGISTRATION_FAILED", errorMsg, presenterUsername,
                     String.format("slotId=%s,reason=REGISTRATION_LIMIT_EXCEEDED,approvedCount=%d,maxApproved=%d",
                             slotId, approvedCount, maxApproved));
                 return new PresenterSlotRegistrationResponse(false, errorMsg, "REGISTRATION_LIMIT_EXCEEDED");
@@ -287,7 +287,7 @@ public class PresenterHomeService {
             if (pendingCount >= maxPending) {
                 String errorMsg = String.format("%s students can have at most %d pending approval%s",
                         presenterDegree, maxPending, maxPending == 1 ? "" : "s");
-                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                databaseLoggerService.logAction("WARN", "SLOT_REGISTRATION_FAILED", errorMsg, presenterUsername,
                     String.format("slotId=%s,reason=PENDING_LIMIT_EXCEEDED,pendingCount=%d,maxPending=%d",
                             slotId, pendingCount, maxPending));
                 return new PresenterSlotRegistrationResponse(false, errorMsg, "PENDING_LIMIT_EXCEEDED");
@@ -326,7 +326,7 @@ public class PresenterHomeService {
             // Rule 1: If PhD already registered (approved or pending), block all new registrations
             if (existingPhd) {
                 String errorMsg = "Slot already has a PhD presenter - slot is exclusive";
-                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                databaseLoggerService.logAction("WARN", "SLOT_REGISTRATION_FAILED", errorMsg, presenterUsername,
                     String.format("slotId=%s,reason=PHD_EXCLUSIVE", slotId));
                 return new PresenterSlotRegistrationResponse(false, "Slot is reserved by a PhD presenter", "SLOT_LOCKED");
             }
@@ -334,7 +334,7 @@ public class PresenterHomeService {
             // Rule 2: If user is PhD and MSc already registered, block PhD registration
             if (presenterDegree == User.Degree.PhD && existingMsc) {
                 String errorMsg = "PhD cannot register - slot already has MSc presenters";
-                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                databaseLoggerService.logAction("WARN", "SLOT_REGISTRATION_FAILED", errorMsg, presenterUsername,
                     String.format("slotId=%s,reason=MSC_BLOCKS_PHD,mscCount=%d", slotId,
                         allActiveRegistrations.stream().filter(r -> r.getDegree() == User.Degree.MSc).count()));
                 return new PresenterSlotRegistrationResponse(false, "Cannot register as PhD - slot has MSc presenters. Join waiting list instead.", "PHD_BLOCKED_BY_MSC");
@@ -355,7 +355,7 @@ public class PresenterHomeService {
             if (slotDate != null && slotDate.isBefore(today)) {
                 String errorMsg = String.format("Cannot register for past slot %d (date: %s, today: %s)", slotId, slotDate, today);
                 logger.warn(errorMsg);
-                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername,
+                databaseLoggerService.logAction("WARN", "SLOT_REGISTRATION_FAILED", errorMsg, presenterUsername,
                     String.format("slotId=%s,reason=SLOT_DATE_PASSED,slotDate=%s,today=%s", slotId, slotDate, today));
                 return new PresenterSlotRegistrationResponse(false, "Cannot register for slots in the past", "SLOT_DATE_PASSED");
             }
@@ -374,12 +374,12 @@ public class PresenterHomeService {
             
             if (projectedUsage > capacity) {
                 updateSlotStatus(slot, SlotState.FULL);
-                String errorMsg = String.format("Slot is already full (capacity: %d, effective usage: %d, your weight: %d)", 
+                String errorMsg = String.format("Slot is already full (capacity: %d, effective usage: %d, your weight: %d)",
                         capacity, effectiveUsage, newRegistrationWeight);
-                logger.warn("Slot {} is full - capacity: {}, effective usage: {}, projected: {}", 
+                logger.warn("Slot {} is full - capacity: {}, effective usage: {}, projected: {}",
                         slotId, capacity, effectiveUsage, projectedUsage);
-                databaseLoggerService.logError("SLOT_REGISTRATION_FAILED", errorMsg, null, presenterUsername, 
-                    String.format("slotId=%s,reason=SLOT_FULL,capacity=%d,effectiveUsage=%d,projectedUsage=%d,degree=%s", 
+                databaseLoggerService.logAction("WARN", "SLOT_REGISTRATION_FAILED", errorMsg, presenterUsername,
+                    String.format("slotId=%s,reason=SLOT_FULL,capacity=%d,effectiveUsage=%d,projectedUsage=%d,degree=%s",
                             slotId, capacity, effectiveUsage, projectedUsage, presenterDegree));
                 return new PresenterSlotRegistrationResponse(false, "Slot is already full", "SLOT_FULL");
             }
@@ -1320,7 +1320,7 @@ public class PresenterHomeService {
                 String errorMsg = String.format("Attendance session has already ended at %s. You cannot re-open attendance for this slot.", closedAt);
                 logger.warn("Presenter {} tried to re-open attendance for slot {} but session {} is already closed",
                     presenterUsername, slotId, closedSession.getSessionId());
-                databaseLoggerService.logError("ATTENDANCE_REOPEN_BLOCKED", errorMsg, null, presenterUsername,
+                databaseLoggerService.logAction("WARN", "ATTENDANCE_REOPEN_BLOCKED", errorMsg, presenterUsername,
                     String.format("slotId=%s,closedSessionId=%s", slotId, closedSession.getSessionId()));
                 return new PresenterOpenAttendanceResponse(false, errorMsg, "SESSION_CLOSED", null, null, null, null, null);
             }
@@ -1361,7 +1361,7 @@ public class PresenterHomeService {
                 // BLOCK re-opening - attendance window has closed
                 String errorMsg = String.format("Attendance session has already ended at %s. You cannot re-open attendance for this slot.",
                     DATE_TIME_FORMAT.format(sessionClosesAt));
-                databaseLoggerService.logError("ATTENDANCE_REOPEN_BLOCKED", errorMsg, null, presenterUsername,
+                databaseLoggerService.logAction("WARN", "ATTENDANCE_REOPEN_BLOCKED", errorMsg, presenterUsername,
                     String.format("slotId=%s,sessionId=%s,closedAt=%s", slotId, thisPresenterOpenSession.getSessionId(), sessionClosesAt));
                 return new PresenterOpenAttendanceResponse(false, errorMsg, "SESSION_CLOSED", null, null, null, null, null);
             } else {
@@ -1421,7 +1421,7 @@ public class PresenterHomeService {
             String errorMsg = String.format("Another presenter (%s) has an active session for this time slot. Please wait for that session to end before opening a new one.", otherPresenterName);
             logger.warn("Presenter {} cannot open session for slot {} - another presenter has an open session {}",
                 presenterUsername, slotId, otherPresenterOpenSession.getSessionId());
-            databaseLoggerService.logError("ATTENDANCE_OPEN_BLOCKED", errorMsg, null, presenterUsername,
+            databaseLoggerService.logAction("WARN", "ATTENDANCE_OPEN_BLOCKED", errorMsg, presenterUsername,
                 String.format("slotId=%s,otherSessionId=%s,otherPresenter=%s", slotId,
                     otherPresenterOpenSession.getSessionId(), otherSeminar.map(Seminar::getPresenterUsername).orElse("unknown")));
             return new PresenterOpenAttendanceResponse(false, errorMsg, "IN_PROGRESS", null, null, null, null, null);

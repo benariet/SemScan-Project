@@ -135,11 +135,10 @@ public class GlobalExceptionHandler {
         });
         
         String errorMessage = errorMessages.length() > 0 ? errorMessages.toString() : "Validation failed";
-        logger.error("Validation error - Correlation ID: {}, Path: {}, Errors: {}", correlationId, request.getRequestURI(), errorMessage);
-        databaseLoggerService.logError(
-                "VALIDATION_ERROR",
+        logger.warn("Validation error - Correlation ID: {}, Path: {}, Errors: {}", correlationId, request.getRequestURI(), errorMessage);
+        // User input validation failures are expected - log as WARN, not ERROR
+        databaseLoggerService.logAction("WARN", "VALIDATION_ERROR",
                 "Request validation failed: " + errorMessage,
-                ex,
                 bguUsername,
                 String.format("correlationId=%s,path=%s", correlationId, request.getRequestURI()));
         
@@ -169,11 +168,10 @@ public class GlobalExceptionHandler {
             errorMessage = "Invalid JSON format in request body.";
         }
         
-        logger.error("Invalid request body - Correlation ID: {}, Path: {}, Error: {}", correlationId, request.getRequestURI(), ex.getMessage());
-        databaseLoggerService.logError(
-                "INVALID_REQUEST_BODY",
+        logger.warn("Invalid request body - Correlation ID: {}, Path: {}, Error: {}", correlationId, request.getRequestURI(), ex.getMessage());
+        // Malformed JSON is a client error - log as WARN, not ERROR
+        databaseLoggerService.logAction("WARN", "INVALID_REQUEST_BODY",
                 "Request body validation failed: " + (ex.getMessage() != null ? ex.getMessage() : "Unknown error"),
-                ex,
                 bguUsername,
                 String.format("correlationId=%s,path=%s", correlationId, request.getRequestURI()));
         
