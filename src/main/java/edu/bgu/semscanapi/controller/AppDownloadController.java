@@ -3,8 +3,10 @@ package edu.bgu.semscanapi.controller;
 import edu.bgu.semscanapi.config.GlobalConfig;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.UserRepository;
+import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.MailService;
 import edu.bgu.semscanapi.util.LoggerUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
@@ -42,22 +44,29 @@ public class AppDownloadController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
+
     /**
      * Serve the APK file from server filesystem
      * GET /app/download/semscan.apk
      * APK file location: /opt/semscan-api/semscan.apk
      */
     @GetMapping("/app/download/semscan.apk")
-    public ResponseEntity<?> downloadApk() {
+    public ResponseEntity<?> downloadApk(HttpServletRequest request) {
         LoggerUtil.generateAndSetCorrelationId();
         String endpoint = "/app/download/semscan.apk";
         LoggerUtil.logApiRequest(logger, "GET", endpoint, null);
+
+        // Extract client info for logging
+        String clientIp = getClientIp(request);
+        String userAgent = request.getHeader("User-Agent");
 
         try {
             // APK file location on server
             Path apkPath = Paths.get("/opt/semscan-api/semscan.apk");
             File apkFile = apkPath.toFile();
-            
+
             if (!apkFile.exists() || !apkFile.isFile()) {
                 logger.warn("APK file not found at: {}", apkPath.toAbsolutePath());
                 LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.NOT_FOUND.value(), "APK file not found");
@@ -90,11 +99,16 @@ public class AppDownloadController {
 
             Resource resource = new FileSystemResource(apkFile);
             long fileSize = Files.size(apkPath);
-            
+
             logger.info("Serving APK file: {} ({} bytes)", apkPath.toAbsolutePath(), fileSize);
-            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(), 
+            LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(),
                     String.format("APK file served (%d bytes)", fileSize));
-            
+
+            // Log download to database
+            String device = parseUserAgent(userAgent);
+            String payload = String.format("ip=%s, device=%s", clientIp, device);
+            databaseLoggerService.logAction("INFO", "APK_DOWNLOAD", "APK downloaded", null, payload);
+
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"semscan.apk\"")
@@ -355,6 +369,91 @@ public class AppDownloadController {
                 "4. Follow the installation prompts\n\n" +
                 "If you have any questions or need assistance, please contact the system administrator.\n\n" +
                 "This is an automated message from SemScan Attendance System";
+    }
+
+    /**
+     * Get client IP address, considering proxy headers
+     */
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            // X-Forwarded-For can contain multiple IPs, take the first one
+            return ip.split(",")[0].trim();
+        }
+        ip = request.getHeader("X-Real-IP");
+        if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+            return ip;
+        }
+        return request.getRemoteAddr();
+    }
+
+    /**
+     * Parse User-Agent into readable format: "Samsung SM-G991B, Android 10, Chrome 143"
+     */
+    private String parseUserAgent(String userAgent) {
+        if (userAgent == null || userAgent.isBlank()) {
+            return "Unknown";
+        }
+
+        StringBuilder result = new StringBuilder();
+
+        // Detect OS and device
+        if (userAgent.contains("Android")) {
+            // Try to extract device model: "Android 10; SM-G991B" or "Android 10; K"
+            // Pattern: (Linux; Android VERSION; DEVICE)
+            int startIdx = userAgent.indexOf("Android");
+            if (startIdx >= 0) {
+                int endIdx = userAgent.indexOf(")", startIdx);
+                if (endIdx > startIdx) {
+                    String androidPart = userAgent.substring(startIdx, endIdx); // "Android 10; SM-G991B"
+                    String[] parts = androidPart.split(";");
+
+                    // First part: "Android 10"
+                    String version = parts[0].replace("Android", "").trim();
+
+                    // Second part: device model (if not "K" which means hidden)
+                    String device = null;
+                    if (parts.length > 1) {
+                        device = parts[1].trim();
+                        if (device.equals("K") || device.isEmpty()) {
+                            device = null; // Hidden by browser privacy
+                        }
+                    }
+
+                    if (device != null) {
+                        result.append(device).append(", ");
+                    }
+                    result.append("Android ").append(version);
+                }
+            }
+        } else if (userAgent.contains("iPhone")) {
+            result.append("iPhone");
+        } else if (userAgent.contains("iPad")) {
+            result.append("iPad");
+        } else if (userAgent.contains("Windows")) {
+            result.append("Windows PC");
+        } else if (userAgent.contains("Macintosh")) {
+            result.append("Mac");
+        } else if (userAgent.contains("Linux")) {
+            result.append("Linux PC");
+        } else {
+            result.append("Unknown");
+        }
+
+        // Detect browser
+        if (userAgent.contains("Chrome/")) {
+            int idx = userAgent.indexOf("Chrome/");
+            String version = userAgent.substring(idx + 7).split("[. ]")[0];
+            result.append(", Chrome ").append(version);
+        } else if (userAgent.contains("Safari/") && !userAgent.contains("Chrome")) {
+            result.append(", Safari");
+        } else if (userAgent.contains("Firefox/")) {
+            int idx = userAgent.indexOf("Firefox/");
+            String version = userAgent.substring(idx + 8).split("[. ]")[0];
+            result.append(", Firefox ").append(version);
+        }
+
+        return result.toString();
     }
 }
 
