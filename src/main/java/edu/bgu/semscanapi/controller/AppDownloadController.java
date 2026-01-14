@@ -402,29 +402,34 @@ public class AppDownloadController {
             // Try to extract device model: "Android 10; SM-G991B" or "Android 10; K"
             // Pattern: (Linux; Android VERSION; DEVICE)
             int startIdx = userAgent.indexOf("Android");
-            if (startIdx >= 0) {
-                int endIdx = userAgent.indexOf(")", startIdx);
-                if (endIdx > startIdx) {
-                    String androidPart = userAgent.substring(startIdx, endIdx); // "Android 10; SM-G991B"
-                    String[] parts = androidPart.split(";");
+            int endIdx = userAgent.indexOf(")", startIdx);
 
-                    // First part: "Android 10"
-                    String version = parts[0].replace("Android", "").trim();
+            if (startIdx >= 0 && endIdx > startIdx) {
+                String androidPart = userAgent.substring(startIdx, endIdx); // "Android 10; SM-G991B"
+                String[] parts = androidPart.split(";");
 
-                    // Second part: device model (if not "K" which means hidden)
-                    String device = null;
-                    if (parts.length > 1) {
-                        device = parts[1].trim();
-                        if (device.equals("K") || device.isEmpty()) {
-                            device = null; // Hidden by browser privacy
-                        }
+                // First part: "Android 10"
+                String version = parts[0].replace("Android", "").trim();
+
+                // Second part: device model (if not "K" which means hidden)
+                String device = null;
+                if (parts.length > 1) {
+                    device = parts[1].trim();
+                    if (device.equals("K") || device.isEmpty()) {
+                        device = null; // Hidden by browser privacy
                     }
-
-                    if (device != null) {
-                        result.append(device).append(", ");
-                    }
-                    result.append("Android ").append(version);
                 }
+
+                if (device != null) {
+                    result.append(device).append(", ");
+                }
+                result.append("Android");
+                if (!version.isEmpty()) {
+                    result.append(" ").append(version);
+                }
+            } else {
+                // Fallback if parsing fails
+                result.append("Android");
             }
         } else if (userAgent.contains("iPhone")) {
             result.append("iPhone");
@@ -443,17 +448,23 @@ public class AppDownloadController {
         // Detect browser
         if (userAgent.contains("Chrome/")) {
             int idx = userAgent.indexOf("Chrome/");
-            String version = userAgent.substring(idx + 7).split("[. ]")[0];
-            result.append(", Chrome ").append(version);
+            String afterChrome = userAgent.substring(idx + 7);
+            String[] versionParts = afterChrome.split("[. ]");
+            if (versionParts.length > 0 && !versionParts[0].isEmpty()) {
+                result.append(", Chrome ").append(versionParts[0]);
+            }
         } else if (userAgent.contains("Safari/") && !userAgent.contains("Chrome")) {
             result.append(", Safari");
         } else if (userAgent.contains("Firefox/")) {
             int idx = userAgent.indexOf("Firefox/");
-            String version = userAgent.substring(idx + 8).split("[. ]")[0];
-            result.append(", Firefox ").append(version);
+            String afterFirefox = userAgent.substring(idx + 8);
+            String[] versionParts = afterFirefox.split("[. ]");
+            if (versionParts.length > 0 && !versionParts[0].isEmpty()) {
+                result.append(", Firefox ").append(versionParts[0]);
+            }
         }
 
-        return result.toString();
+        return result.length() > 0 ? result.toString() : "Unknown";
     }
 }
 
