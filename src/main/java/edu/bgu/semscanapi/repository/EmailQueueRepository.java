@@ -1,6 +1,7 @@
 package edu.bgu.semscanapi.repository;
 
 import edu.bgu.semscanapi.entity.EmailQueue;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -21,9 +22,10 @@ public interface EmailQueueRepository extends JpaRepository<EmailQueue, Long> {
 
     /**
      * Find pending emails ready to send with limit (for batch processing)
+     * Use Pageable for limit: PageRequest.of(0, limit)
      */
-    @Query(value = "SELECT * FROM email_queue WHERE status = 'PENDING' AND scheduled_at <= :now ORDER BY scheduled_at ASC LIMIT :limit", nativeQuery = true)
-    List<EmailQueue> findPendingEmailsReadyToSendWithLimit(@Param("now") LocalDateTime now, @Param("limit") int limit);
+    @Query("SELECT e FROM EmailQueue e WHERE e.status = 'PENDING' AND e.scheduledAt <= :now ORDER BY e.scheduledAt ASC")
+    List<EmailQueue> findPendingEmailsReadyToSendWithLimit(@Param("now") LocalDateTime now, Pageable pageable);
 
     /**
      * Find all emails for a specific registration

@@ -8,6 +8,7 @@ import edu.bgu.semscanapi.repository.EmailQueueRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -228,8 +229,9 @@ public class EmailQueueService {
                 null, null);
         }
 
-        // Get pending emails ready to send (limit to 50 per batch)
-        List<EmailQueue> pendingEmails = emailQueueRepository.findPendingEmailsReadyToSendWithLimit(now, globalConfig.getEmailQueueBatchSize());
+        // Get pending emails ready to send (limit to batch size, default 50)
+        List<EmailQueue> pendingEmails = emailQueueRepository.findPendingEmailsReadyToSendWithLimit(
+                now, PageRequest.of(0, globalConfig.getEmailQueueBatchSize()));
 
         if (pendingEmails.isEmpty()) {
             return 0;
