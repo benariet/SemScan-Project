@@ -36,13 +36,13 @@ public class FirebaseConfig {
 
         try {
             if (FirebaseApp.getApps().isEmpty()) {
-                FileInputStream serviceAccount = new FileInputStream(serviceAccountKeyPath);
+                try (FileInputStream serviceAccount = new FileInputStream(serviceAccountKeyPath)) {
+                    FirebaseOptions options = FirebaseOptions.builder()
+                            .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                            .build();
 
-                FirebaseOptions options = FirebaseOptions.builder()
-                        .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                        .build();
-
-                FirebaseApp.initializeApp(options);
+                    FirebaseApp.initializeApp(options);
+                }
                 initialized = true;
                 logger.info("Firebase initialized successfully for push notifications");
             } else {
