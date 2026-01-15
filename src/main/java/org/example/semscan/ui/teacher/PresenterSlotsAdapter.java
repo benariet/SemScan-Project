@@ -350,27 +350,42 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
                     return;
                 }
                 
-                // If slot is at capacity (approved + pending) and user is not registered, offer waiting list via toast
-                // Use slotAtCapacity for consistency with button visibility logic
-                if (slotAtCapacity && !slot.onWaitingList) {
+                // Card click should use SAME conditions as button visibility (line 379):
+                // Button hidden when: !canRegister || alreadyRegistered || slotAtCapacity || userHasApprovedRegistration || onWaitingList
+                // alreadyRegistered is already checked above (isUserRegisteredInThisSlot)
+
+                // Check if user can register (same logic as button visibility)
+                boolean canRegisterViaCardClick = slot.canRegister && !slotAtCapacity && !userHasApprovedRegistration && !slot.onWaitingList;
+
+                if (canRegisterViaCardClick) {
+                    // Allow registration - all conditions match button visibility
+                    if (listener != null) {
+                        listener.onSlotClicked(slot, false);
+                        listener.onRegisterClicked(slot);
+                    }
+                } else if (slotAtCapacity && !slot.onWaitingList) {
+                    // Slot is full, offer waiting list
                     Logger.i(Logger.TAG_SLOT_DETAILS, "User clicked full slot=" + (slot != null ? slot.slotId : "null") +
                         ", showing waiting list offer toast");
                     android.widget.Toast.makeText(context,
                         context.getString(R.string.presenter_slot_full_offer_waiting_list),
                         android.widget.Toast.LENGTH_LONG).show();
-                    // Notify listener for server logging
                     if (listener != null) {
                         listener.onSlotClicked(slot, true);
                     }
-                } else if (!slotAtCapacity) {
-                    // Allow registration attempt only if slot has available capacity (approved + pending < capacity)
-                    if (listener != null) {
-                        listener.onSlotClicked(slot, false);
-                        listener.onRegisterClicked(slot);
+                } else {
+                    // User can't register for other reasons (canRegister=false, hasApprovedRegistration, etc.)
+                    // Show reason from API if available
+                    if (!slot.canRegister && slot.disableReason != null && !slot.disableReason.isEmpty()) {
+                        android.widget.Toast.makeText(context, slot.disableReason, android.widget.Toast.LENGTH_LONG).show();
+                    } else if (userHasApprovedRegistration) {
+                        android.widget.Toast.makeText(context,
+                            context.getString(R.string.error_already_have_approved_registration),
+                            android.widget.Toast.LENGTH_LONG).show();
                     }
-                } else if (listener != null) {
-                    // Log other slot clicks (e.g., user is on waiting list but slot is full)
-                    listener.onSlotClicked(slot, slotAtCapacity);
+                    if (listener != null) {
+                        listener.onSlotClicked(slot, slotAtCapacity);
+                    }
                 }
             });
 

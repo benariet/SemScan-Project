@@ -13,8 +13,14 @@
     <string name="student_home_title">Participant Dashboard</string>
     <string name="scan_attendance">Scan Attendance</string>
     <string name="manual_attendance_request">Manual Attendance Request</string>
+    <string name="attendance_history">Attendance History</string>
     <string name="im_absent_reason">I\'m Absent - Reason</string>
     <string name="settings">Settings</string>
+    
+    <!-- Attendance History -->
+    <string name="attendance_history_empty">No attendance records found</string>
+    <string name="attendance_history_total_label">Total:</string>
+    <string name="attendance_history_total">%d sessions</string>
     
     <!-- Presenter Home -->
     <string name="presenter_home_title">Presenter Dashboard</string>
@@ -150,6 +156,7 @@
     <string name="error_conflict">This action conflicts with existing data. Please refresh and try again.</string>
     <string name="error_validation_failed">The information you provided is invalid. Please check and try again.</string>
     <string name="error_too_many_requests">Too many requests. Please wait a moment and try again.</string>
+    <string name="error_already_have_approved_registration">You already have an approved registration. You can only present once per degree.</string>
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>
