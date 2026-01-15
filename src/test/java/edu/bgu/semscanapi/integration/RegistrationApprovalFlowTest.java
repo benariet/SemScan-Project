@@ -3,6 +3,8 @@ package edu.bgu.semscanapi.integration;
 import edu.bgu.semscanapi.dto.*;
 import edu.bgu.semscanapi.entity.*;
 import org.junit.jupiter.api.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -23,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class RegistrationApprovalFlowTest extends BaseIntegrationTest {
 
+    private static final Logger logger = LoggerFactory.getLogger(RegistrationApprovalFlowTest.class);
+
     private static Long availableSlotId;
     private static String presenterUsername;
 
@@ -30,12 +34,12 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
     @Order(1)
     @DisplayName("REGISTRATION FLOW STEP 1: List all available slots")
     void step1_ListAvailableSlots() {
-        System.out.println("\n========== FLOW TEST: Registration & Approval ==========\n");
+        logger.info("\n========== FLOW TEST: Registration & Approval ==========\n");
 
         List<SeminarSlot> allSlots = seminarSlotRepository
                 .findBySlotDateGreaterThanEqualOrderBySlotDateAscStartTimeAsc(LocalDate.now());
 
-        System.out.println("Future slots: " + allSlots.size());
+        logger.info("Future slots: {}", allSlots.size());
 
         // Categorize slots
         long freeSlots = allSlots.stream()
@@ -48,9 +52,9 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
                 .filter(s -> s.getStatus() == SeminarSlot.SlotStatus.FULL)
                 .count();
 
-        System.out.println("  FREE: " + freeSlots);
-        System.out.println("  SEMI (partially filled): " + semiSlots);
-        System.out.println("  FULL: " + fullSlots);
+        logger.info("  FREE: {}", freeSlots);
+        logger.info("  SEMI (partially filled): {}", semiSlots);
+        logger.info("  FULL: {}", fullSlots);
 
         // Find a slot that's not full
         Optional<SeminarSlot> available = allSlots.stream()
@@ -59,10 +63,10 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
 
         if (available.isPresent()) {
             availableSlotId = available.get().getSlotId();
-            System.out.println("\n✓ Found available slot: " + availableSlotId);
-            System.out.println("  Date: " + available.get().getSlotDate());
-            System.out.println("  Time: " + available.get().getStartTime() + " - " + available.get().getEndTime());
-            System.out.println("  Capacity: " + available.get().getCapacity());
+            logger.info("\n✓ Found available slot: {}", availableSlotId);
+            logger.info("  Date: {}", available.get().getSlotDate());
+            logger.info("  Time: {} - {}", available.get().getStartTime(), available.get().getEndTime());
+            logger.info("  Capacity: {}", available.get().getCapacity());
         }
     }
 
@@ -71,27 +75,27 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
     @DisplayName("REGISTRATION FLOW STEP 2: Check slot registrations")
     void step2_CheckSlotRegistrations() {
         if (availableSlotId == null) {
-            System.out.println("⚠ Skipping - no available slot");
+            logger.info("⚠ Skipping - no available slot");
             return;
         }
 
-        System.out.println("\n--- Slot Registrations ---");
+        logger.info("\n--- Slot Registrations ---");
 
         List<SeminarSlotRegistration> registrations = registrationRepository.findByIdSlotId(availableSlotId);
 
-        System.out.println("Slot " + availableSlotId + " has " + registrations.size() + " registrations:");
+        logger.info("Slot {} has {} registrations:", availableSlotId, registrations.size());
 
         for (SeminarSlotRegistration reg : registrations) {
             Optional<User> userOpt = userRepository.findByBguUsernameIgnoreCase(reg.getPresenterUsername());
             String name = userOpt.map(u -> u.getFirstName() + " " + u.getLastName())
                     .orElse(reg.getPresenterUsername());
 
-            System.out.println("  - " + name);
-            System.out.println("    Status: " + reg.getApprovalStatus());
-            System.out.println("    Degree: " + reg.getDegree());
-            System.out.println("    Topic: " + (reg.getTopic() != null ? reg.getTopic() : "N/A"));
+            logger.info("  - {}", name);
+            logger.info("    Status: {}", reg.getApprovalStatus());
+            logger.info("    Degree: {}", reg.getDegree());
+            logger.info("    Topic: {}", reg.getTopic() != null ? reg.getTopic() : "N/A");
             if (reg.getSupervisorEmail() != null) {
-                System.out.println("    Supervisor: " + reg.getSupervisorEmail());
+                logger.info("    Supervisor: {}", reg.getSupervisorEmail());
             }
         }
     }
@@ -100,14 +104,14 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
     @Order(3)
     @DisplayName("REGISTRATION FLOW STEP 3: Find presenter eligible to register")
     void step3_FindEligiblePresenter() {
-        System.out.println("\n--- Finding Eligible Presenter ---");
+        logger.info("\n--- Finding Eligible Presenter ---");
 
         // Find presenters who are not already registered for a slot
         List<User> presenters = userRepository.findAll().stream()
                 .filter(u -> u.getIsPresenter() != null && u.getIsPresenter())
                 .toList();
 
-        System.out.println("Total presenters: " + presenters.size());
+        logger.info("Total presenters: {}", presenters.size());
 
         for (User presenter : presenters) {
             List<SeminarSlotRegistration> theirRegistrations =
@@ -119,16 +123,16 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
 
             if (!hasApproved) {
                 presenterUsername = presenter.getBguUsername();
-                System.out.println("✓ Found presenter without approved slot: " + presenterUsername);
-                System.out.println("  Name: " + presenter.getFirstName() + " " + presenter.getLastName());
-                System.out.println("  Degree: " + presenter.getDegree());
-                System.out.println("  Current registrations: " + theirRegistrations.size());
+                logger.info("✓ Found presenter without approved slot: {}", presenterUsername);
+                logger.info("  Name: {} {}", presenter.getFirstName(), presenter.getLastName());
+                logger.info("  Degree: {}", presenter.getDegree());
+                logger.info("  Current registrations: {}", theirRegistrations.size());
                 break;
             }
         }
 
         if (presenterUsername == null) {
-            System.out.println("○ All presenters already have approved slots");
+            logger.info("○ All presenters already have approved slots");
             // Just use any presenter for viewing
             if (!presenters.isEmpty()) {
                 presenterUsername = presenters.get(0).getBguUsername();
@@ -141,28 +145,28 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
     @DisplayName("REGISTRATION FLOW STEP 4: View presenter's current registrations")
     void step4_ViewPresenterRegistrations() {
         if (presenterUsername == null) {
-            System.out.println("⚠ Skipping - no presenter found");
+            logger.info("⚠ Skipping - no presenter found");
             return;
         }
 
-        System.out.println("\n--- Presenter's Registrations ---");
+        logger.info("\n--- Presenter's Registrations ---");
 
         List<SeminarSlotRegistration> registrations =
                 registrationRepository.findByIdPresenterUsername(presenterUsername);
 
-        System.out.println("Presenter " + presenterUsername + " has " + registrations.size() + " registrations:");
+        logger.info("Presenter {} has {} registrations:", presenterUsername, registrations.size());
 
         for (SeminarSlotRegistration reg : registrations) {
             Optional<SeminarSlot> slotOpt = seminarSlotRepository.findById(reg.getSlotId());
             String slotInfo = slotOpt.map(s -> s.getSlotDate() + " " + s.getStartTime())
                     .orElse("Unknown slot");
 
-            System.out.println("  - Slot " + reg.getSlotId() + " (" + slotInfo + ")");
-            System.out.println("    Status: " + reg.getApprovalStatus());
-            System.out.println("    Topic: " + (reg.getTopic() != null ? reg.getTopic() : "N/A"));
+            logger.info("  - Slot {} ({})", reg.getSlotId(), slotInfo);
+            logger.info("    Status: {}", reg.getApprovalStatus());
+            logger.info("    Topic: {}", reg.getTopic() != null ? reg.getTopic() : "N/A");
 
             if (reg.getApprovalStatus() == ApprovalStatus.PENDING) {
-                System.out.println("    Token expires: " + reg.getApprovalTokenExpiresAt());
+                logger.info("    Token expires: {}", reg.getApprovalTokenExpiresAt());
             }
         }
     }
@@ -171,7 +175,7 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
     @Order(5)
     @DisplayName("REGISTRATION FLOW STEP 5: Analyze approval workflow")
     void step5_AnalyzeApprovalWorkflow() {
-        System.out.println("\n--- Approval Workflow Analysis ---");
+        logger.info("\n--- Approval Workflow Analysis ---");
 
         List<SeminarSlotRegistration> allRegistrations = registrationRepository.findAll();
 
@@ -189,11 +193,11 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
                 .filter(r -> r.getApprovalStatus() == ApprovalStatus.EXPIRED)
                 .count();
 
-        System.out.println("Registration status distribution:");
-        System.out.println("  PENDING: " + pending);
-        System.out.println("  APPROVED: " + approved);
-        System.out.println("  DECLINED: " + declined);
-        System.out.println("  EXPIRED: " + expired);
+        logger.info("Registration status distribution:");
+        logger.info("  PENDING: {}", pending);
+        logger.info("  APPROVED: {}", approved);
+        logger.info("  DECLINED: {}", declined);
+        logger.info("  EXPIRED: {}", expired);
 
         // Check for pending registrations with expired tokens
         long expiredTokens = allRegistrations.stream()
@@ -203,7 +207,7 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
                 .count();
 
         if (expiredTokens > 0) {
-            System.out.println("\n⚠ Found " + expiredTokens + " PENDING registrations with expired tokens");
+            logger.info("\n⚠ Found {} PENDING registrations with expired tokens", expiredTokens);
         }
     }
 
@@ -211,7 +215,7 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
     @Order(6)
     @DisplayName("REGISTRATION FLOW STEP 6: Verify degree-based capacity rules")
     void step6_VerifyCapacityRules() {
-        System.out.println("\n--- Capacity Rules Verification ---");
+        logger.info("\n--- Capacity Rules Verification ---");
 
         List<SeminarSlot> slots = seminarSlotRepository.findAll();
 
@@ -227,10 +231,10 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
                     .filter(r -> r.getDegree() == User.Degree.PhD)
                     .count();
 
-            System.out.println("Slot " + slot.getSlotId() + " (capacity: " + slot.getCapacity() + "):");
-            System.out.println("  MSc approved: " + mscApproved);
-            System.out.println("  PhD approved: " + phdApproved);
-            System.out.println("  Status: " + slot.getStatus());
+            logger.info("Slot {} (capacity: {}):", slot.getSlotId(), slot.getCapacity());
+            logger.info("  MSc approved: {}", mscApproved);
+            logger.info("  PhD approved: {}", phdApproved);
+            logger.info("  Status: {}", slot.getStatus());
         }
     }
 
@@ -239,17 +243,17 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
     @DisplayName("REGISTRATION FLOW STEP 7: Test registration validation")
     void step7_TestRegistrationValidation() {
         if (presenterUsername == null || availableSlotId == null) {
-            System.out.println("⚠ Skipping - no presenter or slot");
+            logger.info("⚠ Skipping - no presenter or slot");
             return;
         }
 
-        System.out.println("\n--- Registration Validation Test ---");
+        logger.info("\n--- Registration Validation Test ---");
 
         // Check if already registered
         boolean alreadyRegistered = registrationRepository
                 .existsByIdSlotIdAndIdPresenterUsername(availableSlotId, presenterUsername);
 
-        System.out.println("Already registered for slot " + availableSlotId + ": " + alreadyRegistered);
+        logger.info("Already registered for slot {}: {}", availableSlotId, alreadyRegistered);
 
         // Check if presenter has any approved slot
         List<SeminarSlotRegistration> presenterRegs =
@@ -257,14 +261,14 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
         boolean hasApproved = presenterRegs.stream()
                 .anyMatch(r -> r.getApprovalStatus() == ApprovalStatus.APPROVED);
 
-        System.out.println("Has approved slot: " + hasApproved);
+        logger.info("Has approved slot: {}", hasApproved);
 
         if (hasApproved) {
-            System.out.println("→ Presenter already has an approved slot");
+            logger.info("→ Presenter already has an approved slot");
         } else if (alreadyRegistered) {
-            System.out.println("→ Presenter already registered for this slot (pending)");
+            logger.info("→ Presenter already registered for this slot (pending)");
         } else {
-            System.out.println("✓ Presenter could register for this slot");
+            logger.info("✓ Presenter could register for this slot");
         }
     }
 
@@ -272,9 +276,9 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
     @Order(8)
     @DisplayName("REGISTRATION FLOW STEP 8: Summary")
     void step8_Summary() {
-        System.out.println("\n========== REGISTRATION FLOW SUMMARY ==========");
-        System.out.println("Available slot tested: " + (availableSlotId != null ? availableSlotId : "N/A"));
-        System.out.println("Presenter tested: " + (presenterUsername != null ? presenterUsername : "N/A"));
+        logger.info("\n========== REGISTRATION FLOW SUMMARY ==========");
+        logger.info("Available slot tested: {}", availableSlotId != null ? availableSlotId : "N/A");
+        logger.info("Presenter tested: {}", presenterUsername != null ? presenterUsername : "N/A");
 
         // Overall stats
         long totalRegistrations = registrationRepository.count();
@@ -283,12 +287,12 @@ class RegistrationApprovalFlowTest extends BaseIntegrationTest {
                 .filter(u -> u.getIsPresenter() != null && u.getIsPresenter())
                 .count();
 
-        System.out.println("\nDatabase stats:");
-        System.out.println("  Total slots: " + totalSlots);
-        System.out.println("  Total presenters: " + totalPresenters);
-        System.out.println("  Total registrations: " + totalRegistrations);
+        logger.info("\nDatabase stats:");
+        logger.info("  Total slots: {}", totalSlots);
+        logger.info("  Total presenters: {}", totalPresenters);
+        logger.info("  Total registrations: {}", totalRegistrations);
 
-        System.out.println("\n✓ Registration flow test completed");
-        System.out.println("===============================================\n");
+        logger.info("\n✓ Registration flow test completed");
+        logger.info("===============================================\n");
     }
 }

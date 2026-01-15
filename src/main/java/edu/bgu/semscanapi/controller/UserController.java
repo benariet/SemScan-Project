@@ -307,7 +307,7 @@ public class UserController {
     @PostMapping("/{username}/fcm-token")
     public ResponseEntity<?> registerFcmToken(
             @PathVariable String username,
-            @RequestBody FcmTokenRequest request) {
+            @Valid @RequestBody FcmTokenRequest request) {
         LoggerUtil.generateAndSetCorrelationId();
         String endpoint = "/api/v1/users/" + username + "/fcm-token";
         LoggerUtil.logApiRequest(logger, "POST", endpoint, request.toString());

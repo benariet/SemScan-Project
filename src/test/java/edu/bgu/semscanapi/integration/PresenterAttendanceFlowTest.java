@@ -4,12 +4,11 @@ import edu.bgu.semscanapi.dto.*;
 import edu.bgu.semscanapi.entity.*;
 import edu.bgu.semscanapi.service.AttendanceService;
 import org.junit.jupiter.api.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class PresenterAttendanceFlowTest extends BaseIntegrationTest {
 
+    private static final Logger logger = LoggerFactory.getLogger(PresenterAttendanceFlowTest.class);
+
     // Shared state across tests in this flow
     private static String testPresenterUsername;
     private static Long testSlotId;
@@ -39,17 +40,17 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
     @Order(1)
     @DisplayName("FLOW STEP 1: Find presenter with approved slot")
     void step1_FindPresenterWithApprovedSlot() {
-        System.out.println("\n========== FLOW TEST: Presenter Attendance Flow ==========\n");
+        logger.info("\n========== FLOW TEST: Presenter Attendance Flow ==========\n");
 
         // Find slots with approved registrations
         List<SeminarSlotRegistration> approvedRegistrations = registrationRepository.findAll().stream()
                 .filter(r -> r.getApprovalStatus() == ApprovalStatus.APPROVED)
                 .toList();
 
-        System.out.println("Found " + approvedRegistrations.size() + " approved registrations");
+        logger.info("Found {} approved registrations", approvedRegistrations.size());
 
         if (approvedRegistrations.isEmpty()) {
-            System.out.println("⚠ No approved registrations found - skipping flow test");
+            logger.info("⚠ No approved registrations found - skipping flow test");
             return;
         }
 
@@ -61,11 +62,11 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
                 testSlotId = slot.getSlotId();
                 testPresenterUsername = reg.getPresenterUsername();
 
-                System.out.println("✓ Found presenter: " + testPresenterUsername);
-                System.out.println("  Slot ID: " + testSlotId);
-                System.out.println("  Date: " + slot.getSlotDate());
-                System.out.println("  Time: " + slot.getStartTime() + " - " + slot.getEndTime());
-                System.out.println("  Location: " + slot.getBuilding() + " " + slot.getRoom());
+                logger.info("✓ Found presenter: {}", testPresenterUsername);
+                logger.info("  Slot ID: {}", testSlotId);
+                logger.info("  Date: {}", slot.getSlotDate());
+                logger.info("  Time: {} - {}", slot.getStartTime(), slot.getEndTime());
+                logger.info("  Location: {} {}", slot.getBuilding(), slot.getRoom());
                 break;
             }
         }
@@ -79,7 +80,7 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("FLOW STEP 2: Get presenter home screen")
     void step2_GetPresenterHomeScreen() {
         if (testPresenterUsername == null) {
-            System.out.println("⚠ Skipping - no presenter found in step 1");
+            logger.info("⚠ Skipping - no presenter found in step 1");
             return;
         }
 
@@ -88,16 +89,16 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
         assertNotNull(home, "Should get presenter home response");
         assertNotNull(home.getPresenter(), "Should have presenter info");
 
-        System.out.println("\n--- Presenter Home Screen ---");
-        System.out.println("Presenter: " + home.getPresenter().getName());
-        System.out.println("Degree: " + home.getPresenter().getDegree());
-        System.out.println("My Slot: " + (home.getMySlot() != null ? "Assigned" : "None"));
-        System.out.println("Slot Catalog: " + home.getSlotCatalog().size() + " slots available");
+        logger.info("\n--- Presenter Home Screen ---");
+        logger.info("Presenter: {}", home.getPresenter().getName());
+        logger.info("Degree: {}", home.getPresenter().getDegree());
+        logger.info("My Slot: {}", home.getMySlot() != null ? "Assigned" : "None");
+        logger.info("Slot Catalog: {} slots available", home.getSlotCatalog().size());
 
         if (home.getMySlot() != null) {
-            System.out.println("  - Slot ID: " + home.getMySlot().getSlotId());
-            System.out.println("  - Date: " + home.getMySlot().getDate());
-            System.out.println("  - Time: " + home.getMySlot().getTimeRange());
+            logger.info("  - Slot ID: {}", home.getMySlot().getSlotId());
+            logger.info("  - Date: {}", home.getMySlot().getDate());
+            logger.info("  - Time: {}", home.getMySlot().getTimeRange());
         }
     }
 
@@ -106,7 +107,7 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("FLOW STEP 3: Check if session can be opened")
     void step3_CheckSessionOpenability() {
         if (testPresenterUsername == null || testSlotId == null) {
-            System.out.println("⚠ Skipping - no presenter/slot found");
+            logger.info("⚠ Skipping - no presenter/slot found");
             return;
         }
 
@@ -118,21 +119,21 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
         LocalDateTime slotStart = LocalDateTime.of(slot.getSlotDate(), slot.getStartTime());
         LocalDateTime slotEnd = LocalDateTime.of(slot.getSlotDate(), slot.getEndTime());
 
-        System.out.println("\n--- Session Open Check ---");
-        System.out.println("Current time: " + now);
-        System.out.println("Slot start: " + slotStart);
-        System.out.println("Slot end: " + slotEnd);
+        logger.info("\n--- Session Open Check ---");
+        logger.info("Current time: {}", now);
+        logger.info("Slot start: {}", slotStart);
+        logger.info("Slot end: {}", slotEnd);
 
         // Check existing open sessions
         List<Session> openSessions = sessionRepository.findOpenSessions();
-        System.out.println("Currently open sessions: " + openSessions.size());
+        logger.info("Currently open sessions: {}", openSessions.size());
 
         // Check if this slot already has a session
         if (slot.getLegacySessionId() != null) {
             Optional<Session> existingSession = sessionRepository.findById(slot.getLegacySessionId());
             if (existingSession.isPresent()) {
-                System.out.println("Slot already has session: " + existingSession.get().getSessionId() +
-                        " (status: " + existingSession.get().getStatus() + ")");
+                logger.info("Slot already has session: {} (status: {})",
+                        existingSession.get().getSessionId(), existingSession.get().getStatus());
                 testSessionId = existingSession.get().getSessionId();
             }
         }
@@ -143,34 +144,34 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("FLOW STEP 4: Attempt to open attendance")
     void step4_OpenAttendance() {
         if (testPresenterUsername == null || testSlotId == null) {
-            System.out.println("⚠ Skipping - no presenter/slot found");
+            logger.info("⚠ Skipping - no presenter/slot found");
             return;
         }
 
-        System.out.println("\n--- Opening Attendance ---");
-        System.out.println("Presenter: " + testPresenterUsername);
-        System.out.println("Slot ID: " + testSlotId);
+        logger.info("\n--- Opening Attendance ---");
+        logger.info("Presenter: {}", testPresenterUsername);
+        logger.info("Slot ID: {}", testSlotId);
 
         try {
             PresenterOpenAttendanceResponse response = presenterHomeService.openAttendance(
                     testPresenterUsername, testSlotId);
 
-            System.out.println("Response code: " + response.getCode());
-            System.out.println("Success: " + response.isSuccess());
-            System.out.println("Message: " + response.getMessage());
+            logger.info("Response code: {}", response.getCode());
+            logger.info("Success: {}", response.isSuccess());
+            logger.info("Message: {}", response.getMessage());
 
             if (response.isSuccess()) {
                 testSessionId = response.getSessionId();
-                System.out.println("✓ Session opened: " + testSessionId);
-                System.out.println("  QR URL: " + response.getQrUrl());
-                System.out.println("  Opened at: " + response.getOpenedAt());
-                System.out.println("  Closes at: " + response.getClosesAt());
+                logger.info("✓ Session opened: {}", testSessionId);
+                logger.info("  QR URL: {}", response.getQrUrl());
+                logger.info("  Opened at: {}", response.getOpenedAt());
+                logger.info("  Closes at: {}", response.getClosesAt());
             } else {
-                System.out.println("✗ Could not open session: " + response.getCode());
+                logger.info("✗ Could not open session: {}", response.getCode());
                 // Common reasons: TOO_EARLY, TOO_LATE, ALREADY_OPEN, IN_PROGRESS
             }
         } catch (Exception e) {
-            System.out.println("✗ Exception: " + e.getMessage());
+            logger.info("✗ Exception: {}", e.getMessage());
         }
     }
 
@@ -178,7 +179,7 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
     @Order(5)
     @DisplayName("FLOW STEP 5: Find a student to record attendance")
     void step5_FindStudent() {
-        System.out.println("\n--- Finding Student ---");
+        logger.info("\n--- Finding Student ---");
 
         // Find a participant (student) in the database
         List<User> students = userRepository.findAll().stream()
@@ -186,15 +187,15 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
                 .limit(5)
                 .toList();
 
-        System.out.println("Found " + students.size() + " students");
+        logger.info("Found {} students", students.size());
 
         if (!students.isEmpty()) {
             testStudentUsername = students.get(0).getBguUsername();
             User student = students.get(0);
-            System.out.println("✓ Selected student: " + testStudentUsername);
-            System.out.println("  Name: " + student.getFirstName() + " " + student.getLastName());
+            logger.info("✓ Selected student: {}", testStudentUsername);
+            logger.info("  Name: {} {}", student.getFirstName(), student.getLastName());
         } else {
-            System.out.println("⚠ No students found in database");
+            logger.info("⚠ No students found in database");
         }
     }
 
@@ -203,32 +204,32 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("FLOW STEP 6: Record student attendance (simulate QR scan)")
     void step6_RecordAttendance() {
         if (testSessionId == null) {
-            System.out.println("⚠ Skipping - no open session");
+            logger.info("⚠ Skipping - no open session");
             return;
         }
         if (testStudentUsername == null) {
-            System.out.println("⚠ Skipping - no student found");
+            logger.info("⚠ Skipping - no student found");
             return;
         }
 
-        System.out.println("\n--- Recording Attendance ---");
-        System.out.println("Session ID: " + testSessionId);
-        System.out.println("Student: " + testStudentUsername);
+        logger.info("\n--- Recording Attendance ---");
+        logger.info("Session ID: {}", testSessionId);
+        logger.info("Student: {}", testStudentUsername);
 
         // Check if attendance already exists
         Optional<Attendance> existing = attendanceRepository
                 .findBySessionIdAndStudentUsernameIgnoreCase(testSessionId, testStudentUsername);
 
         if (existing.isPresent()) {
-            System.out.println("✓ Attendance already recorded at: " + existing.get().getAttendanceTime());
-            System.out.println("  Method: " + existing.get().getMethod());
+            logger.info("✓ Attendance already recorded at: {}", existing.get().getAttendanceTime());
+            logger.info("  Method: {}", existing.get().getMethod());
             return;
         }
 
         // Check if session is still open
         Optional<Session> sessionOpt = sessionRepository.findById(testSessionId);
         if (sessionOpt.isEmpty() || sessionOpt.get().getStatus() != Session.SessionStatus.OPEN) {
-            System.out.println("⚠ Session is not open - cannot record attendance");
+            logger.info("⚠ Session is not open - cannot record attendance");
             return;
         }
 
@@ -240,12 +241,12 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
 
             Attendance recorded = attendanceService.recordAttendance(attendance);
 
-            System.out.println("✓ Attendance recorded successfully!");
-            System.out.println("  Attendance ID: " + recorded.getAttendanceId());
-            System.out.println("  Time: " + recorded.getAttendanceTime());
-            System.out.println("  Method: " + recorded.getMethod());
+            logger.info("✓ Attendance recorded successfully!");
+            logger.info("  Attendance ID: {}", recorded.getAttendanceId());
+            logger.info("  Time: {}", recorded.getAttendanceTime());
+            logger.info("  Method: {}", recorded.getMethod());
         } catch (IllegalArgumentException e) {
-            System.out.println("✗ Could not record attendance: " + e.getMessage());
+            logger.info("✗ Could not record attendance: {}", e.getMessage());
         }
     }
 
@@ -254,53 +255,53 @@ class PresenterAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("FLOW STEP 7: Verify attendance was recorded")
     void step7_VerifyAttendance() {
         if (testSessionId == null) {
-            System.out.println("⚠ Skipping - no session");
+            logger.info("⚠ Skipping - no session");
             return;
         }
 
-        System.out.println("\n--- Verifying Attendance ---");
+        logger.info("\n--- Verifying Attendance ---");
 
         List<Attendance> sessionAttendances = attendanceService.getAttendanceBySession(testSessionId);
 
-        System.out.println("Session " + testSessionId + " has " + sessionAttendances.size() + " attendance records:");
+        logger.info("Session {} has {} attendance records:", testSessionId, sessionAttendances.size());
 
         for (Attendance att : sessionAttendances) {
             Optional<User> userOpt = userRepository.findByBguUsernameIgnoreCase(att.getStudentUsername());
             String name = userOpt.map(u -> u.getFirstName() + " " + u.getLastName()).orElse("Unknown");
 
-            System.out.println("  - " + att.getStudentUsername() + " (" + name + ")");
-            System.out.println("    Time: " + att.getAttendanceTime() + ", Method: " + att.getMethod());
+            logger.info("  - {} ({})", att.getStudentUsername(), name);
+            logger.info("    Time: {}, Method: {}", att.getAttendanceTime(), att.getMethod());
         }
 
         // Verify statistics
         AttendanceService.AttendanceStats stats = attendanceService.getSessionAttendanceStats(testSessionId);
-        System.out.println("\nStatistics:");
-        System.out.println("  Total: " + stats.getTotalAttendance());
-        System.out.println("  QR Scan: " + stats.getQrScanCount());
-        System.out.println("  Manual: " + stats.getManualCount());
-        System.out.println("  Proxy: " + stats.getProxyCount());
+        logger.info("\nStatistics:");
+        logger.info("  Total: {}", stats.getTotalAttendance());
+        logger.info("  QR Scan: {}", stats.getQrScanCount());
+        logger.info("  Manual: {}", stats.getManualCount());
+        logger.info("  Proxy: {}", stats.getProxyCount());
     }
 
     @Test
     @Order(8)
     @DisplayName("FLOW STEP 8: Summary and cleanup info")
     void step8_Summary() {
-        System.out.println("\n========== FLOW TEST SUMMARY ==========");
-        System.out.println("Presenter: " + (testPresenterUsername != null ? testPresenterUsername : "N/A"));
-        System.out.println("Slot ID: " + (testSlotId != null ? testSlotId : "N/A"));
-        System.out.println("Session ID: " + (testSessionId != null ? testSessionId : "N/A"));
-        System.out.println("Student tested: " + (testStudentUsername != null ? testStudentUsername : "N/A"));
+        logger.info("\n========== FLOW TEST SUMMARY ==========");
+        logger.info("Presenter: {}", testPresenterUsername != null ? testPresenterUsername : "N/A");
+        logger.info("Slot ID: {}", testSlotId != null ? testSlotId : "N/A");
+        logger.info("Session ID: {}", testSessionId != null ? testSessionId : "N/A");
+        logger.info("Student tested: {}", testStudentUsername != null ? testStudentUsername : "N/A");
 
         if (testSessionId != null) {
             Optional<Session> session = sessionRepository.findById(testSessionId);
             if (session.isPresent()) {
-                System.out.println("Session status: " + session.get().getStatus());
+                logger.info("Session status: {}", session.get().getStatus());
                 List<Attendance> attendances = attendanceRepository.findBySessionId(testSessionId);
-                System.out.println("Total attendances: " + attendances.size());
+                logger.info("Total attendances: {}", attendances.size());
             }
         }
 
-        System.out.println("\n✓ Flow test completed");
-        System.out.println("================================================\n");
+        logger.info("\n✓ Flow test completed");
+        logger.info("================================================\n");
     }
 }

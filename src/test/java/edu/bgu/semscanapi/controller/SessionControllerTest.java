@@ -1,5 +1,6 @@
 package edu.bgu.semscanapi.controller;
 
+import edu.bgu.semscanapi.dto.SessionDTO;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.SessionService;
@@ -56,7 +57,7 @@ class SessionControllerTest {
     void getOpenSessions_WhenBackendReturnsEmptyList_ReturnsEmptyArray() throws Exception {
         // Given - Backend has open sessions but returns empty list (bug scenario)
         // This simulates a scenario where the database has open sessions but the query returns []
-        when(sessionService.getOpenSessions()).thenReturn(Collections.emptyList());
+        when(sessionService.getOpenSessionsEnriched()).thenReturn(Collections.emptyList());
 
         // When & Then
         mockMvc.perform(get("/api/v1/sessions/open")
@@ -68,13 +69,13 @@ class SessionControllerTest {
                 .andExpect(jsonPath("$.length()").value(0));
 
         // Verify service was called
-        verify(sessionService).getOpenSessions();
+        verify(sessionService).getOpenSessionsEnriched();
     }
 
     @Test
     void getOpenSessions_WhenBackendReturnsEmptyList_LogsAppropriately() throws Exception {
         // Given - Backend returns empty list
-        when(sessionService.getOpenSessions()).thenReturn(Collections.emptyList());
+        when(sessionService.getOpenSessionsEnriched()).thenReturn(Collections.emptyList());
 
         // When
         mockMvc.perform(get("/api/v1/sessions/open")
@@ -83,7 +84,7 @@ class SessionControllerTest {
 
         // Then - Verify logging occurred (for debugging)
         // The controller logs "Retrieved 0 open sessions" which is helpful for debugging
-        verify(sessionService).getOpenSessions();
+        verify(sessionService).getOpenSessionsEnriched();
         // Note: Actual logging verification would require a logging framework test setup
         // But we can verify the service was called, which triggers logging in the controller
     }
@@ -91,7 +92,7 @@ class SessionControllerTest {
     @Test
     void getOpenSessions_WhenBackendReturnsEmptyList_AllowsUserToRefresh() throws Exception {
         // Given - Backend returns empty list
-        when(sessionService.getOpenSessions()).thenReturn(Collections.emptyList());
+        when(sessionService.getOpenSessionsEnriched()).thenReturn(Collections.emptyList());
 
         // When & Then - Should return 200 OK (not an error) so user can refresh
         mockMvc.perform(get("/api/v1/sessions/open")
@@ -121,7 +122,11 @@ class SessionControllerTest {
         session2.setStatus(Session.SessionStatus.OPEN);
         session2.setStartTime(LocalDateTime.now());
 
-        when(sessionService.getOpenSessions()).thenReturn(List.of(session1, session2));
+        // Create SessionDTOs from Session entities
+        SessionDTO dto1 = SessionDTO.fromSession(session1, "Presenter One", "presenter1", "Topic 1");
+        SessionDTO dto2 = SessionDTO.fromSession(session2, "Presenter Two", "presenter2", "Topic 2");
+
+        when(sessionService.getOpenSessionsEnriched()).thenReturn(List.of(dto1, dto2));
 
         // When & Then
         mockMvc.perform(get("/api/v1/sessions/open")
@@ -135,7 +140,7 @@ class SessionControllerTest {
     @Test
     void getOpenSessions_WhenServiceThrowsException_ReturnsError() throws Exception {
         // Given - Service throws exception
-        when(sessionService.getOpenSessions())
+        when(sessionService.getOpenSessionsEnriched())
                 .thenThrow(new RuntimeException("Database connection error"));
 
         // When & Then

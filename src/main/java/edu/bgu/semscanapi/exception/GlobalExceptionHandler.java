@@ -21,8 +21,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.hibernate.exception.ConstraintViolationException;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 
@@ -43,20 +41,14 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception ex, HttpServletRequest request) {
-        // IMMEDIATE console logging (bypasses all logging frameworks)
-        System.err.println("=========================================");
-        System.err.println("GLOBAL EXCEPTION HANDLER TRIGGERED");
-        System.err.println("=========================================");
-        System.err.println("Exception Type: " + ex.getClass().getName());
-        System.err.println("Exception Message: " + (ex.getMessage() != null ? ex.getMessage() : "null"));
-        System.err.println("Request URI: " + request.getRequestURI());
-        System.err.println("Request Method: " + request.getMethod());
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        ex.printStackTrace(pw);
-        System.err.println("Stack Trace:\n" + sw.toString());
-        System.err.println("=========================================");
-        
+        // Log exception details immediately
+        logger.error("GLOBAL EXCEPTION HANDLER TRIGGERED - Type: {}, Message: {}, URI: {}, Method: {}",
+                ex.getClass().getName(),
+                ex.getMessage() != null ? ex.getMessage() : "null",
+                request.getRequestURI(),
+                request.getMethod(),
+                ex);
+
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         if (correlationId == null || correlationId.isEmpty()) {
             correlationId = LoggerUtil.generateAndSetCorrelationId();
@@ -75,8 +67,7 @@ public class GlobalExceptionHandler {
                     bguUsername,
                     String.format("correlationId=%s,uri=%s,method=%s", correlationId, request.getRequestURI(), request.getMethod()));
         } catch (Exception logEx) {
-            System.err.println("FAILED to log to app_logs: " + logEx.getMessage());
-            logEx.printStackTrace();
+            logger.error("FAILED to log to app_logs: {}", logEx.getMessage(), logEx);
             // Still continue to return error response
         }
         

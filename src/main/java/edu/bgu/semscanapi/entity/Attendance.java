@@ -57,6 +57,13 @@ public class Attendance {
     @Column(name = "approved_by_username")
     private String approvedByUsername;
 
+    // Transient fields for API responses (not stored in database)
+    @Transient
+    private String topic;
+    
+    @Transient
+    private String presenter;
+
     public Attendance() {
     }
 
@@ -186,6 +193,22 @@ public class Attendance {
 
     public void setApprovedByUsername(String approvedByUsername) {
         this.approvedByUsername = approvedByUsername;
+    }
+
+    public String getTopic() {
+        return topic;
+    }
+
+    public void setTopic(String topic) {
+        this.topic = topic;
+    }
+
+    public String getPresenter() {
+        return presenter;
+    }
+
+    public void setPresenter(String presenter) {
+        this.presenter = presenter;
     }
 
     @PrePersist

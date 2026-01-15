@@ -228,6 +228,76 @@ public class AttendanceController {
     }
     
     /**
+     * Get distinct attendance dates for a student
+     */
+    @GetMapping("/student/{studentUsername}/dates")
+    public ResponseEntity<Object> getAttendanceDatesByStudent(@PathVariable String studentUsername) {
+        LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Retrieving attendance dates for student: {}", studentUsername);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/student/" + studentUsername + "/dates", null);
+        
+        try {
+            List<java.time.LocalDate> dates = attendanceService.getAttendanceDatesByStudent(studentUsername);
+            edu.bgu.semscanapi.dto.AttendanceDatesResponse response = new edu.bgu.semscanapi.dto.AttendanceDatesResponse(dates);
+            logger.info("Retrieved {} distinct attendance dates for student: {}", dates.size(), studentUsername);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/student/" + studentUsername + "/dates", 200, 
+                "List of " + dates.size() + " attendance dates");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Failed to retrieve attendance dates for student: {}", studentUsername, e);
+            LoggerUtil.logError(logger, "Failed to retrieve attendance dates for student", e);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/student/" + studentUsername + "/dates", 500, "Internal Server Error");
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving attendance dates for student",
+                "Internal Server Error",
+                500,
+                "/api/v1/attendance/student/" + studentUsername + "/dates"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+    
+    /**
+     * Get total attendance count for a student
+     */
+    @GetMapping("/student/{studentUsername}/count")
+    public ResponseEntity<Object> getAttendanceCountByStudent(@PathVariable String studentUsername) {
+        LoggerUtil.generateAndSetCorrelationId();
+        logger.info("Retrieving attendance count for student: {}", studentUsername);
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/attendance/student/" + studentUsername + "/count", null);
+        
+        try {
+            long count = attendanceService.getTotalAttendanceCountByStudent(studentUsername);
+            edu.bgu.semscanapi.dto.AttendanceCountResponse response = new edu.bgu.semscanapi.dto.AttendanceCountResponse(count);
+            logger.info("Total attendance count for student {}: {}", studentUsername, count);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/student/" + studentUsername + "/count", 200, 
+                "Total count: " + count);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Failed to retrieve attendance count for student: {}", studentUsername, e);
+            LoggerUtil.logError(logger, "Failed to retrieve attendance count for student", e);
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/attendance/student/" + studentUsername + "/count", 500, "Internal Server Error");
+            
+            ErrorResponse errorResponse = new ErrorResponse(
+                "An unexpected error occurred while retrieving attendance count for student",
+                "Internal Server Error",
+                500,
+                "/api/v1/attendance/student/" + studentUsername + "/count"
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        } finally {
+            LoggerUtil.clearContext();
+        }
+    }
+    
+    /**
      * Check if student attended a session
      */
     @GetMapping("/check")

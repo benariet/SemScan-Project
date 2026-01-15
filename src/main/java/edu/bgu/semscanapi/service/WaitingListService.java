@@ -11,8 +11,6 @@ import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.repository.WaitingListRepository;
 import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
-import edu.bgu.semscanapi.service.DatabaseLoggerService;
-import edu.bgu.semscanapi.service.MailService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -140,8 +138,8 @@ public class WaitingListService {
             // Find which slot they're on the waiting list for (for better error message)
             List<WaitingListEntry> existingEntries = waitingListRepository.findByPresenterUsername(normalizedUsername);
             Long existingSlotId = existingEntries.isEmpty() ? null : existingEntries.get(0).getSlotId();
-            String errorMsg = String.format("You can only be on 1 waiting list at once. Please wait for notification or cancel your current waiting list entry (slotId=%d)",
-                    existingSlotId != null ? existingSlotId : "unknown");
+            String errorMsg = String.format("You can only be on 1 waiting list at once. Please wait for notification or cancel your current waiting list entry (slotId=%s)",
+                    existingSlotId != null ? existingSlotId.toString() : "unknown");
             logger.warn("{} - presenterUsername={}, existingSlotId={}, requestedSlotId={}",
                     errorMsg, normalizedUsername, existingSlotId, slotId);
             // Business rule rejection - log as WARN, not ERROR
@@ -617,7 +615,7 @@ public class WaitingListService {
 
         // Send push notification
         try {
-            String slotDate = slot.getSlotDate().format(DATE_FORMAT);
+            String slotDate = slot.getSlotDate() != null ? slot.getSlotDate().format(DATE_FORMAT) : "N/A";
             fcmService.sendPromotionNotification(username, slotId, slotDate);
         } catch (Exception e) {
             logger.error("Failed to send push notification for promotion offer to user {}", username, e);

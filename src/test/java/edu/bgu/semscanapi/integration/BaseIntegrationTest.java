@@ -1,6 +1,8 @@
 package edu.bgu.semscanapi.integration;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 @ActiveProfiles("test")
 public abstract class BaseIntegrationTest {
 
+    private static final Logger logger = LoggerFactory.getLogger(BaseIntegrationTest.class);
+
     private static boolean databaseAvailable = false;
 
     @BeforeAll
@@ -32,11 +36,11 @@ public abstract class BaseIntegrationTest {
         // Check if SSH tunnel is running (port 3307)
         try (Socket socket = new Socket("127.0.0.1", 3307)) {
             databaseAvailable = true;
-            System.out.println("✓ Database connection available (SSH tunnel running)");
+            logger.info("✓ Database connection available (SSH tunnel running)");
         } catch (Exception e) {
             databaseAvailable = false;
-            System.out.println("✗ Database not available - SSH tunnel not running");
-            System.out.println("  Start tunnel with: ssh -L 3307:127.0.0.1:3306 webmaster@132.72.50.53");
+            logger.info("✗ Database not available - SSH tunnel not running");
+            logger.info("  Start tunnel with: ssh -L 3307:127.0.0.1:3306 webmaster@132.72.50.53");
         }
         assumeTrue(databaseAvailable, "SSH tunnel must be running for integration tests");
     }

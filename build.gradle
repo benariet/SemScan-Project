@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.5'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'jacoco'
 }
 
 group = 'edu.bgu'
@@ -65,3 +66,16 @@ tasks.named('test') {
 // Allow skipping tests during build for faster iteration
 // Use: ./gradlew build -x test
 // Or: ./gradlew build --exclude-task test
+
+// JaCoCo configuration for test coverage
+jacoco {
+	toolVersion = "0.8.11"
+}
+
+tasks.named('jacocoTestReport') {
+	dependsOn tasks.named('test')
+	reports {
+		xml.required = true
+		html.required = true
+	}
+}

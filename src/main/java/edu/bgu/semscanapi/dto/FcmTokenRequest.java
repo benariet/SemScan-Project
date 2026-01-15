@@ -1,12 +1,14 @@
 package edu.bgu.semscanapi.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * DTO for registering FCM token from mobile app
  */
 public class FcmTokenRequest {
 
+    @NotBlank(message = "FCM token is required")
     @JsonProperty("fcmToken")
     private String fcmToken;
 
@@ -38,8 +40,12 @@ public class FcmTokenRequest {
 
     @Override
     public String toString() {
+        String tokenPreview = "null";
+        if (fcmToken != null && !fcmToken.isEmpty()) {
+            tokenPreview = fcmToken.substring(0, Math.min(10, fcmToken.length())) + "...";
+        }
         return "FcmTokenRequest{" +
-                "fcmToken='" + (fcmToken != null ? fcmToken.substring(0, Math.min(10, fcmToken.length())) + "..." : "null") + '\'' +
+                "fcmToken='" + tokenPreview + '\'' +
                 ", deviceInfo='" + deviceInfo + '\'' +
                 '}';
     }

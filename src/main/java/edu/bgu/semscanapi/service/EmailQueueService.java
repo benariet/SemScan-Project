@@ -459,6 +459,7 @@ public class EmailQueueService {
     private String maskEmail(String email) {
         if (email == null || email.length() < 5) return "***";
         int atIndex = email.indexOf('@');
+        if (atIndex < 0) return email.substring(0, 3) + "***"; // No @ sign
         if (atIndex < 3) return "***" + email.substring(atIndex);
         return email.substring(0, 3) + "***" + email.substring(atIndex);
     }
