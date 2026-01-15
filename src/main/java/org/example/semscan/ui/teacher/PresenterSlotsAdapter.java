@@ -350,26 +350,27 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
                     return;
                 }
                 
-                // If slot is full and user is not registered, offer waiting list via toast
-                if (isFull && !slot.onWaitingList) {
+                // If slot is at capacity (approved + pending) and user is not registered, offer waiting list via toast
+                // Use slotAtCapacity for consistency with button visibility logic
+                if (slotAtCapacity && !slot.onWaitingList) {
                     Logger.i(Logger.TAG_SLOT_DETAILS, "User clicked full slot=" + (slot != null ? slot.slotId : "null") +
                         ", showing waiting list offer toast");
-                    android.widget.Toast.makeText(context, 
+                    android.widget.Toast.makeText(context,
                         context.getString(R.string.presenter_slot_full_offer_waiting_list),
                         android.widget.Toast.LENGTH_LONG).show();
                     // Notify listener for server logging
                     if (listener != null) {
                         listener.onSlotClicked(slot, true);
                     }
-                } else if (!isFull) {
-                    // Allow registration attempt if slot is not full (using consistent isFull check) and user is not registered
+                } else if (!slotAtCapacity) {
+                    // Allow registration attempt only if slot has available capacity (approved + pending < capacity)
                     if (listener != null) {
                         listener.onSlotClicked(slot, false);
                         listener.onRegisterClicked(slot);
                     }
                 } else if (listener != null) {
                     // Log other slot clicks (e.g., user is on waiting list but slot is full)
-                    listener.onSlotClicked(slot, isFull);
+                    listener.onSlotClicked(slot, slotAtCapacity);
                 }
             });
 
@@ -481,8 +482,8 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
                     Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - user already on waiting list for slot=" + slot.slotId);
                 } else if (isUserRegisteredInThisSlot) {
                     Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - user already registered in slot=" + slot.slotId);
-                } else if (!isFull) {
-                    Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - slot is not full, slot=" + slot.slotId);
+                } else if (!slotAtCapacity) {
+                    Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - slot is not at capacity, slot=" + slot.slotId);
                 } else if (isWaitingListFull) {
                     Logger.i(Logger.TAG_WAITING_LIST_JOIN, "Join Waiting List button hidden - waiting list is full (1/1), slot=" + slot.slotId);
                 } else if (queueTypeMismatch) {
