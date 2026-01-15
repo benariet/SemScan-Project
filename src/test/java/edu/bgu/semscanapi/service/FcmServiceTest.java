@@ -1,5 +1,7 @@
 package edu.bgu.semscanapi.service;
 
+import com.google.firebase.ErrorCode;
+import com.google.firebase.FirebaseException;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -16,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Method;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -194,6 +197,63 @@ class FcmServiceTest {
         assertFalse(result);
     }
 
+    @Test
+    void sendNotification_invalidToken_unregistered_removesToken() throws Exception {
+        when(firebaseConfig.isInitialized()).thenReturn(true);
+        when(fcmTokenRepository.findByBguUsername("testuser")).thenReturn(Optional.of(testToken));
+
+        FirebaseMessagingException ex = createMessagingException(MessagingErrorCode.UNREGISTERED);
+
+        try (MockedStatic<FirebaseMessaging> firebaseMessaging = mockStatic(FirebaseMessaging.class)) {
+            FirebaseMessaging mockMessaging = mock(FirebaseMessaging.class);
+            firebaseMessaging.when(FirebaseMessaging::getInstance).thenReturn(mockMessaging);
+            when(mockMessaging.send(any(Message.class))).thenThrow(ex);
+
+            boolean result = fcmService.sendNotification("testuser", "Title", "Body", null);
+
+            assertFalse(result);
+            verify(fcmTokenRepository).deleteByBguUsername("testuser");
+        }
+    }
+
+    @Test
+    void sendNotification_invalidToken_argument_removesToken() throws Exception {
+        when(firebaseConfig.isInitialized()).thenReturn(true);
+        when(fcmTokenRepository.findByBguUsername("testuser")).thenReturn(Optional.of(testToken));
+
+        FirebaseMessagingException ex = createMessagingException(MessagingErrorCode.INVALID_ARGUMENT);
+
+        try (MockedStatic<FirebaseMessaging> firebaseMessaging = mockStatic(FirebaseMessaging.class)) {
+            FirebaseMessaging mockMessaging = mock(FirebaseMessaging.class);
+            firebaseMessaging.when(FirebaseMessaging::getInstance).thenReturn(mockMessaging);
+            when(mockMessaging.send(any(Message.class))).thenThrow(ex);
+
+            boolean result = fcmService.sendNotification("testuser", "Title", "Body", null);
+
+            assertFalse(result);
+            verify(fcmTokenRepository).deleteByBguUsername("testuser");
+        }
+    }
+
+    @Test
+    void sendNotification_nonInvalidTokenError_doesNotRemoveToken() throws Exception {
+        when(firebaseConfig.isInitialized()).thenReturn(true);
+        when(fcmTokenRepository.findByBguUsername("testuser")).thenReturn(Optional.of(testToken));
+
+        FirebaseMessagingException ex = createMessagingException(MessagingErrorCode.INTERNAL);
+
+        try (MockedStatic<FirebaseMessaging> firebaseMessaging = mockStatic(FirebaseMessaging.class)) {
+            FirebaseMessaging mockMessaging = mock(FirebaseMessaging.class);
+            firebaseMessaging.when(FirebaseMessaging::getInstance).thenReturn(mockMessaging);
+            when(mockMessaging.send(any(Message.class))).thenThrow(ex);
+
+            boolean result = fcmService.sendNotification("testuser", "Title", "Body", null);
+
+            assertFalse(result);
+            verify(fcmTokenRepository, never()).deleteByBguUsername(anyString());
+        }
+    }
+
     // ========== sendApprovalNotification tests ==========
 
     @Test
@@ -243,5 +303,17 @@ class FcmServiceTest {
         fcmService.sendAttendanceReminder("testuser", 1L, "Jan 15, 2026", "10:00-11:00");
 
         // Just verify it doesn't throw
+    }
+
+    private FirebaseMessagingException createMessagingException(MessagingErrorCode code) {
+        FirebaseException firebaseException = new FirebaseException(ErrorCode.INVALID_ARGUMENT, "send failed", null);
+        try {
+            Method method = FirebaseMessagingException.class.getDeclaredMethod(
+                    "withMessagingErrorCode", FirebaseException.class, MessagingErrorCode.class);
+            method.setAccessible(true);
+            return (FirebaseMessagingException) method.invoke(null, firebaseException, code);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create FirebaseMessagingException", e);
+        }
     }
 }

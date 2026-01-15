@@ -52,6 +52,31 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     long countBySessionId(Long sessionId);
 
-
     long countByMethod(Attendance.AttendanceMethod method);
+    
+    @Query(value = "SELECT DISTINCT CAST(DATE(attendance_time) AS DATE) FROM attendance WHERE student_username = :studentUsername ORDER BY DATE(attendance_time) DESC", nativeQuery = true)
+    List<Object> findDistinctAttendanceDatesByStudent(@Param("studentUsername") String studentUsername);
+    
+    long countByStudentUsername(String studentUsername);
+    
+    /**
+     * Find attendance records with topic information for a student
+     * Joins with sessions, seminars, slots, and slot_registration to get topic
+     * Matches slot_registration by slot_id AND presenter_username to get the correct topic
+     */
+    @Query(value = "SELECT " +
+            "a.attendance_id, a.session_id, a.student_username, a.attendance_time, " +
+            "a.method, a.request_status, a.manual_reason, a.requested_at, a.approved_at, " +
+            "a.approved_by_username, a.device_id, a.auto_flags, a.notes, a.created_at, a.updated_at, " +
+            "reg.topic " +
+            "FROM attendance a " +
+            "INNER JOIN sessions s ON a.session_id = s.session_id " +
+            "INNER JOIN seminars sem ON s.seminar_id = sem.seminar_id " +
+            "LEFT JOIN slots sl ON s.session_id = sl.legacy_session_id " +
+            "LEFT JOIN slot_registration reg ON sl.slot_id = reg.slot_id " +
+            "    AND reg.presenter_username = sem.presenter_username " +
+            "    AND reg.approval_status = 'APPROVED' " +
+            "WHERE a.student_username = :studentUsername " +
+            "ORDER BY a.attendance_time DESC", nativeQuery = true)
+    List<Object[]> findAttendanceWithDetailsByStudent(@Param("studentUsername") String studentUsername);
 }

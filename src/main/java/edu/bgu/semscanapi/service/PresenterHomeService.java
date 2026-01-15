@@ -27,7 +27,6 @@ import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
-import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.stereotype.Service;
@@ -580,42 +579,35 @@ public class PresenterHomeService {
                             presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
                 }
                 
-                if (registration == null) {
-                    logger.error("📧 CRITICAL: Registration is null when trying to send email!");
-                    databaseLoggerService.logError("EMAIL_REGISTRATION_NULL_EMAIL_SEND",
-                            String.format("Registration is null when trying to send email for presenter %s and slot %s",
-                                    presenterUsername, slotId),
-                            null, presenterUsername, String.format("slotId=%d", slotId));
+                // Send approval email
+                logger.info("📧 Calling approvalService.sendApprovalEmail() for presenter {} and slot {}", presenterUsername, slotId);
+                databaseLoggerService.logAction("INFO", "EMAIL_CALLING_APPROVAL_SERVICE",
+                        String.format("Calling approvalService.sendApprovalEmail() for presenter %s and slot %s",
+                                presenterUsername, slotId),
+                        presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
+
+                boolean emailSent = approvalService.sendApprovalEmail(registration);
+                logger.info("📧 [PresenterHomeService] sendApprovalEmail() returned: {} for presenter {} and slot {} to supervisor {}",
+                        emailSent, presenterUsername, slotId, supervisorEmail);
+                databaseLoggerService.logAction("INFO", "EMAIL_APPROVAL_SERVICE_RETURNED",
+                        String.format("sendApprovalEmail() returned: %s for presenter %s and slot %s", emailSent, presenterUsername, slotId),
+                        presenterUsername, String.format("slotId=%d,supervisorEmail=%s,sent=%s", slotId, supervisorEmail, emailSent));
+
+                if (emailSent) {
+                    logger.info("📧 Approval email sent successfully for presenter {} and slot {} to supervisor {}",
+                            presenterUsername, slotId, supervisorEmail);
+                    databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT",
+                            String.format("Approval email sent successfully for presenter %s and slot %s to supervisor %s",
+                                    presenterUsername, slotId, supervisorEmail),
+                            presenterUsername);
                 } else {
-                    logger.info("📧 Calling approvalService.sendApprovalEmail() for presenter {} and slot {}", presenterUsername, slotId);
-                    databaseLoggerService.logAction("INFO", "EMAIL_CALLING_APPROVAL_SERVICE",
-                            String.format("Calling approvalService.sendApprovalEmail() for presenter %s and slot %s",
-                                    presenterUsername, slotId),
-                            presenterUsername, String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
-                    
-                    boolean emailSent = approvalService.sendApprovalEmail(registration);
-                    logger.info("📧 [PresenterHomeService] sendApprovalEmail() returned: {} for presenter {} and slot {} to supervisor {}", 
-                            emailSent, presenterUsername, slotId, supervisorEmail);
-                    databaseLoggerService.logAction("INFO", "EMAIL_APPROVAL_SERVICE_RETURNED",
-                            String.format("sendApprovalEmail() returned: %s for presenter %s and slot %s", emailSent, presenterUsername, slotId),
-                            presenterUsername, String.format("slotId=%d,supervisorEmail=%s,sent=%s", slotId, supervisorEmail, emailSent));
-                    
-                    if (emailSent) {
-                        logger.info("📧 Approval email sent successfully for presenter {} and slot {} to supervisor {}", 
-                                presenterUsername, slotId, supervisorEmail);
-                        databaseLoggerService.logBusinessEvent("EMAIL_REGISTRATION_APPROVAL_EMAIL_SENT",
-                                String.format("Approval email sent successfully for presenter %s and slot %s to supervisor %s",
-                                        presenterUsername, slotId, supervisorEmail),
-                                presenterUsername);
-                    } else {
-                        logger.error("📧 Approval email FAILED to send for presenter {} and slot {} to supervisor {} - check logs for details", 
-                                presenterUsername, slotId, supervisorEmail);
-                        databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_FAILED",
-                                String.format("Approval email FAILED to send for presenter %s and slot %s to supervisor %s",
-                                        presenterUsername, slotId, supervisorEmail),
-                                null, presenterUsername,
-                                String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
-                    }
+                    logger.error("📧 Approval email FAILED to send for presenter {} and slot {} to supervisor {} - check logs for details",
+                            presenterUsername, slotId, supervisorEmail);
+                    databaseLoggerService.logError("EMAIL_REGISTRATION_APPROVAL_EMAIL_FAILED",
+                            String.format("Approval email FAILED to send for presenter %s and slot %s to supervisor %s",
+                                    presenterUsername, slotId, supervisorEmail),
+                            null, presenterUsername,
+                            String.format("slotId=%d,supervisorEmail=%s", slotId, supervisorEmail));
                 }
             } catch (Exception e) {
                 logger.error("📧 Failed to send approval email for presenter {} and slot {} to supervisor {} - Exception: {}",
@@ -2500,7 +2492,7 @@ public class PresenterHomeService {
         
         qrData.put("sessionId", session.getSessionId());
         qrData.put("seminarId", session.getSeminarId());
-        qrData.put("status", session.getStatus().toString());
+        qrData.put("status", session.getStatus() != null ? session.getStatus().toString() : "UNKNOWN");
         qrData.put("startTime", session.getStartTime());
         
         // QR code content options

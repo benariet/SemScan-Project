@@ -7,6 +7,8 @@ import edu.bgu.semscanapi.dto.PresenterSlotRegistrationResponse;
 import edu.bgu.semscanapi.entity.*;
 import edu.bgu.semscanapi.entity.ApprovalStatus;
 import org.junit.jupiter.api.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 
 import java.time.LocalDate;
@@ -26,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class PresenterFlowIntegrationTest extends BaseIntegrationTest {
 
+    private static final Logger logger = LoggerFactory.getLogger(PresenterFlowIntegrationTest.class);
+
     private static final String TEST_PRESENTER_USERNAME = "integration_test_presenter";
     private static Long testSlotId;
     private static Long testSessionId;
@@ -43,9 +47,9 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
         long userCount = userRepository.count();
         long slotCount = seminarSlotRepository.count();
 
-        System.out.println("Database connected successfully!");
-        System.out.println("Users in DB: " + userCount);
-        System.out.println("Slots in DB: " + slotCount);
+        logger.info("Database connected successfully!");
+        logger.info("Users in DB: {}", userCount);
+        logger.info("Slots in DB: {}", slotCount);
 
         assertTrue(userCount >= 0, "Should be able to count users");
         assertTrue(slotCount >= 0, "Should be able to count slots");
@@ -62,12 +66,12 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
                 .toList();
 
         if (presenters.isEmpty()) {
-            System.out.println("No presenters found in DB - skipping test");
+            logger.info("No presenters found in DB - skipping test");
             return;
         }
 
         String presenterUsername = presenters.get(0).getBguUsername();
-        System.out.println("Testing with presenter: " + presenterUsername);
+        logger.info("Testing with presenter: {}", presenterUsername);
 
         // Call the service directly
         PresenterHomeResponse response = presenterHomeService.getPresenterHome(presenterUsername);
@@ -76,8 +80,8 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
         assertNotNull(response.getPresenter(), "Presenter info should not be null");
         assertNotNull(response.getSlotCatalog(), "Slot catalog should not be null");
 
-        System.out.println("Presenter: " + response.getPresenter().getName());
-        System.out.println("Available slots: " + response.getSlotCatalog().size());
+        logger.info("Presenter: {}", response.getPresenter().getName());
+        logger.info("Available slots: {}", response.getSlotCatalog().size());
     }
 
     @Test
@@ -87,17 +91,17 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
         List<SeminarSlot> futureSlots = seminarSlotRepository
                 .findBySlotDateGreaterThanEqualOrderBySlotDateAscStartTimeAsc(LocalDate.now());
 
-        System.out.println("Future slots available: " + futureSlots.size());
+        logger.info("Future slots available: {}", futureSlots.size());
 
         futureSlots.stream().limit(5).forEach(slot -> {
-            System.out.println(String.format("  Slot %d: %s %s-%s at %s %s (Status: %s)",
+            logger.info("  Slot {}: {} {}-{} at {} {} (Status: {})",
                     slot.getSlotId(),
                     slot.getSlotDate(),
                     slot.getStartTime(),
                     slot.getEndTime(),
                     slot.getBuilding(),
                     slot.getRoom(),
-                    slot.getStatus()));
+                    slot.getStatus());
         });
 
         assertNotNull(futureSlots, "Should return slot list");
@@ -109,18 +113,18 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
     void listOpenSessions() {
         List<Session> openSessions = sessionRepository.findOpenSessions();
 
-        System.out.println("Currently open sessions: " + openSessions.size());
+        logger.info("Currently open sessions: {}", openSessions.size());
 
         openSessions.forEach(session -> {
             Optional<Seminar> seminar = seminarRepository.findById(session.getSeminarId());
             String presenterName = seminar.map(Seminar::getPresenterUsername).orElse("unknown");
 
-            System.out.println(String.format("  Session %d: Seminar %d, Presenter: %s, Location: %s, Started: %s",
+            logger.info("  Session {}: Seminar {}, Presenter: {}, Location: {}, Started: {}",
                     session.getSessionId(),
                     session.getSeminarId(),
                     presenterName,
                     session.getLocation(),
-                    session.getStartTime()));
+                    session.getStartTime());
         });
 
         assertNotNull(openSessions, "Should return sessions list");
@@ -138,12 +142,12 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
                 .filter(s -> s.getStartTime() != null && s.getStartTime().toLocalDate().equals(today))
                 .toList();
 
-        System.out.println("Sessions today: " + todaySessions.size());
+        logger.info("Sessions today: {}", todaySessions.size());
 
         for (Session session : todaySessions) {
             List<Attendance> attendances = attendanceRepository.findBySessionId(session.getSessionId());
-            System.out.println(String.format("  Session %d: %d attendances",
-                    session.getSessionId(), attendances.size()));
+            logger.info("  Session {}: {} attendances",
+                    session.getSessionId(), attendances.size());
         }
     }
 
@@ -154,7 +158,7 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
         // Get all registrations
         List<SeminarSlotRegistration> registrations = registrationRepository.findAll();
 
-        System.out.println("Total registrations: " + registrations.size());
+        logger.info("Total registrations: {}", registrations.size());
 
         // Count by status
         long approved = registrations.stream()
@@ -167,9 +171,9 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
                 .filter(r -> r.getApprovalStatus() == ApprovalStatus.DECLINED)
                 .count();
 
-        System.out.println("  Approved: " + approved);
-        System.out.println("  Pending: " + pending);
-        System.out.println("  Declined: " + declined);
+        logger.info("  Approved: {}", approved);
+        logger.info("  Pending: {}", pending);
+        logger.info("  Declined: {}", declined);
 
         // Verify each registration has valid references
         for (SeminarSlotRegistration reg : registrations) {
@@ -184,7 +188,7 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
                     "Registration references non-existent user " + reg.getPresenterUsername());
         }
 
-        System.out.println("All registrations have valid references!");
+        logger.info("All registrations have valid references!");
     }
 
     @Test
@@ -195,10 +199,10 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
                 getApiUrl("/sessions/open"),
                 String.class);
 
-        System.out.println("GET /api/v1/sessions/open");
-        System.out.println("  Status: " + response.getStatusCode());
-        System.out.println("  Body: " + (response.getBody() != null ?
-                response.getBody().substring(0, Math.min(200, response.getBody().length())) + "..." : "null"));
+        logger.info("GET /api/v1/sessions/open");
+        logger.info("  Status: {}", response.getStatusCode());
+        logger.info("  Body: {}", response.getBody() != null ?
+                response.getBody().substring(0, Math.min(200, response.getBody().length())) + "..." : "null");
 
         assertEquals(HttpStatus.OK, response.getStatusCode(), "Should return 200 OK");
     }
@@ -211,8 +215,8 @@ class PresenterFlowIntegrationTest extends BaseIntegrationTest {
                 getApiUrl("/info/endpoints"),
                 String.class);
 
-        System.out.println("GET /api/v1/info/endpoints");
-        System.out.println("  Status: " + response.getStatusCode());
+        logger.info("GET /api/v1/info/endpoints");
+        logger.info("  Status: {}", response.getStatusCode());
 
         assertEquals(HttpStatus.OK, response.getStatusCode(), "Should return 200 OK");
         assertNotNull(response.getBody(), "Should return endpoints list");

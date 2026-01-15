@@ -98,9 +98,9 @@ public class SessionService {
                 presenterUsername
             );
             
-            LoggerUtil.logSessionEvent(logger, "SESSION_CREATED", 
-                savedSession.getSessionId().toString(),
-                savedSession.getSeminarId().toString(),
+            LoggerUtil.logSessionEvent(logger, "SESSION_CREATED",
+                savedSession.getSessionId() != null ? savedSession.getSessionId().toString() : null,
+                savedSession.getSeminarId() != null ? savedSession.getSeminarId().toString() : null,
                 presenterUsername);
             
             databaseLoggerService.logSessionEvent("SESSION_CREATED", 
@@ -139,7 +139,7 @@ public class SessionService {
             Optional<Session> session = sessionRepository.findById(sessionId);
             if (session.isPresent()) {
                 logger.debug("Session found: {} for seminar: {}", sessionId, session.get().getSeminarId());
-                LoggerUtil.setSeminarId(session.get().getSeminarId().toString());
+                LoggerUtil.setSeminarId(session.get().getSeminarId() != null ? session.get().getSeminarId().toString() : null);
                 LoggerUtil.logDatabaseOperation(logger, "SELECT", "sessions", sessionId != null ? sessionId.toString() : "null");
             } else {
                 logger.warn("Session not found: {}", sessionId);
@@ -368,8 +368,8 @@ public class SessionService {
                 status.toString()
             );
             
-            LoggerUtil.logSessionEvent(logger, "SESSION_STATUS_UPDATED", 
-                sessionId.toString(), existingSession.get().getSeminarId() != null ? existingSession.get().getSeminarId().toString() : null,
+            LoggerUtil.logSessionEvent(logger, "SESSION_STATUS_UPDATED",
+                String.valueOf(sessionId), existingSession.get().getSeminarId() != null ? existingSession.get().getSeminarId().toString() : null,
                 null);
             
             // Log status update to database

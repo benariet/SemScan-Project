@@ -2,6 +2,8 @@ package edu.bgu.semscanapi.integration;
 
 import edu.bgu.semscanapi.entity.*;
 import org.junit.jupiter.api.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -24,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class StudentAttendanceFlowTest extends BaseIntegrationTest {
 
+    private static final Logger logger = LoggerFactory.getLogger(StudentAttendanceFlowTest.class);
+
     private static String testStudentUsername;
     private static Long openSessionId;
     private static int initialAttendanceCount;
@@ -32,16 +36,16 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
     @Order(1)
     @DisplayName("STUDENT FLOW STEP 1: Find a student user")
     void step1_FindStudent() {
-        System.out.println("\n========== FLOW TEST: Student Attendance Flow ==========\n");
+        logger.info("\n========== FLOW TEST: Student Attendance Flow ==========\n");
 
         List<User> students = userRepository.findAll().stream()
                 .filter(u -> u.getIsParticipant() != null && u.getIsParticipant())
                 .toList();
 
-        System.out.println("Found " + students.size() + " students in database");
+        logger.info("Found {} students in database", students.size());
 
         if (students.isEmpty()) {
-            System.out.println("⚠ No students found - skipping flow");
+            logger.info("⚠ No students found - skipping flow");
             return;
         }
 
@@ -49,14 +53,14 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
         User student = students.get(0);
         testStudentUsername = student.getBguUsername();
 
-        System.out.println("✓ Selected student: " + testStudentUsername);
-        System.out.println("  Name: " + student.getFirstName() + " " + student.getLastName());
-        System.out.println("  Email: " + student.getEmail());
+        logger.info("✓ Selected student: {}", testStudentUsername);
+        logger.info("  Name: {} {}", student.getFirstName(), student.getLastName());
+        logger.info("  Email: {}", student.getEmail());
 
         // Get their current attendance count
         List<Attendance> existingAttendances = attendanceRepository.findByStudentUsername(testStudentUsername);
         initialAttendanceCount = existingAttendances.size();
-        System.out.println("  Current attendance records: " + initialAttendanceCount);
+        logger.info("  Current attendance records: {}", initialAttendanceCount);
 
         assertNotNull(testStudentUsername);
     }
@@ -65,14 +69,14 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
     @Order(2)
     @DisplayName("STUDENT FLOW STEP 2: Find open sessions")
     void step2_FindOpenSessions() {
-        System.out.println("\n--- Finding Open Sessions ---");
+        logger.info("\n--- Finding Open Sessions ---");
 
         List<Session> openSessions = sessionRepository.findOpenSessions();
 
-        System.out.println("Open sessions available: " + openSessions.size());
+        logger.info("Open sessions available: {}", openSessions.size());
 
         if (openSessions.isEmpty()) {
-            System.out.println("⚠ No open sessions - student cannot scan QR");
+            logger.info("⚠ No open sessions - student cannot scan QR");
             return;
         }
 
@@ -86,11 +90,11 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
                         .orElse(seminar.get().getPresenterUsername());
             }
 
-            System.out.println("  Session " + session.getSessionId() + ":");
-            System.out.println("    Presenter: " + presenterName);
-            System.out.println("    Location: " + session.getLocation());
-            System.out.println("    Started: " + session.getStartTime());
-            System.out.println("    Status: " + session.getStatus());
+            logger.info("  Session {}:", session.getSessionId());
+            logger.info("    Presenter: {}", presenterName);
+            logger.info("    Location: {}", session.getLocation());
+            logger.info("    Started: {}", session.getStartTime());
+            logger.info("    Status: {}", session.getStatus());
 
             // Use first open session for testing
             if (openSessionId == null) {
@@ -99,7 +103,7 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
         }
 
         if (openSessionId != null) {
-            System.out.println("\n✓ Will use session " + openSessionId + " for testing");
+            logger.info("\n✓ Will use session {} for testing", openSessionId);
         }
     }
 
@@ -108,21 +112,21 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("STUDENT FLOW STEP 3: Check if already attended this session")
     void step3_CheckExistingAttendance() {
         if (testStudentUsername == null || openSessionId == null) {
-            System.out.println("⚠ Skipping - no student or session available");
+            logger.info("⚠ Skipping - no student or session available");
             return;
         }
 
-        System.out.println("\n--- Checking Existing Attendance ---");
+        logger.info("\n--- Checking Existing Attendance ---");
 
         Optional<Attendance> existing = attendanceRepository
                 .findBySessionIdAndStudentUsernameIgnoreCase(openSessionId, testStudentUsername);
 
         if (existing.isPresent()) {
-            System.out.println("✓ Student already attended this session");
-            System.out.println("  Recorded at: " + existing.get().getAttendanceTime());
-            System.out.println("  Method: " + existing.get().getMethod());
+            logger.info("✓ Student already attended this session");
+            logger.info("  Recorded at: {}", existing.get().getAttendanceTime());
+            logger.info("  Method: {}", existing.get().getMethod());
         } else {
-            System.out.println("○ Student has NOT attended this session yet");
+            logger.info("○ Student has NOT attended this session yet");
         }
     }
 
@@ -131,20 +135,20 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("STUDENT FLOW STEP 4: Simulate QR scan (record attendance)")
     void step4_SimulateQRScan() {
         if (testStudentUsername == null || openSessionId == null) {
-            System.out.println("⚠ Skipping - no student or session available");
+            logger.info("⚠ Skipping - no student or session available");
             return;
         }
 
-        System.out.println("\n--- Simulating QR Code Scan ---");
-        System.out.println("Student: " + testStudentUsername);
-        System.out.println("Session: " + openSessionId);
+        logger.info("\n--- Simulating QR Code Scan ---");
+        logger.info("Student: {}", testStudentUsername);
+        logger.info("Session: {}", openSessionId);
 
         // Check if already recorded
         Optional<Attendance> existing = attendanceRepository
                 .findBySessionIdAndStudentUsernameIgnoreCase(openSessionId, testStudentUsername);
 
         if (existing.isPresent()) {
-            System.out.println("→ Already recorded - skipping (this is expected behavior)");
+            logger.info("→ Already recorded - skipping (this is expected behavior)");
             return;
         }
 
@@ -157,11 +161,11 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
 
             Attendance recorded = attendanceService.recordAttendance(attendance);
 
-            System.out.println("✓ QR Scan successful!");
-            System.out.println("  Attendance ID: " + recorded.getAttendanceId());
-            System.out.println("  Recorded at: " + recorded.getAttendanceTime());
+            logger.info("✓ QR Scan successful!");
+            logger.info("  Attendance ID: {}", recorded.getAttendanceId());
+            logger.info("  Recorded at: {}", recorded.getAttendanceTime());
         } catch (IllegalArgumentException e) {
-            System.out.println("✗ Scan failed: " + e.getMessage());
+            logger.info("✗ Scan failed: {}", e.getMessage());
             // This could happen if session closed between steps
         }
     }
@@ -171,15 +175,15 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("STUDENT FLOW STEP 5: View attendance history")
     void step5_ViewAttendanceHistory() {
         if (testStudentUsername == null) {
-            System.out.println("⚠ Skipping - no student");
+            logger.info("⚠ Skipping - no student");
             return;
         }
 
-        System.out.println("\n--- Student Attendance History ---");
+        logger.info("\n--- Student Attendance History ---");
 
         List<Attendance> allAttendances = attendanceService.getAttendanceByStudent(testStudentUsername);
 
-        System.out.println("Total attendance records: " + allAttendances.size());
+        logger.info("Total attendance records: {}", allAttendances.size());
 
         // Group by date
         allAttendances.stream()
@@ -193,9 +197,9 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
                     Optional<Session> session = sessionRepository.findById(att.getSessionId());
                     String location = session.map(Session::getLocation).orElse("Unknown");
 
-                    System.out.println("  " + att.getAttendanceTime() + " - Session " + att.getSessionId());
-                    System.out.println("    Location: " + location);
-                    System.out.println("    Method: " + att.getMethod());
+                    logger.info("  {} - Session {}", att.getAttendanceTime(), att.getSessionId());
+                    logger.info("    Location: {}", location);
+                    logger.info("    Method: {}", att.getMethod());
                 });
     }
 
@@ -204,22 +208,22 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("STUDENT FLOW STEP 6: Verify attendance count increased")
     void step6_VerifyAttendanceCount() {
         if (testStudentUsername == null) {
-            System.out.println("⚠ Skipping - no student");
+            logger.info("⚠ Skipping - no student");
             return;
         }
 
-        System.out.println("\n--- Verifying Attendance Count ---");
+        logger.info("\n--- Verifying Attendance Count ---");
 
         List<Attendance> currentAttendances = attendanceRepository.findByStudentUsername(testStudentUsername);
         int currentCount = currentAttendances.size();
 
-        System.out.println("Initial count: " + initialAttendanceCount);
-        System.out.println("Current count: " + currentCount);
+        logger.info("Initial count: {}", initialAttendanceCount);
+        logger.info("Current count: {}", currentCount);
 
         if (currentCount > initialAttendanceCount) {
-            System.out.println("✓ Attendance count increased by " + (currentCount - initialAttendanceCount));
+            logger.info("✓ Attendance count increased by {}", currentCount - initialAttendanceCount);
         } else {
-            System.out.println("○ Count unchanged (already attended or no open session)");
+            logger.info("○ Count unchanged (already attended or no open session)");
         }
     }
 
@@ -228,22 +232,22 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
     @DisplayName("STUDENT FLOW STEP 7: Test duplicate scan prevention")
     void step7_TestDuplicatePrevention() {
         if (testStudentUsername == null || openSessionId == null) {
-            System.out.println("⚠ Skipping - no student or session");
+            logger.info("⚠ Skipping - no student or session");
             return;
         }
 
-        System.out.println("\n--- Testing Duplicate Prevention ---");
+        logger.info("\n--- Testing Duplicate Prevention ---");
 
         // Check if there's an existing attendance
         Optional<Attendance> existing = attendanceRepository
                 .findBySessionIdAndStudentUsernameIgnoreCase(openSessionId, testStudentUsername);
 
         if (existing.isEmpty()) {
-            System.out.println("○ No existing attendance to test duplicate prevention");
+            logger.info("○ No existing attendance to test duplicate prevention");
             return;
         }
 
-        System.out.println("Existing attendance: " + existing.get().getAttendanceId());
+        logger.info("Existing attendance: {}", existing.get().getAttendanceId());
 
         // Try to record again - should fail
         try {
@@ -254,10 +258,10 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
 
             attendanceService.recordAttendance(duplicate);
 
-            System.out.println("✗ ERROR: Duplicate was allowed (this is a bug!)");
+            logger.info("✗ ERROR: Duplicate was allowed (this is a bug!)");
             fail("Duplicate attendance should be prevented");
         } catch (IllegalArgumentException e) {
-            System.out.println("✓ Duplicate correctly prevented: " + e.getMessage());
+            logger.info("✓ Duplicate correctly prevented: {}", e.getMessage());
         }
     }
 
@@ -265,17 +269,17 @@ class StudentAttendanceFlowTest extends BaseIntegrationTest {
     @Order(8)
     @DisplayName("STUDENT FLOW STEP 8: Summary")
     void step8_Summary() {
-        System.out.println("\n========== STUDENT FLOW SUMMARY ==========");
-        System.out.println("Student: " + (testStudentUsername != null ? testStudentUsername : "N/A"));
-        System.out.println("Session tested: " + (openSessionId != null ? openSessionId : "N/A"));
-        System.out.println("Initial attendance count: " + initialAttendanceCount);
+        logger.info("\n========== STUDENT FLOW SUMMARY ==========");
+        logger.info("Student: {}", testStudentUsername != null ? testStudentUsername : "N/A");
+        logger.info("Session tested: {}", openSessionId != null ? openSessionId : "N/A");
+        logger.info("Initial attendance count: {}", initialAttendanceCount);
 
         if (testStudentUsername != null) {
             List<Attendance> finalAttendances = attendanceRepository.findByStudentUsername(testStudentUsername);
-            System.out.println("Final attendance count: " + finalAttendances.size());
+            logger.info("Final attendance count: {}", finalAttendances.size());
         }
 
-        System.out.println("\n✓ Student flow test completed");
-        System.out.println("===========================================\n");
+        logger.info("\n✓ Student flow test completed");
+        logger.info("===========================================\n");
     }
 }

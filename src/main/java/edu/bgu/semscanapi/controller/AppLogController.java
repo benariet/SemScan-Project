@@ -44,16 +44,15 @@ public class AppLogController {
             HttpServletRequest httpRequest) {
         
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        
-        // Enhanced debug logging
-        System.out.println("=== LOG REQUEST DEBUG ===");
-        System.out.println("Correlation ID: " + correlationId);
-        System.out.println("Remote Address: " + httpRequest.getRemoteAddr());
-        System.out.println("Content-Type: " + httpRequest.getContentType());
-        System.out.println("Request Body: " + (request != null ? request.toString() : "null"));
-        System.out.println("Number of logs: " + (request != null && request.getLogs() != null ? request.getLogs().size() : 0));
-        System.out.println("=== END DEBUG ===");
-        
+
+        // Debug logging
+        logger.debug("LOG REQUEST - CorrelationId: {}, RemoteAddr: {}, ContentType: {}, Body: {}, LogCount: {}",
+                correlationId,
+                httpRequest.getRemoteAddr(),
+                httpRequest.getContentType(),
+                request != null ? request.toString() : "null",
+                request != null && request.getLogs() != null ? request.getLogs().size() : 0);
+
         logger.info("Received logs request from: {} - Correlation ID: {}", 
                    httpRequest.getRemoteAddr(), correlationId);
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/logs", request != null ? request.toString() : null);

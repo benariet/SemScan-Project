@@ -1,11 +1,9 @@
 package edu.bgu.semscanapi.service;
 
 import edu.bgu.semscanapi.entity.Attendance;
-import edu.bgu.semscanapi.entity.SeminarSlot;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.AttendanceRepository;
-import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.util.LoggerUtil;
@@ -42,9 +40,6 @@ public class AttendanceService {
 
     @Autowired
     private UserRepository userRepository;
-
-    @Autowired
-    private SeminarSlotRepository slotRepository;
 
     @Autowired
     private AppConfigService appConfigService;
@@ -265,7 +260,7 @@ public class AttendanceService {
                 logger.debug("Attendance found: {} for student: {} in session: {}", 
                     attendanceId, attendance.get().getStudentUsername(), attendance.get().getSessionId());
                 LoggerUtil.setStudentUsername(attendance.get().getStudentUsername());
-                LoggerUtil.setSessionId(attendance.get().getSessionId().toString());
+                LoggerUtil.setSessionId(attendance.get().getSessionId() != null ? attendance.get().getSessionId().toString() : null);
                 LoggerUtil.logDatabaseOperation(logger, "SELECT", "attendance", attendanceId.toString());
             } else {
                 logger.warn("Attendance not found: {}", attendanceId);
@@ -373,7 +368,61 @@ public class AttendanceService {
         LoggerUtil.setStudentUsername(studentUsername);
         
         try {
-            List<Attendance> attendanceList = attendanceRepository.findByStudentUsername(studentUsername);
+            // Use custom query to get attendance with topic and presenter
+            List<Object[]> results = attendanceRepository.findAttendanceWithDetailsByStudent(studentUsername);
+            List<Attendance> attendanceList = new java.util.ArrayList<>();
+            
+            for (Object[] row : results) {
+                Attendance attendance = new Attendance();
+                attendance.setAttendanceId(((Number) row[0]).longValue());
+                attendance.setSessionId(((Number) row[1]).longValue());
+                attendance.setStudentUsername((String) row[2]);
+                attendance.setAttendanceTime(((java.sql.Timestamp) row[3]).toLocalDateTime());
+                
+                // Map method enum
+                String methodStr = (String) row[4];
+                if (methodStr != null) {
+                    try {
+                        attendance.setMethod(Attendance.AttendanceMethod.valueOf(methodStr));
+                    } catch (IllegalArgumentException e) {
+                        logger.warn("Unknown attendance method: {}", methodStr);
+                    }
+                }
+                
+                // Map request status enum
+                String statusStr = (String) row[5];
+                if (statusStr != null) {
+                    try {
+                        attendance.setRequestStatus(Attendance.RequestStatus.valueOf(statusStr));
+                    } catch (IllegalArgumentException e) {
+                        logger.warn("Unknown request status: {}", statusStr);
+                    }
+                }
+                
+                attendance.setManualReason((String) row[6]);
+                if (row[7] != null) {
+                    attendance.setRequestedAt(((java.sql.Timestamp) row[7]).toLocalDateTime());
+                }
+                if (row[8] != null) {
+                    attendance.setApprovedAt(((java.sql.Timestamp) row[8]).toLocalDateTime());
+                }
+                attendance.setApprovedByUsername((String) row[9]);
+                attendance.setDeviceId((String) row[10]);
+                attendance.setAutoFlags((String) row[11]);
+                attendance.setNotes((String) row[12]);
+                if (row[13] != null) {
+                    attendance.setCreatedAt(((java.sql.Timestamp) row[13]).toLocalDateTime());
+                }
+                if (row[14] != null) {
+                    attendance.setUpdatedAt(((java.sql.Timestamp) row[14]).toLocalDateTime());
+                }
+                
+                // Set topic from joined data (no presenter - user doesn't want it)
+                attendance.setTopic((String) row[15]);
+                
+                attendanceList.add(attendance);
+            }
+            
             logger.info("Retrieved {} attendance records for student: {}", attendanceList.size(), studentUsername);
             LoggerUtil.logDatabaseOperation(logger, "SELECT_BY_STUDENT", "attendance", studentUsername != null ? studentUsername : "null");
             return attendanceList;
@@ -381,6 +430,66 @@ public class AttendanceService {
             String errorMsg = String.format("Failed to retrieve attendance records for student: %s", studentUsername);
             logger.error(errorMsg, e);
             databaseLoggerService.logError("ATTENDANCE_RETRIEVAL_ERROR", errorMsg, e, studentUsername, 
+                String.format("exceptionType=%s", e.getClass().getName()));
+            throw e;
+        } finally {
+            LoggerUtil.clearStudentUsername();
+        }
+    }
+    
+    /**
+     * Get distinct attendance dates for a student
+     */
+    @Transactional(readOnly = true)
+    public List<java.time.LocalDate> getAttendanceDatesByStudent(String studentUsername) {
+        logger.info("Retrieving attendance dates for student: {}", studentUsername);
+        LoggerUtil.setStudentUsername(studentUsername);
+        
+        try {
+            List<Object> dateObjects = attendanceRepository.findDistinctAttendanceDatesByStudent(studentUsername);
+            List<java.time.LocalDate> dates = new java.util.ArrayList<>();
+            for (Object obj : dateObjects) {
+                if (obj instanceof java.sql.Date) {
+                    dates.add(((java.sql.Date) obj).toLocalDate());
+                } else if (obj instanceof java.time.LocalDate) {
+                    dates.add((java.time.LocalDate) obj);
+                } else if (obj instanceof java.util.Date) {
+                    dates.add(((java.util.Date) obj).toInstant()
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDate());
+                }
+            }
+            logger.info("Retrieved {} distinct attendance dates for student: {}", dates.size(), studentUsername);
+            LoggerUtil.logDatabaseOperation(logger, "SELECT_DISTINCT_DATES", "attendance", studentUsername != null ? studentUsername : "null");
+            return dates;
+        } catch (Exception e) {
+            String errorMsg = String.format("Failed to retrieve attendance dates for student: %s", studentUsername);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("ATTENDANCE_DATES_RETRIEVAL_ERROR", errorMsg, e, studentUsername, 
+                String.format("exceptionType=%s", e.getClass().getName()));
+            throw e;
+        } finally {
+            LoggerUtil.clearStudentUsername();
+        }
+    }
+    
+    /**
+     * Get total attendance count for a student
+     */
+    @Transactional(readOnly = true)
+    public long getTotalAttendanceCountByStudent(String studentUsername) {
+        logger.info("Retrieving total attendance count for student: {}", studentUsername);
+        LoggerUtil.setStudentUsername(studentUsername);
+        
+        try {
+            long count = attendanceRepository.countByStudentUsername(studentUsername);
+            logger.info("Total attendance count for student {}: {}", studentUsername, count);
+            LoggerUtil.logDatabaseOperation(logger, "COUNT_BY_STUDENT", "attendance", studentUsername != null ? studentUsername : "null");
+            return count;
+        } catch (Exception e) {
+            String errorMsg = String.format("Failed to retrieve attendance count for student: %s", studentUsername);
+            logger.error(errorMsg, e);
+            databaseLoggerService.logError("ATTENDANCE_COUNT_RETRIEVAL_ERROR", errorMsg, e, studentUsername, 
                 String.format("exceptionType=%s", e.getClass().getName()));
             throw e;
         } finally {

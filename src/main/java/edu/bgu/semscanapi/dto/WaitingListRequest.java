@@ -1,6 +1,7 @@
 package edu.bgu.semscanapi.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 /**
@@ -16,6 +17,7 @@ public class WaitingListRequest {
 
     private String supervisorName;
 
+    @Email(message = "Supervisor email must be a valid email address")
     private String supervisorEmail;
 
     public String getPresenterUsername() {

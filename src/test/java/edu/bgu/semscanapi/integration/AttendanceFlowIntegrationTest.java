@@ -3,6 +3,8 @@ package edu.bgu.semscanapi.integration;
 import edu.bgu.semscanapi.entity.*;
 import edu.bgu.semscanapi.service.AttendanceService;
 import org.junit.jupiter.api.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 
 import java.time.LocalDateTime;
@@ -20,12 +22,14 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
 
+    private static final Logger logger = LoggerFactory.getLogger(AttendanceFlowIntegrationTest.class);
+
     @Test
     @Order(1)
     @DisplayName("Verify attendance table structure")
     void verifyAttendanceTable() {
         long attendanceCount = attendanceRepository.count();
-        System.out.println("Total attendance records: " + attendanceCount);
+        logger.info("Total attendance records: {}", attendanceCount);
 
         // Get sample attendance records
         List<Attendance> recentAttendances = attendanceRepository.findAll().stream()
@@ -37,14 +41,14 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
                 .limit(5)
                 .toList();
 
-        System.out.println("Recent attendance records:");
+        logger.info("Recent attendance records:");
         recentAttendances.forEach(att -> {
-            System.out.println(String.format("  ID: %d, Session: %d, Student: %s, Method: %s, Time: %s",
+            logger.info("  ID: {}, Session: {}, Student: {}, Method: {}, Time: {}",
                     att.getAttendanceId(),
                     att.getSessionId(),
                     att.getStudentUsername(),
                     att.getMethod(),
-                    att.getAttendanceTime()));
+                    att.getAttendanceTime());
         });
 
         assertTrue(attendanceCount >= 0, "Should be able to count attendance");
@@ -65,16 +69,16 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
             Optional<Session> session = sessionRepository.findById(att.getSessionId());
             if (session.isEmpty()) {
                 invalidSessionCount++;
-                System.out.println("WARNING: Attendance " + att.getAttendanceId() +
-                        " references non-existent session " + att.getSessionId());
+                logger.warn("Attendance {} references non-existent session {}",
+                        att.getAttendanceId(), att.getSessionId());
             }
 
             // Check student exists
             Optional<User> student = userRepository.findByBguUsernameIgnoreCase(att.getStudentUsername());
             if (student.isEmpty()) {
                 invalidStudentCount++;
-                System.out.println("WARNING: Attendance " + att.getAttendanceId() +
-                        " references non-existent student " + att.getStudentUsername());
+                logger.warn("Attendance {} references non-existent student {}",
+                        att.getAttendanceId(), att.getStudentUsername());
             }
 
             if (session.isPresent() && student.isPresent()) {
@@ -82,10 +86,10 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
             }
         }
 
-        System.out.println("Attendance validation results:");
-        System.out.println("  Valid: " + validCount);
-        System.out.println("  Invalid session refs: " + invalidSessionCount);
-        System.out.println("  Invalid student refs: " + invalidStudentCount);
+        logger.info("Attendance validation results:");
+        logger.info("  Valid: {}", validCount);
+        logger.info("  Invalid session refs: {}", invalidSessionCount);
+        logger.info("  Invalid student refs: {}", invalidStudentCount);
     }
 
     @Test
@@ -98,18 +102,18 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
         for (Session session : sessions) {
             List<Attendance> attendances = attendanceService.getAttendanceBySession(session.getSessionId());
             if (!attendances.isEmpty()) {
-                System.out.println("Session " + session.getSessionId() + " has " + attendances.size() + " attendances:");
+                logger.info("Session {} has {} attendances:", session.getSessionId(), attendances.size());
                 attendances.stream().limit(3).forEach(att -> {
-                    System.out.println(String.format("  - %s at %s via %s",
+                    logger.info("  - {} at {} via {}",
                             att.getStudentUsername(),
                             att.getAttendanceTime(),
-                            att.getMethod()));
+                            att.getMethod());
                 });
                 return; // Found one, test passes
             }
         }
 
-        System.out.println("No sessions with attendance found - this is OK for empty database");
+        logger.info("No sessions with attendance found - this is OK for empty database");
     }
 
     @Test
@@ -120,14 +124,14 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
         List<Attendance> allAttendances = attendanceRepository.findAll();
 
         if (allAttendances.isEmpty()) {
-            System.out.println("No attendance records found - skipping test");
+            logger.info("No attendance records found - skipping test");
             return;
         }
 
         String studentUsername = allAttendances.get(0).getStudentUsername();
         List<Attendance> studentAttendances = attendanceService.getAttendanceByStudent(studentUsername);
 
-        System.out.println("Student " + studentUsername + " has " + studentAttendances.size() + " attendance records");
+        logger.info("Student {} has {} attendance records", studentUsername, studentAttendances.size());
         assertNotNull(studentAttendances, "Should return attendance list");
     }
 
@@ -147,10 +151,10 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
                 .filter(a -> a.getMethod() == Attendance.AttendanceMethod.PROXY)
                 .count();
 
-        System.out.println("Attendance by method:");
-        System.out.println("  QR_SCAN: " + qrCount);
-        System.out.println("  MANUAL: " + manualCount);
-        System.out.println("  PROXY: " + proxyCount);
+        logger.info("Attendance by method:");
+        logger.info("  QR_SCAN: {}", qrCount);
+        logger.info("  MANUAL: {}", manualCount);
+        logger.info("  PROXY: {}", proxyCount);
 
         // All should be non-negative
         assertTrue(qrCount >= 0 && manualCount >= 0 && proxyCount >= 0,
@@ -170,7 +174,7 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
             attendanceService.recordAttendance(invalidAttendance);
         }, "Should throw exception for invalid session");
 
-        System.out.println("Correctly rejected attendance for invalid session");
+        logger.info("Correctly rejected attendance for invalid session");
     }
 
     @Test
@@ -180,18 +184,18 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
         List<Session> sessions = sessionRepository.findAll();
 
         if (sessions.isEmpty()) {
-            System.out.println("No sessions found - skipping stats test");
+            logger.info("No sessions found - skipping stats test");
             return;
         }
 
         Session session = sessions.get(0);
         AttendanceService.AttendanceStats stats = attendanceService.getSessionAttendanceStats(session.getSessionId());
 
-        System.out.println("Session " + session.getSessionId() + " stats:");
-        System.out.println("  Total: " + stats.getTotalAttendance());
-        System.out.println("  QR: " + stats.getQrScanCount());
-        System.out.println("  Manual: " + stats.getManualCount());
-        System.out.println("  Proxy: " + stats.getProxyCount());
+        logger.info("Session {} stats:", session.getSessionId());
+        logger.info("  Total: {}", stats.getTotalAttendance());
+        logger.info("  QR: {}", stats.getQrScanCount());
+        logger.info("  Manual: {}", stats.getManualCount());
+        logger.info("  Proxy: {}", stats.getProxyCount());
 
         assertNotNull(stats, "Should return stats object");
     }
@@ -207,7 +211,7 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
                 .toList();
 
         if (students.isEmpty()) {
-            System.out.println("No students found - skipping API test");
+            logger.info("No students found - skipping API test");
             return;
         }
 
@@ -217,8 +221,8 @@ class AttendanceFlowIntegrationTest extends BaseIntegrationTest {
                 getApiUrl("/student/" + username + "/sessions"),
                 String.class);
 
-        System.out.println("GET /api/v1/student/" + username + "/sessions");
-        System.out.println("  Status: " + response.getStatusCode());
+        logger.info("GET /api/v1/student/{}/sessions", username);
+        logger.info("  Status: {}", response.getStatusCode());
 
         // Could be 200 or 404 depending on data
         assertTrue(response.getStatusCode() == HttpStatus.OK ||

@@ -13,8 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,38 +30,26 @@ public class CustomErrorController implements ErrorController {
 
     @RequestMapping("/error")
     public ResponseEntity<Map<String, Object>> handleError(HttpServletRequest request) {
-        // IMMEDIATE console logging (bypasses all logging frameworks)
-        System.err.println("=========================================");
-        System.err.println("ERROR CONTROLLER TRIGGERED");
-        System.err.println("=========================================");
-        
         Object status = request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE);
         Object exception = request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
         Object message = request.getAttribute(RequestDispatcher.ERROR_MESSAGE);
         Object requestUri = request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI);
-        
+
         String statusCode = status != null ? status.toString() : "UNKNOWN";
         String exceptionType = exception != null ? exception.getClass().getName() : "UNKNOWN";
         String errorMessage = message != null ? message.toString() : "Unknown error";
         String uri = requestUri != null ? requestUri.toString() : request.getRequestURI();
-        
-        // IMMEDIATE console output
-        System.err.println("Status Code: " + statusCode);
-        System.err.println("Exception Type: " + exceptionType);
-        System.err.println("Error Message: " + errorMessage);
-        System.err.println("Request URI: " + uri);
-        System.err.println("Method: " + request.getMethod());
-        System.err.println("Query String: " + request.getQueryString());
-        
+
+        // Log error details
         if (exception instanceof Throwable) {
-            Throwable throwable = (Throwable) exception;
-            StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw);
-            throwable.printStackTrace(pw);
-            System.err.println("Stack Trace:\n" + sw.toString());
+            logger.error("ERROR CONTROLLER TRIGGERED - Status: {}, Type: {}, Message: {}, URI: {}, Method: {}, Query: {}",
+                    statusCode, exceptionType, errorMessage, uri, request.getMethod(), request.getQueryString(),
+                    (Throwable) exception);
+        } else {
+            logger.error("ERROR CONTROLLER TRIGGERED - Status: {}, Type: {}, Message: {}, URI: {}, Method: {}, Query: {}",
+                    statusCode, exceptionType, errorMessage, uri, request.getMethod(), request.getQueryString());
         }
-        System.err.println("=========================================");
-        
+
         // Generate correlation ID if not present
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         if (correlationId == null || correlationId.isEmpty()) {
@@ -85,8 +71,7 @@ public class CustomErrorController implements ErrorController {
                                             exception instanceof Throwable ? (Throwable) exception : null,
                                             bguUsername, payload);
             } catch (Exception logEx) {
-                System.err.println("FAILED to log to app_logs: " + logEx.getMessage());
-                logEx.printStackTrace();
+                logger.error("FAILED to log to app_logs: {}", logEx.getMessage(), logEx);
             }
         }
         

@@ -12,8 +12,6 @@ import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
-import edu.bgu.semscanapi.service.DatabaseLoggerService;
-import edu.bgu.semscanapi.service.EmailQueueService;
 import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -511,12 +510,13 @@ public class RegistrationApprovalService {
             approvalToken = actualToken;
         }
         
-        logger.info("📧 [RegistrationApprovalService] Registration saved with approval token - verified in database. Token: {} (first 8 chars: {})", 
-                approvalToken, approvalToken.substring(0, Math.min(8, approvalToken.length())));
+        String tokenPrefix = approvalToken != null ? approvalToken.substring(0, Math.min(8, approvalToken.length())) : "null";
+        logger.info("📧 [RegistrationApprovalService] Registration saved with approval token - verified in database. Token: {} (first 8 chars: {})",
+                approvalToken, tokenPrefix);
         databaseLoggerService.logAction("INFO", "EMAIL_REGISTRATION_TOKEN_SAVED",
                 String.format("Registration saved with approval token (verified)"),
-                registration.getPresenterUsername(), 
-                String.format("slotId=%d,tokenPrefix=%s", registration.getSlotId(), approvalToken.substring(0, Math.min(8, approvalToken.length()))));
+                registration.getPresenterUsername(),
+                String.format("slotId=%d,tokenPrefix=%s", registration.getSlotId(), tokenPrefix));
 
         // Retrieve slot information (date, time, location) to include in approval email
         SeminarSlot slot = slotRepository.findById(registration.getSlotId())
@@ -536,8 +536,8 @@ public class RegistrationApprovalService {
         String baseUrl = globalConfig.getApiBaseUrl();
         String approveUrl = baseUrl + "/approve/" + approvalToken;
         String declineUrl = baseUrl + "/decline/" + approvalToken;
-        logger.info("📧 [RegistrationApprovalService] Generated URLs - approve: {}, decline: {} (using token: {}...)", 
-                approveUrl, declineUrl, approvalToken.substring(0, Math.min(8, approvalToken.length())));
+        logger.info("📧 [RegistrationApprovalService] Generated URLs - approve: {}, decline: {} (using token: {}...)",
+                approveUrl, declineUrl, tokenPrefix);
         
         // Get student user to resolve full name
         String studentFullName = registration.getPresenterUsername(); // Default to username
@@ -676,8 +676,8 @@ public class RegistrationApprovalService {
                 .findById(new SeminarSlotRegistrationId(slotId, presenterUsername))
                 .orElseThrow(() -> new IllegalArgumentException("Registration not found"));
 
-        // Validate token
-        if (!token.equals(registration.getApprovalToken())) {
+        // Validate token (null-safe comparison)
+        if (!Objects.equals(token, registration.getApprovalToken())) {
             databaseLoggerService.logError("REGISTRATION_APPROVAL_INVALID_TOKEN",
                     String.format("Invalid approval token for slotId=%d, presenter=%s", slotId, presenterUsername),
                     null, presenterUsername, String.format("slotId=%d", slotId));
@@ -788,7 +788,7 @@ public class RegistrationApprovalService {
         // Send push notification
         try {
             SeminarSlot slot = slotRepository.findById(slotId).orElse(null);
-            String slotDate = slot != null ? slot.getSlotDate().format(DATE_FORMAT) : "your slot";
+            String slotDate = (slot != null && slot.getSlotDate() != null) ? slot.getSlotDate().format(DATE_FORMAT) : "your slot";
             fcmService.sendApprovalNotification(presenterUsername, slotId, slotDate, true, null);
         } catch (Exception e) {
             logger.error("Failed to send push notification to presenter {} for slot {}", presenterUsername, slotId, e);
@@ -942,8 +942,8 @@ public class RegistrationApprovalService {
                 .findById(new SeminarSlotRegistrationId(slotId, presenterUsername))
                 .orElseThrow(() -> new IllegalArgumentException("Registration not found"));
 
-        // Validate token
-        if (!token.equals(registration.getApprovalToken())) {
+        // Validate token (null-safe comparison)
+        if (!Objects.equals(token, registration.getApprovalToken())) {
             databaseLoggerService.logError("REGISTRATION_APPROVAL_INVALID_TOKEN",
                     String.format("Invalid approval token for slotId=%d, presenter=%s", slotId, presenterUsername),
                     null, presenterUsername, String.format("slotId=%d", slotId));
@@ -1026,7 +1026,7 @@ public class RegistrationApprovalService {
         // Send push notification for decline
         try {
             SeminarSlot slot = slotRepository.findById(slotId).orElse(null);
-            String slotDate = slot != null ? slot.getSlotDate().format(DATE_FORMAT) : "your slot";
+            String slotDate = (slot != null && slot.getSlotDate() != null) ? slot.getSlotDate().format(DATE_FORMAT) : "your slot";
             fcmService.sendApprovalNotification(presenterUsername, slotId, slotDate, false, reason);
         } catch (Exception e) {
             logger.error("Failed to send push notification to presenter {} for slot {}", presenterUsername, slotId, e);
@@ -1145,11 +1145,11 @@ public class RegistrationApprovalService {
             registration.getSupervisorName() != null ? registration.getSupervisorName() : "Supervisor",
             studentFullName,
             studentFullName,
-            slot.getSlotDate().toString(),
-            slot.getStartTime().toString(),
-            slot.getEndTime().toString(),
+            slot.getSlotDate() != null ? slot.getSlotDate().toString() : "N/A",
+            slot.getStartTime() != null ? slot.getStartTime().toString() : "N/A",
+            slot.getEndTime() != null ? slot.getEndTime().toString() : "N/A",
             registration.getTopic() != null ? registration.getTopic() : "Not specified",
-            registration.getDegree().toString(),
+            registration.getDegree() != null ? registration.getDegree().toString() : "N/A",
             registration.getSeminarAbstract() != null ? registration.getSeminarAbstract() : "Not provided",
             approveUrl,
             declineUrl,
