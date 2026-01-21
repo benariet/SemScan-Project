@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SemScan</string>
+    
+    <!-- Role Selection -->
+    <string name="select_role">What\'s my role today?</string>
+    <string name="presenter">Presenter</string>
+    <string name="student">Participant</string>
+    <string name="participant">Participant</string>
+    <string name="role_description">Choose your role</string>
+    
+    <!-- Participant Home -->
+    <string name="student_home_title">Participant Dashboard</string>
+    <string name="scan_attendance">Scan Attendance</string>
+    <string name="manual_attendance_request">Manual Attendance Request</string>
+    <string name="attendance_history">Attendance History</string>
+    <string name="im_absent_reason">I\'m Absent - Reason</string>
+    <string name="settings">Settings</string>
+    
+    <!-- Attendance History -->
+    <string name="attendance_history_empty">No attendance records found</string>
+    <string name="attendance_history_total_label">Total:</string>
+    <string name="attendance_history_total">%d sessions</string>
+    
+    <!-- Presenter Home -->
+    <string name="presenter_home_title">Presenter Dashboard</string>
+    <string name="start_session_show_qr">Start Session (Show QR)</string>
+    <string name="create_seminar_instance">Create Seminar Instance</string>
+    <string name="create_seminar_instance_description">Create a new semester instance</string>
+    <string name="create_seminar_card_title">Create Seminar</string>
+    <string name="create_seminar_card_description">Add a new seminar</string>
+    <string name="attendance_approvals">Attendance / Approvals</string>
+    <string name="export_to_excel">Export to Excel (CSV)</string>
+    <string name="manage_courses">Manage Courses</string>
+    <string name="records_dashboard">Records Dashboard</string>
+    
+    <!-- Seminar Management -->
+    <string name="create_new_seminar">Create New Seminar</string>
+    <string name="seminar_name">Seminar Name</string>
+    <string name="seminar_code">Seminar Code</string>
+    <string name="seminar_description">Description (Optional)</string>
+    <string name="enter_seminar_name">Enter seminar name</string>
+    <string name="enter_seminar_code">Enter seminar code (e.g., JAVA-001)</string>
+    <string name="enter_seminar_description">Enter seminar description</string>
+    <string name="seminar_created_successfully">Seminar created successfully</string>
+    <string name="failed_to_create_seminar">Failed to create seminar</string>
+    <string name="no_seminars_found">No seminars found. Create a new seminar to get started.</string>
+    
+    <!-- QR Scanner -->
+    <string name="qr_scanner_title">Scan QR Code</string>
+    <string name="qr_scanner_instruction">Point your camera at the QR code</string>
+    <string name="scanning">Scanning...</string>
+    <string name="qr_scan_success">QR Code scanned successfully</string>
+    <string name="qr_scan_error">Failed to scan QR code</string>
+    
+    <!-- QR Display -->
+    <string name="qr_display_title">Session QR Code</string>
+    <string name="session_active">Session Active</string>
+    <string name="present_count">Present: %d</string>
+    <string name="end_session">End Session</string>
+    
+    <!-- Attendance -->
+    <string name="attendance_confirmed">Attendance Confirmed</string>
+    <string name="already_present">Already marked present</string>
+    <string name="window_closed">Attendance window is closed</string>
+    <string name="session_closed">Session is closed</string>
+    
+    <!-- Absence Requests -->
+    <string name="submit_absence_title">Submit Absence Reason</string>
+    <string name="select_course">Select Course</string>
+    <string name="select_session">Select Session</string>
+    <string name="reason">Reason</string>
+    <string name="note">Note (Optional)</string>
+    <string name="submit">Submit</string>
+    
+    <!-- Absence Reasons -->
+    <string name="reason_sick">Sick</string>
+    <string name="reason_family">Family</string>
+    <string name="reason_exam">Exam</string>
+    <string name="reason_other">Other</string>
+    
+    <!-- Course Management -->
+    <string name="add_course">Add Course</string>
+    <string name="course_name">Course Name</string>
+    <string name="enter_course_name">Enter course name</string>
+    <string name="course_code">Course Code</string>
+    <string name="enter_course_code">Enter course code</string>
+    <string name="course_description">Course Description</string>
+    <string name="enter_course_description">Enter course description</string>
+    <string name="no_courses_found">No courses found</string>
+    <string name="add_your_first_course">Add your first course to get started</string>
+    <string name="course">Course</string>
+    
+    <!-- Attendance Management -->
+    <string name="present_tab">Present</string>
+    <string name="absence_requests_tab">Absence Requests</string>
+    <string name="approve">Approve</string>
+    <string name="reject">Reject</string>
+    <string name="no_attendance_data">No attendance data available</string>
+    <string name="no_absence_requests">No absence requests</string>
+    
+    <!-- Export -->
+    <string name="export_success">Export successful</string>
+    <string name="export_error">Export failed</string>
+    <string name="select_date_range">Select Date Range</string>
+    <string name="from_date">From Date</string>
+    <string name="to_date">To Date</string>
+    <string name="export">Export</string>
+    
+    <!-- Records Dashboard -->
+    <string name="view_type">View Type</string>
+    <string name="refresh">Refresh</string>
+    
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="loading">Loading...</string>
+    <string name="error">Error</string>
+    <string name="success">Success</string>
+    <string name="retry">Retry</string>
+    <string name="back">Back</string>
+    <string name="next">Next</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="use_saved_abstract_question">You have a saved seminar abstract in your settings. Would you like to use it?</string>
+
+    <!-- User-friendly error messages -->
+    <string name="error_network_connection">Unable to connect. Check your internet and try again.</string>
+    <string name="error_network_timeout">Request timed out. Check your connection and try again.</string>
+    <string name="error_server_unavailable">Server unavailable. Please try again later.</string>
+    <string name="error_unknown">Something went wrong. Try again.</string>
+    <string name="error_save_failed">Save failed. Try again.</string>
+    <string name="error_load_failed">Load failed. Try again.</string>
+    <string name="error_operation_failed">Operation failed. Please try again.</string>
+    <string name="error_registration_failed">Registration failed. Check your information and try again.</string>
+    <string name="error_slot_load_failed">Failed to load slots. Try again.</string>
+    <string name="error_export_failed">Export failed. Try again.</string>
+    <string name="error_email_failed">Email failed. Try again.</string>
+    <string name="error_file_save_failed">File save failed. Check storage permissions.</string>
+    <string name="error_server_error">Server error. Try again later.</string>
+
+    <!-- Session and authentication errors -->
+    <string name="error_session_expired">Your session has expired. Please log in again.</string>
+    <string name="error_permission_denied">You don\'t have permission. Contact your administrator.</string>
+
+    <!-- Actionable error messages with retry suggestions -->
+    <string name="error_no_internet_retry">No internet connection. Check your connection and tap retry.</string>
+    <string name="error_server_busy_retry">Server is busy. Please wait a moment and try again.</string>
+    <string name="error_connection_reset">Connection was reset. Please try again.</string>
+    <string name="error_gateway_timeout">Server is taking too long to respond. Try again later.</string>
+
+    <!-- HTTP status error messages -->
+    <string name="error_invalid_request">Invalid request. Please check your information and try again.</string>
+    <string name="error_not_found">The requested item was not found.</string>
+    <string name="error_conflict">This action conflicts with existing data. Please refresh and try again.</string>
+    <string name="error_validation_failed">The information you provided is invalid. Please check and try again.</string>
+    <string name="error_too_many_requests">Too many requests. Please wait a moment and try again.</string>
+    <string name="error_already_have_approved_registration">You already have an approved registration. You can only present once per degree.</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="change_role">Change Role</string>
+    <string name="settings_username">Username</string>
+    <string name="settings_username_saved">Username saved successfully.</string>
+    <string name="setup_title">Complete Your Profile</string>
+    <string name="setup_header">Welcome to SemScan</string>
+    <string name="setup_subheader">We need a few details to get started.</string>
+    <string name="setup_first_name">First name</string>
+    <string name="setup_last_name">Last name</string>
+    <string name="setup_national_id">National ID number</string>
+    <string name="setup_national_id_show_hide">Show/hide national ID</string>
+    <string name="setup_national_id_confirm">I confirm this ID is correct</string>
+    <string name="setup_national_id_error_required">National ID number is required</string>
+    <string name="setup_national_id_error_length">ID must be exactly 9 digits</string>
+    <string name="setup_national_id_error_checksum">ID checksum validation failed</string>
+    <string name="setup_national_id_error_confirm">Please confirm the ID is correct</string>
+    <string name="setup_presenter_name">Presenter name</string>
+    <string name="setup_presenter_last_name">Presenter last name</string>
+    <string name="setup_email">Email address</string>
+    <string name="setup_error_presenter_name">Presenter name is required</string>
+    <string name="setup_error_presenter_last_name">Presenter last name is required</string>
+    <string name="setup_error_email">Email address is required</string>
+    <string name="setup_error_email_invalid">Enter a valid email address</string>
+    <string name="setup_degree_label">Academic degree</string>
+    <string name="setup_degree_placeholder">Tap to choose your degree</string>
+    <string name="setup_participation_label">Participation preference</string>
+    <string name="setup_participation_placeholder">Tap to choose how you participate</string>
+    <string name="setup_complete_button">Finish setup</string>
+    <string name="setup_next_button">Next</string>
+    <string name="setup_degree_title">Select Degree</string>
+    <string name="setup_degree_prompt">Which degree are you enrolled in?</string>
+    <string name="setup_degree_msc">MSc</string>
+    <string name="setup_degree_msc_description">MSc students present once per degree.</string>
+    <string name="setup_degree_phd">PhD</string>
+    <string name="setup_degree_phd_description">PhD students take a full presentation slot.</string>
+    <string name="setup_participation_title">Choose Participation</string>
+    <string name="setup_participation_prompt">How do you plan to participate in seminars?</string>
+    <string name="setup_participation_presenter">Presenter only</string>
+    <string name="setup_participation_presenter_description">I will present at seminars.</string>
+    <string name="setup_participation_participant">Participant only</string>
+    <string name="setup_participation_participant_description">I attend seminars as an audience member.</string>
+    <string name="setup_participation_both">Both presenter and participant</string>
+    <string name="setup_participation_both_description">I both present and attend seminars.</string>
+    <string name="setup_participation_presenter_locked">PhD students are registered as presenters.</string>
+    <string name="setup_msc_title">MSc Role Selection</string>
+    <string name="setup_msc_prompt">What best describes your role?</string>
+    <string name="setup_msc_option_presenter">I am a presenter</string>
+    <string name="setup_msc_option_participant">I am a participant</string>
+    <string name="setup_msc_option_both">I am both presenter and participant</string>
+    <string name="setup_error_first_name">First name is required</string>
+    <string name="setup_error_last_name">Last name is required</string>
+    <string name="setup_error_degree">Select your degree to continue</string>
+    <string name="setup_error_participation">Select your participation preference</string>
+    <string name="setup_success">Profile saved. Let’s get you started!</string>
+    <string name="network_error_generic">Unable to connect. Check your internet and try again.</string>
+    <string name="about">About</string>
+    <string name="version">Version %s</string>
+    <string name="report_bug_or_problems">Report a bug or having problems?</string>
+
+    <!-- Presenter Home (revamped) -->
+    <string name="presenter_home_welcome_default">Welcome, Presenter!</string>
+    <string name="presenter_select_slot_first">Please select a presentation slot first</string>
+    <string name="presenter_waiting_approval">Waiting for supervisor approval before you can open attendance</string>
+    <string name="presenter_home_supervisor_required_in_settings">Please set your supervisor info in Settings first</string>
+    <string name="welcome_user">Welcome, %1$s!</string>
+    <string name="welcome_default">Welcome!</string>
+    <string name="presenter_home_enroll_title">Select a presentation slot</string>
+    <string name="presenter_home_enroll_description">Browse available dates and register for a slot.</string>
+    <string name="presenter_home_my_slot_card_title">My registered slot</string>
+    <string name="presenter_home_my_slot_card_description">Review your assigned seminar details and make changes.</string>
+
+    <!-- Presenter Slot Selection -->
+    <string name="presenter_slot_selection_title">Available seminar slots</string>
+    <string name="presenter_slot_empty_title">No slots available</string>
+    <string name="presenter_slot_empty_message">Check back later or refresh to load the latest schedule.</string>
+    <string name="presenter_slot_refresh">Refresh</string>
+
+    <!-- Presenter My Slot -->
+    <string name="presenter_my_slot_screen_title">My registered slot</string>
+    <string name="presenter_my_slot_intro">Review your registered slot. To switch, return to available slots.</string>
+    <string name="presenter_my_slot_empty">Not registered to any slot yet.</string>
+    <string name="presenter_my_slot_change_button">Browse available slots</string>
+    <string name="presenter_my_slot_change_button_short">Browse slots</string>
+    <string name="presenter_my_slot_cancel_button">Cancel registration</string>
+    <string name="presenter_my_slot_cancel_title">Cancel Registration</string>
+    <string name="presenter_my_slot_cancel_message">Are you sure you want to cancel your registration for this slot?</string>
+    <string name="presenter_my_slot_cancel_success">Your registration was cancelled.</string>
+    <string name="presenter_my_slot_cancel_error">Could not cancel registration. Please try again.</string>
+    <string name="presenter_my_slot_no_slot_error">No slot to cancel.</string>
+    <string name="presenter_my_slot_no_user_error">User information missing. Please log in again.</string>
+    <string name="presenter_my_slot_waiting_list_header">Waiting List</string>
+    <string name="presenter_my_slot_waiting_position">Position %1$d of %2$d</string>
+    <string name="presenter_my_slot_cancel_waiting_list">Cancel waiting list</string>
+    <string name="presenter_my_slot_cancel_waiting_list_success">Removed from waiting list.</string>
+    <string name="presenter_my_slot_cancel_waiting_list_error">Could not cancel waiting list. Please try again.</string>
+
+    <!-- Presenter Slot Details -->
+    <string name="presenter_home_slot_title_format">%1$s • %2$s</string>
+    <string name="presenter_home_slot_registered_count">Registered: %1$d / %2$d</string>
+    <string name="presenter_home_slot_registered_with_pending">%1$d approved, %2$d pending / %3$d slots</string>
+    <string name="presenter_home_slot_pending_only">%1$d pending / %2$d slots</string>
+    <string name="presenter_home_slot_available_count"> • Available: %1$d</string>
+    <string name="presenter_home_slot_approved_line">%1$d approved / %2$d slots</string>
+    <string name="presenter_home_slot_approved_line_with_names">%1$d approved / %2$d slots - %3$s</string>
+    <string name="presenter_home_slot_pending_line">%1$d pending</string>
+    <string name="presenter_home_slot_pending_line_with_names">%1$d pending - %3$s</string>
+    <string name="presenter_home_slot_waiting_list_line">On waiting list</string>
+    <string name="presenter_home_slot_waiting_list_line_with_count">waiting list %1$d/%2$d</string>
+    <string name="presenter_home_slot_waiting_list_line_with_name">waiting list %1$d/%2$d - %3$s</string>
+    <string name="presenter_slot_full_offer_waiting_list">Slot is full. Tap \'Join Waiting List\' to queue.</string>
+    <string name="waiting_list_approved_title">Approved from Waiting List</string>
+    <string name="waiting_list_approved_message">You have been approved for slot: %1$s</string>
+    <string name="waiting_list_approved_message_generic">You have been approved from the waiting list!</string>
+    <string name="pending_registration_cancelled_single">Your pending registration for</string>
+    <string name="pending_registrations_cancelled_multiple">Your %1$d pending registrations have been automatically cancelled.</string>
+    <string name="pending_cancelled_reason">This is because you can only have one approved registration at a time.</string>
+    <string name="presenter_slot_pending_count">%1$d Pending</string>
+    <string name="presenter_slot_pending_approval">Pending Approval</string>
+    <string name="presenter_slot_join_waiting_list">Join Waiting List</string>
+    <string name="presenter_slot_cancel_waiting_list">Cancel Waiting List</string>
+    <string name="presenter_slot_waiting_list_title">Join Waiting List</string>
+    <string name="presenter_home_slot_state_available">Available</string>
+    <string name="presenter_home_slot_state_partial">Partially booked</string>
+    <string name="presenter_home_slot_state_full">Full</string>
+    <string name="presenter_home_register_title">Invite a Supervisor</string>
+    <string name="presenter_home_register_description">Enter your supervisor details to register for this slot.</string>
+    <string name="presenter_home_topic_hint">Presentation topic</string>
+    <string name="presenter_home_abstract_hint">Seminar abstract</string>
+    <string name="presenter_home_abstract_helper">Paste or type your seminar abstract. Required for supervisor approval.</string>
+    <string name="presenter_home_abstract_required">Abstract is required for registration</string>
+    <string name="presenter_home_supervisor_name_hint">Supervisor full name (required)</string>
+    <string name="presenter_home_supervisor_email_hint">Supervisor email (required)</string>
+    <string name="presenter_home_supervisor_name_required">Supervisor name is required</string>
+    <string name="presenter_home_supervisor_email_required">Supervisor email is required</string>
+    <string name="presenter_home_supervisor_email_invalid">Enter a valid supervisor email address</string>
+    <string name="presenter_home_supervisor_info_required">Please set your supervisor name and email in Settings first</string>
+    <string name="presenter_home_presenter_email_required">Email required for supervisor notification. Update in Settings.</string>
+    <string name="presenter_home_register_success">Registered for this slot.</string>
+    <string name="presenter_home_register_pending_with_supervisor">Registration submitted!\nWaiting for %1$s\'s approval.\nSupervisors typically respond within 2 days.</string>
+    <string name="presenter_home_register_pending_generic">Registration submitted!\nWaiting for supervisor approval.\nSupervisors typically respond within 2 days.</string>
+    <string name="presenter_home_register_already">Already registered for this slot.</string>
+    <string name="presenter_home_register_full">Slot is full.</string>
+    <string name="presenter_home_register_conflict">You already have another slot booked.</string>
+    <string name="presenter_slot_registered_in_another">You are registered in another slot</string>
+    <string name="presenter_slot_supervisor_invitation_title">Send Invitation to Supervisor?</string>
+    <string name="presenter_slot_supervisor_invitation_message">Send invitation email to your supervisor?</string>
+    <string name="presenter_slot_supervisor_email_sent">Invitation email sent to %1$s</string>
+    <string name="presenter_slot_supervisor_email_failed">Failed to send supervisor invitation</string>
+    <string name="presenter_slot_send_invitation_button">Send Invitation</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="room_with_label">Room %1$s</string>
+    <string name="building_with_label">Building %1$s</string>
+
+    <!-- Presenter Start Session -->
+    <string name="presenter_start_session_title">Open session QR</string>
+    <string name="presenter_start_session_subtitle">Generate a QR code for your registered slot.</string>
+    <string name="presenter_start_session_button">Open session</string>
+    <string name="presenter_start_session_button_resume">View session QR</string>
+    <string name="presenter_start_session_empty">You\'re not registered for a slot yet.</string>
+    <string name="presenter_start_session_error_no_user">Username not found. Please log in again.</string>
+    <string name="presenter_start_session_status_open">Session already open</string>
+    <string name="presenter_start_session_error_load">Failed to load slot details. Try again.</string>
+    <string name="presenter_start_session_toast_open">Opening session…</string>
+    <string name="presenter_start_session_error_too_early">Cannot Open Session</string>
+    <string name="presenter_start_session_error_too_early_message">Can only open 10 minutes before slot. Wait until %1$s.</string>
+    <string name="presenter_start_session_error_in_progress">Session In Progress</string>
+    <string name="presenter_start_session_error_in_progress_message">Another presenter has an active session for this time slot. Please wait for that session to end before opening a new one.</string>
+    <string name="presenter_start_session_error_generic">Cannot Open Session</string>
+    <string name="presenter_start_session_error_generic_message">Unable to open session. Try again later.</string>
+    <string name="presenter_start_session_error_network">Network Error</string>
+    <string name="presenter_start_session_error_network_message">Unable to connect. Check internet and try again.</string>
+
+    <!-- Presenter Attendance QR -->
+    <string name="presenter_attendance_qr_title">Session QR</string>
+    <string name="presenter_attendance_qr_instructions">Have participants scan this QR to mark attendance.</string>
+    <string name="presenter_attendance_qr_valid_until">Valid until %1$s</string>
+    <string name="presenter_attendance_qr_opened_at">Opened at %1$s</string>
+    <string name="presenter_attendance_qr_error_generic">Failed to load QR code</string>
+    <string name="presenter_attendance_qr_error_not_found">Slot not found or not registered</string>
+    <string name="presenter_attendance_qr_error_not_open">Attendance not open. Open attendance first.</string>
+    <string name="presenter_attendance_qr_error_server">Server error. Please try again later.</string>
+    <string name="presenter_attendance_qr_error_connection">Connection error. Check internet.</string>
+    <string name="presenter_attendance_qr_error_server_unavailable">Server unavailable. Make sure server is running.</string>
+    <string name="presenter_attendance_qr_end_session">End Session</string>
+    <string name="presenter_attendance_qr_cancel_session">Cancel Session</string>
+    <string name="presenter_attendance_qr_end_confirm_title">End Session</string>
+    <string name="presenter_attendance_qr_end_confirm_message">Are you sure you want to end this session?\n\nIMPORTANT: You will NOT be able to open a new session for this slot once ended.</string>
+    <string name="presenter_attendance_qr_cancel_confirm_title">Cancel Session</string>
+    <string name="presenter_attendance_qr_cancel_confirm_message">Are you sure you want to cancel this session?\n\nIMPORTANT: You will NOT be able to open a new session for this slot once cancelled.</string>
+    <string name="presenter_attendance_qr_end_success">Session ended successfully</string>
+    <string name="presenter_attendance_qr_end_error">Failed to end session</string>
+    <string name="presenter_attendance_qr_auto_close_message">Session automatically closed after 15 minutes</string>
+
+    <!-- Session Success -->
+    <string name="presenter_session_success_title">Session Completed</string>
+    <string name="presenter_session_success_message">Your session has ended successfully. All attendance records have been saved.</string>
+    <string name="presenter_session_success_opened">Started</string>
+    <string name="presenter_session_success_closed">Ended</string>
+    <string name="presenter_session_success_attendees">Attendees</string>
+    <string name="presenter_session_success_new_session">Start New Session</string>
+    <string name="presenter_session_success_go_home">Go to Home</string>
+
+    <!-- Session Canceled -->
+    <string name="presenter_session_canceled_title">Session Canceled</string>
+    <string name="presenter_session_canceled_message">Session was canceled. No attendance records were saved.</string>
+
+    <!-- Dialog / misc -->
+    <string name="presenter_slot_register_button">Register now</string>
+    <string name="presenter_slot_status_approved">Approved</string>
+    <string name="presenter_slot_status_pending">Pending</string>
+    <string name="presenter_slot_status_registered">Registered</string>
+    <string name="presenter_slot_status_full">Full</string>
+    <string name="presenter_slot_registered_badge">Registered</string>
+    <string name="presenter_slot_full_badge">Full</string>
+
+    <!-- Login -->
+    <string name="login_title">Welcome to SemScan</string>
+    <string name="login_subtitle">Log in with your university username</string>
+    <string name="login_username_hint">Username</string>
+    <string name="login_password_hint">Password</string>
+    <string name="login_remember_me">Remember me</string>
+    <string name="login_button">Log in</string>
+    <string name="login_button_loading">Logging in...</string>
+    <string name="login_invalid_credentials">Invalid username or password</string>
+    <string name="login_server_error">Server error. Please try again later.</string>
+    <string name="login_skip_auth_button">Skip auth (test)</string>
+    <string name="login_username_required">Please enter your username</string>
+    <string name="login_password_required">Please enter your password</string>
+    <string name="login_skip_auth_success">Logged in as %1$s (test mode)</string>
+    <string name="test_email_button">Test Email</string>
+    <string name="test_email_title">Test Email</string>
+    <string name="test_email_message">Press OK to send a test email.</string>
+    <string name="test_email_sending">Sending test email...</string>
+    <string name="test_email_success">Test email sent successfully!</string>
+    <string name="test_email_error">Failed to send test email: %1$s</string>
+
+    <!-- Settings / Logout -->
+    <string name="logout">Logout</string>
+    <string name="logout_confirm_title">Log out</string>
+    <string name="logout_confirm_message">Are you sure you want to log out?</string>
+    <string name="logout_success">You have been logged out.</string>
+    
+    <!-- Permissions -->
+    <string name="camera_permission_required">Camera permission required for QR scanning</string>
+    <string name="permission_denied">Permission denied</string>
+    <string name="go_to_settings">Go to Settings</string>
+
+    <!-- Presentation Details Card -->
+    <string name="presentation_details_title">Presentation Details</string>
+    <string name="presentation_details_status_incomplete">Tap to fill in your details</string>
+    <string name="presentation_details_status_complete">Details saved</string>
+    <string name="presentation_topic_hint">Presentation Topic</string>
+    <string name="seminar_abstract_hint">Seminar Abstract</string>
+    <string name="supervisor_name_hint">Supervisor Name</string>
+    <string name="supervisor_email_hint">Supervisor Email</string>
+    <string name="save_presentation_details">Save Details</string>
+    <string name="expand">Expand</string>
+    <string name="presentation_details_saved">Presentation details saved</string>
+    <string name="presentation_details_required">Please fill in all presentation details</string>
+    <string name="presentation_details_topic_required">Presentation topic is required</string>
+    <string name="presentation_details_abstract_required">Seminar abstract is required</string>
+    <string name="presentation_details_supervisor_name_required">Supervisor name is required</string>
+    <string name="presentation_details_supervisor_email_required">Supervisor email is required</string>
+    <string name="presentation_details_supervisor_email_invalid">Please enter a valid email address</string>
+    
+    <!-- My Time Slot Card -->
+    <string name="presenter_home_my_time_slot_card_title">My Time Slot</string>
+    <string name="presenter_home_cancel_slot">Cancel Slot</string>
+
+    <!-- Registration Confirmation Dialog -->
+    <string name="registration_confirm_title">Confirm Registration</string>
+    <string name="registration_confirm_message"><![CDATA[An invitation email will be sent to your supervisor for approval.<br><br><b>Supervisor:</b>  %1$s<br><b>Email:</b>  %2$s<br><br><b>Topic:</b>  %3$s]]></string>
+    <string name="registration_confirm_button">Register</string>
+    <string name="registration_review_button">Review Details</string>
+    <string name="registration_details_incomplete">Please fill in all presentation details first</string>
+
+    <!-- WiFi Warning -->
+    <string name="wifi_warning">This app requires the BGU-WIFI network.</string>
+</resources>

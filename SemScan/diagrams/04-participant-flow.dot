@@ -1,0 +1,101 @@
+digraph ParticipantFlow {
+    label="Participant Attendance Flow";
+    labelloc="t";
+    fontsize=18;
+    fontname="Arial Bold";
+
+    rankdir=TB;
+    splines=true;
+    nodesep=0.8;
+    ranksep=1.0;
+    bgcolor="#f5f5f5";
+
+    node [
+        shape=box,
+        style="rounded,filled",
+        fontname="Arial",
+        fontsize=12,
+        margin="0.3,0.2"
+    ];
+
+    edge [
+        fontname="Arial",
+        fontsize=10,
+        color="#666666"
+    ];
+
+    // Precondition
+    subgraph cluster_precondition {
+        label="Precondition";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#388e3c";
+        bgcolor="#e8f5e922";
+
+        Precondition [label="Presenter opened session\n(QR code displayed)", fillcolor="#c8e6c9", color="#2e7d32", shape=note];
+    }
+
+    // Start
+    Home [label="Home Screen", fillcolor="#e8f5e9", color="#388e3c", penwidth=2];
+
+    // QR Flow
+    subgraph cluster_qr {
+        label="QR Attendance";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#1976d2";
+        bgcolor="#e3f2fd22";
+
+        ScanQR [label="Press\n\"Scan Attendance\"", fillcolor="#bbdefb", color="#1976d2"];
+        Camera [label="Camera Opens\nPoint at QR Code", fillcolor="#bbdefb", color="#1976d2"];
+        QRError [label="Error\n(won't scan)", fillcolor="#ffcdd2", color="#c62828", shape=ellipse];
+    }
+
+    // Manual Flow
+    subgraph cluster_manual {
+        label="Manual Attendance";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#7b1fa2";
+        bgcolor="#f3e5f522";
+
+        Manual [label="Press\n\"Manual Attendance Request\"", fillcolor="#e1bee7", color="#7b1fa2"];
+        SelectSession [label="Select Session\nfrom list", fillcolor="#e1bee7", color="#7b1fa2"];
+        EnterReason [label="Enter Reason\n-----------\n* Camera broken\n* QR won't scan", fillcolor="#e1bee7", color="#7b1fa2", shape=note];
+        SubmitBtn [label="Press\n\"Submit\"", fillcolor="#e1bee7", color="#7b1fa2"];
+        Pending [label="PENDING\nAPPROVAL", fillcolor="#fff9c4", color="#f9a825"];
+    }
+
+    // Presenter Decision
+    PresenterDecision [label="Presenter Reviews\n-----------\nApprove or Reject", fillcolor="#ffccbc", color="#ff5722"];
+
+    // Final outcomes
+    Attended [label="ATTENDED", fillcolor="#81c784", color="#1b5e20", shape=ellipse, penwidth=3];
+    Rejected [label="REJECTED\n+ Email sent", fillcolor="#ef9a9a", color="#b71c1c", shape=ellipse];
+
+    // Connections - Precondition
+    Precondition -> Home;
+
+    // Connections - QR
+    Home -> ScanQR;
+    ScanQR -> Camera;
+    Camera -> Attended [label="valid scan"];
+    Camera -> QRError [label="error"];
+    QRError -> Manual [label="fallback", color="#7b1fa2", style=bold, penwidth=2];
+
+    // Connections - Manual
+    Home -> Manual;
+    Manual -> SelectSession;
+    SelectSession -> EnterReason;
+    EnterReason -> SubmitBtn;
+    SubmitBtn -> Pending;
+
+    // Connections - Presenter Review
+    Pending -> PresenterDecision;
+    PresenterDecision -> Attended [label="approve"];
+    PresenterDecision -> Rejected [label="reject"];
+
+    // Return paths
+    Attended -> Home [style=dashed, color="#388e3c", constraint=false];
+    Rejected -> Home [style=dashed, color="#666666", constraint=false];
+}

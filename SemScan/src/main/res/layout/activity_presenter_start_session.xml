@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background_light">
+
+    <!-- Toolbar -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@drawable/bg_header_gradient"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+        app:title="@string/presenter_start_session_title"
+        app:titleTextColor="@color/white"
+        app:navigationIcon="@drawable/ic_arrow_back" />
+
+    <!-- Main Content -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:clipToPadding="false">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="32dp">
+
+                <!-- Slot Details Card -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_slot_details"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="@color/white"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <!-- Header with icon -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_calendar"
+                                app:tint="@color/primary_blue"
+                                android:contentDescription="Calendar" />
+
+                            <TextView
+                                android:id="@+id/text_slot_title"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="12dp"
+                                android:textColor="@color/gray_900"
+                                android:textSize="18sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginTop="16dp"
+                            android:layout_marginBottom="16dp"
+                            android:background="@color/gray_200" />
+
+                        <!-- Time -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_time"
+                                app:tint="@color/primary_blue"
+                                android:contentDescription="Time" />
+
+                            <TextView
+                                android:id="@+id/text_slot_window"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="12dp"
+                                android:textColor="@color/gray_700"
+                                android:textSize="15sp" />
+                        </LinearLayout>
+
+                        <!-- Location -->
+                        <LinearLayout
+                            android:id="@+id/layout_location"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="12dp"
+                            android:gravity="center_vertical">
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_location"
+                                app:tint="@color/primary_blue"
+                                android:contentDescription="Location" />
+
+                            <TextView
+                                android:id="@+id/text_slot_location"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="12dp"
+                                android:textColor="@color/gray_700"
+                                android:textSize="15sp" />
+                        </LinearLayout>
+
+                        <!-- Status/Info - simple text style -->
+                        <TextView
+                            android:id="@+id/text_session_status"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:textColor="@color/gray_500"
+                            android:textSize="13sp"
+                            android:gravity="center"
+                            android:visibility="gone" />
+
+                        <!-- Subtitle text - important info about session timing -->
+                        <TextView
+                            android:id="@+id/text_subtitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/presenter_start_session_subtitle"
+                            android:textColor="@color/gray_700"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:layout_marginTop="20dp" />
+
+                        <!-- Open Session Button -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_start_session"
+                            style="@style/SemScanButtonPrimary"
+                            android:layout_width="match_parent"
+                            android:layout_height="56dp"
+                            android:layout_marginTop="12dp"
+                            android:text="@string/presenter_start_session_button"
+                            android:textSize="16sp"
+                            app:cornerRadius="100dp"
+                            android:enabled="false" />
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Empty State -->
+                <LinearLayout
+                    android:id="@+id/layout_empty_state"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="48dp"
+                    android:visibility="gone">
+
+                    <ImageView
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
+                        android:src="@drawable/ic_calendar"
+                        android:tint="@color/gray_300"
+                        android:contentDescription="No slot" />
+
+                    <TextView
+                        android:id="@+id/text_empty_state"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:gravity="center"
+                        android:text="@string/presenter_start_session_empty"
+                        android:textColor="@color/gray_500"
+                        android:textSize="16sp" />
+                </LinearLayout>
+
+                <!-- Session Success Card -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_session_success"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="@color/white"
+                    app:strokeColor="#4CAF50"
+                    app:strokeWidth="2dp"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="24dp"
+                        android:gravity="center_horizontal">
+
+                        <!-- Success Icon Circle -->
+                        <FrameLayout
+                            android:layout_width="72dp"
+                            android:layout_height="72dp"
+                            android:background="@drawable/circle_success_background">
+
+                            <ImageView
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_check"
+                                android:tint="@color/white"
+                                android:contentDescription="Success" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/text_success_title"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:text="@string/presenter_session_success_title"
+                            android:textColor="#2E7D32"
+                            android:textSize="22sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/text_success_message"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:text="@string/presenter_session_success_message"
+                            android:textColor="@color/gray_600"
+                            android:textSize="14sp" />
+
+                        <!-- Session Details Box -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_marginTop="20dp"
+                            android:background="@drawable/rounded_background"
+                            android:backgroundTint="#F5F5F5"
+                            android:padding="16dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_weight="1"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/presenter_session_success_opened"
+                                    android:textColor="@color/gray_600"
+                                    android:textSize="13sp" />
+                                <TextView
+                                    android:id="@+id/text_success_opened_at"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="@color/gray_900"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="10dp">
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_weight="1"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/presenter_session_success_closed"
+                                    android:textColor="@color/gray_600"
+                                    android:textSize="13sp" />
+                                <TextView
+                                    android:id="@+id/text_success_closed_at"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="@color/gray_900"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="10dp">
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_weight="1"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/presenter_session_success_attendees"
+                                    android:textColor="@color/gray_600"
+                                    android:textSize="13sp" />
+                                <TextView
+                                    android:id="@+id/text_success_attendees"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="@color/gray_900"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_go_home"
+                            style="@style/SemScanButtonPrimary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:text="@string/presenter_session_success_go_home"
+                            app:backgroundTint="#4CAF50" />
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Session Canceled Card -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_session_canceled"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="@color/white"
+                    app:strokeColor="#FF9800"
+                    app:strokeWidth="2dp"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="24dp"
+                        android:gravity="center_horizontal">
+
+                        <!-- Canceled Icon Circle -->
+                        <FrameLayout
+                            android:layout_width="72dp"
+                            android:layout_height="72dp"
+                            android:background="@drawable/circle_canceled_background">
+
+                            <ImageView
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_close"
+                                android:tint="@color/white"
+                                android:contentDescription="Canceled" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/text_canceled_title"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:text="@string/presenter_session_canceled_title"
+                            android:textColor="#E65100"
+                            android:textSize="22sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/text_canceled_message"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:text="@string/presenter_session_canceled_message"
+                            android:textColor="@color/gray_600"
+                            android:textSize="14sp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_go_home_canceled"
+                            style="@style/SemScanButtonPrimary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:text="@string/presenter_session_success_go_home"
+                            app:backgroundTint="#FF9800" />
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+        </ScrollView>
+
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        style="@style/Widget.AppCompat.ProgressBar"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
+</LinearLayout>

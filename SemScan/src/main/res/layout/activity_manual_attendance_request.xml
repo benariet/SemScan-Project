@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background_light">
+
+    <!-- Toolbar -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@drawable/bg_header_gradient"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+        app:title="Manual Attendance Request"
+        app:titleTextColor="@color/white" />
+
+    <!-- Main Content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:paddingBottom="24dp">
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/progress_loading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:visibility="visible" />
+
+            <TextView
+                android:id="@+id/text_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Loading active sessions..."
+                android:textColor="@color/gray_600"
+                android:gravity="center_horizontal"
+                android:layout_marginTop="12dp" />
+
+        <LinearLayout
+            android:id="@+id/container_form"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="@android:color/transparent">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Choose an active session"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/gray_700"
+                android:layout_marginBottom="12dp" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_sessions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:layout_marginBottom="24dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Reason"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/gray_700"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/edit_reason"
+                android:layout_width="match_parent"
+                android:layout_height="144dp"
+                android:gravity="top|start"
+                android:textColor="@color/gray_900"
+                android:textColorHint="@color/gray_600"
+                android:background="@drawable/edittext_background"
+                android:hint="Explain why you need manual attendance"
+                android:padding="12dp"
+                android:inputType="textMultiLine"
+                android:maxLines="6"
+                android:overScrollMode="never"
+                android:layout_marginBottom="24dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_submit_request"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="Submit Request"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                android:backgroundTint="@color/button_pastel_blue"
+                android:textColor="@color/button_pastel_blue_text" />
+
+        </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>

@@ -1,0 +1,1 @@
+docker run -d --name attend-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=attendance -e MYSQL_USER=attend -e MYSQL_PASSWORD=strongpass -v attend_mysql_data:/var/lib/mysql mysql:8.4 --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci

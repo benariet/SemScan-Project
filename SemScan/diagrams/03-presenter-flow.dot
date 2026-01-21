@@ -1,0 +1,143 @@
+digraph PresenterFlow {
+    label="Presenter Session Flow";
+    labelloc="t";
+    fontsize=24;
+    fontname="Arial Bold";
+
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.6;
+    ranksep=0.8;
+    bgcolor="#f5f5f5";
+
+    node [
+        shape=box,
+        style="rounded,filled",
+        fontname="Arial",
+        fontsize=11,
+        margin="0.2,0.15"
+    ];
+
+    edge [
+        fontname="Arial",
+        fontsize=9,
+        color="#666666"
+    ];
+
+    // Main flow cluster
+    subgraph cluster_main {
+        label="";
+        style="invis";
+
+        // Precondition
+        subgraph cluster_precondition {
+            label="Preconditions";
+            labeljust="l";
+            style="rounded,dashed";
+            color="#388e3c";
+            bgcolor="#e8f5e922";
+
+            Precondition [label="1. APPROVED for slot\n2. Slot time reached", fillcolor="#c8e6c9", color="#2e7d32", shape=note];
+        }
+
+        // Home Screen cluster
+        subgraph cluster_home {
+            label="Home Screen";
+            labeljust="l";
+            style="rounded,dashed";
+            color="#388e3c";
+            bgcolor="#e8f5e922";
+
+            Home [label="Presenter Home Screen", fillcolor="#e8f5e9", color="#388e3c", penwidth=2];
+            SessionBanner [label="SESSION OPEN BANNER\n(Red, pulsing)\nTap to return to QR", fillcolor="#ffcdd2", color="#c62828", penwidth=2];
+            StartSessionBtn [label="Press Start Session\nbutton", fillcolor="#bbdefb", color="#1976d2"];
+        }
+
+        // Attendance Session cluster
+        subgraph cluster_session {
+            label="Attendance Session";
+            labeljust="l";
+            style="rounded,dashed";
+            color="#7b1fa2";
+            bgcolor="#f3e5f522";
+
+            OpenSession [label="Open Session", fillcolor="#e1bee7", color="#7b1fa2"];
+            TooEarly [label="Too Early\nWait for slot time", fillcolor="#ffcdd2", color="#c62828", shape=note];
+            QRDisplay [label="QR Code Displayed\nStudents scan\nTimer: 15 min", fillcolor="#ce93d8", color="#7b1fa2", penwidth=2];
+            EndSession [label="End Session", fillcolor="#e1bee7", color="#7b1fa2"];
+            CancelSession [label="Cancel Session", fillcolor="#ffcdd2", color="#c62828"];
+            AutoClose [label="Auto-Close\n(15 min)", fillcolor="#fff9c4", color="#f9a825"];
+        }
+
+        // Post-Session cluster
+        subgraph cluster_post {
+            label="Post-Session";
+            labeljust="l";
+            style="rounded,dashed";
+            color="#ff5722";
+            bgcolor="#fff3e022";
+
+            HasPending [label="Pending Manual\nRequests?", fillcolor="#ffccbc", color="#ff5722", shape=diamond];
+            SessionSuccess [label="Session Completed\nXLSX + Email sent\n(automatic)", fillcolor="#81c784", color="#1b5e20", shape=ellipse, penwidth=2];
+            SessionCanceled [label="Session\nCanceled", fillcolor="#ffcc80", color="#ef6c00", shape=ellipse];
+        }
+
+        // Manual Attendance Flow cluster
+        subgraph cluster_export {
+            label="Manual Attendance Flow";
+            labeljust="l";
+            style="rounded,dashed";
+            color="#388e3c";
+            bgcolor="#e8f5e922";
+
+            ExportPage [label="Export Page\n+ Review Modal", fillcolor="#c8e6c9", color="#388e3c"];
+            ReviewActions [label="For each request:\nApprove or Reject\nReject sends email", fillcolor="#ffccbc", color="#ff5722", shape=note];
+            ExportBtn [label="Export Data", fillcolor="#a5d6a7", color="#2e7d32"];
+            ExportSuccess [label="Export Complete\nXLSX + Email sent", fillcolor="#81c784", color="#1b5e20", shape=ellipse, penwidth=2];
+        }
+    }
+
+    // ==================== CONNECTIONS ====================
+
+    // Precondition to Home
+    Precondition -> Home;
+
+    // Home Screen flows
+    Home -> StartSessionBtn;
+    Home -> SessionBanner [label="has open session", style=dashed, color="#c62828"];
+
+    // Start Session flow
+    StartSessionBtn -> OpenSession;
+
+    // Session checks
+    OpenSession -> TooEarly [label="before time"];
+    TooEarly -> OpenSession [label="wait", style=dashed];
+    OpenSession -> QRDisplay [label="time ok"];
+
+    // QR Display actions
+    QRDisplay -> EndSession [label="end"];
+    QRDisplay -> CancelSession [label="cancel"];
+    QRDisplay -> AutoClose [label="timeout"];
+
+    // Banner flow - return to QR
+    SessionBanner -> QRDisplay [label="tap", color="#c62828"];
+
+    // After Session - check pending
+    EndSession -> HasPending;
+    AutoClose -> HasPending;
+    CancelSession -> SessionCanceled;
+
+    // Pending check results
+    HasPending -> SessionSuccess [label="no"];
+    HasPending -> ExportPage [label="yes"];
+
+    // Export Page flow
+    ExportPage -> ReviewActions;
+    ReviewActions -> ExportBtn [label="resolved"];
+    ExportBtn -> ExportSuccess;
+
+    // Return paths to Home
+    SessionSuccess -> Home [style=dashed, color="#388e3c"];
+    ExportSuccess -> Home [style=dashed, color="#388e3c"];
+    SessionCanceled -> Home [style=dashed, color="#ef6c00"];
+}

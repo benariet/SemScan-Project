@@ -1,0 +1,674 @@
+SemScan Logging System - Backend Implementation Guide
+=====================================================
+
+This document provides complete backend implementation for the SemScan logging system.
+
+TABLE OF CONTENTS
+=================
+1. API Endpoint Implementation
+2. Database Schema
+3. Data Models (Java)
+4. Repository Layer
+5. Service Layer
+6. Controller Implementation
+7. Configuration
+8. Testing
+9. Monitoring & Analytics
+
+=====================================================
+1. API ENDPOINT IMPLEMENTATION
+=====================================================
+
+Endpoint: POST /api/v1/logs
+Purpose: Receive logs from Android app
+Authentication: x-api-key header required
+Content-Type: application/json
+
+Request Body Structure:
+{
+  "logs": [
+    {
+      "timestamp": 1697784000000,
+      "level": "INFO",
+      "tag": "SemScan-UI",
+      "message": "User Action: Test Action - Testing logging system",
+      "userId": "student-001",
+      "userRole": "STUDENT",
+      "deviceInfo": "Android 13 - Samsung SM-G991B",
+      "appVersion": "1.0.0",
+      "stackTrace": null,
+      "exceptionType": null
+    }
+  ]
+}
+
+Response Structure:
+{
+  "success": true,
+  "message": "Logs received successfully",
+  "processedCount": 1
+}
+
+=====================================================
+2. DATABASE SCHEMA
+=====================================================
+
+-- Create app_logs table
+CREATE TABLE app_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    timestamp BIGINT NOT NULL,
+    level VARCHAR(10) NOT NULL,
+    tag VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    user_id VARCHAR(50),
+    user_role VARCHAR(20),
+    device_info TEXT,
+    app_version VARCHAR(20),
+    stack_trace TEXT,
+    exception_type VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_timestamp (timestamp),
+    INDEX idx_level (level),
+    INDEX idx_tag (tag),
+    INDEX idx_user_id (user_id),
+    INDEX idx_created_at (created_at)
+);
+
+-- Create log_analytics table for aggregated data
+CREATE TABLE log_analytics (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    date DATE NOT NULL,
+    level VARCHAR(10) NOT NULL,
+    tag VARCHAR(50) NOT NULL,
+    count INT NOT NULL,
+    unique_users INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_date_level_tag (date, level, tag)
+);
+
+=====================================================
+3. DATA MODELS (Java)
+=====================================================
+
+// LogEntry.java
+package com.semscan.model;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.LocalDateTime;
+
+public class LogEntry {
+    @JsonProperty("timestamp")
+    private Long timestamp;
+    
+    @JsonProperty("level")
+    private String level;
+    
+    @JsonProperty("tag")
+    private String tag;
+    
+    @JsonProperty("message")
+    private String message;
+    
+    @JsonProperty("userId")
+    private String userId;
+    
+    @JsonProperty("userRole")
+    private String userRole;
+    
+    @JsonProperty("deviceInfo")
+    private String deviceInfo;
+    
+    @JsonProperty("appVersion")
+    private String appVersion;
+    
+    @JsonProperty("stackTrace")
+    private String stackTrace;
+    
+    @JsonProperty("exceptionType")
+    private String exceptionType;
+    
+    // Constructors
+    public LogEntry() {}
+    
+    // Getters and Setters
+    public Long getTimestamp() { return timestamp; }
+    public void setTimestamp(Long timestamp) { this.timestamp = timestamp; }
+    
+    public String getLevel() { return level; }
+    public void setLevel(String level) { this.level = level; }
+    
+    public String getTag() { return tag; }
+    public void setTag(String tag) { this.tag = tag; }
+    
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+    
+    public String getUserRole() { return userRole; }
+    public void setUserRole(String userRole) { this.userRole = userRole; }
+    
+    public String getDeviceInfo() { return deviceInfo; }
+    public void setDeviceInfo(String deviceInfo) { this.deviceInfo = deviceInfo; }
+    
+    public String getAppVersion() { return appVersion; }
+    public void setAppVersion(String appVersion) { this.appVersion = appVersion; }
+    
+    public String getStackTrace() { return stackTrace; }
+    public void setStackTrace(String stackTrace) { this.stackTrace = stackTrace; }
+    
+    public String getExceptionType() { return exceptionType; }
+    public void setExceptionType(String exceptionType) { this.exceptionType = exceptionType; }
+}
+
+// LogRequest.java
+package com.semscan.model;
+
+import java.util.List;
+
+public class LogRequest {
+    private List<LogEntry> logs;
+    
+    public LogRequest() {}
+    
+    public List<LogEntry> getLogs() { return logs; }
+    public void setLogs(List<LogEntry> logs) { this.logs = logs; }
+}
+
+// LogResponse.java
+package com.semscan.model;
+
+public class LogResponse {
+    private boolean success;
+    private String message;
+    private int processedCount;
+    
+    public LogResponse() {}
+    
+    public LogResponse(boolean success, String message, int processedCount) {
+        this.success = success;
+        this.message = message;
+        this.processedCount = processedCount;
+    }
+    
+    public boolean isSuccess() { return success; }
+    public void setSuccess(boolean success) { this.success = success; }
+    
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    
+    public int getProcessedCount() { return processedCount; }
+    public void setProcessedCount(int processedCount) { this.processedCount = processedCount; }
+}
+
+=====================================================
+4. REPOSITORY LAYER
+=====================================================
+
+// LogRepository.java
+package com.semscan.repository;
+
+import com.semscan.model.LogEntry;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Repository
+public interface LogRepository extends JpaRepository<LogEntry, Long> {
+    
+    // Find logs by level
+    List<LogEntry> findByLevel(String level);
+    
+    // Find logs by tag
+    List<LogEntry> findByTag(String tag);
+    
+    // Find logs by user ID
+    List<LogEntry> findByUserId(String userId);
+    
+    // Find logs by date range
+    @Query("SELECT l FROM LogEntry l WHERE l.timestamp BETWEEN :startTime AND :endTime")
+    List<LogEntry> findByTimestampRange(@Param("startTime") Long startTime, @Param("endTime") Long endTime);
+    
+    // Find error logs
+    @Query("SELECT l FROM LogEntry l WHERE l.level = 'ERROR' ORDER BY l.timestamp DESC")
+    List<LogEntry> findErrorLogs();
+    
+    // Find logs by user role
+    List<LogEntry> findByUserRole(String userRole);
+    
+    // Count logs by level
+    @Query("SELECT l.level, COUNT(l) FROM LogEntry l GROUP BY l.level")
+    List<Object[]> countLogsByLevel();
+    
+    // Find recent logs
+    @Query("SELECT l FROM LogEntry l ORDER BY l.timestamp DESC LIMIT :limit")
+    List<LogEntry> findRecentLogs(@Param("limit") int limit);
+}
+
+=====================================================
+5. SERVICE LAYER
+=====================================================
+
+// LogService.java
+package com.semscan.service;
+
+import com.semscan.model.LogEntry;
+import com.semscan.model.LogRequest;
+import com.semscan.model.LogResponse;
+import com.semscan.repository.LogRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+@Service
+public class LogService {
+    
+    @Autowired
+    private LogRepository logRepository;
+    
+    @Transactional
+    public LogResponse processLogs(LogRequest request) {
+        try {
+            List<LogEntry> logs = request.getLogs();
+            
+            // Validate logs
+            validateLogs(logs);
+            
+            // Save logs asynchronously
+            CompletableFuture.runAsync(() -> {
+                for (LogEntry log : logs) {
+                    // Add server timestamp
+                    log.setServerTimestamp(System.currentTimeMillis());
+                    logRepository.save(log);
+                }
+            });
+            
+            // Update analytics
+            updateAnalytics(logs);
+            
+            return new LogResponse(true, "Logs processed successfully", logs.size());
+            
+        } catch (Exception e) {
+            return new LogResponse(false, "Error processing logs: " + e.getMessage(), 0);
+        }
+    }
+    
+    private void validateLogs(List<LogEntry> logs) {
+        if (logs == null || logs.isEmpty()) {
+            throw new IllegalArgumentException("No logs provided");
+        }
+        
+        for (LogEntry log : logs) {
+            if (log.getTimestamp() == null || log.getLevel() == null || 
+                log.getTag() == null || log.getMessage() == null) {
+                throw new IllegalArgumentException("Invalid log entry: missing required fields");
+            }
+        }
+    }
+    
+    private void updateAnalytics(List<LogEntry> logs) {
+        // Update analytics asynchronously
+        CompletableFuture.runAsync(() -> {
+            // Implementation for analytics update
+            // This could include updating metrics, dashboards, etc.
+        });
+    }
+    
+    public List<LogEntry> getLogsByLevel(String level) {
+        return logRepository.findByLevel(level);
+    }
+    
+    public List<LogEntry> getLogsByUser(String userId) {
+        return logRepository.findByUserId(userId);
+    }
+    
+    public List<LogEntry> getErrorLogs() {
+        return logRepository.findErrorLogs();
+    }
+    
+    public List<LogEntry> getRecentLogs(int limit) {
+        return logRepository.findRecentLogs(limit);
+    }
+}
+
+=====================================================
+6. CONTROLLER IMPLEMENTATION
+=====================================================
+
+// LogController.java
+package com.semscan.controller;
+
+import com.semscan.model.LogRequest;
+import com.semscan.model.LogResponse;
+import com.semscan.service.LogService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import javax.servlet.http.HttpServletRequest;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1")
+public class LogController {
+    
+    @Autowired
+    private LogService logService;
+    
+    @PostMapping("/logs")
+    public ResponseEntity<LogResponse> receiveLogs(
+            @RequestHeader("x-api-key") String apiKey,
+            @RequestBody LogRequest request,
+            HttpServletRequest httpRequest) {
+        
+        try {
+            // Validate API key
+            if (!isValidApiKey(apiKey)) {
+                return ResponseEntity.status(401)
+                    .body(new LogResponse(false, "Invalid API key", 0));
+            }
+            
+            // Log the request for debugging
+            System.out.println("Received logs from: " + httpRequest.getRemoteAddr());
+            System.out.println("Number of logs: " + request.getLogs().size());
+            
+            // Process logs
+            LogResponse response = logService.processLogs(request);
+            
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                .body(new LogResponse(false, "Internal server error: " + e.getMessage(), 0));
+        }
+    }
+    
+    @GetMapping("/logs/errors")
+    public ResponseEntity<?> getErrorLogs(@RequestHeader("x-api-key") String apiKey) {
+        if (!isValidApiKey(apiKey)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid API key"));
+        }
+        
+        return ResponseEntity.ok(logService.getErrorLogs());
+    }
+    
+    @GetMapping("/logs/recent")
+    public ResponseEntity<?> getRecentLogs(
+            @RequestHeader("x-api-key") String apiKey,
+            @RequestParam(defaultValue = "100") int limit) {
+        if (!isValidApiKey(apiKey)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid API key"));
+        }
+        
+        return ResponseEntity.ok(logService.getRecentLogs(limit));
+    }
+    
+    private boolean isValidApiKey(String apiKey) {
+        // Implement your API key validation logic
+        return apiKey != null && apiKey.equals("presenter-001-api-key-12345");
+    }
+}
+
+=====================================================
+7. CONFIGURATION
+=====================================================
+
+// application.yml
+logging:
+  level:
+    com.semscan: DEBUG
+    org.springframework.web: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Log file configuration
+logging:
+  file:
+    name: logs/semscan.log
+    max-size: 10MB
+    max-history: 30
+
+# Database configuration
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/semscan
+    username: your_username
+    password: your_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# Server configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+=====================================================
+8. TESTING
+=====================================================
+
+// LogControllerTest.java
+package com.semscan.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.semscan.model.LogEntry;
+import com.semscan.model.LogRequest;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(LogController.class)
+public class LogControllerTest {
+    
+    @Autowired
+    private MockMvc mockMvc;
+    
+    @MockBean
+    private LogService logService;
+    
+    @Test
+    public void testReceiveLogs() throws Exception {
+        // Create test log entry
+        LogEntry logEntry = new LogEntry();
+        logEntry.setTimestamp(System.currentTimeMillis());
+        logEntry.setLevel("INFO");
+        logEntry.setTag("SemScan-Test");
+        logEntry.setMessage("Test log message");
+        logEntry.setUserId("test-user-001");
+        logEntry.setUserRole("STUDENT");
+        
+        LogRequest request = new LogRequest();
+        request.setLogs(List.of(logEntry));
+        
+        ObjectMapper mapper = new ObjectMapper();
+        String json = mapper.writeValueAsString(request);
+        
+        mockMvc.perform(post("/api/v1/logs")
+                .header("x-api-key", "presenter-001-api-key-12345")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+}
+
+=====================================================
+9. MONITORING & ANALYTICS
+=====================================================
+
+// LogAnalyticsService.java
+package com.semscan.service;
+
+import com.semscan.repository.LogRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class LogAnalyticsService {
+    
+    @Autowired
+    private LogRepository logRepository;
+    
+    public Map<String, Object> getLogStatistics() {
+        // Get log counts by level
+        List<Object[]> levelCounts = logRepository.countLogsByLevel();
+        
+        // Get error rate
+        long totalLogs = logRepository.count();
+        long errorLogs = logRepository.findByLevel("ERROR").size();
+        double errorRate = totalLogs > 0 ? (double) errorLogs / totalLogs * 100 : 0;
+        
+        return Map.of(
+            "totalLogs", totalLogs,
+            "errorLogs", errorLogs,
+            "errorRate", errorRate,
+            "levelCounts", levelCounts
+        );
+    }
+    
+    public List<LogEntry> getTopErrors(int limit) {
+        return logRepository.findErrorLogs().stream()
+            .limit(limit)
+            .collect(Collectors.toList());
+    }
+}
+
+=====================================================
+10. DEPLOYMENT CHECKLIST
+=====================================================
+
+□ Database table created (app_logs)
+□ API endpoint implemented (/api/v1/logs)
+□ Authentication configured (x-api-key)
+□ Log rotation configured
+□ Monitoring setup
+□ Error handling implemented
+□ Rate limiting configured (optional)
+□ Log retention policy set
+□ Backup strategy implemented
+
+=====================================================
+11. SECURITY CONSIDERATIONS
+=====================================================
+
+1. API Key Validation
+   - Implement proper API key validation
+   - Use environment variables for API keys
+   - Implement key rotation
+
+2. Rate Limiting
+   - Implement rate limiting for log endpoint
+   - Prevent log spam
+   - Monitor for abuse
+
+3. Data Privacy
+   - Sanitize sensitive data in logs
+   - Implement data retention policies
+   - Consider GDPR compliance
+
+4. Input Validation
+   - Validate all log entries
+   - Prevent injection attacks
+   - Limit log message size
+
+=====================================================
+12. PERFORMANCE OPTIMIZATION
+=====================================================
+
+1. Batch Processing
+   - Process logs in batches
+   - Use async processing
+   - Implement queue system
+
+2. Database Optimization
+   - Add proper indexes
+   - Use connection pooling
+   - Implement partitioning
+
+3. Caching
+   - Cache frequently accessed data
+   - Use Redis for session data
+   - Implement log aggregation
+
+=====================================================
+13. MONITORING ENDPOINTS
+=====================================================
+
+GET /api/v1/logs/health
+- Check logging system health
+- Return system status
+
+GET /api/v1/logs/stats
+- Get logging statistics
+- Return metrics
+
+GET /api/v1/logs/errors
+- Get recent error logs
+- Return error summary
+
+=====================================================
+14. EXAMPLE USAGE
+=====================================================
+
+// Test the endpoint with curl
+curl -X POST http://localhost:8080/api/v1/logs \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: presenter-001-api-key-12345" \
+  -d '{
+    "logs": [
+      {
+        "timestamp": 1697784000000,
+        "level": "INFO",
+        "tag": "SemScan-UI",
+        "message": "User logged in",
+        "userId": "student-001",
+        "userRole": "STUDENT",
+        "deviceInfo": "Android 13 - Samsung SM-G991B",
+        "appVersion": "1.0.0"
+      }
+    ]
+  }'
+
+Expected Response:
+{
+  "success": true,
+  "message": "Logs processed successfully",
+  "processedCount": 1
+}
+
+=====================================================
+END OF IMPLEMENTATION GUIDE
+=====================================================
+
+This implementation provides a complete logging system for the SemScan application.
+The backend will receive logs from the Android app and store them in the database
+for analysis and monitoring.
+
+For questions or issues, contact the development team.

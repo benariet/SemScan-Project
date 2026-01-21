@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">מסקאן</string>
+    
+    <!-- Role Selection -->
+    <string name="select_role">בחר את התפקיד שלך</string>
+    <string name="presenter">מציג</string>
+    <string name="student">תלמיד</string>
+    <string name="role_description">בחר את התפקיד שלך כדי לגשת לתכונות המתאימות</string>
+    
+    <!-- Student Home -->
+    <string name="student_home_title">לוח בקרה תלמיד</string>
+    <string name="scan_attendance">סרוק נוכחות</string>
+    <string name="im_absent_reason">אני נעדר - סיבה</string>
+    <string name="settings">הגדרות</string>
+    
+    <!-- Presenter Home -->
+    <string name="presenter_home_title">לוח בקרה מציג</string>
+    <string name="start_session_show_qr">התחל שיעור (הצג QR)</string>
+    <string name="attendance_approvals">נוכחות / אישורים</string>
+    <string name="export_to_excel">ייצא לאקסל (CSV)</string>
+    
+    <!-- QR Scanner -->
+    <string name="qr_scanner_title">סרוק קוד QR</string>
+    <string name="qr_scanner_instruction">כוון את המצלמה לקוד QR</string>
+    <string name="scanning">סורק...</string>
+    <string name="qr_scan_success">קוד QR נסרק בהצלחה</string>
+    <string name="qr_scan_error">נכשל בסריקת קוד QR</string>
+    
+    <!-- QR Display -->
+    <string name="qr_display_title">קוד QR של השיעור</string>
+    <string name="session_active">שיעור פעיל</string>
+    <string name="present_count">נוכחים: %d</string>
+    <string name="end_session">סיים שיעור</string>
+    
+    <!-- Attendance -->
+    <string name="attendance_confirmed">נוכחות אושרה</string>
+    <string name="already_present">אתה כבר מסומן כנוכח בשיעור זה</string>
+    <string name="window_closed">חלון הנוכחות נסגר</string>
+    <string name="session_closed">השיעור נסגר</string>
+    
+    <!-- Absence Requests -->
+    <string name="submit_absence_title">שלח סיבת היעדרות</string>
+    <string name="select_course">בחר קורס</string>
+    <string name="select_session">בחר שיעור</string>
+    <string name="reason">סיבה</string>
+    <string name="note">הערה (אופציונלי)</string>
+    <string name="submit">שלח</string>
+    
+    <!-- Absence Reasons -->
+    <string name="reason_sick">חולה</string>
+    <string name="reason_family">משפחה</string>
+    <string name="reason_exam">בחינה</string>
+    <string name="reason_other">אחר</string>
+    
+    <!-- Attendance Management -->
+    <string name="present_tab">נוכחים</string>
+    <string name="absence_requests_tab">בקשות היעדרות</string>
+    <string name="approve">אשר</string>
+    <string name="reject">דחה</string>
+    <string name="no_attendance_data">אין נתוני נוכחות זמינים</string>
+    <string name="no_absence_requests">אין בקשות היעדרות</string>
+    
+    <!-- Export -->
+    <string name="export_success">ייצוא הצליח</string>
+    <string name="export_error">ייצוא נכשל</string>
+    <string name="select_date_range">בחר טווח תאריכים</string>
+    <string name="from_date">מתאריך</string>
+    <string name="to_date">עד תאריך</string>
+    
+    <!-- Common -->
+    <string name="ok">אישור</string>
+    <string name="cancel">ביטול</string>
+    <string name="loading">טוען...</string>
+    <string name="error">שגיאה</string>
+    <string name="success">הצלחה</string>
+    <string name="retry">נסה שוב</string>
+    <string name="back">חזור</string>
+    <string name="next">הבא</string>
+    <string name="save">שמור</string>
+    <string name="delete">מחק</string>
+    <string name="edit">ערוך</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">הגדרות</string>
+    <string name="change_role">שנה תפקיד</string>
+    <string name="settings_username">שם משתמש</string>
+    <string name="settings_username_saved">שם המשתמש נשמר בהצלחה.</string>
+    <string name="welcome_user">ברוך הבא, %1$s!</string>
+    <string name="setup_title">השלמת פרופיל</string>
+    <string name="setup_header">ברוך הבא ל‑SemScan</string>
+    <string name="setup_subheader">נאגור כמה פרטים כדי להתאים עבורך את חוויית המציג והמשתתף.</string>
+    <string name="setup_first_name">שם פרטי</string>
+    <string name="setup_last_name">שם משפחה</string>
+    <string name="setup_email">כתובת דוא"ל</string>
+    <string name="setup_degree_label">תואר אקדמי</string>
+    <string name="setup_degree_placeholder">בחר/י את התואר שלך</string>
+    <string name="setup_participation_label">העדפת השתתפות</string>
+    <string name="setup_participation_placeholder">בחר/י כיצד תרצה/י להשתתף</string>
+    <string name="setup_complete_button">סיום הגדרה</string>
+    <string name="setup_degree_title">בחירת תואר</string>
+    <string name="setup_degree_prompt">באיזה תואר את/ה לומד/ת?</string>
+    <string name="setup_degree_msc">תואר שני (MSc)</string>
+    <string name="setup_degree_msc_description">סטודנטים לתואר שני מציגים פעם אחת בכל מחזור.</string>
+    <string name="setup_degree_phd">דוקטורט (PhD)</string>
+    <string name="setup_degree_phd_description">דוקטורנטים מנהלים את לוח הזמנים של המפגשים.</string>
+    <string name="setup_participation_title">בחירת אופן השתתפות</string>
+    <string name="setup_participation_prompt">איך תרצה/י להשתתף במפגשי הסמינר?</string>
+    <string name="setup_participation_presenter">מציג/ה בלבד</string>
+    <string name="setup_participation_presenter_description">אני מוביל/ה מפגשים ומנהל/ת נוכחות.</string>
+    <string name="setup_participation_participant">משתתף/ת בלבד</string>
+    <string name="setup_participation_participant_description">אני מצטרף/ת למפגשים כדי לסרוק נוכחות ולהשתתף.</string>
+    <string name="setup_participation_both">מציג/ה ומשתתף/ת</string>
+    <string name="setup_participation_both_description">אני מחליף/ה תפקידים בהתאם למחזור הסמינר.</string>
+    <string name="setup_participation_presenter_locked">דוקטורנטים נרשמים תמיד כמציגים.</string>
+    <string name="setup_msc_title">התפקיד שלי היום</string>
+    <string name="setup_msc_prompt">במחזור הנוכחי — מה מתאים לך?</string>
+    <string name="setup_msc_option_presenter">אני מציג/ה היום</string>
+    <string name="setup_msc_option_participant">אני משתתף/ת בלבד</string>
+    <string name="setup_error_first_name">אנא הזן/י שם פרטי</string>
+    <string name="setup_error_last_name">אנא הזן/י שם משפחה</string>
+    <string name="setup_error_email">אנא הזן/י כתובת דוא"ל תקינה</string>
+    <string name="setup_error_degree">אנא בחר/י תואר</string>
+    <string name="setup_error_participation">אנא בחר/י העדפת השתתפות</string>
+    <string name="setup_success">הפרופיל נשמר, אפשר להתחיל!</string>
+    <string name="network_error_generic">שגיאת רשת: %1$s</string>
+    <string name="about">אודות</string>
+    <string name="version">גרסה %s</string>
+    
+    <!-- Permissions -->
+    <string name="camera_permission_required">נדרשת הרשאת מצלמה לסריקת קודי QR</string>
+    <string name="permission_denied">הרשאה נדחתה</string>
+    <string name="go_to_settings">עבור להגדרות</string>
+</resources>

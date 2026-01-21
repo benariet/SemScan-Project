@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- HTTP configuration - allows cleartext traffic for development -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <!-- Trust system certificates -->
+            <certificates src="system"/>
+            <!-- Trust user-added certificates (for self-signed certificates) -->
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Specific domain configuration for production server -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">132.72.50.53</domain>
+        <trust-anchors>
+            <!-- Trust system certificates -->
+            <certificates src="system"/>
+            <!-- Trust user-added certificates (for self-signed) -->
+            <certificates src="user"/>
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

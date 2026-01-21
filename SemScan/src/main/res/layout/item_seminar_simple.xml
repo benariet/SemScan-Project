@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_margin="8dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="?android:attr/selectableItemBackground">
+
+    <TextView
+        android:id="@+id/text_seminar_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Seminar Name"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/gray_900" />
+
+    <TextView
+        android:id="@+id/text_seminar_slots"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Time Slots"
+        android:textSize="14sp"
+        android:textColor="@color/gray_600"
+        android:layout_marginTop="4dp" />
+        
+    <!-- Visual indicator that item is clickable -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/gray_300"
+        android:layout_marginTop="8dp" />
+
+</LinearLayout>

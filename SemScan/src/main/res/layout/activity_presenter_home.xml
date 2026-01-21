@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bg_gradient_main">
+
+    <!-- AppBar with Gradient and Rounded Bottom -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp"
+        android:background="@drawable/bg_appbar_rounded"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+        app:title="@string/presenter_home_title"
+        app:titleTextColor="@color/white"
+        app:navigationIcon="@drawable/ic_menu" />
+
+    <!-- Main Content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="40dp"
+        android:paddingBottom="30dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- SESSION OPEN BANNER - Shows when presenter has an active session -->
+            <include layout="@layout/card_session_open_banner" />
+
+            <!-- Main Action Cards -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <include layout="@layout/card_presenter_action_presentation_details" />
+
+                <include layout="@layout/card_presenter_action_enroll_slot" />
+
+                <include layout="@layout/card_presenter_action_start_session" />
+
+                <include layout="@layout/card_presenter_action_my_slot" />
+
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="20dp" />
+
+            <!-- Change Role Card -->
+            <include layout="@layout/card_presenter_action_change_role" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>

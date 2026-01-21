@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="0dp"
+    android:layout_height="0dp"
+    android:layout_margin="6dp"
+    app:cardCornerRadius="12dp"
+    app:cardUseCompatPadding="true"
+    app:cardElevation="3dp"
+    app:cardBackgroundColor="@color/white">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:background="@color/white"
+        android:minHeight="120dp">
+
+        <TextView
+            android:id="@+id/text_subject_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Subject Name"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="@color/gray_900"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/text_tile_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tile description"
+            android:textSize="13sp"
+            android:textColor="@color/gray_700"
+            android:layout_marginTop="4dp"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/text_compact_slots"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sun 10–12; Wed 14–16"
+            android:textSize="13sp"
+            android:textColor="@color/gray_600"
+            android:layout_marginTop="6dp"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>
+
+

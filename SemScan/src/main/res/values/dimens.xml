@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="onboarding_card_corner_radius">16dp</dimen>
+    <dimen name="onboarding_card_elevation">4dp</dimen>
+    <dimen name="onboarding_button_height">56dp</dimen>
+    <dimen name="onboarding_horizontal_padding">24dp</dimen>
+    <dimen name="onboarding_vertical_spacing">16dp</dimen>
+</resources>
+

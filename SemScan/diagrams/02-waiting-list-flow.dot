@@ -1,0 +1,147 @@
+digraph WaitingListFlow {
+    label="Waiting List Flow";
+    labelloc="t";
+    fontsize=20;
+    fontname="Arial Bold";
+
+    rankdir=TB;
+    splines=true;
+    nodesep=0.8;
+    ranksep=1.0;
+    bgcolor="#f5f5f5";
+
+    node [
+        shape=box,
+        style="rounded,filled",
+        fontname="Arial",
+        fontsize=12,
+        margin="0.3,0.2"
+    ];
+
+    edge [
+        fontname="Arial",
+        fontsize=10,
+        color="#666666"
+    ];
+
+    // Entry Point
+    SlotFull [label="Slot is Full\n(no capacity)", fillcolor="#ef9a9a", color="#c62828", penwidth=2];
+
+    // Join Waiting List
+    subgraph cluster_join {
+        label="Join Waiting List";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#ff9800";
+        bgcolor="#fff3e022";
+
+        JoinBtn [label="Press\n\"Join Waiting List\"", fillcolor="#bbdefb", color="#1976d2"];
+        AddedToQueue [label="Added to Queue\n-----------\nPosition assigned\n(1st, 2nd, 3rd)", fillcolor="#ffe0b2", color="#ef6c00"];
+    }
+
+    // Waiting State
+    Waiting [label="Waiting...\n-----------\nMax 3 per slot\nOnly 1 slot at a time", fillcolor="#fff9c4", color="#f9a825", shape=note];
+
+    // Spot Opens Trigger
+    subgraph cluster_trigger {
+        label="Spot Becomes Available";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#388e3c";
+        bgcolor="#e8f5e922";
+
+        TriggerEvent [label="Trigger:\n-----------\nSomeone cancelled\nSupervisor declined\nApproval expired", fillcolor="#c8e6c9", color="#2e7d32", shape=note];
+    }
+
+    // Promotion Offer (user still on waiting list)
+    subgraph cluster_promotion {
+        label="Promotion Offer (by position order)";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#7b1fa2";
+        bgcolor="#f3e5f522";
+
+        CheckCapacity [label="Check capacity\nfor next in queue\n-----------\nPhD: whole slot\nMSc: 1 spot", fillcolor="#e1bee7", color="#7b1fa2"];
+        PresenterEmail [label="Email sent to\npresenter:\n\"Do you still want\nto register?\"\n-----------\n(still on waiting list)", fillcolor="#ce93d8", color="#7b1fa2"];
+        PresenterDecision [label="Presenter\nResponse?", fillcolor="#b3e5fc", color="#0288d1", shape=diamond];
+    }
+
+    // Presenter declines or no response
+    PresenterDeclined [label="Presenter Declined\nor No Response\n-----------\nRemoved from\nWaiting List", fillcolor="#ef9a9a", color="#c62828"];
+
+    // Presenter confirms - NOW removed and registration created
+    subgraph cluster_confirm {
+        label="Presenter Confirmed";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#388e3c";
+        bgcolor="#e8f5e922";
+
+        RemovedFromQueue [label="Removed from\nWaiting List", fillcolor="#c8e6c9", color="#2e7d32"];
+        PendingCreated [label="PENDING registration\ncreated", fillcolor="#c8e6c9", color="#2e7d32"];
+    }
+
+    // Supervisor Approval (after presenter confirms)
+    subgraph cluster_approval {
+        label="Supervisor Approval Flow";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#ff5722";
+        bgcolor="#fbe9e722";
+
+        ApprovalEmail [label="Approval email\nsent to supervisor", fillcolor="#ffccbc", color="#ff5722"];
+        SupervisorDecision [label="Supervisor\nApprove / Decline?", fillcolor="#ffccbc", color="#ff5722", shape=diamond];
+    }
+
+    // Outcomes
+    Approved [label="APPROVED", fillcolor="#c8e6c9", color="#2e7d32", penwidth=2];
+    SupervisorDeclined [label="Supervisor\nDeclined", fillcolor="#ef9a9a", color="#c62828"];
+
+    // Cancel Waiting List
+    subgraph cluster_cancel {
+        label="Cancel Waiting List (anytime)";
+        labeljust="l";
+        style="rounded,dashed";
+        color="#666666";
+        bgcolor="#eeeeee22";
+
+        CancelBtn [label="Press\n\"Cancel Waiting List\"", fillcolor="#bbdefb", color="#1976d2"];
+        CancelledNote [label="Removed from Queue\n-----------\nOthers move up\nEmail to supervisor", fillcolor="#e0e0e0", color="#666666"];
+    }
+
+    // ==================== CONNECTIONS ====================
+
+    // Join flow (NO EMAIL)
+    SlotFull -> JoinBtn;
+    JoinBtn -> AddedToQueue;
+    AddedToQueue -> Waiting;
+
+    // Trigger starts promotion
+    Waiting -> TriggerEvent [style=dashed, label="event", color="#388e3c"];
+    TriggerEvent -> CheckCapacity;
+
+    // Promotion offer flow (user still on waiting list)
+    CheckCapacity -> PresenterEmail [label="has capacity"];
+    PresenterEmail -> PresenterDecision;
+
+    // Presenter response
+    PresenterDecision -> PresenterDeclined [label="no /\nno response"];
+    PresenterDecision -> RemovedFromQueue [label="yes"];
+
+    // Presenter declined -> next in queue
+    PresenterDeclined -> CheckCapacity [style=dashed, color="#c62828", label="next in queue"];
+
+    // Presenter confirmed -> removed -> pending -> supervisor
+    RemovedFromQueue -> PendingCreated;
+    PendingCreated -> ApprovalEmail;
+    ApprovalEmail -> SupervisorDecision;
+    SupervisorDecision -> Approved [label="approve"];
+    SupervisorDecision -> SupervisorDeclined [label="decline"];
+
+    // Supervisor declined -> next in queue
+    SupervisorDeclined -> CheckCapacity [style=dashed, color="#388e3c", label="spot freed\nnext in queue"];
+
+    // Cancel path
+    Waiting -> CancelBtn [style=dashed, color="#666666"];
+    CancelBtn -> CancelledNote;
+}

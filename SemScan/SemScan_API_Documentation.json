@@ -1,0 +1,529 @@
+{
+  "apiInfo": {
+    "name": "SemScan API",
+    "version": "v1",
+    "baseUrl": "http://localhost:8080/api/v1",
+    "serverUrl": "http://localhost:8080",
+    "environment": "development",
+    "applicationName": "SemScan",
+    "applicationVersion": "1.0.0",
+    "description": "SemScan Attendance System API"
+  },
+  "authentication": {
+    "type": "None",
+    "description": "No authentication required - all endpoints are public",
+    "note": "API key authentication has been removed"
+  },
+  "idFormats": {
+    "description": "All identifiers are numeric auto-incrementing Long values returned by the API.",
+    "patterns": {
+      "userId": "^\\d+$",
+      "seminarId": "^\\d+$",
+      "sessionId": "^\\d+$",
+      "attendanceId": "^\\d+$",
+      "presenterSeminarId": "^\\d+$",
+      "presenterSlotId": "^\\d+$"
+    },
+    "examples": {
+      "userId": 42,
+      "seminarId": 105,
+      "sessionId": 512,
+      "attendanceId": 2048,
+      "presenterSeminarId": 301,
+      "presenterSlotId": 902
+    }
+  },
+  "endpoints": {
+    "sessions": [
+      {
+        "method": "POST",
+        "path": "/api/v1/sessions",
+        "description": "Create a new session",
+        "authentication": "None",
+        "requestBody": {
+          "type": "CreateSessionRequest",
+          "fields": {
+        "seminarId": "long (required) - ID of the seminar",
+            "startTime": "string (required) - ISO 8601 formatted start time",
+            "status": "string (required) - Session status (e.g., 'OPEN')"
+          }
+        },
+        "response": {
+          "type": "Session",
+          "fields": {
+            "sessionId": "long - Generated session ID",
+            "seminarId": "long - Seminar ID",
+            "startTime": "long - Start timestamp",
+            "endTime": "long - End timestamp (nullable)",
+            "status": "string - Session status"
+          }
+        }
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/v1/sessions/{sessionId}/close",
+        "description": "Close a session",
+        "authentication": "None",
+        "pathParameters": {
+          "sessionId": "string - Session ID to close"
+        },
+        "response": {
+          "type": "Session",
+          "description": "Updated session object"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/sessions/open",
+        "description": "Get all open sessions",
+        "authentication": "None",
+        "response": {
+          "type": "List<Session>",
+          "description": "Array of open session objects"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/student/sessions/open",
+        "description": "Get open sessions for student",
+        "authentication": "None",
+        "response": {
+          "type": "StudentSessionResponse",
+          "description": "Student-specific session response"
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "method": "POST",
+        "path": "/api/v1/attendance",
+        "description": "Submit attendance",
+        "authentication": "None",
+        "requestBody": {
+          "type": "SubmitAttendanceRequest",
+          "fields": {
+            "sessionId": "long (required) - Session ID",
+            "studentId": "long (required) - Student ID",
+            "timestampMs": "long (required) - Timestamp in milliseconds"
+          }
+        },
+        "response": {
+          "type": "Attendance",
+          "fields": {
+            "attendanceId": "long - Generated attendance ID",
+            "sessionId": "long - Session ID",
+            "studentId": "long - Student ID",
+            "attendanceTime": "string - Attendance time",
+            "method": "string - Attendance method (QR_SCAN, MANUAL, etc.)",
+            "alreadyPresent": "boolean - Whether student was already present"
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/attendance",
+        "description": "Get attendance records",
+        "authentication": "None",
+        "queryParameters": {
+          "sessionId": "long (required) - Session ID to filter by"
+        },
+        "response": {
+          "type": "List<Attendance>",
+          "description": "Array of attendance records"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/attendance/manual-request",
+        "description": "Create manual attendance request",
+        "authentication": "None",
+        "requestBody": {
+          "type": "CreateManualRequestRequest",
+          "fields": {
+            "sessionId": "long (required) - Session ID",
+            "studentId": "long (required) - Student ID",
+            "reason": "string (required) - Reason for manual request",
+            "deviceId": "string (required) - Device ID"
+          }
+        },
+        "response": {
+          "type": "Attendance",
+          "description": "Created manual request"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/attendance/pending-requests",
+        "description": "Get pending manual requests",
+        "authentication": "None",
+        "queryParameters": {
+          "sessionId": "long (required) - Session ID to filter by"
+        },
+        "response": {
+          "type": "List<Attendance>",
+          "description": "Array of pending manual requests"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/attendance/{attendanceId}/approve",
+        "description": "Approve manual attendance request",
+        "authentication": "None",
+        "pathParameters": {
+          "attendanceId": "long - Attendance ID to approve"
+        },
+        "response": {
+          "type": "Attendance",
+          "description": "Updated attendance record"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/attendance/{attendanceId}/reject",
+        "description": "Reject manual attendance request",
+        "authentication": "None",
+        "pathParameters": {
+          "attendanceId": "long - Attendance ID to reject"
+        },
+        "response": {
+          "type": "Attendance",
+          "description": "Updated attendance record"
+        }
+      }
+    ],
+    "seminars": [
+      {
+        "method": "GET",
+        "path": "/api/v1/seminars",
+        "description": "Get all seminars",
+        "authentication": "None",
+        "response": {
+          "type": "List<Seminar>",
+          "fields": {
+            "seminarId": "long - Seminar ID",
+            "seminarName": "string - Seminar name",
+            "seminarCode": "string - Seminar code",
+            "description": "string - Seminar description",
+            "presenterId": "long - Presenter ID"
+          }
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/seminars",
+        "description": "Create a new seminar",
+        "authentication": "None",
+        "requestBody": {
+          "type": "CreateSeminarRequest",
+          "fields": {
+            "seminarName": "string (required) - Seminar name",
+            "seminarCode": "string (required) - Seminar code",
+            "description": "string (required) - Seminar description",
+            "presenterId": "long (required) - Presenter ID"
+          }
+        },
+        "response": {
+          "type": "Seminar",
+          "description": "Created seminar object"
+        }
+      }
+    ],
+    "users": [
+      {
+        "method": "GET",
+        "path": "/api/v1/users/{userId}",
+        "description": "Get user by ID",
+        "authentication": "None",
+        "pathParameters": {
+          "userId": "long - User ID"
+        },
+        "response": {
+          "type": "User",
+          "fields": {
+            "userId": "long - User ID",
+            "firstName": "string - First name",
+            "lastName": "string - Last name",
+            "email": "string - Email address",
+            "role": "string - User role (STUDENT, PRESENTER)",
+            "studentId": "long - Student ID (if applicable)"
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/student/user/{userId}",
+        "description": "Get student user by ID",
+        "authentication": "None",
+        "pathParameters": {
+          "userId": "long - User ID"
+        },
+        "response": {
+          "type": "User",
+          "description": "Student user object"
+        }
+      }
+    ],
+    "presenterSeminars": [
+      {
+        "method": "GET",
+        "path": "/api/v1/presenters/{presenterId}/seminars",
+        "description": "Get presenter seminars",
+        "authentication": "None",
+        "pathParameters": {
+          "presenterId": "long - Presenter ID"
+        },
+        "response": {
+          "type": "List<PresenterSeminarDto>",
+          "fields": {
+            "id": "long - Seminar ID",
+            "presenterId": "long - Presenter ID",
+            "seminarName": "string - Seminar name",
+            "slots": "array - Time slots",
+            "createdAt": "string - Creation timestamp"
+          }
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/presenters/{presenterId}/seminars",
+        "description": "Create presenter seminar",
+        "authentication": "None",
+        "pathParameters": {
+          "presenterId": "long - Presenter ID"
+        },
+        "requestBody": {
+          "type": "CreatePresenterSeminarRequest",
+          "fields": {
+            "seminarName": "string (required) - Seminar name",
+            "slots": "array (required) - Time slots"
+          }
+        },
+        "response": {
+          "type": "PresenterSeminarDto",
+          "description": "Created presenter seminar"
+        }
+      },
+      {
+        "method": "DELETE",
+        "path": "/api/v1/presenters/{presenterId}/seminars/{seminarId}",
+        "description": "Delete presenter seminar",
+        "authentication": "None",
+        "pathParameters": {
+          "presenterId": "long - Presenter ID",
+          "seminarId": "long - Seminar ID"
+        },
+        "response": {
+          "type": "void",
+          "description": "No content on success"
+        }
+      }
+    ],
+    "export": [
+      {
+        "method": "GET",
+        "path": "/api/v1/export/csv",
+        "description": "Export attendance data as CSV",
+        "authentication": "None",
+        "queryParameters": {
+          "sessionId": "long (required) - Session ID to export"
+        },
+        "response": {
+          "type": "ResponseBody",
+          "contentType": "text/csv",
+          "description": "CSV file download"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/export/xlsx",
+        "description": "Export attendance data as XLSX",
+        "authentication": "None",
+        "queryParameters": {
+          "sessionId": "long (required) - Session ID to export"
+        },
+        "response": {
+          "type": "ResponseBody",
+          "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "description": "XLSX file download"
+        }
+      }
+    ],
+    "logging": [
+      {
+        "method": "POST",
+        "path": "/api/v1/logs",
+        "description": "Send application logs to server",
+        "authentication": "None",
+        "requestBody": {
+          "type": "LogRequest",
+          "description": "Log data from mobile app"
+        },
+        "response": {
+          "type": "LogResponse",
+          "description": "Log processing response"
+        }
+      }
+    ]
+  },
+  "dataModels": {
+    "Session": {
+      "fields": {
+        "sessionId": "long - Session ID",
+        "seminarId": "long - Seminar ID",
+        "startTime": "long - Start timestamp",
+        "endTime": "long - End timestamp (nullable)",
+        "status": "string - Session status (OPEN, CLOSED)"
+      }
+    },
+    "Attendance": {
+      "fields": {
+        "attendanceId": "long - Attendance ID",
+        "sessionId": "long - Session ID",
+        "studentId": "long - Student ID",
+        "attendanceTime": "string - Attendance time",
+        "method": "string - Method (QR_SCAN, MANUAL, MANUAL_REQUEST, PROXY)",
+        "alreadyPresent": "boolean - Whether already present",
+        "requestStatus": "string - Request status (confirmed, pending_approval, rejected)",
+        "manualReason": "string - Manual request reason",
+        "requestedAt": "long - Request timestamp",
+        "approvedBy": "long - Approver ID",
+        "approvedAt": "long - Approval timestamp",
+        "deviceId": "string - Device ID",
+        "autoFlags": "string - Auto-detected flags (JSON)"
+      }
+    },
+    "Seminar": {
+      "fields": {
+        "seminarId": "long - Seminar ID",
+        "seminarName": "string - Seminar name",
+        "seminarCode": "string - Seminar code",
+        "description": "string - Seminar description",
+        "presenterId": "long - Presenter ID"
+      }
+    },
+    "User": {
+      "fields": {
+        "userId": "long - User ID",
+        "firstName": "string - First name",
+        "lastName": "string - Last name",
+        "email": "string - Email address",
+        "role": "string - Role (STUDENT, PRESENTER)",
+        "studentId": "Long - Student ID (if applicable)"
+      }
+    },
+    "PresenterSeminarDto": {
+      "fields": {
+        "id": "long - Seminar ID",
+        "presenterId": "long - Presenter ID",
+        "seminarName": "string - Seminar name",
+        "slots": "array - Time slots",
+        "createdAt": "string - Creation timestamp"
+      }
+    },
+    "PresenterSeminarSlotDto": {
+      "fields": {
+        "weekday": "int - Day of week (0=Sun, 1=Mon, ..., 6=Sat)",
+        "startHour": "int - Start hour (0-23)",
+        "endHour": "int - End hour (1-24, must be > startHour)"
+      }
+    }
+  },
+  "configuration": {
+    "timeouts": {
+      "connectionTimeoutSeconds": 5,
+      "readTimeoutSeconds": 5,
+      "writeTimeoutSeconds": 5
+    },
+    "manualAttendance": {
+      "windowBeforeMinutes": 10,
+      "windowAfterMinutes": 15,
+      "autoApproveCapPercentage": 5,
+      "autoApproveMinCap": 5
+    },
+    "export": {
+      "maxFileSizeMB": 50,
+      "allowedFormats": ["csv", "xlsx"]
+    },
+    "toastDurations": {
+      "error": 8000,
+      "success": 5000,
+      "info": 6000,
+      "debug": 7000
+    }
+  },
+  "httpStatusCodes": {
+    "success": {
+      "200": "OK",
+      "201": "Created"
+    },
+    "clientError": {
+      "400": "Bad Request",
+      "401": "Unauthorized",
+      "404": "Not Found",
+      "409": "Conflict"
+    },
+    "serverError": {
+      "500": "Internal Server Error"
+    }
+  },
+  "contentTypes": {
+    "json": "application/json",
+    "form": "application/x-www-form-urlencoded",
+    "multipart": "multipart/form-data",
+    "csv": "text/csv",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  },
+  "requestMethods": {
+    "GET": "Retrieve data",
+    "POST": "Create new resource",
+    "PUT": "Update existing resource",
+    "PATCH": "Partial update",
+    "DELETE": "Delete resource"
+  },
+  "examples": {
+    "createSession": {
+      "url": "POST http://localhost:8080/api/v1/sessions",
+      "requestBody": {
+        "seminarId": 105,
+        "startTime": "2025-01-22T10:00:00",
+        "status": "OPEN"
+      },
+      "response": {
+        "sessionId": 512,
+        "seminarId": 105,
+        "startTime": 1737540000000,
+        "endTime": null,
+        "status": "OPEN"
+      }
+    },
+    "submitAttendance": {
+      "url": "POST http://localhost:8080/api/v1/attendance",
+      "requestBody": {
+        "sessionId": 512,
+        "studentId": 42,
+        "timestampMs": 1737540000000
+      },
+      "response": {
+        "attendanceId": 2048,
+        "sessionId": 512,
+        "studentId": 42,
+        "attendanceTime": "2025-01-22T10:00:00",
+        "method": "QR_SCAN",
+        "alreadyPresent": false
+      }
+    },
+    "getAttendance": {
+      "url": "GET http://localhost:8080/api/v1/attendance?sessionId=512",
+      "response": [
+        {
+          "attendanceId": 2048,
+          "sessionId": 512,
+          "studentId": 42,
+          "attendanceTime": "2025-01-22T10:00:00",
+          "method": "QR_SCAN",
+          "alreadyPresent": false
+        }
+      ]
+    }
+  }
+}

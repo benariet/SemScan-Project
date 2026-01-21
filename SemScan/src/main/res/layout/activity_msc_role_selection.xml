@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/gray_50">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary_blue"
+        android:titleTextColor="@android:color/white"
+        android:title="@string/setup_msc_title"
+        app:navigationIcon="@drawable/ic_arrow_back" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp"
+        android:layout_marginTop="?attr/actionBarSize">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_msc_prompt"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+            android:textColor="@color/primary_blue"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_msc_presenter"
+            style="@style/SemScanButtonPrimary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/setup_msc_option_presenter"
+            app:icon="@drawable/ic_role_presenter"
+            app:iconGravity="textStart"
+            app:iconPadding="12dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_msc_participant"
+            style="@style/SemScanButtonOutlinedPrimary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/setup_msc_option_participant"
+            app:icon="@drawable/ic_role_student"
+            app:iconGravity="textStart"
+            app:iconPadding="12dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_msc_both"
+            style="@style/SemScanButtonOutlinedPrimary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_msc_option_both"
+            app:icon="@drawable/ic_role_presenter"
+            app:iconGravity="textStart"
+            app:iconPadding="12dp" />
+
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+

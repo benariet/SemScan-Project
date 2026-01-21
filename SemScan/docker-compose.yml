@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: attend-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: attendance
+      MYSQL_USER: attend
+      MYSQL_PASSWORD: strongpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - attend_mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # Optional: Add your Spring Boot backend here
+  # backend:
+  #   build: ./backend
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - mysql
+  #   environment:
+  #     SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/attendance?useSSL=false&serverTimezone=UTC
+  #     SPRING_DATASOURCE_USERNAME: attend
+  #     SPRING_DATASOURCE_PASSWORD: strongpass
+
+volumes:
+  attend_mysql_data:

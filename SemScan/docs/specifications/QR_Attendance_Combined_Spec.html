@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR Attendance – Combined Spec (Android Java + Spring Boot)</title>
+<style>
+ body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height:1.5; padding:32px; max-width: 980px; margin:auto; }
+ h1 { font-size: 1.9rem; margin: 0 0 12px; }
+ h2 { font-size: 1.3rem; margin-top: 1.6rem; border-bottom:1px solid #e5e7eb; padding-bottom:6px; }
+ pre { background:#f6f8fa; border-radius:8px; padding:14px; overflow:auto; white-space: pre-wrap; }
+ .meta { color:#6b7280; margin-bottom: 12px; }
+ .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; margin: 18px 0; }
+ .small { color:#6b7280; font-size: 0.92rem; }
+</style>
+</head>
+<body>
+  <h1>QR Attendance – Combined Spec (Android Java + Spring Boot)</h1>
+  <div class="meta">Generated on 2025-09-17</div>
+
+  <div class="card">
+    <h2>Android MVP (Java) – Client Spec</h2>
+    <pre># QR Attendance – Android MVP (Java) – Product Specification
+_Updated on 2025-09-17_
+
+## Overview &amp; Goals
+- Single **Android app (Java)** with two roles: **Teacher** and **Student**.
+- Core functions: **scan attendance**, **submit absence reason**, **start session &amp; project QR**, **view attendance / approvals**, **export CSV**.
+- Backend: calls your **Spring Boot** REST API (no Firebase).
+
+## Target &amp; Assumptions
+- **Min SDK**: 24 (Android 7.0), **Target SDK**: 34+.
+- Locales: English &amp; Hebrew (RTL support).
+- Online required for submit; teacher must be online to create sessions.
+- **QR**: static per session (payload contains only `sessionId`).
+- **Scan window**: 15 minutes after scheduled start (client check; server also enforces).
+
+## Roles
+- **Student**: Scan → confirm presence; submit absence reason.
+- **Teacher**: Start session → show QR; view attendance; approve/reject absence requests; export CSV.
+
+## Navigation Map
+1. **RolePickerActivity** (first launch) → pick **Teacher** or **Student** (saved in settings).
+2. **StudentHomeActivity** → {{ Scan Attendance, I’m Absent — Reason, Settings }}.
+3. **TeacherHomeActivity** → {{ Start Session (Show QR), Attendance / Approvals, Export to Excel (CSV), Settings }}.
+4. **TeacherStartSessionActivity** → create session → **QR Screen** (large, keeps screen awake) → End Session.
+5. **TeacherAttendanceActivity** → tabs: **Present** / **Absence Requests** (Approve/Reject).
+6. **SubmitAbsenceActivity** → pick course/session → reason → note → Submit.
+
+## Key Screens
+### Student – Home
+- **Scan attendance** → camera (QR) → show session info → **Confirm** → success.
+- **I’m absent — reason** → course/session → reason (Sick/Family/Exam/Other) → optional note → **Submit**.
+
+### Teacher – Home
+- **Start session (Show QR)** → select course → **Start** → big QR showing `{{"sessionId": "&lt;id&gt;"}}`; live present count → **End session**.
+- **Attendance / Approvals** → list of present (timestamp) and absence requests with Approve/Reject.
+- **Export to Excel (CSV)** → pick course + date range or session → generate CSV → Android share sheet.
+
+## Business Rules (MVP)
+- **Unique attendance** = one record per `(sessionId, userId)` (duplicate scans ignored on client; idempotent on server).
+- **Scan window** = startTime + 15 minutes; otherwise “Window closed”.
+- **Absence requests**: status `submitted` → teacher may set to `approved`/`rejected`.
+- **Export**: includes `present` and `approved_absence`; `rejected` excluded from present stats.
+
+## QR Payload (MVP)
+```json
+{{ "sessionId": "EE-401-1715172000000" }}
+```
+
+## CSV Export (on device)
+Columns (order fixed):
+`date, course_id, session_id, student_id, status, reason, note, timestamp`
+
+## Accessibility &amp; I18N
+- Content descriptions for icons; color contrast ≥ WCAG AA.
+- RTL mirroring (Hebrew) and LTR (English) with `strings.xml` locales.
+
+## Acceptance Criteria (client)
+1. Scan → “Checked in” within ~2s on Wi‑Fi.
+2. Duplicate scan ignored with proper message.
+3. QR screen shows live count while session open.
+4. Closing a session stops further check‑ins.
+5. Absence request flow works; CSV export produces correct columns (UTF‑8).
+</pre>
+  </div>
+
+  <div class="card">
+    <h2>Spring Boot + Excel – Backend Spec</h2>
+    <pre># Backend Spec – Java + Spring Boot + Excel (XLSX)
+_Updated on 2025-09-17_
+
+## 1) Overview
+- **Spring Boot 3** REST API replacing Firebase.
+- DB: **PostgreSQL** (Prod), **H2** (Dev) with **Flyway** migrations.
+- **Excel (XLSX)** exports via **Apache POI** (SXSSF). CSV fallback available.
+- Android Java app calls this API via Retrofit.
+
+## 2) Tech Stack
+- Spring Boot: Web, Validation, Data JPA, Actuator, (optional) Security
+- DB: PostgreSQL 15+ (Prod), H2 (Dev), migration with Flyway
+- Docs: springdoc-openapi (Swagger UI)
+- Excel: Apache POI (poi-ooxml) + SXSSF
+
+## 3) Architecture
+- Controllers → Services → Repositories (JPA) → DB
+- DTOs for request/response; MapStruct optional
+- Security (MVP): Teacher endpoints protected with header `X-API-Key: &lt;SECRET&gt;`
+- CORS allowlist for emulator/device origins
+
+## 4) Data Model
+users(user_id PK, name, email?, role: teacher|student)
+courses(course_id PK, name, lecturer_id → users)
+sessions(session_id PK, course_id, start_time BIGINT, end_time BIGINT?, status: open|closed)
+attendance(session_id, user_id, timestamp BIGINT, status: present, PK(session_id,user_id))
+absence_requests(id PK, user_id, course_id?, session_id?, reason, note?, timestamp BIGINT, status: submitted|approved|rejected)
+
+Indexes: attendance(session_id), sessions(course_id,start_time desc), absence_requests(status)
+
+## 5) QR Payload (unchanged)
+```json
+{{ "sessionId": "EE-401-1715172000000" }}
+```
+
+## 6) Business Rules (server)
+- Scan window: reject if now &gt; start_time + 15m → 409 `WINDOW_CLOSED`
+- Idempotency: PK prevents duplicates; return 200 with `alreadyPresent=true` if exists
+- Session lifecycle: `open` on create; `closed` on close; closed rejects check‑ins
+- Absence requests: teacher sets submitted → approved/rejected; exports mark `approved_absence`
+
+## 7) REST API (v1)
+Headers: JSON; teacher endpoints require `X-API-Key: &lt;SECRET&gt;`
+
+Sessions (Teacher)
+- POST /api/v1/sessions → {{courseId,startTime}} → {{sessionId,status:"open"}}
+- PATCH /api/v1/sessions/{{sessionId}}/close → {{sessionId,status:"closed",endTime}}
+- GET /api/v1/sessions?courseId=...&amp;from=...&amp;to=... → list
+
+Attendance
+- POST /api/v1/attendance → {{sessionId,userId,timestamp}} → {{status:"present",alreadyPresent:false}}
+- GET /api/v1/attendance?sessionId=... (Teacher) → list present
+
+Absence Requests
+- POST /api/v1/absence-requests → {{userId,courseId|sessionId,reason,note}} → {{id,status:"submitted"}}
+- PATCH /api/v1/absence-requests/{{id}} → {{status:"approved"|"rejected"}}
+- GET /api/v1/absence-requests?courseId=...&amp;status=submitted → list
+
+Export
+- GET /api/v1/export/xlsx?sessionId=... → application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+  - Filename: attendance_{{sessionId}}.xlsx
+  - Columns: date,course_id,session_id,student_id,status,reason,note,timestamp
+- GET /api/v1/export/csv?sessionId=... → text/csv; charset=utf-8
+
+## 8) Maven Deps
+- spring-boot-starter-web
+- spring-boot-starter-validation
+- spring-boot-starter-data-jpa
+- spring-boot-starter-actuator
+- org.springdoc:springdoc-openapi-starter-webmvc-ui
+- org.postgresql:postgresql (prod), com.h2database:h2 (dev)
+- org.flywaydb:flyway-core
+- org.apache.poi:poi-ooxml
+
+## 9) Configuration
+application.yml
+- datasource (Postgres), JPA props, ISO formats
+- app.teacherApiKey, app.attendance.windowMinutes: 15
+
+application-dev.yml (H2)
+- jdbc:h2:file:./.localdb/attendance;MODE=PostgreSQL, user sa
+
+## 10) Excel Export Details
+- SXSSFWorkbook streaming, bold header, freeze header row, autosize key cols
+- Date col ISO yyyy-MM-dd; raw epoch kept in `timestamp`
+
+## 11) Errors (HTTP)
+- 400 invalid payload, 401 invalid API key, 404 not found, 409 WINDOW_CLOSED / SESSION_CLOSED / ALREADY_PRESENT
+
+## 12) OpenAPI
+- Swagger UI at /swagger-ui.html; JSON at /v3/api-docs
+
+## 13) Dev &amp; Deploy
+- Dev: spring.profiles.active=dev → H2; Swagger enabled
+- Prod: Docker for app + Postgres; NGINX; TLS via Let's Encrypt; Flyway migrations
+
+## 14) Acceptance (backend)
+1. Create session persists with open
+2. First attendance OK; duplicate → alreadyPresent=true
+3. Late check-in → 409 WINDOW_CLOSED
+4. Absence workflow functional
+5. /export/xlsx downloads valid XLSX with exact column order
+6. Swagger lists all endpoints
+</pre>
+  </div>
+
+  <p class="small">Tip: Open this file and use your browser's “Print → Save as PDF” to generate a PDF.</p>
+</body></html>
