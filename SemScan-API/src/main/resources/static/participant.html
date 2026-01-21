@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1976D2">
+    <title>SemScan - Participant</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <header class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 class="header-title">SemScan</h1>
+                <p class="header-subtitle">Participant Mode</p>
+            </div>
+            <button class="btn" style="background: rgba(255,255,255,0.2); color: white;" onclick="Utils.logout()">Logout</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card text-center">
+            <h2 style="margin-bottom: var(--spacing-md);">Mark Attendance</h2>
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+                Scan the QR code displayed by the presenter.
+            </p>
+            <a href="scanner.html" class="btn btn-primary btn-block" style="font-size: 1.125rem; padding: var(--spacing-md);">
+                Scan QR Code
+            </a>
+        </div>
+
+        <div class="card mt-lg text-center">
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">Are you a presenter?</p>
+            <a href="presenter.html" class="btn btn-secondary">Switch to Presenter Mode</a>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script>
+        if (!Utils.requireAuth()) {}
+    </script>
+</body>
+</html>
