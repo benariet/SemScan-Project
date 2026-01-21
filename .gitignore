@@ -1,0 +1,70 @@
+# ===========================
+# SemScan Monorepo .gitignore
+# ===========================
+
+# === IDE ===
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# === Gradle ===
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+**/build/
+**/out/
+
+# === Android ===
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+local.properties
+SemScan/local.properties
+
+# === Java / Spring Boot ===
+*.jar
+*.war
+*.ear
+*.log
+target/
+hs_err_pid*
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+nul
+desktop.ini
+
+# === Secrets / Credentials ===
+*.env
+.env.*
+secrets.properties
+credentials.json
+google-services.json
+firebase-adminsdk*.json
+
+# === Logs ===
+logs/
+*.log
+claude-logs/
+
+# === Testing ===
+test_screenshots/
+testing/
+
+# === Temp Files ===
+*.tmp
+*.temp
+*.swp
+*~
+
+# === Claude Code ===
+.claude/
+config.json
