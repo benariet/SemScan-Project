@@ -1,0 +1,87 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Logs ###
+logs/
+*.log
+*.log.*
+
+### Text Files ###
+*.txt
+*.log
+*.md
+!README.md
+!DEPLOYMENT.md
+!README-SECURITY.md
+!diagram/*
+!docs/*
+!scripts/*
+### Archives ###
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+### Node.js ###
+node_modules/
+package-lock.json
+.npm/
+
+### Other ###
+bgu-auth-service/
+server.js
+
+# =============================================
+# SECURITY: Never commit secrets!
+# =============================================
+
+# Local configuration with real passwords
+application-local.properties
+application-secrets.properties
+*.secrets
+.env
+.env.local
+.env.*.local
+
+# External config files (may contain secrets)
+config/application-global.properties
+/opt/semscan-api/config/application-global.properties
+
+# Test credentials
+test-credentials.properties

@@ -1,0 +1,128 @@
+### =====================================================================
+### Sanity Tests: API Endpoint Verification
+### =====================================================================
+### Run these HTTP requests to verify the API is working correctly
+### Use with REST Client extension in VS Code or similar tool
+### =====================================================================
+
+@baseUrl = http://localhost:8080
+@apiVersion = /api/v1
+
+### =====================================================================
+### 1. HEALTH CHECK - Verify API is running
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/health
+Content-Type: application/json
+
+### =====================================================================
+### 2. GET MOBILE CONFIG - Verify app_config is accessible
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/config/mobile
+Content-Type: application/json
+
+### Expected: JSON response with config values from app_config table
+### Check: All BOTH and MOBILE target_system values should be present
+
+### =====================================================================
+### 3. GET APP CONFIG (ALL) - Verify all config values
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/config/all
+Content-Type: application/json
+
+### Expected: JSON response with all config values
+### Check: Should include waiting_list_approval_window_hours, email settings, etc.
+
+### =====================================================================
+### 4. GET APP CONFIG BY KEY - Verify specific config retrieval
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/config/waiting_list_approval_window_hours
+Content-Type: application/json
+
+### Expected: JSON with config_value = "24" (or your configured value)
+
+### =====================================================================
+### 5. GET APP CONFIG BY CATEGORY - Verify category filtering
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/config/category/EMAIL
+Content-Type: application/json
+
+### Expected: JSON array with all EMAIL category configs
+### Check: Should include email_from_name, email_reply_to, email_bcc_list
+
+### =====================================================================
+### 6. GET APP CONFIG BY TARGET SYSTEM - Verify target_system filtering
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/config/target/BOTH
+Content-Type: application/json
+
+### Expected: JSON array with all BOTH target_system configs
+### Check: Should include waiting_list_approval_window_hours, email settings
+
+### =====================================================================
+### 7. VERIFY PRESENTER HOME ENDPOINT - Check if waiting list counts are included
+### =====================================================================
+### Note: Replace {username} with an actual presenter username
+GET {{baseUrl}}{{apiVersion}}/presenters/testuser/home
+Content-Type: application/json
+
+### Expected: JSON with slots array
+### Check: Each slot should have waitingListCount and waitingListUserName fields
+
+### =====================================================================
+### 8. VERIFY EMAIL STATUS - Check email configuration
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/mail/status
+Content-Type: application/json
+
+### Expected: JSON with email configuration status
+### Check: Should show configured=true and fromEmail
+
+### =====================================================================
+### 9. VERIFY WAITING LIST ENDPOINT - Check waiting list functionality
+### =====================================================================
+### Note: Replace {slotId} with an actual slot ID
+GET {{baseUrl}}{{apiVersion}}/waiting-list/slot/1
+Content-Type: application/json
+
+### Expected: JSON with waiting list entries or empty array
+
+### =====================================================================
+### 10. VERIFY LOGS ENDPOINT - Check app_logs table is accessible
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/logs/stats
+Content-Type: application/json
+
+### Expected: JSON with log statistics
+### Check: Should return totalLogs count without errors
+
+### =====================================================================
+### 11. VERIFY RECENT LOGS - Check app_logs retrieval
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/logs/recent?limit=10
+Content-Type: application/json
+
+### Expected: JSON array with recent log entries
+### Check: Should return array (may be empty if no logs yet)
+
+### =====================================================================
+### 12. VERIFY ERROR LOGS - Check error log retrieval
+### =====================================================================
+GET {{baseUrl}}{{apiVersion}}/logs/errors
+Content-Type: application/json
+
+### Expected: JSON array with error log entries
+### Check: Should return array (may be empty if no errors)
+
+### =====================================================================
+### SUMMARY CHECKLIST
+### =====================================================================
+### ✓ API is running (health check returns 200)
+### ✓ app_config table is accessible via /config/mobile
+### ✓ All config values are returned correctly
+### ✓ Config filtering by category works
+### ✓ Config filtering by target_system works
+### ✓ Presenter home includes waiting list counts
+### ✓ Email configuration is accessible
+### ✓ Waiting list endpoints work
+### ✓ App logs endpoints work
+### =====================================================================
