@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1976D2">
+    <title>SemScan - Presenter</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/slots.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 class="header-title">SemScan</h1>
+                <p class="header-subtitle" id="userGreeting">Hello, Presenter</p>
+            </div>
+            <button class="btn btn-secondary" style="background: rgba(255,255,255,0.2); border: none; color: white;" id="logoutBtn">
+                Logout
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Filter tabs -->
+        <div class="slot-filters">
+            <button class="filter-btn active" data-filter="all">All Slots</button>
+            <button class="filter-btn" data-filter="available">Available</button>
+            <button class="filter-btn" data-filter="registered">My Registrations</button>
+        </div>
+
+        <!-- Slots list -->
+        <div class="slots-list" id="slotsList">
+            <!-- Slots will be loaded here -->
+        </div>
+
+        <!-- Empty state -->
+        <div class="no-slots hidden" id="emptyState">
+            <div class="no-slots-icon">📅</div>
+            <h3 class="no-slots-title">No Slots Available</h3>
+            <p class="no-slots-text">Check back later for available presentation slots.</p>
+        </div>
+
+        <!-- Navigation to participant mode -->
+        <div class="card mt-lg text-center">
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">Need to mark attendance?</p>
+            <a href="participant.html" class="btn btn-secondary">
+                Switch to Participant Mode
+            </a>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal-overlay hidden" id="qrModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Attendance QR Code</h2>
+            </div>
+            <div class="modal-body">
+                <div class="qr-container">
+                    <div class="qr-timer" id="qrTimer">15:00</div>
+                    <div class="qr-code-wrapper">
+                        <img id="qrCodeImg" alt="QR Code" src="">
+                    </div>
+                    <div class="attendance-count">
+                        <span>Attendance:</span>
+                        <span class="attendance-count-number" id="attendanceCount">0</span>
+                    </div>
+                    <p class="qr-instructions mt-md">
+                        Show this QR code to participants. The session will automatically close when the timer ends.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="closeSessionBtn">Close Session</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script>
+        // Require authentication
+        if (!Utils.requireAuth()) {
+            // Will redirect to login
+        }
+
+        const username = Utils.getUsername();
+        let allSlots = [];
+        let currentFilter = 'all';
+        let qrTimerInterval = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initPage();
+        });
+
+        async function initPage() {
+            // Update greeting
+            const userData = Utils.getUserData();
+            if (userData?.firstName) {
+                document.getElementById('userGreeting').textContent = `Hello, ${userData.firstName}`;
+            } else {
+                document.getElementById('userGreeting').textContent = `Hello, ${username}`;
+            }
+
+            // Setup event listeners
+            document.getElementById('logoutBtn').addEventListener('click', () => Utils.logout());
+
+            // Filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    currentFilter = e.target.dataset.filter;
+                    renderSlots();
+                });
+            });
+
+            // QR modal close
+            document.getElementById('closeSessionBtn').addEventListener('click', closeQrModal);
+
+            // Load slots
+            await loadSlots();
+        }
+
+        async function loadSlots() {
+            Utils.showLoading();
+            try {
+                const response = await API.getPresenterHome(username);
+                allSlots = response.slots || response || [];
+                renderSlots();
+            } catch (error) {
+                Utils.showToast('Failed to load slots: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        function renderSlots() {
+            const container = document.getElementById('slotsList');
+            const emptyState = document.getElementById('emptyState');
+
+            // Filter slots
+            let filteredSlots = allSlots;
+            if (currentFilter === 'available') {
+                filteredSlots = allSlots.filter(s => s.status !== 'FULL' && !s.userRegistration);
+            } else if (currentFilter === 'registered') {
+                filteredSlots = allSlots.filter(s => s.userRegistration);
+            }
+
+            if (filteredSlots.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            container.innerHTML = filteredSlots.map(slot => renderSlotCard(slot)).join('');
+
+            // Attach event listeners
+            container.querySelectorAll('[data-action]').forEach(btn => {
+                btn.addEventListener('click', handleSlotAction);
+            });
+        }
+
+        function renderSlotCard(slot) {
+            const statusClass = Utils.getSlotStatusClass(slot.status);
+            const statusText = Utils.getSlotStatusText(slot.status, slot.registeredCount, slot.capacity);
+
+            const dateStr = Utils.formatDate(slot.slotDate || slot.date);
+            const timeStr = `${Utils.formatTime(slot.startTime)} - ${Utils.formatTime(slot.endTime)}`;
+            const location = slot.building && slot.room ? `${slot.building}, Room ${slot.room}` : 'TBA';
+
+            // User's registration status
+            let registrationHtml = '';
+            let actionsHtml = '';
+
+            if (slot.userRegistration) {
+                const reg = slot.userRegistration;
+                const statusLabel = reg.approvalStatus === 'APPROVED' ? 'Approved' :
+                                   reg.approvalStatus === 'PENDING' ? 'Pending Approval' :
+                                   reg.approvalStatus === 'DECLINED' ? 'Declined' : reg.approvalStatus;
+
+                registrationHtml = `
+                    <div class="slot-registration-status">
+                        <div class="registration-label">Your Registration</div>
+                        <div class="registration-value">${statusLabel}</div>
+                    </div>
+                `;
+
+                if (reg.approvalStatus === 'APPROVED') {
+                    actionsHtml = `
+                        <button class="btn btn-attendance" data-action="attendance" data-slot-id="${slot.slotId || slot.id}">
+                            Open Attendance
+                        </button>
+                        <button class="btn btn-cancel" data-action="cancel" data-slot-id="${slot.slotId || slot.id}">
+                            Cancel
+                        </button>
+                    `;
+                } else if (reg.approvalStatus === 'PENDING') {
+                    actionsHtml = `
+                        <button class="btn btn-cancel" data-action="cancel" data-slot-id="${slot.slotId || slot.id}">
+                            Cancel Registration
+                        </button>
+                    `;
+                } else if (reg.approvalStatus === 'DECLINED' || reg.approvalStatus === 'EXPIRED') {
+                    actionsHtml = `
+                        <button class="btn btn-register" data-action="register" data-slot-id="${slot.slotId || slot.id}">
+                            Register Again
+                        </button>
+                    `;
+                }
+            } else if (slot.userWaitingList) {
+                registrationHtml = `
+                    <div class="slot-registration-status">
+                        <div class="registration-label">Waiting List</div>
+                        <div class="registration-value">Position ${slot.userWaitingList.position}</div>
+                    </div>
+                `;
+                actionsHtml = `
+                    <button class="btn btn-cancel" data-action="leave-waiting" data-slot-id="${slot.slotId || slot.id}">
+                        Leave Waiting List
+                    </button>
+                `;
+            } else if (slot.status === 'FULL') {
+                if (slot.waitingListAvailable !== false) {
+                    actionsHtml = `
+                        <button class="btn btn-waiting" data-action="join-waiting" data-slot-id="${slot.slotId || slot.id}">
+                            Join Waiting List
+                        </button>
+                    `;
+                }
+            } else if (!slot.isPast) {
+                actionsHtml = `
+                    <button class="btn btn-register" data-action="register" data-slot-id="${slot.slotId || slot.id}">
+                        Register
+                    </button>
+                `;
+            }
+
+            return `
+                <div class="slot-card ${statusClass}" data-slot-id="${slot.slotId || slot.id}">
+                    <div class="slot-header">
+                        <div class="slot-info">
+                            <div class="slot-date">${dateStr}</div>
+                            <div class="slot-time">${timeStr}</div>
+                        </div>
+                        <span class="slot-badge">${statusText}</span>
+                    </div>
+                    <div class="slot-details">
+                        <div class="slot-location">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                            </svg>
+                            <span>${location}</span>
+                        </div>
+                    </div>
+                    ${registrationHtml}
+                    ${actionsHtml ? `<div class="slot-actions">${actionsHtml}</div>` : ''}
+                </div>
+            `;
+        }
+
+        async function handleSlotAction(e) {
+            const action = e.target.dataset.action;
+            const slotId = e.target.dataset.slotId;
+
+            switch (action) {
+                case 'register':
+                    await registerForSlot(slotId);
+                    break;
+                case 'cancel':
+                    await cancelRegistration(slotId);
+                    break;
+                case 'attendance':
+                    await openAttendance(slotId);
+                    break;
+                case 'join-waiting':
+                    await joinWaitingList(slotId);
+                    break;
+                case 'leave-waiting':
+                    await leaveWaitingList(slotId);
+                    break;
+            }
+        }
+
+        async function registerForSlot(slotId) {
+            Utils.showLoading();
+            try {
+                const userData = Utils.getUserData() || {};
+                await API.registerForSlot(username, slotId, {
+                    presenterUsername: username,
+                    degree: userData.degree,
+                    supervisorEmail: userData.supervisorEmail,
+                    supervisorName: userData.supervisorName
+                });
+                Utils.showToast('Registration submitted! Awaiting supervisor approval.', 'success');
+                await loadSlots();
+            } catch (error) {
+                Utils.showToast('Registration failed: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async function cancelRegistration(slotId) {
+            if (!confirm('Are you sure you want to cancel your registration?')) return;
+
+            Utils.showLoading();
+            try {
+                await API.cancelRegistration(username, slotId);
+                Utils.showToast('Registration cancelled.', 'success');
+                await loadSlots();
+            } catch (error) {
+                Utils.showToast('Failed to cancel: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async function openAttendance(slotId) {
+            Utils.showLoading();
+            try {
+                const response = await API.openAttendance(username, slotId);
+                showQrModal(response);
+            } catch (error) {
+                Utils.showToast('Failed to open attendance: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        function showQrModal(data) {
+            const modal = document.getElementById('qrModal');
+            const qrImg = document.getElementById('qrCodeImg');
+            const timerEl = document.getElementById('qrTimer');
+            const countEl = document.getElementById('attendanceCount');
+
+            // Set QR code image
+            if (data.qrCodeBase64) {
+                qrImg.src = 'data:image/png;base64,' + data.qrCodeBase64;
+            } else if (data.qrCodeUrl) {
+                qrImg.src = data.qrCodeUrl;
+            }
+
+            // Initialize timer (15 minutes)
+            let timeLeft = data.remainingSeconds || 15 * 60;
+            countEl.textContent = data.attendanceCount || 0;
+
+            updateTimer(timeLeft, timerEl);
+            qrTimerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimer(timeLeft, timerEl);
+                if (timeLeft <= 0) {
+                    closeQrModal();
+                    Utils.showToast('Attendance session closed.', 'info');
+                }
+            }, 1000);
+
+            modal.classList.remove('hidden');
+        }
+
+        function updateTimer(seconds, el) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            el.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+            // Change color based on time
+            el.classList.remove('warning', 'critical');
+            if (seconds <= 60) {
+                el.classList.add('critical');
+            } else if (seconds <= 300) {
+                el.classList.add('warning');
+            }
+        }
+
+        function closeQrModal() {
+            const modal = document.getElementById('qrModal');
+            modal.classList.add('hidden');
+            if (qrTimerInterval) {
+                clearInterval(qrTimerInterval);
+                qrTimerInterval = null;
+            }
+        }
+
+        async function joinWaitingList(slotId) {
+            Utils.showLoading();
+            try {
+                const userData = Utils.getUserData() || {};
+                await API.joinWaitingList(slotId, {
+                    presenterUsername: username,
+                    degree: userData.degree
+                });
+                Utils.showToast('Added to waiting list!', 'success');
+                await loadSlots();
+            } catch (error) {
+                Utils.showToast('Failed to join waiting list: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async function leaveWaitingList(slotId) {
+            if (!confirm('Are you sure you want to leave the waiting list?')) return;
+
+            Utils.showLoading();
+            try {
+                await API.leaveWaitingList(slotId, username);
+                Utils.showToast('Removed from waiting list.', 'success');
+                await loadSlots();
+            } catch (error) {
+                Utils.showToast('Failed to leave waiting list: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+    </script>
+</body>
+</html>
