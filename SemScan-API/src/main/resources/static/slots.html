@@ -195,8 +195,10 @@
                 const presentersList = approvedPresenters.map(p => {
                     const name = p.name || 'Unknown';
                     const degree = p.degree || '';
+                    const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
+                    const displayName = isMe ? `${name} (me)` : name;
                     return `<div class="presenter-item">
-                        <span class="presenter-name">${name}</span>
+                        <span class="presenter-name">${displayName}</span>
                         <span class="presenter-degree">${degree}</span>
                     </div>`;
                 }).join('');
@@ -216,8 +218,10 @@
                 const pendingList = pendingPresenters.map(p => {
                     const name = p.name || 'Unknown';
                     const degree = p.degree || '';
+                    const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
+                    const displayName = isMe ? `${name} (me)` : name;
                     return `<div class="presenter-item pending">
-                        <span class="presenter-name">${name}</span>
+                        <span class="presenter-name">${displayName}</span>
                         <span class="presenter-degree">${degree}</span>
                     </div>`;
                 }).join('');
@@ -240,9 +244,11 @@
                     waitingList = waitingListEntries.map((p, idx) => {
                         const name = p.name || 'Unknown';
                         const degree = p.degree || '';
+                        const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
+                        const displayName = isMe ? `${name} (me)` : name;
                         return `<div class="presenter-item waiting">
                             <span class="presenter-position">#${idx + 1}</span>
-                            <span class="presenter-name">${name}</span>
+                            <span class="presenter-name">${displayName}</span>
                             <span class="presenter-degree">${degree}</span>
                         </div>`;
                     }).join('');

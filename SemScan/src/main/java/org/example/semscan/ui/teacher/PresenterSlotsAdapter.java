@@ -42,6 +42,7 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
     private final SlotActionListener listener;
     private boolean userHasApprovedRegistration = false;
     private String userDegree = null; // "PhD" or "MSc"
+    private String currentUsername = null;
 
     PresenterSlotsAdapter(@NonNull SlotActionListener listener) {
         this.listener = listener;
@@ -49,6 +50,10 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
 
     void setUserDegree(String degree) {
         this.userDegree = degree;
+    }
+
+    void setCurrentUsername(String username) {
+        this.currentUsername = username;
     }
 
     @NonNull
@@ -123,12 +128,17 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
         for (int i = 0; i < count; i++) {
             ApiService.PresenterCoPresenter presenter = registered.get(i);
             if (presenter != null && presenter.name != null && !presenter.name.trim().isEmpty()) {
-                // Format: "    PhD, Name" or "    MSc, Name" or just "    Name" if no degree
+                // Format: "    PhD, Name (me)" or "    MSc, Name" or just "    Name" if no degree
                 StringBuilder entry = new StringBuilder("    ");
                 if (presenter.degree != null && !presenter.degree.trim().isEmpty()) {
                     entry.append(presenter.degree.trim()).append(", ");
                 }
                 entry.append(presenter.name.trim());
+                // Add (me) if this is the current user
+                if (currentUsername != null && presenter.username != null &&
+                        currentUsername.equalsIgnoreCase(presenter.username)) {
+                    entry.append(" (me)");
+                }
                 names.add(entry.toString());
             }
         }
@@ -153,6 +163,11 @@ class PresenterSlotsAdapter extends RecyclerView.Adapter<PresenterSlotsAdapter.S
             String name = (presenter != null && presenter.name != null) ? presenter.name.trim() : "";
             String degree = (presenter != null && presenter.degree != null) ? presenter.degree.trim() : "";
             String displayName = degree.isEmpty() ? name : degree + ", " + name;
+            // Add (me) if this is the current user
+            if (currentUsername != null && presenter != null && presenter.username != null &&
+                    currentUsername.equalsIgnoreCase(presenter.username)) {
+                displayName += " (me)";
+            }
             priorities.add("    #" + (i + 1) + " - " + displayName);
         }
         return TextUtils.join("\n", priorities);

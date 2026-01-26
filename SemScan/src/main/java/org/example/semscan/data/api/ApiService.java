@@ -267,6 +267,7 @@ public interface ApiService {
         public String name;
         public String degree;
         public String topic;
+        public String username;
     }
 
     class SlotCard {

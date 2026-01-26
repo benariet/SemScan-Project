@@ -1939,6 +1939,7 @@ public class PresenterHomeService {
                     String username = entry.getPresenterUsername();
                     User user = username != null ? allUsers.get(normalizeUsername(username)) : null;
                     presenter.setName(user != null ? formatName(user) : username);
+                    presenter.setUsername(normalizeUsername(username));
                     if (entry.getDegree() != null) {
                         presenter.setDegree(entry.getDegree().name());
                     }
@@ -2033,6 +2034,7 @@ public class PresenterHomeService {
         User user = username != null ? registeredUsers.get(username) : null;
 
         presenter.setName(user != null ? formatName(user) : registration.getPresenterUsername());
+        presenter.setUsername(username);
         if (registration.getDegree() != null) {
             presenter.setDegree(registration.getDegree().name());
         } else if (user != null && user.getDegree() != null) {

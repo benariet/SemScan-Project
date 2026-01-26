@@ -343,6 +343,7 @@ public class PresenterHomeResponse {
         private String name;
         private String degree;
         private String topic;
+        private String username;
 
         public String getName() {
             return name;
@@ -366,6 +367,14 @@ public class PresenterHomeResponse {
 
         public void setTopic(String topic) {
             this.topic = topic;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
         }
     }
 
