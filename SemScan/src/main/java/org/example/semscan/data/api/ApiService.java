@@ -46,6 +46,9 @@ public interface ApiService {
     Call<Boolean> hasAttended(@Query("sessionId") Long sessionId,
                               @Query("studentUsername") String studentUsername);
 
+    @GET("api/v1/attendance/student/{studentUsername}")
+    Call<List<Attendance>> getAttendanceByStudent(@Path("studentUsername") String studentUsername);
+
     // =============================
     // Manual attendance workflow
     // =============================
@@ -438,6 +441,9 @@ public interface ApiService {
         public String participationPreference;
         public String nationalIdNumber;
         public String seminarAbstract;
+        public String presentationTopic;
+        public String supervisorName;
+        public String supervisorEmail;
     }
 
     class UserExistsRequest {

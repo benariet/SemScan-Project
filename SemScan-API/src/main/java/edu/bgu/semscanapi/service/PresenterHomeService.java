@@ -69,6 +69,7 @@ public class PresenterHomeService {
     private final WaitingListPromotionRepository waitingListPromotionRepository;
     private final EmailQueueService emailQueueService;
     private final FcmService fcmService;
+    private final SessionService sessionService;
 
     public PresenterHomeService(UserRepository userRepository,
                                 SeminarSlotRepository seminarSlotRepository,
@@ -84,7 +85,8 @@ public class PresenterHomeService {
                                 AppConfigService appConfigService,
                                 WaitingListPromotionRepository waitingListPromotionRepository,
                                 EmailQueueService emailQueueService,
-                                FcmService fcmService) {
+                                FcmService fcmService,
+                                SessionService sessionService) {
         this.userRepository = userRepository;
         this.seminarSlotRepository = seminarSlotRepository;
         this.registrationRepository = registrationRepository;
@@ -100,6 +102,7 @@ public class PresenterHomeService {
         this.waitingListPromotionRepository = waitingListPromotionRepository;
         this.emailQueueService = emailQueueService;
         this.fcmService = fcmService;
+        this.sessionService = sessionService;
     }
 
     /**
@@ -1336,10 +1339,8 @@ public class PresenterHomeService {
                 logger.info("Session {} time window has expired (closed at {}), closing session",
                     thisPresenterOpenSession.getSessionId(), sessionClosesAt);
 
-                // Close the old session
-                thisPresenterOpenSession.setStatus(Session.SessionStatus.CLOSED);
-                thisPresenterOpenSession.setEndTime(sessionClosesAt);
-                sessionRepository.save(thisPresenterOpenSession);
+                // Close the old session via SessionService - this triggers attendance report email
+                sessionService.closeSession(thisPresenterOpenSession.getSessionId());
                 databaseLoggerService.logSessionEvent("SESSION_AUTO_CLOSED_EXPIRED",
                     thisPresenterOpenSession.getSessionId(), thisPresenterOpenSession.getSeminarId(), presenterUsername);
 
@@ -2703,12 +2704,8 @@ public class PresenterHomeService {
     private void closeLegacySession(Session session) {
         if (session.getStatus() != Session.SessionStatus.CLOSED) {
             logger.info("Closing legacy session {} (status: {})", session.getSessionId(), session.getStatus());
-            session.setStatus(Session.SessionStatus.CLOSED);
-            // CRITICAL: Use Israel timezone to match session times
-            session.setEndTime(nowIsrael());
-            sessionRepository.save(session);
-            databaseLoggerService.logSessionEvent("SESSION_AUTO_CLOSED", session.getSessionId(), 
-                session.getSeminarId(), null);
+            // Use SessionService to close - this triggers attendance report email
+            sessionService.closeSession(session.getSessionId());
         }
     }
 

@@ -1,10 +1,13 @@
 package edu.bgu.semscanapi.service;
 
 import edu.bgu.semscanapi.dto.SessionDTO;
+import edu.bgu.semscanapi.entity.Attendance;
 import edu.bgu.semscanapi.entity.Seminar;
+import edu.bgu.semscanapi.entity.SeminarSlot;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.SeminarRepository;
+import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.util.LoggerUtil;
@@ -14,12 +17,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintWriter;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Service class for Session business logic
@@ -46,6 +57,9 @@ public class SessionService {
     private SeminarRepository seminarRepository;
 
     @Autowired
+    private SeminarSlotRepository seminarSlotRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -53,6 +67,12 @@ public class SessionService {
 
     @Autowired(required = false)
     private AppConfigService appConfigService;
+
+    @Autowired
+    private AttendanceService attendanceService;
+
+    @Autowired
+    private EmailService emailService;
 
     /**
      * Create a new session
@@ -361,21 +381,26 @@ public class SessionService {
             
             Session savedSession = sessionRepository.save(session);
             logger.info("Session status updated: {} from {} to {}", sessionId, oldStatus, status);
-            
+
             SessionLoggerUtil.logSessionStatusChange(
                 sessionId,
                 oldStatus.toString(),
                 status.toString()
             );
-            
+
             LoggerUtil.logSessionEvent(logger, "SESSION_STATUS_UPDATED",
                 String.valueOf(sessionId), existingSession.get().getSeminarId() != null ? existingSession.get().getSeminarId().toString() : null,
                 null);
-            
+
             // Log status update to database
-            databaseLoggerService.logSessionEvent("SESSION_STATUS_UPDATED", sessionId, 
+            databaseLoggerService.logSessionEvent("SESSION_STATUS_UPDATED", sessionId,
                 existingSession.get().getSeminarId(), null);
-            
+
+            // Send attendance report email when session closes
+            if (status == Session.SessionStatus.CLOSED) {
+                sendAttendanceReportEmail(savedSession);
+            }
+
             return savedSession;
         } catch (IllegalArgumentException e) {
             // Already logged above, just re-throw
@@ -479,11 +504,238 @@ public class SessionService {
         } catch (Exception e) {
             String errorMsg = String.format("Failed to retrieve active sessions for seminar: %s", seminarId);
             logger.error(errorMsg, e);
-            databaseLoggerService.logError("SESSION_RETRIEVAL_ERROR", errorMsg, e, null, 
+            databaseLoggerService.logError("SESSION_RETRIEVAL_ERROR", errorMsg, e, null,
                 String.format("seminarId=%s,exceptionType=%s", seminarId, e.getClass().getName()));
             throw e;
         } finally {
             LoggerUtil.clearKey("seminarId");
         }
+    }
+
+    /**
+     * Send attendance report email when session closes
+     */
+    private void sendAttendanceReportEmail(Session session) {
+        try {
+            Long sessionId = session.getSessionId();
+
+            // Check if email service is configured
+            if (!emailService.isEmailConfigured()) {
+                logger.info("Email service not configured, skipping attendance report for session {}", sessionId);
+                return;
+            }
+
+            // Get attendance records for the session
+            List<Attendance> attendanceList = attendanceService.getAttendanceBySession(sessionId);
+
+            if (attendanceList.isEmpty()) {
+                logger.info("No attendance records for session {}, skipping email", sessionId);
+                databaseLoggerService.logAction("INFO", "ATTENDANCE_REPORT_SKIPPED_EMPTY",
+                    String.format("No attendance records for session %d, skipping auto email", sessionId),
+                    null, String.format("sessionId=%d", sessionId));
+                return;
+            }
+
+            // Find the slot associated with this session
+            SeminarSlot slot = findSlotBySessionId(sessionId);
+
+            // Generate CSV data
+            byte[] csvData = generateCsvForSession(sessionId, attendanceList, session, slot);
+
+            // Generate filename
+            String filename = generateExportFilename(session, slot);
+            if (filename == null) {
+                filename = "attendance_" + sessionId + ".csv";
+            }
+
+            // Send email
+            boolean emailSent = emailService.sendExportEmail(sessionId, filename, csvData, "csv");
+
+            if (emailSent) {
+                logger.info("Attendance report email sent for session {} ({} records)", sessionId, attendanceList.size());
+                databaseLoggerService.logAction("INFO", "ATTENDANCE_REPORT_EMAIL_SENT",
+                    String.format("Attendance report email sent for session %d with %d records", sessionId, attendanceList.size()),
+                    null, String.format("sessionId=%d,filename=%s,recordCount=%d", sessionId, filename, attendanceList.size()));
+            } else {
+                logger.warn("Failed to send attendance report email for session {}", sessionId);
+                databaseLoggerService.logAction("WARN", "ATTENDANCE_REPORT_EMAIL_FAILED",
+                    String.format("Failed to send attendance report email for session %d", sessionId),
+                    null, String.format("sessionId=%d", sessionId));
+            }
+        } catch (Exception e) {
+            logger.error("Error sending attendance report email for session {}: {}",
+                session.getSessionId(), e.getMessage(), e);
+            databaseLoggerService.logError("ATTENDANCE_REPORT_EMAIL_ERROR",
+                String.format("Error sending attendance report email for session %d", session.getSessionId()),
+                e, null, String.format("sessionId=%d", session.getSessionId()));
+        }
+    }
+
+    /**
+     * Find slot by session ID (legacy_session_id)
+     */
+    private SeminarSlot findSlotBySessionId(Long sessionId) {
+        return seminarSlotRepository.findAll().stream()
+            .filter(slot -> sessionId.equals(slot.getLegacySessionId()))
+            .findFirst()
+            .orElse(null);
+    }
+
+    /**
+     * Generate CSV data for a session
+     */
+    private byte[] generateCsvForSession(Long sessionId, List<Attendance> attendanceList,
+                                          Session session, SeminarSlot slot) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        PrintWriter writer = new PrintWriter(outputStream);
+
+        // Get time slot string
+        String timeSlot = getTimeSlotString(slot);
+
+        // Get user info map
+        Map<String, User> userMap = attendanceList.stream()
+                .map(Attendance::getStudentUsername)
+                .distinct()
+                .filter(username -> username != null)
+                .map(username -> userRepository.findByBguUsernameIgnoreCase(username))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toMap(
+                        user -> user.getBguUsername().toLowerCase(Locale.ROOT),
+                        user -> user,
+                        (existing, replacement) -> existing
+                ));
+
+        // Get presenter info
+        String presenterName = getPresenterNameForSession(session);
+
+        // CSV Header
+        writer.println("Method,Attendance Time,Username,First Name,Last Name,National ID,Time Slot,Presenter");
+
+        // CSV Data
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        for (Attendance attendance : attendanceList) {
+            String username = attendance.getStudentUsername();
+            User user = userMap.get(username != null ? username.toLowerCase(Locale.ROOT) : null);
+
+            String firstName = user != null && user.getFirstName() != null ? user.getFirstName() : "";
+            String lastName = user != null && user.getLastName() != null ? user.getLastName() : "";
+            String nationalId = user != null && user.getNationalIdNumber() != null ? user.getNationalIdNumber() : "";
+            String method = attendance.getMethod() != null ? attendance.getMethod().toString() : "";
+            String attendanceTime = attendance.getAttendanceTime() != null ? attendance.getAttendanceTime().format(formatter) : "";
+            String studentUsername = username != null ? username : "";
+
+            writer.printf("%s,%s,%s,%s,%s,%s,%s,%s%n",
+                    escapeCsv(method),
+                    escapeCsv(attendanceTime),
+                    escapeCsv(studentUsername),
+                    escapeCsv(firstName),
+                    escapeCsv(lastName),
+                    escapeCsv(nationalId),
+                    escapeCsv(timeSlot),
+                    escapeCsv(presenterName));
+        }
+
+        writer.flush();
+        writer.close();
+
+        return outputStream.toByteArray();
+    }
+
+    /**
+     * Generate export filename
+     */
+    private String generateExportFilename(Session session, SeminarSlot slot) {
+        try {
+            // Get seminar
+            Optional<Seminar> seminarOpt = seminarRepository.findById(session.getSeminarId());
+            if (seminarOpt.isEmpty()) {
+                return null;
+            }
+            Seminar seminar = seminarOpt.get();
+
+            // Get presenter user
+            Optional<User> presenterOpt = userRepository.findByBguUsernameIgnoreCase(seminar.getPresenterUsername());
+            if (presenterOpt.isEmpty()) {
+                return null;
+            }
+            User presenter = presenterOpt.get();
+
+            // Format date
+            LocalDate date = slot != null ? slot.getSlotDate() :
+                (session.getStartTime() != null ? session.getStartTime().toLocalDate() : LocalDate.now());
+            String dateStr = String.format("%d_%d_%d", date.getDayOfMonth(), date.getMonthValue(), date.getYear());
+
+            // Format presenter name
+            String firstName = presenter.getFirstName() != null ?
+                presenter.getFirstName().toLowerCase(Locale.ROOT).replace(" ", "_") : "unknown";
+            String lastName = presenter.getLastName() != null ?
+                presenter.getLastName().toLowerCase(Locale.ROOT).replace(" ", "_") : "unknown";
+            String presenterName = firstName + "_" + lastName;
+
+            // Format time slot
+            String timeSlotStr = "00-00";
+            if (slot != null && slot.getStartTime() != null && slot.getEndTime() != null) {
+                timeSlotStr = String.format("%02d-%02d", slot.getStartTime().getHour(), slot.getEndTime().getHour());
+            }
+
+            return String.format("%s_%s_%s.csv", dateStr, presenterName, timeSlotStr);
+        } catch (Exception e) {
+            logger.error("Error generating export filename for session: {}", session.getSessionId(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Get time slot string for a slot
+     */
+    private String getTimeSlotString(SeminarSlot slot) {
+        if (slot == null || slot.getStartTime() == null || slot.getEndTime() == null) {
+            return "";
+        }
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+        return slot.getStartTime().format(timeFormatter) + "-" + slot.getEndTime().format(timeFormatter);
+    }
+
+    /**
+     * Get presenter name for a session
+     */
+    private String getPresenterNameForSession(Session session) {
+        if (session == null) {
+            return "";
+        }
+        try {
+            Optional<Seminar> seminarOpt = seminarRepository.findById(session.getSeminarId());
+            if (seminarOpt.isEmpty()) {
+                return "";
+            }
+            Seminar seminar = seminarOpt.get();
+
+            Optional<User> presenterOpt = userRepository.findByBguUsernameIgnoreCase(seminar.getPresenterUsername());
+            if (presenterOpt.isEmpty()) {
+                return "";
+            }
+            User presenter = presenterOpt.get();
+
+            String firstName = presenter.getFirstName() != null ? presenter.getFirstName() : "";
+            String lastName = presenter.getLastName() != null ? presenter.getLastName() : "";
+            return (firstName + " " + lastName).trim();
+        } catch (Exception e) {
+            logger.error("Error getting presenter name for session: {}", session.getSessionId(), e);
+            return "";
+        }
+    }
+
+    /**
+     * Escape CSV field
+     */
+    private String escapeCsv(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 }

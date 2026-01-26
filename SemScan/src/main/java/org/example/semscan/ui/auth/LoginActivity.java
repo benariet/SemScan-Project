@@ -598,11 +598,25 @@ public class LoginActivity extends AppCompatActivity {
                         preferencesManager.setEmail(profile.email);
                         preferencesManager.setDegree(profile.degree);
                         preferencesManager.setParticipationPreference(profile.participationPreference);
+                        // Sync presentation details from server
+                        if (profile.seminarAbstract != null) {
+                            preferencesManager.setSeminarAbstract(profile.seminarAbstract);
+                        }
+                        if (profile.presentationTopic != null) {
+                            preferencesManager.setPresentationTopic(profile.presentationTopic);
+                        }
+                        if (profile.supervisorName != null) {
+                            preferencesManager.setSupervisorName(profile.supervisorName);
+                        }
+                        if (profile.supervisorEmail != null) {
+                            preferencesManager.setSupervisorEmail(profile.supervisorEmail);
+                        }
                         preferencesManager.setInitialSetupCompleted(true);
                         Logger.i(Logger.TAG_ACCOUNT_SETUP, "Profile data synced to preferences - firstName: " + profile.firstName +
                             ", lastName: " + profile.lastName +
                             ", degree: " + profile.degree +
-                            ", participationPreference: " + profile.participationPreference);
+                            ", participationPreference: " + profile.participationPreference +
+                            ", presentationTopic: " + profile.presentationTopic);
 
                         if (profile.participationPreference != null) {
                             if (profile.participationPreference.contains("PRESENTER")) {
@@ -783,6 +797,13 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         dialog.show();
+
+        // Fix text truncation - allow message to show full text with scrolling
+        android.widget.TextView messageView = dialog.findViewById(android.R.id.message);
+        if (messageView != null) {
+            messageView.setMaxLines(Integer.MAX_VALUE);
+            messageView.setEllipsize(null);
+        }
     }
 
     private void handleSkipAuth() {

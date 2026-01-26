@@ -170,9 +170,33 @@ LEFT JOIN semscan_db.users u ON s.attendance_opened_by = u.bgu_username
 WHERE s.attendance_opened_at IS NOT NULL
 ORDER BY s.slot_date DESC;
 
--- Insert new slot (update date as needed)
+
+-- Insert slot for TODAY (morning)
 INSERT INTO semscan_db.slots (semester_label, slot_date, start_time, end_time, building, room, capacity, status)
-VALUES ('SEM A', '2026-02-01', '09:00:00', '17:30:00', '37', '201', 3, 'FREE');
+VALUES ('SEM A', CURDATE(), '09:00:00', '12:00:00', '37', '201', 3, 'FREE');
+
+-- Insert slot for TODAY (afternoon)
+INSERT INTO semscan_db.slots (semester_label, slot_date, start_time, end_time, building, room, capacity, status)
+VALUES ('SEM A', CURDATE(), '14:00:00', '17:00:00', '37', '201', 3, 'FREE');
+
+-- Insert slot for TODAY (evening)
+INSERT INTO semscan_db.slots (semester_label, slot_date, start_time, end_time, building, room, capacity, status)
+VALUES ('SEM A', CURDATE(), '18:00:00', '21:00:00', '37', '201', 3, 'FREE');
+
+-- Insert slot for TODAY with custom time (update times as needed)
+INSERT INTO semscan_db.slots (semester_label, slot_date, start_time, end_time, building, room, capacity, status)
+VALUES ('SEM A', CURDATE(), '15:00:00', '18:00:00', '37', '201', 3, 'FREE');
+
+-- Insert slot for TOMORROW
+INSERT INTO semscan_db.slots (semester_label, slot_date, start_time, end_time, building, room, capacity, status)
+VALUES ('SEM A', DATE_ADD(CURDATE(), INTERVAL 1 DAY), '09:00:00', '12:00:00', '37', '201', 3, 'FREE');
+
+-- Insert multiple slots for next week
+INSERT INTO semscan_db.slots (semester_label, slot_date, start_time, end_time, building, room, capacity, status)
+VALUES
+    ('SEM A', DATE_ADD(CURDATE(), INTERVAL 7 DAY), '09:00:00', '12:00:00', '37', '201', 3, 'FREE'),
+    ('SEM A', DATE_ADD(CURDATE(), INTERVAL 8 DAY), '09:00:00', '12:00:00', '37', '201', 3, 'FREE'),
+    ('SEM A', DATE_ADD(CURDATE(), INTERVAL 9 DAY), '09:00:00', '12:00:00', '37', '201', 3, 'FREE');
 
 -- ==================== SESSIONS & SEMINARS ====================
 
