@@ -7,8 +7,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#1976D2">
     <title>SemScan - Login</title>
-    <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/login.css">
+    <link rel="stylesheet" href="css/main.css?v=2">
+    <link rel="stylesheet" href="css/login.css?v=2">
 </head>
 <body>
     <div class="login-page">
@@ -64,6 +64,14 @@
                     </div>
                 </div>
 
+                <div class="remember-me">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="rememberMe">
+                        <span class="checkbox-custom"></span>
+                        <span class="checkbox-text">Remember me</span>
+                    </label>
+                </div>
+
                 <button type="submit" class="btn btn-primary btn-block login-btn" id="loginBtn">
                     Login
                 </button>
@@ -81,18 +89,33 @@
     </div>
 
     <script src="js/config.js"></script>
-    <script src="js/api.js"></script>
     <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
     <script>
+        Logger.pageLoad('Login');
+
         // Check if already logged in
+        Logger.debug('AUTH_CHECK', 'Checking if already logged in...');
         if (Utils.isLoggedIn()) {
-            window.location.href = 'presenter.html';
+            Logger.info('AUTH_CHECK', 'Already logged in, redirecting to presenter');
+            window.location.href = 'home.html';
         }
 
         // Show session expired message if redirected
         const params = Utils.getQueryParams();
+        Logger.debug('INIT', 'Query params:', params);
         if (params.expired === '1') {
+            Logger.info('SESSION', 'Showing session expired message');
             document.getElementById('sessionExpiredMsg').classList.remove('hidden');
+        }
+
+        // Remember Me - load saved username
+        const rememberedUsername = localStorage.getItem('remembered_username');
+        const rememberMeCheckbox = document.getElementById('rememberMe');
+        if (rememberedUsername) {
+            document.getElementById('username').value = rememberedUsername;
+            rememberMeCheckbox.checked = true;
+            Logger.debug('REMEMBER_ME', 'Loaded remembered username');
         }
 
         // Password toggle
@@ -101,6 +124,7 @@
         passwordToggle.addEventListener('click', () => {
             const type = passwordInput.type === 'password' ? 'text' : 'password';
             passwordInput.type = type;
+            Logger.debug('UI', `Password visibility: ${type}`);
         });
 
         // Form submission
@@ -110,11 +134,15 @@
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            Logger.userAction('Login form submitted');
 
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
 
+            Logger.info('LOGIN', `Attempting login for: ${username}`);
+
             if (!username || !password) {
+                Logger.warn('LOGIN', 'Missing username or password');
                 loginError.textContent = 'Please enter username and password';
                 loginError.classList.remove('hidden');
                 return;
@@ -126,19 +154,39 @@
             loginError.classList.add('hidden');
 
             try {
+                Logger.info('LOGIN', 'Calling API.login...');
                 const response = await API.login(username, password);
+                Logger.info('LOGIN_SUCCESS', 'Login successful', {
+                    hasToken: !!response.token,
+                    hasUser: !!response.user
+                });
 
                 // Store session
                 localStorage.setItem(CONFIG.SESSION_KEY, response.token || 'authenticated');
                 localStorage.setItem(CONFIG.USERNAME_KEY, response.username || username.toLowerCase());
                 if (response.user) {
                     localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify(response.user));
+                    Logger.debug('LOGIN', 'User data stored:', response.user);
                 }
 
+                // Handle Remember Me
+                if (document.getElementById('rememberMe').checked) {
+                    localStorage.setItem('remembered_username', username.toLowerCase());
+                    Logger.debug('REMEMBER_ME', 'Username saved');
+                } else {
+                    localStorage.removeItem('remembered_username');
+                    Logger.debug('REMEMBER_ME', 'Username cleared');
+                }
+
+                Logger.info('LOGIN', 'Redirecting to presenter page...');
                 // Redirect to presenter page
-                window.location.href = 'presenter.html';
+                window.location.href = 'home.html';
 
             } catch (error) {
+                Logger.error('LOGIN_FAILED', 'Login failed', {
+                    message: error.message,
+                    stack: error.stack
+                });
                 loginError.textContent = error.message || 'Login failed. Please check your credentials.';
                 loginError.classList.remove('hidden');
             } finally {
@@ -154,6 +202,17 @@
         document.getElementById('password').addEventListener('input', () => {
             loginError.classList.add('hidden');
         });
+
+        // Global error handlers
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            Logger.error('GLOBAL_ERROR', msg, { url, lineNo, columnNo, stack: error?.stack });
+            return false;
+        };
+        window.onunhandledrejection = function(event) {
+            Logger.error('UNHANDLED_REJECTION', event.reason?.message || 'Promise rejected', { reason: event.reason });
+        };
+
+        Logger.pageReady('Login');
     </script>
 </body>
 </html>

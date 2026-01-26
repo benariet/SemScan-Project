@@ -11,6 +11,9 @@ const API = {
      */
     async request(endpoint, options = {}) {
         const url = CONFIG.API_BASE + endpoint;
+        const method = options.method || 'GET';
+
+        Logger.apiRequest(method, endpoint, options.body ? JSON.parse(options.body) : null);
 
         const defaultHeaders = {
             'Content-Type': 'application/json',
@@ -22,6 +25,9 @@ const API = {
         const token = localStorage.getItem(CONFIG.SESSION_KEY);
         if (token) {
             defaultHeaders['Authorization'] = `Bearer ${token}`;
+            Logger.debug('API_AUTH', 'Using stored auth token');
+        } else {
+            Logger.debug('API_AUTH', 'No auth token found');
         }
 
         const config = {
@@ -33,10 +39,13 @@ const API = {
         };
 
         try {
+            Logger.debug('API_FETCH', `Fetching ${url}...`);
             const response = await fetch(url, config);
+            Logger.debug('API_FETCH', `Response received: ${response.status} ${response.statusText}`);
 
             // Handle session expiry
             if (response.status === 401 || response.status === 403) {
+                Logger.warn('SESSION_EXPIRED', `Session expired (${response.status})`, { endpoint });
                 this.handleSessionExpired();
                 throw new Error('Session expired');
             }
@@ -44,19 +53,39 @@ const API = {
             // Parse response
             const contentType = response.headers.get('content-type');
             let data;
+
+            Logger.debug('API_PARSE', `Content-Type: ${contentType}`);
+
             if (contentType && contentType.includes('application/json')) {
-                data = await response.json();
+                const text = await response.text();
+                Logger.debug('API_PARSE', `Raw response: ${text.substring(0, 500)}...`);
+                try {
+                    data = JSON.parse(text);
+                } catch (parseError) {
+                    Logger.error('API_PARSE_ERROR', 'Failed to parse JSON response', {
+                        error: parseError.message,
+                        text: text.substring(0, 200)
+                    });
+                    throw new Error('Invalid JSON response from server');
+                }
             } else {
                 data = await response.text();
+                Logger.debug('API_PARSE', `Text response: ${data.substring(0, 200)}`);
             }
 
+            Logger.apiResponse(method, endpoint, response.status, data);
+
             if (!response.ok) {
-                throw new Error(data.message || data || 'Request failed');
+                const errorMsg = data.message || data.error || data || 'Request failed';
+                Logger.error('API_ERROR', `Request failed: ${errorMsg}`, { status: response.status, data });
+                throw new Error(errorMsg);
             }
 
             return data;
         } catch (error) {
-            console.error('API Error:', error);
+            if (error.message !== 'Session expired') {
+                Logger.apiError(method, endpoint, error);
+            }
             throw error;
         }
     },
@@ -116,18 +145,23 @@ const API = {
             os = 'macOS';
         }
 
-        return `${browser} on ${os} (Web)`;
+        const deviceInfo = `${browser} on ${os} (Web)`;
+        Logger.debug('DEVICE_INFO', deviceInfo);
+        return deviceInfo;
     },
 
     /**
      * Handle session expiry - redirect to login
      */
     handleSessionExpired() {
+        Logger.warn('SESSION_HANDLER', 'Clearing session and redirecting to login');
+
         localStorage.removeItem(CONFIG.SESSION_KEY);
         localStorage.removeItem(CONFIG.USERNAME_KEY);
         localStorage.removeItem(CONFIG.USER_DATA_KEY);
 
         if (!window.location.pathname.includes('index.html')) {
+            Logger.info('SESSION_HANDLER', 'Redirecting to login page');
             window.location.href = 'index.html?expired=1';
         }
     },
@@ -138,7 +172,15 @@ const API = {
      * Login with BGU credentials
      */
     async login(username, password) {
-        return this.post('/auth/login', { username, password });
+        Logger.info('AUTH', `Attempting login for user: ${username}`);
+        try {
+            const result = await this.post('/auth/login', { username, password });
+            Logger.info('AUTH_LOGIN_SUCCESS', `Login successful for ${username}`);
+            return result;
+        } catch (error) {
+            Logger.error('AUTH_LOGIN_FAILED', `Login failed for ${username}`, { error: error.message });
+            throw error;
+        }
     },
 
     // ============ Presenter Endpoints ============
@@ -147,34 +189,72 @@ const API = {
      * Get presenter home data (slots)
      */
     async getPresenterHome(username) {
-        return this.get(`/presenters/${username}/home`);
+        Logger.info('PRESENTER_HOME', `Loading presenter home for: ${username}`);
+        try {
+            const result = await this.get(`/presenters/${username}/home`);
+            Logger.info('PRESENTER_HOME_LOADED', `Loaded ${result.slotCatalog?.length || 0} slots`, {
+                hasMySlot: !!result.mySlot,
+                hasWaitingList: !!result.myWaitingListSlot
+            });
+            return result;
+        } catch (error) {
+            Logger.error('PRESENTER_HOME_FAILED', `Failed to load presenter home`, { error: error.message });
+            throw error;
+        }
     },
 
     /**
      * Register for a slot
      */
     async registerForSlot(username, slotId, data) {
-        return this.post(`/presenters/${username}/home/slots/${slotId}/register`, data);
+        Logger.info('REGISTRATION', `Registering ${username} for slot ${slotId}`, data);
+        try {
+            const result = await this.post(`/presenters/${username}/home/slots/${slotId}/register`, data);
+            Logger.info('REGISTRATION_SUCCESS', `Registration successful`, result);
+            return result;
+        } catch (error) {
+            Logger.error('REGISTRATION_FAILED', `Registration failed`, { error: error.message });
+            throw error;
+        }
     },
 
     /**
      * Cancel registration
      */
     async cancelRegistration(username, slotId) {
-        return this.delete(`/presenters/${username}/home/slots/${slotId}/register`);
+        Logger.info('REGISTRATION_CANCEL', `Cancelling registration for ${username} slot ${slotId}`);
+        try {
+            const result = await this.delete(`/presenters/${username}/home/slots/${slotId}/register`);
+            Logger.info('REGISTRATION_CANCEL_SUCCESS', `Cancellation successful`);
+            return result;
+        } catch (error) {
+            Logger.error('REGISTRATION_CANCEL_FAILED', `Cancellation failed`, { error: error.message });
+            throw error;
+        }
     },
 
     /**
      * Open attendance window (get QR code)
      */
     async openAttendance(username, slotId) {
-        return this.post(`/presenters/${username}/home/slots/${slotId}/attendance/open`, {});
+        Logger.info('ATTENDANCE_OPEN', `Opening attendance for ${username} slot ${slotId}`);
+        try {
+            const result = await this.post(`/presenters/${username}/home/slots/${slotId}/attendance/open`, {});
+            Logger.info('ATTENDANCE_OPEN_SUCCESS', `Attendance opened`, {
+                hasQrCode: !!result.qrCodeBase64 || !!result.qrCodeUrl
+            });
+            return result;
+        } catch (error) {
+            Logger.error('ATTENDANCE_OPEN_FAILED', `Failed to open attendance`, { error: error.message });
+            throw error;
+        }
     },
 
     /**
      * Get QR code for open session
      */
     async getQrCode(username, slotId) {
+        Logger.info('QR_CODE', `Fetching QR code for ${username} slot ${slotId}`);
         return this.get(`/presenters/${username}/home/slots/${slotId}/attendance/qr`);
     },
 
@@ -184,14 +264,30 @@ const API = {
      * Join waiting list
      */
     async joinWaitingList(slotId, data) {
-        return this.post(`/slots/${slotId}/waiting-list`, data);
+        Logger.info('WAITING_LIST_JOIN', `Joining waiting list for slot ${slotId}`, data);
+        try {
+            const result = await this.post(`/slots/${slotId}/waiting-list`, data);
+            Logger.info('WAITING_LIST_JOIN_SUCCESS', `Joined waiting list`);
+            return result;
+        } catch (error) {
+            Logger.error('WAITING_LIST_JOIN_FAILED', `Failed to join waiting list`, { error: error.message });
+            throw error;
+        }
     },
 
     /**
      * Leave waiting list
      */
     async leaveWaitingList(slotId, username) {
-        return this.delete(`/slots/${slotId}/waiting-list?username=${username}`);
+        Logger.info('WAITING_LIST_LEAVE', `Leaving waiting list for slot ${slotId}`);
+        try {
+            const result = await this.delete(`/slots/${slotId}/waiting-list?username=${username}`);
+            Logger.info('WAITING_LIST_LEAVE_SUCCESS', `Left waiting list`);
+            return result;
+        } catch (error) {
+            Logger.error('WAITING_LIST_LEAVE_FAILED', `Failed to leave waiting list`, { error: error.message });
+            throw error;
+        }
     },
 
     // ============ Participant Endpoints ============
@@ -200,13 +296,54 @@ const API = {
      * Get open sessions for attendance
      */
     async getOpenSessions() {
-        return this.get('/sessions/open');
+        Logger.info('SESSIONS', `Fetching open sessions`);
+        try {
+            const result = await this.get('/sessions/open');
+            Logger.info('SESSIONS_LOADED', `Found ${result.length || 0} open sessions`);
+            return result;
+        } catch (error) {
+            Logger.error('SESSIONS_FAILED', `Failed to fetch sessions`, { error: error.message });
+            throw error;
+        }
     },
 
     /**
      * Submit QR attendance
      */
     async submitAttendance(qrData) {
-        return this.post('/attendance', qrData);
+        Logger.info('ATTENDANCE_SUBMIT', `Submitting attendance`, qrData);
+        try {
+            const result = await this.post('/attendance', qrData);
+            Logger.info('ATTENDANCE_SUBMIT_SUCCESS', `Attendance submitted successfully`);
+            return result;
+        } catch (error) {
+            Logger.error('ATTENDANCE_SUBMIT_FAILED', `Failed to submit attendance`, { error: error.message });
+            throw error;
+        }
+    },
+
+    // ============ User Endpoints ============
+
+    /**
+     * Update user profile/details
+     */
+    async upsertUser(username, data) {
+        Logger.info('USER_UPSERT', `Updating user details for: ${username}`, data);
+        try {
+            // Include username in request body
+            const requestData = {
+                bguUsername: username,
+                ...data
+            };
+            const result = await this.post('/users', requestData);
+            Logger.info('USER_UPSERT_SUCCESS', `User details updated`);
+            return result;
+        } catch (error) {
+            Logger.error('USER_UPSERT_FAILED', `Failed to update user details`, { error: error.message });
+            throw error;
+        }
     }
 };
+
+// Log API module initialization
+Logger.info('API_INIT', `API module loaded, base URL: ${CONFIG.API_BASE}`);

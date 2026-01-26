@@ -66,6 +66,12 @@ public class PresenterHomeResponse {
         private boolean alreadyRegistered;
         private String currentCycleId;
         private String bguUsername;
+        // Presentation details fields for webapp
+        private String topic;
+        private String seminarAbstract;
+        private String supervisorName;
+        private String supervisorEmail;
+        private String email;
 
         public Long getId() {
             return id;
@@ -114,6 +120,46 @@ public class PresenterHomeResponse {
         public void setBguUsername(String bguUsername) {
             this.bguUsername = bguUsername;
         }
+
+        public String getTopic() {
+            return topic;
+        }
+
+        public void setTopic(String topic) {
+            this.topic = topic;
+        }
+
+        public String getSeminarAbstract() {
+            return seminarAbstract;
+        }
+
+        public void setSeminarAbstract(String seminarAbstract) {
+            this.seminarAbstract = seminarAbstract;
+        }
+
+        public String getSupervisorName() {
+            return supervisorName;
+        }
+
+        public void setSupervisorName(String supervisorName) {
+            this.supervisorName = supervisorName;
+        }
+
+        public String getSupervisorEmail() {
+            return supervisorEmail;
+        }
+
+        public void setSupervisorEmail(String supervisorEmail) {
+            this.supervisorEmail = supervisorEmail;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
     }
 
     public static class MySlotSummary {
@@ -124,6 +170,7 @@ public class PresenterHomeResponse {
         private String building;
         private String dayOfWeek;
         private String semesterLabel;
+        private String approvalStatus; // PENDING, APPROVED, DECLINED, EXPIRED
         private List<RegisteredPresenter> coPresenters = new ArrayList<>();
 
         public Long getSlotId() {
@@ -180,6 +227,14 @@ public class PresenterHomeResponse {
 
         public void setSemesterLabel(String semesterLabel) {
             this.semesterLabel = semesterLabel;
+        }
+
+        public String getApprovalStatus() {
+            return approvalStatus;
+        }
+
+        public void setApprovalStatus(String approvalStatus) {
+            this.approvalStatus = approvalStatus;
         }
 
         public List<RegisteredPresenter> getCoPresenters() {

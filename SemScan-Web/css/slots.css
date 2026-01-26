@@ -1,258 +1,239 @@
 /**
  * SemScan Web App - Slot Cards Styles
+2 * Matches Android item_presenter_slot.xml design
  */
 
 /* Slot list */
 .slots-list {
-    padding: var(--spacing-md) 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
 }
 
-/* Individual slot card */
+/* Individual slot card - matches Android MaterialCardView */
 .slot-card {
-    position: relative;
-    overflow: hidden;
+    border-radius: var(--radius-md);
+    padding: 20px;
+    box-shadow: var(--shadow-card);
+    color: var(--text-dark);
 }
 
-.slot-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 60px;
-    height: 60px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 50%;
-    transform: translate(20px, -20px);
+/* Slot card colors - match Android bg_slot_*_gradient.xml */
+.slot-card.slot-available {
+    background: linear-gradient(90deg, #C8E6C9, #A5D6A7);
 }
 
+.slot-card.slot-semi {
+    background: linear-gradient(90deg, #FFF9C4, #FFF59D);
+}
+
+.slot-card.slot-full {
+    background: linear-gradient(90deg, #FFCDD2, #EF9A9A);
+}
+
+/* Session open banner (like Android text_my_session_open) */
+.session-open-banner {
+    background: linear-gradient(135deg, #4CAF50, #66BB6A);
+    color: white;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+}
+
+/* Slot header */
 .slot-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: 8px;
 }
 
 .slot-info {
     flex: 1;
 }
 
+/* Date text - matches Android text_slot_title (18sp bold) */
 .slot-date {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 2px;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-dark);
 }
 
+/* Time text */
 .slot-time {
     font-size: 0.875rem;
-    opacity: 0.9;
+    color: var(--text-dark);
+    margin-top: 2px;
 }
 
+/* Status badge */
 .slot-badge {
-    padding: 2px 8px;
-    font-size: 0.625rem;
+    padding: 4px 10px;
+    font-size: 0.75rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    background: rgba(255,255,255,0.2);
     border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.6);
+    color: var(--text-dark);
 }
 
-.slot-card.partial .slot-badge {
-    background: rgba(0,0,0,0.1);
-}
-
-/* Slot details */
+/* Slot details - matches Android text_slot_status */
 .slot-details {
-    margin-top: var(--spacing-sm);
-    padding-top: var(--spacing-sm);
-    border-top: 1px solid rgba(255,255,255,0.2);
-    font-size: 0.875rem;
-}
-
-.slot-card.partial .slot-details {
-    border-top-color: rgba(0,0,0,0.1);
+    margin-top: 8px;
 }
 
 .slot-location {
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: 6px;
+    font-size: 0.875rem;
+    color: var(--text-medium);
 }
 
 .slot-location svg {
     width: 16px;
     height: 16px;
-    opacity: 0.8;
+    fill: currentColor;
 }
 
-/* Registration status */
+/* Details text (presenter counts) - matches Android text_slot_details */
+.slot-details-text {
+    font-size: 0.8125rem;
+    color: var(--text-medium);
+    margin-top: 4px;
+}
+
+/* Presenter names - matches Android text_presenter_names */
+.slot-presenters {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--text-medium);
+}
+
+/* Registration status section */
 .slot-registration-status {
-    margin-top: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    background: rgba(255,255,255,0.15);
+    margin-top: 12px;
+    padding: 10px;
+    background: rgba(255,255,255,0.5);
     border-radius: var(--radius-sm);
-    font-size: 0.875rem;
-}
-
-.slot-card.partial .slot-registration-status {
-    background: rgba(0,0,0,0.08);
 }
 
 .registration-label {
-    font-weight: 500;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-medium);
     margin-bottom: 2px;
 }
 
 .registration-value {
-    opacity: 0.9;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-dark);
 }
 
-/* Waiting list info */
-.waiting-list-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    margin-top: var(--spacing-xs);
-    font-size: 0.75rem;
-    opacity: 0.85;
-}
-
-/* Action buttons */
+/* Action buttons - matches Android layout_buttons */
 .slot-actions {
     display: flex;
-    gap: var(--spacing-sm);
-    margin-top: var(--spacing-md);
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
     flex-wrap: wrap;
 }
 
+/* Button styles matching Android exactly */
 .slot-actions .btn {
-    flex: 1;
-    min-width: 100px;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: 8px 16px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    min-height: 40px;
+    border-radius: var(--radius-sm);
+}
+
+/* Register button - matches Android btn_outlined_blue */
+.slot-actions .btn-register {
+    background: white;
+    color: #007BFF;
+    border: 2px solid #007BFF;
+}
+
+.slot-actions .btn-register:hover {
+    background: rgba(0, 123, 255, 0.1);
+}
+
+/* Waiting list button - matches Android btn_outlined_blue */
+.slot-actions .btn-waiting {
+    background: white;
+    color: #007BFF;
+    border: 2px solid #007BFF;
+}
+
+.slot-actions .btn-waiting:hover {
+    background: rgba(0, 123, 255, 0.1);
+}
+
+/* Cancel button - matches Android btn_destructive_white */
+.slot-actions .btn-cancel {
+    background: white;
+    color: #FF3B30;
+    border: 2px solid #FF3B30;
+}
+
+.slot-actions .btn-cancel:hover {
+    background: rgba(255, 59, 48, 0.1);
+}
+
+/* Attendance button - green for visibility */
+.slot-actions .btn-attendance {
+    background: #4CAF50;
+    color: white;
+    border: none;
+}
+
+.slot-actions .btn-attendance:hover {
+    background: #388E3C;
+}
+
+/* Filter tabs */
+.slot-filters {
+    display: flex;
+    gap: 8px;
+    padding: 8px 0;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.filter-btn {
+    padding: 8px 16px;
     font-size: 0.875rem;
     font-weight: 600;
+    border: none;
+    border-radius: 20px;
+    background: #E0E0E0;
+    color: var(--text-medium);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.slot-actions .btn-register {
-    background: rgba(255,255,255,0.95);
-    color: #2E7D32;
+.filter-btn:hover {
+    background: #D0D0D0;
 }
 
-.slot-actions .btn-cancel {
-    background: rgba(255,255,255,0.95);
-    color: #C62828;
-}
-
-.slot-actions .btn-attendance {
-    background: rgba(255,255,255,0.95);
-    color: var(--primary);
-}
-
-.slot-actions .btn-waiting {
-    background: rgba(255,255,255,0.95);
-    color: #F57C00;
-}
-
-.slot-card.partial .slot-actions .btn {
-    background: rgba(255,255,255,0.95);
-}
-
-/* Presenter info on slot */
-.slot-presenters {
-    margin-top: var(--spacing-sm);
-    font-size: 0.8rem;
-}
-
-.slot-presenter-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: 4px 0;
-    opacity: 0.9;
-}
-
-.presenter-status {
-    font-size: 0.625rem;
-    padding: 1px 4px;
-    border-radius: 2px;
-    background: rgba(255,255,255,0.2);
-}
-
-.presenter-status.pending {
-    background: #FFF3E0;
-    color: #E65100;
-}
-
-.presenter-status.approved {
-    background: #E8F5E9;
-    color: #2E7D32;
-}
-
-/* QR Code display */
-.qr-container {
-    text-align: center;
-    padding: var(--spacing-lg);
-}
-
-.qr-code-wrapper {
-    background: white;
-    padding: var(--spacing-md);
-    border-radius: var(--radius-lg);
-    display: inline-block;
-    margin-bottom: var(--spacing-md);
-}
-
-.qr-code-wrapper img {
-    display: block;
-    max-width: 250px;
-    height: auto;
-}
-
-.qr-timer {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--primary);
-    margin-bottom: var(--spacing-sm);
-}
-
-.qr-timer.warning {
-    color: #F57C00;
-}
-
-.qr-timer.critical {
-    color: #C62828;
-}
-
-.qr-instructions {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    max-width: 300px;
-    margin: 0 auto;
-}
-
-/* Attendance count */
-.attendance-count {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-sm);
-    margin-top: var(--spacing-md);
-    padding: var(--spacing-sm);
-    background: #E3F2FD;
-    border-radius: var(--radius-md);
-    color: var(--primary);
-}
-
-.attendance-count-number {
-    font-size: 1.5rem;
-    font-weight: 700;
+.filter-btn.active {
+    background: var(--primary);
+    color: white;
 }
 
 /* Empty slots state */
 .no-slots {
     text-align: center;
     padding: var(--spacing-xl);
-    color: var(--text-secondary);
+    color: var(--text-medium);
 }
 
 .no-slots-icon {
@@ -263,101 +244,74 @@
 
 .no-slots-title {
     font-size: 1.25rem;
-    font-weight: 500;
+    font-weight: 600;
     margin-bottom: var(--spacing-sm);
+    color: var(--text-dark);
 }
 
 .no-slots-text {
     font-size: 0.875rem;
 }
 
-/* Filter tabs */
-.slot-filters {
-    display: flex;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) 0;
-    margin-bottom: var(--spacing-sm);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+/* QR Code Modal */
+.qr-container {
+    text-align: center;
 }
 
-.filter-btn {
-    padding: var(--spacing-xs) var(--spacing-md);
-    font-size: 0.875rem;
-    font-weight: 500;
-    border: none;
-    border-radius: var(--radius-full);
-    background: #E0E0E0;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    cursor: pointer;
-    transition: all 0.2s ease;
+.qr-timer {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: var(--spacing-md);
 }
 
-.filter-btn.active {
-    background: var(--primary);
-    color: white;
+.qr-timer.warning {
+    color: #FF9800;
 }
 
-/* Registration modal */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
+.qr-timer.critical {
+    color: #F44336;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.qr-code-wrapper {
+    background: white;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    display: inline-block;
+    box-shadow: var(--shadow-card);
+}
+
+.qr-code-wrapper img {
+    display: block;
+    width: 220px;
+    height: 220px;
+}
+
+.attendance-count {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
-    padding: var(--spacing-md);
+    gap: 8px;
+    margin-top: var(--spacing-md);
+    font-size: 1rem;
+    color: var(--text-medium);
 }
 
-.modal-overlay.hidden {
-    display: none;
-}
-
-.modal-content {
-    background: white;
-    border-radius: var(--radius-lg);
-    width: 100%;
-    max-width: 400px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: var(--shadow-lg);
-}
-
-.modal-header {
-    padding: var(--spacing-md);
-    border-bottom: 1px solid #EEE;
-}
-
-.modal-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-}
-
-.modal-body {
-    padding: var(--spacing-md);
-}
-
-.modal-footer {
-    padding: var(--spacing-md);
-    border-top: 1px solid #EEE;
-    display: flex;
-    gap: var(--spacing-sm);
-    justify-content: flex-end;
-}
-
-.modal-close {
-    position: absolute;
-    top: var(--spacing-sm);
-    right: var(--spacing-sm);
-    background: none;
-    border: none;
+.attendance-count-number {
     font-size: 1.5rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: var(--spacing-xs);
+    font-weight: 700;
+    color: #4CAF50;
+}
+
+.qr-instructions {
+    font-size: 0.875rem;
+    color: var(--text-medium);
+    max-width: 280px;
+    margin: 0 auto;
 }

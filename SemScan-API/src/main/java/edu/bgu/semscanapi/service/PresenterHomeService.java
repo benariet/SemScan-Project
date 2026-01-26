@@ -158,7 +158,7 @@ public class PresenterHomeService {
                 ? registrationsBySlot.getOrDefault(mySlotEntity.getSlotId(), List.of())
                 : List.of();
 
-        MySlotSummary mySlotSummary = buildMySlotSummary(mySlotEntity, mySlotRegistrations, registeredUsers);
+        MySlotSummary mySlotSummary = buildMySlotSummary(mySlotEntity, mySlotRegistrations, registeredUsers, presenterUsername);
 
         // Find user's waiting list entry (if any)
         WaitingListSlotSummary waitingListSlotSummary = null;
@@ -184,7 +184,7 @@ public class PresenterHomeService {
         }
 
         PresenterHomeResponse response = new PresenterHomeResponse();
-        response.setPresenter(buildPresenterSummary(presenter, presenterUsername, !presenterRegistrations.isEmpty()));
+        response.setPresenter(buildPresenterSummary(presenter, presenterUsername, !presenterRegistrations.isEmpty(), presenterRegistrations));
         response.setMySlot(mySlotSummary);
         response.setMyWaitingListSlot(waitingListSlotSummary);
         response.setSlotCatalog(buildSlotCatalog(slots,
@@ -1558,7 +1558,9 @@ public class PresenterHomeService {
                 .collect(Collectors.toMap(user -> normalizeUsername(user.getBguUsername()), user -> user));
     }
 
-    private PresenterSummary buildPresenterSummary(User presenter, String presenterUsername, boolean alreadyRegistered) {
+    private PresenterSummary buildPresenterSummary(User presenter, String presenterUsername,
+                                                    boolean alreadyRegistered,
+                                                    List<SeminarSlotRegistration> presenterRegistrations) {
         PresenterSummary summary = new PresenterSummary();
         summary.setId(presenter.getId());
         summary.setName(formatName(presenter));
@@ -1566,12 +1568,32 @@ public class PresenterHomeService {
         summary.setAlreadyRegistered(alreadyRegistered);
         summary.setCurrentCycleId(null);
         summary.setBguUsername(presenterUsername);
+        summary.setEmail(presenter.getEmail());
+
+        // Get presentation details from active registration (if any) or from user entity
+        SeminarSlotRegistration activeReg = presenterRegistrations.stream()
+                .filter(r -> r.getApprovalStatus() == ApprovalStatus.PENDING ||
+                             r.getApprovalStatus() == ApprovalStatus.APPROVED)
+                .findFirst()
+                .orElse(null);
+
+        // Always use profile data (users table) for topic, abstract, and supervisor
+        summary.setTopic(presenter.getPresentationTopic());
+        summary.setSeminarAbstract(presenter.getSeminarAbstract());
+
+        // Get supervisor info from user's linked supervisor (profile)
+        if (presenter.getSupervisor() != null) {
+            summary.setSupervisorName(presenter.getSupervisor().getName());
+            summary.setSupervisorEmail(presenter.getSupervisor().getEmail());
+        }
+
         return summary;
     }
 
     private MySlotSummary buildMySlotSummary(SeminarSlot slot,
                                              List<SeminarSlotRegistration> registrations,
-                                             Map<String, User> registeredUsers) {
+                                             Map<String, User> registeredUsers,
+                                             String presenterUsername) {
         if (slot == null) {
             return null;
         }
@@ -1584,6 +1606,13 @@ public class PresenterHomeService {
         summary.setTimeRange(formatTimeRange(slot.getStartTime(), slot.getEndTime()));
         summary.setRoom(slot.getRoom());
         summary.setBuilding(slot.getBuilding());
+
+        // Find current user's registration and set approval status
+        registrations.stream()
+                .filter(reg -> reg.getPresenterUsername() != null
+                        && reg.getPresenterUsername().equalsIgnoreCase(presenterUsername))
+                .findFirst()
+                .ifPresent(reg -> summary.setApprovalStatus(reg.getApprovalStatus().name()));
 
         List<RegisteredPresenter> coPresenters = registrations.stream()
                 .map(reg -> toRegisteredPresenter(reg, registeredUsers))

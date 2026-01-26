@@ -2,8 +2,8 @@
  * SemScan Web App Configuration
  */
 const CONFIG = {
-    // API Base URL - change when deploying via Cloudflare Tunnel
-    API_BASE: 'http://132.72.50.53:8080/api/v1',
+    // API Base URL - use relative path to work from any origin
+    API_BASE: '/api/v1',
 
     // Toast durations (ms)
     TOAST_SUCCESS: 5000,

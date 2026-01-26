@@ -161,7 +161,10 @@ public class AppLogService {
 
         appLog.setTag(logEntry.getTag());
         appLog.setMessage(logEntry.getMessage());
-        appLog.setSource(AppLog.Source.MOBILE); // Mobile logs come from mobile apps
+
+        // Parse source from DTO, default to MOBILE for backwards compatibility
+        AppLog.Source source = parseSource(logEntry.getSource());
+        appLog.setSource(source);
         // Set correlation_id from current context (set by RequestLoggingFilter) or from log entry if provided
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         appLog.setCorrelationId(correlationId);
@@ -305,6 +308,26 @@ public class AppLogService {
             default -> {
                 logger.warn("Unknown user role received: {}", role);
                 yield AppLog.UserRole.UNKNOWN;
+            }
+        };
+    }
+
+    /**
+     * Parse source string from DTO to AppLog.Source enum
+     * Defaults to MOBILE for backwards compatibility with existing mobile apps
+     */
+    private AppLog.Source parseSource(String source) {
+        if (source == null || source.trim().isEmpty()) {
+            return AppLog.Source.MOBILE; // Default for backwards compatibility
+        }
+        String normalized = source.trim().toUpperCase();
+        return switch (normalized) {
+            case "API" -> AppLog.Source.API;
+            case "MOBILE" -> AppLog.Source.MOBILE;
+            case "WEB" -> AppLog.Source.WEB;
+            default -> {
+                logger.warn("Unknown source received: {}, defaulting to MOBILE", source);
+                yield AppLog.Source.MOBILE;
             }
         };
     }
