@@ -125,6 +125,35 @@ a {
     margin-top: 2px;
 }
 
+/* Header refresh button - matches mobile toolbar button */
+.header-refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 16px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.2s ease;
+}
+
+.header-refresh-btn:hover {
+    background: rgba(255, 255, 255, 1);
+}
+
+.header-refresh-btn:active {
+    transform: scale(0.95);
+}
+
+.header-refresh-btn svg {
+    flex-shrink: 0;
+}
+
 /* ============================================
    Container
 ============================================ */

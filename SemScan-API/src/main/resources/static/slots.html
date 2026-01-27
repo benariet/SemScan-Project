@@ -11,28 +11,26 @@
     <link rel="stylesheet" href="css/slots.css">
 </head>
 <body style="display: none;">
-    <!-- Header -->
+    <!-- Header with Refresh button (matches mobile toolbar design) -->
     <header class="header">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <a href="presenter.html" style="color: white; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+        <div style="display: flex; align-items: center;">
+            <!-- Back arrow only (no text, matches mobile) -->
+            <a href="presenter.html" style="color: white; text-decoration: none; display: flex; align-items: center; padding: 8px;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-                Back
             </a>
-            <h1 class="header-title">Select Slot</h1>
-            <div style="width: 60px;"></div>
-        </div>
-    </header>
-
-    <div class="container">
-        <!-- Refresh button -->
-        <div class="slot-actions-header">
-            <button class="refresh-btn" id="refreshBtn" onclick="loadSlots()">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <!-- Title centered, no wrap -->
+            <h1 class="header-title" style="flex: 1; text-align: center; white-space: nowrap; margin: 0; color: white;">Available seminar slots</h1>
+            <!-- Refresh button in header (matches mobile) -->
+            <button class="header-refresh-btn" id="refreshBtn" onclick="loadSlots()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                     <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                 </svg>
                 Refresh
             </button>
         </div>
+    </header>
+
+    <div class="container">
 
         <!-- Slots list -->
         <div class="slots-list" id="slotsList">
@@ -130,40 +128,52 @@
         }
 
         function renderSlotCard(slot) {
-            // Determine slot status class
+            // Determine slot status class - ONLY approved counts for fullness (matches mobile)
+            // Green = 0 approved, Yellow = has presenters but not full, Red = approved >= capacity
+            const approvedCount = slot.approvedCount || 0;
+            const pendingCount = slot.pendingCount || 0;
+            const capacity = slot.capacity || 3;
+            const isFull = approvedCount >= capacity;
+            const hasAnyPresenters = approvedCount > 0 || pendingCount > 0;
+
             let statusClass = 'slot-available';
-            if (slot.state === 'FULL') {
+            if (isFull) {
                 statusClass = 'slot-full';
-            } else if (slot.enrolledCount > 0) {
+            } else if (hasAnyPresenters) {
                 statusClass = 'slot-semi';
             }
 
-            // Status text
-            const statusText = Utils.getSlotStatusText(slot.state, slot.enrolledCount, slot.capacity);
+            // Status text - show available spots
+            const availableCount = slot.availableCount !== undefined ? slot.availableCount : (capacity - approvedCount - pendingCount);
+            const statusText = isFull ? 'Full' : `${availableCount}/${capacity} Available`;
 
-            // Date and time
-            const dateStr = slot.date + ' (' + slot.dayOfWeek + ')';
+            // Date and time (matches mobile format: "Tuesday • 27/01/2026")
+            const dateStr = slot.dayOfWeek + ' • ' + slot.date;
             const timeStr = slot.timeRange || '';
             const location = slot.building && slot.room ? `Building ${slot.building}, Room ${slot.room}` : 'TBA';
 
             // User's registration actions
             let actionsHtml = '';
 
-            if (slot.approvalStatus) {
-                // User has a registration for this slot - show actions only, no status box
-                if (slot.approvalStatus === 'PENDING') {
-                    actionsHtml = `
-                        <button class="btn btn-cancel" data-action="cancel" data-slot-id="${slot.slotId}">
-                            Cancel Registration
-                        </button>
-                    `;
-                } else if (slot.approvalStatus === 'DECLINED' || slot.approvalStatus === 'EXPIRED') {
-                    actionsHtml = `
-                        <button class="btn btn-register" data-action="register" data-slot-id="${slot.slotId}">
-                            Register Again
-                        </button>
-                    `;
-                }
+            // Check if user is registered in this slot (matches mobile logic)
+            const isUserRegisteredInThisSlot = slot.alreadyRegistered ||
+                slot.approvalStatus === 'APPROVED' ||
+                slot.approvalStatus === 'PENDING_APPROVAL';
+
+            if (isUserRegisteredInThisSlot) {
+                // User has a registration for this slot - show cancel button
+                actionsHtml = `
+                    <button class="btn btn-cancel" data-action="cancel" data-slot-id="${slot.slotId}">
+                        CANCEL REGISTRATION
+                    </button>
+                `;
+            } else if (slot.approvalStatus === 'DECLINED' || slot.approvalStatus === 'EXPIRED') {
+                // User's previous registration was declined/expired - can register again
+                actionsHtml = `
+                    <button class="btn btn-register" data-action="register" data-slot-id="${slot.slotId}">
+                        Register Again
+                    </button>
+                `;
             } else if (slot.onWaitingList) {
                 // User is on waiting list - show action only, no status box
                 actionsHtml = `
@@ -187,79 +197,62 @@
                 // Don't show status box for disable reason
             }
 
-            // Approved presenters list
+            // Build presenter sections as plain text (matches mobile layout)
+            // Mobile format: "Approved:\n    PhD, Name (me)"
             let presentersHtml = '';
+
+            // Approved presenters - plain text
             const approvedPresenters = slot.registered || [];
             if (approvedPresenters.length > 0) {
-                const presentersList = approvedPresenters.map(p => {
+                const names = approvedPresenters.map(p => {
                     const name = p.name || 'Unknown';
                     const degree = p.degree || '';
                     const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
                     const displayName = isMe ? `${name} (me)` : name;
-                    return `<div class="presenter-item">
-                        <span class="presenter-name">${displayName}</span>
-                        <span class="presenter-degree">${degree}</span>
-                    </div>`;
-                }).join('');
-
-                presentersHtml = `
-                    <div class="slot-presenters approved-section">
-                        <div class="presenters-title">Approved (${approvedPresenters.length})</div>
-                        ${presentersList}
-                    </div>
-                `;
+                    return degree ? `${degree}, ${displayName}` : displayName;
+                });
+                presentersHtml += `<div class="slot-presenters-plain">
+                    <div class="presenters-label">Approved:</div>
+                    ${names.map(n => `<div class="presenter-line">${n}</div>`).join('')}
+                </div>`;
             }
 
-            // Pending presenters list
-            let pendingHtml = '';
+            // Pending presenters - plain text
             const pendingPresenters = slot.pendingPresenters || [];
             if (pendingPresenters.length > 0) {
-                const pendingList = pendingPresenters.map(p => {
+                const names = pendingPresenters.map(p => {
                     const name = p.name || 'Unknown';
                     const degree = p.degree || '';
                     const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
                     const displayName = isMe ? `${name} (me)` : name;
-                    return `<div class="presenter-item pending">
-                        <span class="presenter-name">${displayName}</span>
-                        <span class="presenter-degree">${degree}</span>
-                    </div>`;
-                }).join('');
-
-                pendingHtml = `
-                    <div class="slot-presenters pending-section">
-                        <div class="presenters-title">Pending (${pendingPresenters.length})</div>
-                        ${pendingList}
-                    </div>
-                `;
+                    return degree ? `${degree}, ${displayName}` : displayName;
+                });
+                presentersHtml += `<div class="slot-presenters-plain">
+                    <div class="presenters-label">Pending:</div>
+                    ${names.map(n => `<div class="presenter-line">${n}</div>`).join('')}
+                </div>`;
             }
 
-            // Waiting list entries
-            let waitingListHtml = '';
+            // Waiting list - plain text with priorities
             const waitingListEntries = slot.waitingListEntries || [];
-            if (waitingListEntries.length > 0 || slot.waitingListCount > 0) {
-                const count = waitingListEntries.length || slot.waitingListCount || 0;
-                let waitingList = '';
-                if (waitingListEntries.length > 0) {
-                    waitingList = waitingListEntries.map((p, idx) => {
-                        const name = p.name || 'Unknown';
-                        const degree = p.degree || '';
-                        const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
-                        const displayName = isMe ? `${name} (me)` : name;
-                        return `<div class="presenter-item waiting">
-                            <span class="presenter-position">#${idx + 1}</span>
-                            <span class="presenter-name">${displayName}</span>
-                            <span class="presenter-degree">${degree}</span>
-                        </div>`;
-                    }).join('');
-                }
-
-                waitingListHtml = `
-                    <div class="slot-presenters waiting-section">
-                        <div class="presenters-title">Waiting List (${count})</div>
-                        ${waitingList || '<div class="presenter-item"><span class="presenter-name">Names not available</span></div>'}
-                    </div>
-                `;
+            let waitingListHtml = '';
+            if (waitingListEntries.length > 0) {
+                const names = waitingListEntries.map((p, idx) => {
+                    const name = p.name || 'Unknown';
+                    const degree = p.degree || '';
+                    const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
+                    const displayName = isMe ? `${name} (me)` : name;
+                    const degreePrefix = degree ? `${degree}, ` : '';
+                    return `#${idx + 1} - ${degreePrefix}${displayName}`;
+                });
+                waitingListHtml = `<div class="slot-presenters-plain">
+                    <div class="presenters-label">Waiting List Priorities:</div>
+                    ${names.map(n => `<div class="presenter-line">${n}</div>`).join('')}
+                </div>`;
             }
+
+            // Combine all (pendingHtml is now part of presentersHtml)
+            let pendingHtml = '';
 
             // Warning message
             let warningHtml = '';

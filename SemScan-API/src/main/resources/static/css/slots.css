@@ -105,84 +105,29 @@
     margin-top: 4px;
 }
 
-/* Presenter names - matches Android text_presenter_names */
-.slot-presenters {
-    margin-top: 8px;
-    font-size: 0.75rem;
-    color: var(--text-medium);
-    padding: 8px;
-    background: rgba(255,255,255,0.4);
-    border-radius: var(--radius-sm);
+/* Presenter names - plain text format (matches Android mobile app) */
+.slot-presenters-plain {
+    margin-top: 12px;
+    font-size: 0.875rem;
+    color: var(--text-dark);
 }
 
-.slot-presenters + .slot-presenters {
-    margin-top: 6px;
+.slot-presenters-plain + .slot-presenters-plain {
+    margin-top: 16px;
 }
 
-.presenters-title {
+.presenters-label {
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     color: var(--text-dark);
     margin-bottom: 4px;
 }
 
-.presenter-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 0;
+.presenter-line {
+    padding-left: 16px;
     font-size: 0.8125rem;
-}
-
-.presenter-item + .presenter-item {
-    border-top: 1px solid rgba(0,0,0,0.08);
-}
-
-.presenter-name {
-    flex: 1;
-    color: var(--text-dark);
-}
-
-.presenter-degree {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 10px;
-    background: rgba(0,0,0,0.1);
     color: var(--text-medium);
-}
-
-.presenter-position {
-    font-weight: 700;
-    color: var(--text-medium);
-    min-width: 24px;
-}
-
-/* Approved section */
-.approved-section {
-    background: rgba(76, 175, 80, 0.15);
-}
-
-.approved-section .presenters-title {
-    color: #2E7D32;
-}
-
-/* Pending section */
-.pending-section {
-    background: rgba(255, 152, 0, 0.15);
-}
-
-.pending-section .presenters-title {
-    color: #E65100;
-}
-
-/* Waiting list section */
-.waiting-section {
-    background: rgba(33, 150, 243, 0.15);
-}
-
-.waiting-section .presenters-title {
-    color: #1565C0;
+    line-height: 1.6;
 }
 
 /* Registration status section */

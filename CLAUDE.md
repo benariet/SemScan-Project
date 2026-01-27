@@ -319,49 +319,55 @@ curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0
 - Only keep ONE APK file per environment. The filename must be `semscan-1.0.0.apk`.
 - Always restart the appropriate service after uploading a new JAR.
 
-### Environment Switch (Local Development)
+### Environment Switch
 
-**Files to edit when switching environments:**
+**What auto-detects (no changes needed):**
 
-| File | Line | PRODUCTION | TEST |
-|------|------|------------|------|
-| `SemScan/src/main/java/org/example/semscan/constants/ApiConstants.java` | 17-18 | `8080` | `8081` |
-| `SemScan-API/src/main/resources/application.properties` | 23 | `semscan_db` | `semscan_db_test` |
+| Component | How It Detects |
+|-----------|----------------|
+| **API JAR** | Port 8080 = production, Port 8081 = test (GlobalConfig.java) |
+| **Web App** | Relative URL `/api/v1` uses current origin automatically |
 
-**Upload paths:**
+**What needs manual change:**
 
-| Environment | APK Path | JAR Path | Service |
-|-------------|----------|----------|---------|
-| PRODUCTION | `/opt/semscan-api/` | `/opt/semscan-api/` | `semscan-api` |
-| TEST | `/opt/semscan-api-test/` | `/opt/semscan-api-test/` | `semscan-api-test` |
+| Component | File | Production | Test |
+|-----------|------|------------|------|
+| **Android APK** | `SemScan/src/main/java/org/example/semscan/constants/ApiConstants.java` lines 17-18 | `8080` | `8081` |
+
+**Server paths:**
+
+| Environment | Port | Database | JAR/APK Path | Service |
+|-------------|------|----------|--------------|---------|
+| **Production** | 8080 | semscan_db | `/opt/semscan-api/` | semscan-api |
+| **Test** | 8081 | semscan_db_test | `/opt/semscan-api-test/` | semscan-api-test |
 
 **Switch to TEST:**
 ```bash
 # 1. Edit ApiConstants.java - change 8080 → 8081
-# 2. Edit application.properties - change semscan_db → semscan_db_test
-# 3. Build
+# 2. Build
 cd SemScan && ./gradlew assembleDebug
 cd SemScan-API && ./gradlew bootJar
-# 4. Upload to TEST
-scp SemScan/build/outputs/apk/debug/SemScan-debug.apk webmaster@132.72.50.53:/opt/semscan-api-test/semscan-1.0.0.apk
-scp SemScan-API/build/libs/SemScan-API-1.0.0.jar webmaster@132.72.50.53:/opt/semscan-api-test/
+# 3. Upload to TEST (same JAR works for both environments)
+curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api-test/"
+curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "sftp://132.72.50.53/opt/semscan-api-test/semscan-1.0.0.apk"
 ssh webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S systemctl restart semscan-api-test"
-# 5. Install on device
+# 4. Install on device
 adb install -r SemScan/build/outputs/apk/debug/SemScan-debug.apk
 ```
 
 **Switch to PRODUCTION:**
 ```bash
 # 1. Edit ApiConstants.java - change 8081 → 8080
-# 2. Edit application.properties - change semscan_db_test → semscan_db
-# 3. Build
+# 2. Build
 cd SemScan && ./gradlew assembleDebug
 cd SemScan-API && ./gradlew bootJar
-# 4. Upload to PRODUCTION
-scp SemScan/build/outputs/apk/debug/SemScan-debug.apk webmaster@132.72.50.53:/opt/semscan-api/semscan-1.0.0.apk
-scp SemScan-API/build/libs/SemScan-API-1.0.0.jar webmaster@132.72.50.53:/opt/semscan-api/
+# 3. Upload to PRODUCTION
+curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api/"
+curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "sftp://132.72.50.53/opt/semscan-api/semscan-1.0.0.apk"
 ssh webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S systemctl restart semscan-api"
 ```
+
+**Note:** The API JAR is identical for both environments - the systemd service files specify the port and database via command-line arguments.
 
 ## Common Commands
 
