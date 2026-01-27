@@ -610,6 +610,9 @@ const Utils = {
         localStorage.removeItem(CONFIG.SESSION_KEY);
         localStorage.removeItem(CONFIG.USERNAME_KEY);
         localStorage.removeItem(CONFIG.USER_DATA_KEY);
+        // Also clear legacy keys
+        localStorage.removeItem('bgu_username');
+        localStorage.removeItem('user_data');
         window.location.href = 'index.html';
     },
 

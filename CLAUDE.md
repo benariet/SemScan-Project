@@ -282,29 +282,62 @@ cp "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "SemScan/build/outputs/ap
 
 ## Deployment
 
+### CRITICAL: Always Deploy to TEST First!
+**NEVER deploy directly to production.** Always:
+1. Build JAR locally
+2. Deploy to TEST environment (`/opt/semscan-api-test`)
+3. Test thoroughly on port 8081
+4. Only after testing, promote to PRODUCTION
+
+### Environments
+
+| Environment | URL | Port | Database | API Path | Service |
+|-------------|-----|------|----------|----------|---------|
+| **Production** | http://132.72.50.53:8080 | 8080 | semscan_db | /opt/semscan-api | semscan-api |
+| **Test** | http://132.72.50.53:8081 | 8081 | semscan_db_test | /opt/semscan-api-test | semscan-api-test |
+
 ### Remote Server
 - **Host**: 132.72.50.53
 - **Username**: webmaster
 - **Password**: TAL1234
-- **Destination**: /opt/semscan-api
 
-### Upload Commands
-After building, upload files to server:
+### Test Environment Deployment (DEFAULT)
 ```bash
-# Upload APK
-curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0.apk" "sftp://132.72.50.53/opt/semscan-api/semscan-1.0.0.apk"
+# 1. Build JAR locally
+cd SemScan-API && ./gradlew bootJar
 
-# Upload JAR (keep full version name, overwrites existing)
+# 2. Upload JAR to TEST
+curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api-test/SemScan-API-1.0.0.jar"
+
+# 3. Restart TEST service
+ssh -o StrictHostKeyChecking=no webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S systemctl restart semscan-api-test"
+
+# 4. Test on http://132.72.50.53:8081
+```
+
+### Promote Test to Production
+**Only run these commands after testing is complete:**
+```bash
+# 1. Upload JAR to PRODUCTION (same JAR that was tested)
 curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api/SemScan-API-1.0.0.jar"
 
-# Restart the API service after JAR upload
+# 2. Restart PRODUCTION service
 ssh -o StrictHostKeyChecking=no webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S systemctl restart semscan-api"
 ```
 
+### APK Upload Commands
+```bash
+# Upload APK to PRODUCTION
+curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0.apk" "sftp://132.72.50.53/opt/semscan-api/semscan-1.0.0.apk"
+
+# Upload APK to TEST
+curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0.apk" "sftp://132.72.50.53/opt/semscan-api-test/semscan-1.0.0.apk"
+```
+
 ### Note
-- Only keep ONE JAR file in /opt/semscan-api. When uploading, the new JAR overwrites the existing one with the same name.
-- Only keep ONE APK file in /opt/semscan-api. The filename must be `semscan-1.0.0.apk` - this is the file served for app downloads.
-- Always restart the semscan-api service after uploading a new JAR.
+- Only keep ONE JAR file per environment. When uploading, the new JAR overwrites the existing one.
+- Only keep ONE APK file per environment. The filename must be `semscan-1.0.0.apk`.
+- Always restart the appropriate service after uploading a new JAR.
 
 ## Common Commands
 

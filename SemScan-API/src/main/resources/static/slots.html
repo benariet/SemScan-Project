@@ -70,6 +70,7 @@
 
         const username = Utils.getUsername();
         let allSlots = [];
+        let presenterData = null; // Store fresh API data to use instead of localStorage
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -82,6 +83,25 @@
                 const response = await API.getPresenterHome(username);
                 // API returns: { presenter, slotCatalog, mySlot, myWaitingListSlot }
                 allSlots = response.slotCatalog || [];
+                presenterData = response.presenter; // Store for later use
+
+                // Update localStorage with fresh presenter data from API
+                // This ensures supervisor info is always up-to-date
+                if (response.presenter) {
+                    const existingData = Utils.getUserData() || {};
+                    const updatedData = {
+                        ...existingData,
+                        firstName: response.presenter.firstName || response.presenter.name?.split(' ')[0] || existingData.firstName,
+                        lastName: response.presenter.lastName || response.presenter.name?.split(' ').slice(1).join(' ') || existingData.lastName,
+                        supervisorName: response.presenter.supervisorName,
+                        supervisorEmail: response.presenter.supervisorEmail,
+                        topic: response.presenter.topic,
+                        seminarAbstract: response.presenter.seminarAbstract,
+                        degree: response.presenter.degree
+                    };
+                    localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify(updatedData));
+                }
+
                 renderSlots();
             } catch (error) {
                 Utils.showToast('Failed to load slots: ' + error.message, 'error');
@@ -126,23 +146,11 @@
             const timeStr = slot.timeRange || '';
             const location = slot.building && slot.room ? `Building ${slot.building}, Room ${slot.room}` : 'TBA';
 
-            // User's registration status
-            let registrationHtml = '';
+            // User's registration actions
             let actionsHtml = '';
 
             if (slot.approvalStatus) {
-                // User has a registration for this slot
-                const statusLabel = slot.approvalStatus === 'APPROVED' ? 'Approved' :
-                                   slot.approvalStatus === 'PENDING' ? 'Pending Approval' :
-                                   slot.approvalStatus === 'DECLINED' ? 'Declined' : slot.approvalStatus;
-
-                registrationHtml = `
-                    <div class="slot-registration-status">
-                        <div class="registration-label">Your Registration</div>
-                        <div class="registration-value">${statusLabel}</div>
-                    </div>
-                `;
-
+                // User has a registration for this slot - show actions only, no status box
                 if (slot.approvalStatus === 'PENDING') {
                     actionsHtml = `
                         <button class="btn btn-cancel" data-action="cancel" data-slot-id="${slot.slotId}">
@@ -157,12 +165,7 @@
                     `;
                 }
             } else if (slot.onWaitingList) {
-                registrationHtml = `
-                    <div class="slot-registration-status">
-                        <div class="registration-label">Waiting List</div>
-                        <div class="registration-value">Position ${slot.waitingListPosition || '?'}</div>
-                    </div>
-                `;
+                // User is on waiting list - show action only, no status box
                 actionsHtml = `
                     <button class="btn btn-cancel" data-action="leave-waiting" data-slot-id="${slot.slotId}">
                         Leave Waiting List
@@ -181,11 +184,7 @@
                     </button>
                 `;
             } else if (slot.disableReason) {
-                registrationHtml = `
-                    <div class="slot-registration-status">
-                        <div class="registration-value" style="font-size: 0.75rem;">${slot.disableReason}</div>
-                    </div>
-                `;
+                // Don't show status box for disable reason
             }
 
             // Approved presenters list
@@ -289,7 +288,6 @@
                     ${pendingHtml}
                     ${waitingListHtml}
                     ${warningHtml}
-                    ${registrationHtml}
                     ${actionsHtml ? `<div class="slot-actions">${actionsHtml}</div>` : ''}
                 </div>
             `;
@@ -316,10 +314,12 @@
         }
 
         async function registerForSlot(slotId) {
-            const userData = Utils.getUserData() || {};
+            // Use fresh API data from presenterData instead of localStorage
+            const supervisorEmail = presenterData?.supervisorEmail;
+            const supervisorName = presenterData?.supervisorName;
 
             // Check if supervisor info exists
-            if (!userData.supervisorEmail) {
+            if (!supervisorEmail) {
                 Utils.showToast('Please set up your supervisor information in Presentation Details first.', 'error');
                 return;
             }
@@ -329,8 +329,8 @@
                 // API expects: topic, seminarAbstract, supervisorName, supervisorEmail
                 // Username comes from URL path, not body
                 await API.registerForSlot(username, slotId, {
-                    supervisorEmail: userData.supervisorEmail,
-                    supervisorName: userData.supervisorName
+                    supervisorEmail: supervisorEmail,
+                    supervisorName: supervisorName
                 });
                 Utils.showToast('Registration submitted! Awaiting supervisor approval.', 'success');
                 await loadSlots();
@@ -359,10 +359,10 @@
         async function joinWaitingList(slotId) {
             Utils.showLoading();
             try {
-                const userData = Utils.getUserData() || {};
+                // Use fresh API data from presenterData instead of localStorage
                 await API.joinWaitingList(slotId, {
                     username: username,  // API expects "username" not "presenterUsername"
-                    degree: userData.degree
+                    degree: presenterData?.degree
                 });
                 Utils.showToast('Added to waiting list!', 'success');
                 await loadSlots();
