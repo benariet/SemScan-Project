@@ -105,7 +105,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Update greeting
+            // Initial greeting from localStorage (fast)
             const userData = Utils.getUserData();
             if (userData?.firstName) {
                 document.getElementById('userGreeting').textContent = `Hello, ${userData.firstName}`;
@@ -118,7 +118,32 @@
 
             // Setup history card toggle
             document.getElementById('historyCard').addEventListener('click', toggleHistory);
+
+            // Fetch fresh user data from API
+            refreshUserData();
         });
+
+        async function refreshUserData() {
+            try {
+                const response = await API.getPresenterHome(username);
+                if (response.presenter) {
+                    const firstName = response.presenter.firstName || response.presenter.name?.split(' ')[0] || username;
+                    document.getElementById('userGreeting').textContent = `Hello, ${firstName}`;
+
+                    // Update localStorage with fresh data
+                    const existingData = Utils.getUserData() || {};
+                    localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify({
+                        ...existingData,
+                        firstName: response.presenter.firstName || response.presenter.name?.split(' ')[0],
+                        lastName: response.presenter.lastName || response.presenter.name?.split(' ').slice(1).join(' '),
+                        degree: response.presenter.degree
+                    }));
+                }
+            } catch (error) {
+                // Keep using localStorage data on error
+                console.warn('Failed to refresh user data:', error);
+            }
+        }
 
         function toggleHistory() {
             historyExpanded = !historyExpanded;

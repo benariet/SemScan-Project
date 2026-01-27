@@ -245,6 +245,50 @@ public class PresenterHomeActivity extends AppCompatActivity {
         }
     }
 
+    private void syncPresenterDataToPreferences(ApiService.PresenterSummary presenter) {
+        if (presenter == null) return;
+
+        // Parse name into firstName and lastName
+        if (presenter.name != null && !presenter.name.isEmpty()) {
+            String[] nameParts = presenter.name.trim().split("\\s+", 2);
+            if (nameParts.length >= 1) {
+                preferencesManager.setFirstName(nameParts[0]);
+            }
+            if (nameParts.length >= 2) {
+                preferencesManager.setLastName(nameParts[1]);
+            }
+        }
+
+        // Sync degree
+        if (presenter.degree != null && !presenter.degree.isEmpty()) {
+            preferencesManager.setDegree(presenter.degree);
+        }
+
+        // Sync email
+        if (presenter.email != null && !presenter.email.isEmpty()) {
+            preferencesManager.setEmail(presenter.email);
+        }
+
+        // Sync presentation details
+        if (presenter.topic != null) {
+            preferencesManager.setPresentationTopic(presenter.topic);
+        }
+        if (presenter.seminarAbstract != null) {
+            preferencesManager.setSeminarAbstract(presenter.seminarAbstract);
+        }
+        if (presenter.supervisorName != null) {
+            preferencesManager.setSupervisorName(presenter.supervisorName);
+        }
+        if (presenter.supervisorEmail != null) {
+            preferencesManager.setSupervisorEmail(presenter.supervisorEmail);
+        }
+
+        // Refresh UI with fresh data
+        runOnUiThread(() -> loadPresentationDetails());
+
+        Logger.i(Logger.TAG_PREFERENCES, "Synced fresh presenter data from API");
+    }
+
     private void checkRegistrationStatus() {
         final String username = preferencesManager.getUserName();
         if (username == null || username.trim().isEmpty()) { Logger.w(Logger.TAG_PREFERENCES, "No username cached"); return; }
@@ -253,6 +297,10 @@ public class PresenterHomeActivity extends AppCompatActivity {
             @Override public void onResponse(Call<ApiService.PresenterHomeResponse> call, Response<ApiService.PresenterHomeResponse> response) {
                 if (!response.isSuccessful() || response.body() == null || response.body().presenter == null) return;
                 ApiService.PresenterHomeResponse body = response.body();
+
+                // Sync fresh presenter data from API to preferences
+                syncPresenterDataToPreferences(body.presenter);
+
                 hasRegisteredSlot = body.mySlot != null && body.mySlot.slotId != null;
                 // Only enable Start Session card if registration is APPROVED (canOpen=true)
                 canOpenSession = hasRegisteredSlot && body.attendance != null && body.attendance.canOpen;

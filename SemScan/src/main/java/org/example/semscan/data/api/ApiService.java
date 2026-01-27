@@ -237,6 +237,12 @@ public interface ApiService {
         public String degree;
         public boolean alreadyRegistered;
         public String currentCycleId;
+        // Additional fields from API for syncing fresh data
+        public String topic;
+        public String seminarAbstract;
+        public String supervisorName;
+        public String supervisorEmail;
+        public String email;
     }
 
     class MySlotSummary {

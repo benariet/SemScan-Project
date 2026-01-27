@@ -161,7 +161,15 @@
                     hasUser: !!response.user
                 });
 
-                // Store session
+                // Clear old session data first (important when switching accounts!)
+                localStorage.removeItem(CONFIG.SESSION_KEY);
+                localStorage.removeItem(CONFIG.USERNAME_KEY);
+                localStorage.removeItem(CONFIG.USER_DATA_KEY);
+                // Also clear legacy keys that might persist from old versions
+                localStorage.removeItem('bgu_username');
+                localStorage.removeItem('user_data');
+
+                // Store new session
                 localStorage.setItem(CONFIG.SESSION_KEY, response.token || 'authenticated');
                 localStorage.setItem(CONFIG.USERNAME_KEY, response.username || username.toLowerCase());
                 if (response.user) {

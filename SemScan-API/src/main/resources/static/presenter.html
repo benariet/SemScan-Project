@@ -341,6 +341,29 @@
                 const response = await API.getPresenterHome(username);
                 Logger.info('LOAD_DATA', 'API response received:', response);
 
+                // Update localStorage with fresh presenter data from API
+                // This ensures supervisor info is always up-to-date
+                if (response.presenter) {
+                    const existingData = Utils.getUserData() || {};
+                    const updatedData = {
+                        ...existingData,
+                        firstName: response.presenter.firstName || response.presenter.name?.split(' ')[0] || existingData.firstName,
+                        lastName: response.presenter.lastName || response.presenter.name?.split(' ').slice(1).join(' ') || existingData.lastName,
+                        supervisorName: response.presenter.supervisorName,
+                        supervisorEmail: response.presenter.supervisorEmail,
+                        topic: response.presenter.topic,
+                        seminarAbstract: response.presenter.seminarAbstract,
+                        degree: response.presenter.degree
+                    };
+                    localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify(updatedData));
+
+                    // Update menu with fresh API data (don't rely on localStorage)
+                    const displayName = response.presenter.name ||
+                        `${response.presenter.firstName || ''} ${response.presenter.lastName || ''}`.trim() ||
+                        username;
+                    document.getElementById('menuUserName').textContent = displayName;
+                }
+
                 // Store data
                 mySlot = response.mySlot;
                 myWaitingListSlot = response.myWaitingListSlot;

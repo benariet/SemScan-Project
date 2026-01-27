@@ -344,15 +344,68 @@ public class SettingsActivity extends AppCompatActivity {
                     ApiService.UserProfileResponse profile = response.body();
                     Logger.i(Logger.TAG_SETTINGS_CHANGE, "User profile fetched successfully");
 
-                    // Update national ID from server if available
-                    if (profile.nationalIdNumber != null && !profile.nationalIdNumber.isEmpty()) {
-                        runOnUiThread(() -> {
+                    runOnUiThread(() -> {
+                        // Sync ALL profile fields from server to preferences and UI
+
+                        // First name
+                        if (profile.firstName != null && !profile.firstName.isEmpty()) {
+                            editFirstName.setText(profile.firstName);
+                            preferencesManager.setFirstName(profile.firstName);
+                        }
+
+                        // Last name
+                        if (profile.lastName != null && !profile.lastName.isEmpty()) {
+                            editLastName.setText(profile.lastName);
+                            preferencesManager.setLastName(profile.lastName);
+                        }
+
+                        // National ID
+                        if (profile.nationalIdNumber != null && !profile.nationalIdNumber.isEmpty()) {
                             editNationalId.setText(profile.nationalIdNumber);
-                            // Also save to preferences for offline access
                             preferencesManager.setNationalId(profile.nationalIdNumber);
-                        });
-                        Logger.i(Logger.TAG_SETTINGS_CHANGE, "National ID populated from server");
-                    }
+                        }
+
+                        // Degree
+                        if (profile.degree != null && !profile.degree.isEmpty()) {
+                            preferencesManager.setDegree(profile.degree);
+                            // Update spinner selection
+                            String normalizedDegree = profile.degree.toUpperCase().replace(".", "").replace(" ", "");
+                            for (int i = 0; i < DEGREES.length; i++) {
+                                String normalizedOption = DEGREES[i].toUpperCase().replace(".", "").replace(" ", "");
+                                if (normalizedOption.equals(normalizedDegree)) {
+                                    spinnerDegree.setSelection(i);
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Email
+                        if (profile.email != null && !profile.email.isEmpty()) {
+                            preferencesManager.setEmail(profile.email);
+                        }
+
+                        // Supervisor name
+                        if (profile.supervisorName != null) {
+                            preferencesManager.setSupervisorName(profile.supervisorName);
+                        }
+
+                        // Supervisor email
+                        if (profile.supervisorEmail != null) {
+                            preferencesManager.setSupervisorEmail(profile.supervisorEmail);
+                        }
+
+                        // Presentation topic
+                        if (profile.presentationTopic != null) {
+                            preferencesManager.setPresentationTopic(profile.presentationTopic);
+                        }
+
+                        // Seminar abstract
+                        if (profile.seminarAbstract != null) {
+                            preferencesManager.setSeminarAbstract(profile.seminarAbstract);
+                        }
+                    });
+
+                    Logger.i(Logger.TAG_SETTINGS_CHANGE, "Synced all profile fields from server");
                 } else {
                     Logger.w(Logger.TAG_SETTINGS_CHANGE, "Failed to fetch user profile: " + response.code());
                 }

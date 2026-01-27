@@ -1658,6 +1658,10 @@ public class PresenterHomeService {
                                                  Map<Long, SeminarSlot> slotsById) {
         return registrations.stream()
                 .filter(reg -> reg != null && reg.getSlotId() != null)
+                // Only show PENDING or APPROVED registrations as "mySlot"
+                // DECLINED/EXPIRED registrations should not appear as user's slot
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING
+                            || reg.getApprovalStatus() == ApprovalStatus.APPROVED)
                 .map(reg -> {
                     SeminarSlot slot = slotsById.get(reg.getSlotId());
                     return slot != null ? Map.entry(reg, slot) : null;
@@ -2077,6 +2081,23 @@ public class PresenterHomeService {
                 : 0;
 
         LocalDateTime openWindow = start.minusMinutes(windowBeforeMinutes);
+
+        // Check if slot time has passed (can't open attendance for past slots)
+        Integer windowAfterMinutes = appConfigService != null
+                ? appConfigService.getIntegerConfig("presenter_slot_open_window_after_minutes", 15)
+                : 15;
+        LocalDateTime end = toSlotEnd(slot);
+        if (end != null) {
+            LocalDateTime closeWindow = end.plusMinutes(windowAfterMinutes);
+            if (now.isAfter(closeWindow)) {
+                panel.setCanOpen(false);
+                panel.setAlreadyOpen(false);
+                panel.setStatus("Slot time has passed");
+                panel.setWarning("Attendance window closed " + DISPLAY_DATE_TIME_FORMAT.format(closeWindow));
+                return panel;
+            }
+        }
+
         LocalDateTime openedAt = slot.getAttendanceOpenedAt();
         LocalDateTime closesAt = slot.getAttendanceClosesAt();
         String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());

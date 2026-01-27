@@ -239,6 +239,10 @@
                 <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
                 <span>Participant Mode</span>
             </a>
+            <a href="#" class="side-menu-item" id="settingsMenuItem">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <span>Settings</span>
+            </a>
             <div class="side-menu-divider"></div>
             <a href="#" class="side-menu-item" id="logoutMenuItem">
                 <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
@@ -306,9 +310,9 @@
         Logger.pageLoad('Home');
 
         const username = Utils.getUsername();
-        const userData = Utils.getUserData();
 
-        // Update welcome text
+        // Initial display from localStorage (fast)
+        const userData = Utils.getUserData();
         if (userData?.firstName) {
             document.getElementById('welcomeText').textContent = `Welcome, ${userData.firstName}!`;
             document.getElementById('menuUserName').textContent = `${userData.firstName} ${userData.lastName || ''}`.trim();
@@ -321,6 +325,35 @@
         if (username) {
             document.getElementById('menuUserEmail').textContent = `${username}@bgu.ac.il`;
         }
+
+        // Fetch fresh data from API to ensure name is correct
+        async function refreshUserData() {
+            try {
+                const response = await API.getPresenterHome(username);
+                if (response.presenter) {
+                    const displayName = response.presenter.name ||
+                        `${response.presenter.firstName || ''} ${response.presenter.lastName || ''}`.trim() ||
+                        username;
+                    const firstName = response.presenter.firstName || response.presenter.name?.split(' ')[0] || username;
+
+                    document.getElementById('welcomeText').textContent = `Welcome, ${firstName}!`;
+                    document.getElementById('menuUserName').textContent = displayName;
+
+                    // Update localStorage with fresh data
+                    const existingData = Utils.getUserData() || {};
+                    localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify({
+                        ...existingData,
+                        firstName: response.presenter.firstName || response.presenter.name?.split(' ')[0],
+                        lastName: response.presenter.lastName || response.presenter.name?.split(' ').slice(1).join(' '),
+                        degree: response.presenter.degree
+                    }));
+                }
+            } catch (error) {
+                Logger.warn('HOME_REFRESH', 'Failed to refresh user data', { error: error.message });
+                // Keep using localStorage data on error
+            }
+        }
+        refreshUserData();
 
         // Side menu functionality
         const menuBtn = document.getElementById('menuBtn');
@@ -343,6 +376,15 @@
             e.preventDefault();
             Logger.userAction('Logout clicked');
             Utils.logout();
+        });
+
+        // Settings
+        document.getElementById('settingsMenuItem').addEventListener('click', (e) => {
+            e.preventDefault();
+            sideMenu.classList.remove('open');
+            menuOverlay.classList.remove('open');
+            Utils.showToast('Settings coming soon', 'info');
+            Logger.userAction('Settings clicked');
         });
 
         Logger.pageReady('Home');
