@@ -302,12 +302,10 @@
                 }
                 document.getElementById('menuUserEmail').textContent = `${username}@bgu.ac.il`;
 
-                // Settings click
+                // Settings click - navigate to settings page
                 document.getElementById('settingsMenuItem').addEventListener('click', (e) => {
                     e.preventDefault();
-                    sideMenu.classList.remove('open');
-                    menuOverlay.classList.remove('open');
-                    Utils.showToast('Settings coming soon', 'info');
+                    window.location.href = 'settings.html';
                 });
 
                 // Logout click

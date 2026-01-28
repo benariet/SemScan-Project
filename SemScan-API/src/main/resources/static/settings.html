@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#5B4FCF">
+    <title>SemScan - Settings</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/settings.css">
+</head>
+<body style="display: none;">
+    <!-- Header with Back button -->
+    <header class="header">
+        <div style="display: flex; align-items: center; width: 100%;">
+            <!-- Back arrow only (no text, matches mobile) -->
+            <a href="presenter.html" style="color: white; text-decoration: none; display: flex; align-items: center; padding: 8px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            </a>
+            <!-- Title centered -->
+            <h1 class="header-title" style="flex: 1; text-align: center; white-space: nowrap; margin: 0; color: white;">Settings</h1>
+            <!-- Spacer for centering -->
+            <div style="width: 40px;"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Personal Information Section -->
+        <h3 class="section-header purple">Personal Information</h3>
+        <div class="settings-card">
+            <!-- Username (read-only) -->
+            <div class="settings-form-group">
+                <div class="settings-input-wrapper disabled">
+                    <label class="settings-label">Username</label>
+                    <input type="text" class="settings-input" id="inputUsername" disabled>
+                </div>
+            </div>
+
+            <!-- First Name -->
+            <div class="settings-form-group">
+                <div class="settings-input-wrapper">
+                    <label class="settings-label">First Name</label>
+                    <input type="text" class="settings-input" id="inputFirstName" placeholder="Enter first name">
+                </div>
+            </div>
+
+            <!-- Last Name -->
+            <div class="settings-form-group">
+                <div class="settings-input-wrapper">
+                    <label class="settings-label">Last Name</label>
+                    <input type="text" class="settings-input" id="inputLastName" placeholder="Enter last name">
+                </div>
+            </div>
+
+            <!-- National ID -->
+            <div class="settings-form-group">
+                <div class="settings-input-wrapper">
+                    <label class="settings-label">National ID</label>
+                    <input type="text" class="settings-input" id="inputNationalId" placeholder="Enter national ID" maxlength="9" inputmode="numeric" pattern="[0-9]*">
+                </div>
+            </div>
+        </div>
+
+        <!-- Academic Degree Section -->
+        <h3 class="section-header orange">Academic Degree</h3>
+        <div class="settings-card">
+            <div class="settings-select-wrapper">
+                <select class="settings-select" id="selectDegree">
+                    <option value="MSc">M.Sc.</option>
+                    <option value="PhD">Ph.D.</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <button class="btn-save" id="btnSave">Save Changes</button>
+
+        <!-- Account Section -->
+        <h3 class="section-header red">Account</h3>
+        <div class="settings-card">
+            <button class="btn-logout" id="btnLogout">Logout</button>
+        </div>
+
+        <!-- Version Info -->
+        <div class="version-info" id="versionInfo">
+            <span>Version 1.0.0 (Web)</span>
+            <span id="buildInfo"></span>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Dialog -->
+    <div class="confirm-dialog hidden" id="logoutDialog">
+        <div class="confirm-dialog-content">
+            <h3 class="confirm-dialog-title">Logout</h3>
+            <p class="confirm-dialog-message">Are you sure you want to logout?</p>
+            <div class="confirm-dialog-buttons">
+                <button class="confirm-dialog-btn cancel" id="btnCancelLogout">Cancel</button>
+                <button class="confirm-dialog-btn confirm" id="btnConfirmLogout">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        // Require authentication FIRST - block page until verified
+        if (!Utils.isLoggedIn()) {
+            window.location.replace('index.html');
+            throw new Error('Not authenticated');
+        }
+
+        // Show page only after auth verified
+        document.body.style.display = '';
+
+        const username = Utils.getUsername();
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initSettings();
+        });
+
+        async function initSettings() {
+            // Setup event listeners first
+            document.getElementById('btnSave').addEventListener('click', saveChanges);
+            document.getElementById('btnLogout').addEventListener('click', showLogoutDialog);
+            document.getElementById('btnCancelLogout').addEventListener('click', hideLogoutDialog);
+            document.getElementById('btnConfirmLogout').addEventListener('click', confirmLogout);
+
+            // Close dialog when clicking outside
+            document.getElementById('logoutDialog').addEventListener('click', (e) => {
+                if (e.target.id === 'logoutDialog') {
+                    hideLogoutDialog();
+                }
+            });
+
+            // Restrict National ID to numbers only
+            document.getElementById('inputNationalId').addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
+            });
+
+            // Load current user data from API
+            await loadUserData();
+
+            // Load version info from API
+            loadVersionInfo();
+        }
+
+        async function loadUserData() {
+            // Set username immediately (we know this)
+            document.getElementById('inputUsername').value = username || '';
+
+            Utils.showLoading();
+            try {
+                // Fetch fresh data from API (same endpoint used by presenter home)
+                const response = await API.getPresenterHome(username);
+                const presenter = response.presenter || {};
+
+                // Populate fields from API data
+                document.getElementById('inputFirstName').value = presenter.firstName || '';
+                document.getElementById('inputLastName').value = presenter.lastName || '';
+                document.getElementById('inputNationalId').value = presenter.nationalId || '';
+
+                // Set degree dropdown - API returns 'PHD' or 'MSc'
+                const degree = presenter.degree || 'MSc';
+                document.getElementById('selectDegree').value = degree;
+
+                // Update localStorage with fresh data
+                const existingData = Utils.getUserData() || {};
+                const updatedData = {
+                    ...existingData,
+                    firstName: presenter.firstName,
+                    lastName: presenter.lastName,
+                    nationalId: presenter.nationalId,
+                    degree: presenter.degree
+                };
+                localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify(updatedData));
+
+            } catch (error) {
+                // Fall back to localStorage if API fails
+                const userData = Utils.getUserData() || {};
+                document.getElementById('inputFirstName').value = userData.firstName || '';
+                document.getElementById('inputLastName').value = userData.lastName || '';
+                document.getElementById('inputNationalId').value = userData.nationalId || '';
+                document.getElementById('selectDegree').value = userData.degree || 'MSc';
+
+                Utils.showToast('Could not load latest data from server', 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        async function loadVersionInfo() {
+            try {
+                const response = await API.get('/config/web');
+                const version = response.version || '1.0.0';
+                const deployed = response.deployed || '';
+                document.getElementById('versionInfo').innerHTML = `
+                    <span>Version ${version}</span>
+                    <span>Deployed: ${deployed}</span>
+                `;
+            } catch (error) {
+                // Fallback if API fails
+                document.getElementById('versionInfo').innerHTML = `
+                    <span>Version 1.0.0</span>
+                `;
+            }
+        }
+
+        async function saveChanges() {
+            const firstName = document.getElementById('inputFirstName').value.trim();
+            const lastName = document.getElementById('inputLastName').value.trim();
+            const nationalId = document.getElementById('inputNationalId').value.trim();
+            const degree = document.getElementById('selectDegree').value;
+
+            // Basic validation
+            if (!firstName) {
+                Utils.showToast('Please enter your first name', 'error');
+                return;
+            }
+            if (!lastName) {
+                Utils.showToast('Please enter your last name', 'error');
+                return;
+            }
+
+            Utils.showLoading();
+
+            try {
+                // Prepare data for API
+                const data = {
+                    firstName: firstName,
+                    lastName: lastName,
+                    nationalId: nationalId || null,
+                    degree: degree
+                };
+
+                // Save to server
+                await API.upsertUser(username, data);
+
+                // Update local storage with new data
+                const existingData = Utils.getUserData() || {};
+                const updatedData = {
+                    ...existingData,
+                    firstName: firstName,
+                    lastName: lastName,
+                    nationalId: nationalId,
+                    degree: degree
+                };
+                localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify(updatedData));
+
+                Utils.showToast('Settings saved successfully', 'success');
+            } catch (error) {
+                Utils.showToast('Failed to save settings: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        function showLogoutDialog() {
+            document.getElementById('logoutDialog').classList.remove('hidden');
+        }
+
+        function hideLogoutDialog() {
+            document.getElementById('logoutDialog').classList.add('hidden');
+        }
+
+        function confirmLogout() {
+            hideLogoutDialog();
+            Utils.logout();
+        }
+    </script>
+</body>
+</html>

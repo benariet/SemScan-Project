@@ -1565,6 +1565,9 @@ public class PresenterHomeService {
         PresenterSummary summary = new PresenterSummary();
         summary.setId(presenter.getId());
         summary.setName(formatName(presenter));
+        summary.setFirstName(presenter.getFirstName());
+        summary.setLastName(presenter.getLastName());
+        summary.setNationalId(presenter.getNationalIdNumber());
         summary.setDegree(presenter.getDegree() != null ? presenter.getDegree().name() : null);
         summary.setAlreadyRegistered(alreadyRegistered);
         summary.setCurrentCycleId(null);
