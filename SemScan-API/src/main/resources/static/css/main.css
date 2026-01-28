@@ -23,9 +23,9 @@
     /* Orange card: start color (left side) and end color (right side) */
     --card-orange-start: #ffce85;
     --card-orange-end: #ffdeac;
-    /* Blue card: start color (left side) and end color (right side) */
-    --card-blue-start: #E3F2FD;
-    --card-blue-end: #BBDEFB;
+    /* Blue card: start color (left side) and end color (right side) - darker blue */
+    --card-blue-start: #90CAF9;
+    --card-blue-end: #64B5F6;
 
     /* Icon container colors */
     --icon-orange: #FF9800;
@@ -194,8 +194,19 @@ a {
     transform: scale(0.98);
 }
 
-.action-card.blue {
-    background: linear-gradient(135deg, var(--card-blue-start), var(--card-blue-end));
+.action-card.blue,
+.action-card.blue:link,
+.action-card.blue:visited,
+.action-card.blue:hover,
+.action-card.blue:active,
+.action-card.blue:focus {
+    background: linear-gradient(135deg, var(--card-blue-start), var(--card-blue-end)) !important;
+}
+
+/* Also ensure orange cards keep their color */
+.action-card:link,
+.action-card:visited {
+    background: linear-gradient(135deg, var(--card-orange-start), var(--card-orange-end));
 }
 
 .action-card-icon {

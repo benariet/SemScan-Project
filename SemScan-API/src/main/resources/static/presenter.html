@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#5B4FCF">
     <title>SemScan - Presenter</title>
-    <link rel="stylesheet" href="css/main.css?v=3">
+    <link rel="stylesheet" href="css/main.css?v=6">
     <style>
         /* Header - rectangle, not rounded */
         .header {
@@ -444,7 +444,7 @@
             Logger.debug('UI_STATE', 'UI state update complete');
         }
 
-        async function openAttendance() {
+        function openAttendance() {
             Logger.userAction('Start Session clicked');
 
             if (!activeSessionSlotId) {
@@ -453,21 +453,31 @@
                 return;
             }
 
-            Logger.info('ATTENDANCE', `Opening attendance for slot ${activeSessionSlotId}`);
-            Utils.showLoading();
-            try {
-                const response = await API.openAttendance(username, activeSessionSlotId);
-                Logger.info('ATTENDANCE', 'Attendance opened successfully', response);
-                showQrModal(response);
-            } catch (error) {
-                Logger.error('ATTENDANCE_ERROR', 'Failed to open attendance', {
-                    message: error.message,
-                    stack: error.stack
-                });
-                Utils.showToast('Failed to open attendance: ' + error.message, 'error');
-            } finally {
-                Utils.hideLoading();
+            // Navigate to session QR page with slot info
+            let url = `session-qr.html?slotId=${activeSessionSlotId}`;
+
+            // Add slot date info if available
+            if (mySlot && mySlot.date) {
+                // Try to parse date - handle different formats
+                let date = new Date(mySlot.date);
+
+                // If invalid, try parsing DD/MM/YYYY format
+                if (isNaN(date.getTime()) && mySlot.date.includes('/')) {
+                    const parts = mySlot.date.split('/');
+                    if (parts.length === 3) {
+                        date = new Date(parts[2], parts[1] - 1, parts[0]); // year, month (0-indexed), day
+                    }
+                }
+
+                if (!isNaN(date.getTime())) {
+                    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+                    const dateStr = date.toLocaleDateString('en-GB'); // DD/MM/YYYY
+                    url += `&day=${encodeURIComponent(dayName)}&date=${encodeURIComponent(dateStr)}`;
+                }
             }
+
+            Logger.info('ATTENDANCE', `Navigating to session QR page for slot ${activeSessionSlotId}`);
+            window.location.href = url;
         }
 
         function showQrModal(data) {

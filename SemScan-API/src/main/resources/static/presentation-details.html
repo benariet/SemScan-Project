@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#FF6B35">
     <title>SemScan - Presenter Dashboard</title>
-    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/main.css?v=6">
     <style>
         /* Page background - matches Android bg_gradient_main */
         body {
@@ -704,8 +704,27 @@
                 Utils.showToast('You need an approved slot to start a session', 'error');
                 return;
             }
-            // Navigate to QR display page (to be implemented)
-            window.location.href = `qr-display.html?slotId=${mySlot.slotId}`;
+            // Navigate to session QR page with slot info
+            let url = `session-qr.html?slotId=${mySlot.slotId}`;
+            if (mySlot.date) {
+                // Try to parse date - handle different formats
+                let date = new Date(mySlot.date);
+
+                // If invalid, try parsing DD/MM/YYYY format
+                if (isNaN(date.getTime()) && mySlot.date.includes('/')) {
+                    const parts = mySlot.date.split('/');
+                    if (parts.length === 3) {
+                        date = new Date(parts[2], parts[1] - 1, parts[0]);
+                    }
+                }
+
+                if (!isNaN(date.getTime())) {
+                    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+                    const dateStr = date.toLocaleDateString('en-GB');
+                    url += `&day=${encodeURIComponent(dayName)}&date=${encodeURIComponent(dateStr)}`;
+                }
+            }
+            window.location.href = url;
         }
 
         function viewMySlot(event) {
