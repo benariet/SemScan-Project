@@ -1,0 +1,40 @@
+/* Scanner page styles */
+.scanner-container {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 60px);
+}
+
+#qr-reader {
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+#qr-reader video {
+    border-radius: var(--radius-lg);
+}
+
+.scanner-instructions {
+    text-align: center;
+    padding: var(--spacing-md);
+    color: var(--text-secondary);
+}
+
+.scan-result {
+    text-align: center;
+    padding: var(--spacing-xl);
+}
+
+.scan-success {
+    color: #4CAF50;
+}
+
+.scan-error {
+    color: #F44336;
+}
+
+.scan-icon {
+    font-size: 4rem;
+    margin-bottom: var(--spacing-md);
+}

@@ -4,7 +4,9 @@ import edu.bgu.semscanapi.dto.FcmTokenRequest;
 import edu.bgu.semscanapi.dto.UserExistsRequest;
 import edu.bgu.semscanapi.dto.UserProfileResponse;
 import edu.bgu.semscanapi.dto.UserProfileUpdateRequest;
+import edu.bgu.semscanapi.entity.Supervisor;
 import edu.bgu.semscanapi.entity.User;
+import edu.bgu.semscanapi.repository.SupervisorRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.service.FcmService;
 import edu.bgu.semscanapi.util.LoggerUtil;
@@ -29,10 +31,12 @@ public class UserController {
     private static final Logger logger = LoggerUtil.getLogger(UserController.class);
 
     private final UserRepository userRepository;
+    private final SupervisorRepository supervisorRepository;
     private final FcmService fcmService;
 
-    public UserController(UserRepository userRepository, FcmService fcmService) {
+    public UserController(UserRepository userRepository, SupervisorRepository supervisorRepository, FcmService fcmService) {
         this.userRepository = userRepository;
+        this.supervisorRepository = supervisorRepository;
         this.fcmService = fcmService;
     }
 
@@ -88,6 +92,7 @@ public class UserController {
                 logger.info("No profile changes detected for user username {}", user.getBguUsername());
             }
 
+            Supervisor supervisor = user.getSupervisor();
             UserProfileResponse response = UserProfileResponse.success(
                     user.getBguUsername(),
                     updated ? "Profile updated" : "No changes",
@@ -96,7 +101,11 @@ public class UserController {
                     user.getLastName(),
                     user.getDegree() != null ? user.getDegree().name() : null,
                     deriveParticipationPreference(user),
-                    user.getNationalIdNumber());
+                    user.getNationalIdNumber(),
+                    user.getSeminarAbstract(),
+                    user.getPresentationTopic(),
+                    supervisor != null ? supervisor.getName() : null,
+                    supervisor != null ? supervisor.getEmail() : null);
 
             LoggerUtil.logApiResponse(logger, "POST", endpoint, HttpStatus.OK.value(), response.getMessage());
             return ResponseEntity.ok(response);
@@ -175,6 +184,62 @@ public class UserController {
                 logger.info("Updating seminar abstract for user {}", user.getBguUsername());
                 user.setSeminarAbstract(trimmed.isEmpty() ? null : trimmed);
                 changed = true;
+            }
+        }
+
+        // Handle presentation topic update
+        if (request.getPresentationTopic() != null) {
+            String trimmed = request.getPresentationTopic().trim();
+            if (!trimmed.equals(user.getPresentationTopic())) {
+                logger.info("Updating presentation topic for user {}", user.getBguUsername());
+                user.setPresentationTopic(trimmed.isEmpty() ? null : trimmed);
+                changed = true;
+            }
+        }
+
+        // Handle supervisor update (find or create via FK)
+        if (StringUtils.hasText(request.getSupervisorEmail())) {
+            String supervisorEmail = request.getSupervisorEmail().trim().toLowerCase(Locale.ROOT);
+            String supervisorName = StringUtils.hasText(request.getSupervisorName())
+                    ? request.getSupervisorName().trim()
+                    : supervisorEmail; // Use email as name if name not provided
+
+            Supervisor currentSupervisor = user.getSupervisor();
+            boolean needsSupervisorUpdate = currentSupervisor == null
+                    || !supervisorEmail.equalsIgnoreCase(currentSupervisor.getEmail());
+
+            if (needsSupervisorUpdate) {
+                // Find existing supervisor by email or create new one
+                Optional<Supervisor> existingSupervisor = supervisorRepository.findByEmail(supervisorEmail);
+                Supervisor supervisor;
+
+                if (existingSupervisor.isPresent()) {
+                    supervisor = existingSupervisor.get();
+                    // Update name if different
+                    if (!supervisorName.equals(supervisor.getName())) {
+                        supervisor.setName(supervisorName);
+                        supervisor = supervisorRepository.save(supervisor);
+                        logger.info("Updated supervisor name for email {}: {}", supervisorEmail, supervisorName);
+                    }
+                } else {
+                    // Create new supervisor
+                    supervisor = new Supervisor(supervisorName, supervisorEmail);
+                    supervisor = supervisorRepository.save(supervisor);
+                    logger.info("Created new supervisor: {} ({})", supervisorName, supervisorEmail);
+                }
+
+                user.setSupervisor(supervisor);
+                logger.info("Linked supervisor {} to user {}", supervisorEmail, user.getBguUsername());
+                changed = true;
+            } else if (currentSupervisor != null && StringUtils.hasText(request.getSupervisorName())) {
+                // Same supervisor email but name might be updated
+                String newName = request.getSupervisorName().trim();
+                if (!newName.equals(currentSupervisor.getName())) {
+                    currentSupervisor.setName(newName);
+                    supervisorRepository.save(currentSupervisor);
+                    logger.info("Updated supervisor name to {} for user {}", newName, user.getBguUsername());
+                    changed = true;
+                }
             }
         }
 
@@ -264,6 +329,7 @@ public class UserController {
             }
 
             User user = userOpt.get();
+            Supervisor supervisor = user.getSupervisor();
             UserProfileResponse response = UserProfileResponse.success(
                     user.getBguUsername(),
                     "Profile fetched",
@@ -273,7 +339,10 @@ public class UserController {
                     user.getDegree() != null ? user.getDegree().name() : null,
                     deriveParticipationPreference(user),
                     user.getNationalIdNumber(),
-                    user.getSeminarAbstract());
+                    user.getSeminarAbstract(),
+                    user.getPresentationTopic(),
+                    supervisor != null ? supervisor.getName() : null,
+                    supervisor != null ? supervisor.getEmail() : null);
 
             LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(), "Profile fetched");
             return ResponseEntity.ok(response);

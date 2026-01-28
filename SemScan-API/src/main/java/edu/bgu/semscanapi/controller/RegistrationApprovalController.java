@@ -84,7 +84,7 @@ public class RegistrationApprovalController {
         try {
             approvalService.declineRegistrationByToken(approvalToken, reason);
             
-            String html = generateSuccessPage("Registration Declined", 
+            String html = generateDeclinePage("Registration Declined",
                     "The registration has been declined.");
             
             LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(), "Registration declined");
@@ -183,7 +183,7 @@ public class RegistrationApprovalController {
         try {
             approvalService.declineRegistration(slotId, presenterUsername, token, reason != null ? reason : "No reason provided");
             
-            String html = generateSuccessPage("Registration Declined", 
+            String html = generateDeclinePage("Registration Declined",
                     "The registration has been declined.");
             
             LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(), "Registration declined");
@@ -275,7 +275,7 @@ public class RegistrationApprovalController {
         try {
             approvalService.declineStudentPromotion(confirmationToken);
             
-            String html = generateSuccessPage("Promotion Declined", 
+            String html = generateDeclinePage("Promotion Declined",
                     "You have declined the promotion. Your registration has been cancelled. The slot will be offered to the next person on the waiting list.");
             
             LoggerUtil.logApiResponse(logger, "GET", endpoint, HttpStatus.OK.value(), "Student promotion declined");
@@ -346,9 +346,9 @@ public class RegistrationApprovalController {
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>%s</title>
                 <style>
-                    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; 
+                    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center;
                            min-height: 100vh; margin: 0; background-color: #f5f5f5; }
-                    .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+                    .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                                 text-align: center; max-width: 500px; }
                     .error-icon { color: #f44336; font-size: 64px; margin-bottom: 20px; }
                     h1 { color: #333; margin-bottom: 20px; }
@@ -358,6 +358,35 @@ public class RegistrationApprovalController {
             <body>
                 <div class="container">
                     <div class="error-icon">✗</div>
+                    <h1>%s</h1>
+                    <p>%s</p>
+                </div>
+            </body>
+            </html>
+            """, title, title, message);
+    }
+
+    private String generateDeclinePage(String title, String message) {
+        return String.format("""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>%s</title>
+                <style>
+                    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center;
+                           min-height: 100vh; margin: 0; background-color: #f5f5f5; }
+                    .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                                text-align: center; max-width: 500px; }
+                    .decline-icon { color: #FF9800; font-size: 64px; margin-bottom: 20px; }
+                    h1 { color: #333; margin-bottom: 20px; }
+                    p { color: #666; line-height: 1.6; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="decline-icon">✗</div>
                     <h1>%s</h1>
                     <p>%s</p>
                 </div>

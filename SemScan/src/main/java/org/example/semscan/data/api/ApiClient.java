@@ -208,7 +208,8 @@ public class ApiClient {
     
     private static String normalizeBaseUrl(String url) {
         if (url == null || url.trim().isEmpty()) {
-            return "http://132.72.50.53:8080/";
+            // Use ApiConstants - never hardcode the URL here
+            return ApiConstants.SERVER_URL + "/";
         }
         String trimmed = url.trim();
         if (!trimmed.endsWith("/")) {

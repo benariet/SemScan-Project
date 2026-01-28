@@ -127,6 +127,7 @@ public class PresenterSlotSelectionActivity extends AppCompatActivity implements
 
     private void setupRecycler() {
         slotAdapter = new PresenterSlotsAdapter(this);
+        slotAdapter.setCurrentUsername(preferencesManager.getUserName());
         recyclerSlots.setLayoutManager(new LinearLayoutManager(this));
         recyclerSlots.setAdapter(slotAdapter);
     }

@@ -56,13 +56,7 @@ public class WaitingListPromotionExpiryChecker {
     @Scheduled(fixedRate = 3600000) // 1 hour
     @Transactional
     public void checkExpiredPromotions() {
-        logger.info("Checking for expired waiting list promotions...");
-        
-        if (databaseLoggerService != null) {
-            databaseLoggerService.logAction("INFO", "WAITING_LIST_PROMOTION_EXPIRY_CHECK_STARTED",
-                    "Scheduled job started: checking for expired waiting list promotions",
-                    null, "job=WaitingListPromotionExpiryChecker");
-        }
+        logger.debug("Checking for expired waiting list promotions...");
         
         LocalDateTime now = LocalDateTime.now();
         List<WaitingListPromotion> expiredPromotions = promotionRepository.findByExpiresAtBeforeAndStatus(
@@ -70,11 +64,6 @@ public class WaitingListPromotionExpiryChecker {
 
         if (expiredPromotions.isEmpty()) {
             logger.debug("No expired waiting list promotions found");
-            if (databaseLoggerService != null) {
-                databaseLoggerService.logAction("INFO", "WAITING_LIST_PROMOTION_EXPIRY_CHECK_COMPLETED",
-                        "Scheduled job completed: no expired waiting list promotions found",
-                        null, "expiredCount=0");
-            }
             return;
         }
 
@@ -207,21 +196,19 @@ public class WaitingListPromotionExpiryChecker {
     @Scheduled(fixedRate = 3600000, initialDelay = 1800000) // 1 hour, start 30 min after app startup
     @Transactional
     public void checkExpiredPromotionOffers() {
-        logger.info("Checking for expired promotion offers (unanswered 'Do you want this slot?' emails)...");
-
-        if (databaseLoggerService != null) {
-            databaseLoggerService.logAction("INFO", "WAITING_LIST_PROMOTION_OFFER_EXPIRY_CHECK_STARTED",
-                    "Scheduled job started: checking for expired promotion offers",
-                    null, "job=WaitingListPromotionOfferExpiryChecker");
-        }
+        logger.debug("Checking for expired promotion offers...");
 
         try {
-            waitingListService.processExpiredPromotionOffers();
-
-            if (databaseLoggerService != null) {
-                databaseLoggerService.logAction("INFO", "WAITING_LIST_PROMOTION_OFFER_EXPIRY_CHECK_COMPLETED",
-                        "Scheduled job completed: processed expired promotion offers",
-                        null, null);
+            int processed = waitingListService.processExpiredPromotionOffers();
+            if (processed > 0) {
+                logger.info("Processed {} expired promotion offer(s)", processed);
+                if (databaseLoggerService != null) {
+                    databaseLoggerService.logAction("INFO", "WAITING_LIST_PROMOTION_OFFER_EXPIRY_PROCESSED",
+                            String.format("Processed %d expired promotion offer(s)", processed),
+                            null, String.format("processedCount=%d", processed));
+                }
+            } else {
+                logger.debug("No expired promotion offers found");
             }
         } catch (Exception e) {
             logger.error("Error processing expired promotion offers: {}", e.getMessage(), e);
@@ -231,7 +218,5 @@ public class WaitingListPromotionExpiryChecker {
                         e, null, null);
             }
         }
-
-        logger.info("Completed checking expired promotion offers");
     }
 }

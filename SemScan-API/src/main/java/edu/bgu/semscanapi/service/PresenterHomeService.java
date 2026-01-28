@@ -69,6 +69,7 @@ public class PresenterHomeService {
     private final WaitingListPromotionRepository waitingListPromotionRepository;
     private final EmailQueueService emailQueueService;
     private final FcmService fcmService;
+    private final SessionService sessionService;
 
     public PresenterHomeService(UserRepository userRepository,
                                 SeminarSlotRepository seminarSlotRepository,
@@ -84,7 +85,8 @@ public class PresenterHomeService {
                                 AppConfigService appConfigService,
                                 WaitingListPromotionRepository waitingListPromotionRepository,
                                 EmailQueueService emailQueueService,
-                                FcmService fcmService) {
+                                FcmService fcmService,
+                                SessionService sessionService) {
         this.userRepository = userRepository;
         this.seminarSlotRepository = seminarSlotRepository;
         this.registrationRepository = registrationRepository;
@@ -100,6 +102,7 @@ public class PresenterHomeService {
         this.waitingListPromotionRepository = waitingListPromotionRepository;
         this.emailQueueService = emailQueueService;
         this.fcmService = fcmService;
+        this.sessionService = sessionService;
     }
 
     /**
@@ -158,7 +161,7 @@ public class PresenterHomeService {
                 ? registrationsBySlot.getOrDefault(mySlotEntity.getSlotId(), List.of())
                 : List.of();
 
-        MySlotSummary mySlotSummary = buildMySlotSummary(mySlotEntity, mySlotRegistrations, registeredUsers);
+        MySlotSummary mySlotSummary = buildMySlotSummary(mySlotEntity, mySlotRegistrations, registeredUsers, presenterUsername);
 
         // Find user's waiting list entry (if any)
         WaitingListSlotSummary waitingListSlotSummary = null;
@@ -184,7 +187,7 @@ public class PresenterHomeService {
         }
 
         PresenterHomeResponse response = new PresenterHomeResponse();
-        response.setPresenter(buildPresenterSummary(presenter, presenterUsername, !presenterRegistrations.isEmpty()));
+        response.setPresenter(buildPresenterSummary(presenter, presenterUsername, !presenterRegistrations.isEmpty(), presenterRegistrations));
         response.setMySlot(mySlotSummary);
         response.setMyWaitingListSlot(waitingListSlotSummary);
         response.setSlotCatalog(buildSlotCatalog(slots,
@@ -1336,10 +1339,8 @@ public class PresenterHomeService {
                 logger.info("Session {} time window has expired (closed at {}), closing session",
                     thisPresenterOpenSession.getSessionId(), sessionClosesAt);
 
-                // Close the old session
-                thisPresenterOpenSession.setStatus(Session.SessionStatus.CLOSED);
-                thisPresenterOpenSession.setEndTime(sessionClosesAt);
-                sessionRepository.save(thisPresenterOpenSession);
+                // Close the old session via SessionService - this triggers attendance report email
+                sessionService.closeSession(thisPresenterOpenSession.getSessionId());
                 databaseLoggerService.logSessionEvent("SESSION_AUTO_CLOSED_EXPIRED",
                     thisPresenterOpenSession.getSessionId(), thisPresenterOpenSession.getSeminarId(), presenterUsername);
 
@@ -1558,20 +1559,45 @@ public class PresenterHomeService {
                 .collect(Collectors.toMap(user -> normalizeUsername(user.getBguUsername()), user -> user));
     }
 
-    private PresenterSummary buildPresenterSummary(User presenter, String presenterUsername, boolean alreadyRegistered) {
+    private PresenterSummary buildPresenterSummary(User presenter, String presenterUsername,
+                                                    boolean alreadyRegistered,
+                                                    List<SeminarSlotRegistration> presenterRegistrations) {
         PresenterSummary summary = new PresenterSummary();
         summary.setId(presenter.getId());
         summary.setName(formatName(presenter));
+        summary.setFirstName(presenter.getFirstName());
+        summary.setLastName(presenter.getLastName());
+        summary.setNationalId(presenter.getNationalIdNumber());
         summary.setDegree(presenter.getDegree() != null ? presenter.getDegree().name() : null);
         summary.setAlreadyRegistered(alreadyRegistered);
         summary.setCurrentCycleId(null);
         summary.setBguUsername(presenterUsername);
+        summary.setEmail(presenter.getEmail());
+
+        // Get presentation details from active registration (if any) or from user entity
+        SeminarSlotRegistration activeReg = presenterRegistrations.stream()
+                .filter(r -> r.getApprovalStatus() == ApprovalStatus.PENDING ||
+                             r.getApprovalStatus() == ApprovalStatus.APPROVED)
+                .findFirst()
+                .orElse(null);
+
+        // Always use profile data (users table) for topic, abstract, and supervisor
+        summary.setTopic(presenter.getPresentationTopic());
+        summary.setSeminarAbstract(presenter.getSeminarAbstract());
+
+        // Get supervisor info from user's linked supervisor (profile)
+        if (presenter.getSupervisor() != null) {
+            summary.setSupervisorName(presenter.getSupervisor().getName());
+            summary.setSupervisorEmail(presenter.getSupervisor().getEmail());
+        }
+
         return summary;
     }
 
     private MySlotSummary buildMySlotSummary(SeminarSlot slot,
                                              List<SeminarSlotRegistration> registrations,
-                                             Map<String, User> registeredUsers) {
+                                             Map<String, User> registeredUsers,
+                                             String presenterUsername) {
         if (slot == null) {
             return null;
         }
@@ -1584,6 +1610,13 @@ public class PresenterHomeService {
         summary.setTimeRange(formatTimeRange(slot.getStartTime(), slot.getEndTime()));
         summary.setRoom(slot.getRoom());
         summary.setBuilding(slot.getBuilding());
+
+        // Find current user's registration and set approval status
+        registrations.stream()
+                .filter(reg -> reg.getPresenterUsername() != null
+                        && reg.getPresenterUsername().equalsIgnoreCase(presenterUsername))
+                .findFirst()
+                .ifPresent(reg -> summary.setApprovalStatus(reg.getApprovalStatus().name()));
 
         List<RegisteredPresenter> coPresenters = registrations.stream()
                 .map(reg -> toRegisteredPresenter(reg, registeredUsers))
@@ -1628,6 +1661,10 @@ public class PresenterHomeService {
                                                  Map<Long, SeminarSlot> slotsById) {
         return registrations.stream()
                 .filter(reg -> reg != null && reg.getSlotId() != null)
+                // Only show PENDING or APPROVED registrations as "mySlot"
+                // DECLINED/EXPIRED registrations should not appear as user's slot
+                .filter(reg -> reg.getApprovalStatus() == ApprovalStatus.PENDING
+                            || reg.getApprovalStatus() == ApprovalStatus.APPROVED)
                 .map(reg -> {
                     SeminarSlot slot = slotsById.get(reg.getSlotId());
                     return slot != null ? Map.entry(reg, slot) : null;
@@ -1909,6 +1946,7 @@ public class PresenterHomeService {
                     String username = entry.getPresenterUsername();
                     User user = username != null ? allUsers.get(normalizeUsername(username)) : null;
                     presenter.setName(user != null ? formatName(user) : username);
+                    presenter.setUsername(normalizeUsername(username));
                     if (entry.getDegree() != null) {
                         presenter.setDegree(entry.getDegree().name());
                     }
@@ -2003,6 +2041,7 @@ public class PresenterHomeService {
         User user = username != null ? registeredUsers.get(username) : null;
 
         presenter.setName(user != null ? formatName(user) : registration.getPresenterUsername());
+        presenter.setUsername(username);
         if (registration.getDegree() != null) {
             presenter.setDegree(registration.getDegree().name());
         } else if (user != null && user.getDegree() != null) {
@@ -2045,6 +2084,23 @@ public class PresenterHomeService {
                 : 0;
 
         LocalDateTime openWindow = start.minusMinutes(windowBeforeMinutes);
+
+        // Check if slot time has passed (can't open attendance for past slots)
+        Integer windowAfterMinutes = appConfigService != null
+                ? appConfigService.getIntegerConfig("presenter_slot_open_window_after_minutes", 15)
+                : 15;
+        LocalDateTime end = toSlotEnd(slot);
+        if (end != null) {
+            LocalDateTime closeWindow = end.plusMinutes(windowAfterMinutes);
+            if (now.isAfter(closeWindow)) {
+                panel.setCanOpen(false);
+                panel.setAlreadyOpen(false);
+                panel.setStatus("Slot time has passed");
+                panel.setWarning("Attendance window closed " + DISPLAY_DATE_TIME_FORMAT.format(closeWindow));
+                return panel;
+            }
+        }
+
         LocalDateTime openedAt = slot.getAttendanceOpenedAt();
         LocalDateTime closesAt = slot.getAttendanceClosesAt();
         String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
@@ -2674,12 +2730,8 @@ public class PresenterHomeService {
     private void closeLegacySession(Session session) {
         if (session.getStatus() != Session.SessionStatus.CLOSED) {
             logger.info("Closing legacy session {} (status: {})", session.getSessionId(), session.getStatus());
-            session.setStatus(Session.SessionStatus.CLOSED);
-            // CRITICAL: Use Israel timezone to match session times
-            session.setEndTime(nowIsrael());
-            sessionRepository.save(session);
-            databaseLoggerService.logSessionEvent("SESSION_AUTO_CLOSED", session.getSessionId(), 
-                session.getSeminarId(), null);
+            // Use SessionService to close - this triggers attendance report email
+            sessionService.closeSession(session.getSessionId());
         }
     }
 

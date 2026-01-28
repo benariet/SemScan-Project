@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1976D2">
+    <title>SemScan - Participant</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body style="display: none;">
+    <!-- Header -->
+    <header class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 class="header-title">Participant Home</h1>
+                <p class="header-subtitle" id="userGreeting">Hello, Participant</p>
+            </div>
+            <button class="btn btn-secondary" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px;" id="logoutBtn">
+                Logout
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Scan Attendance Card -->
+        <a href="scanner.html" class="action-card">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM19 16h1.5v1.5H19V16z"/></svg>
+            </div>
+            <div class="action-card-text">Scan Attendance QR</div>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+
+        <!-- Manual Attendance Request Card -->
+        <a href="manual-attendance.html" class="action-card">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </div>
+            <div class="action-card-text">Manual Attendance Request</div>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+
+        <!-- Attendance History Card -->
+        <div class="action-card" id="historyCard" style="cursor: pointer;">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+            </div>
+            <div class="action-card-text">Attendance History</div>
+            <svg class="action-card-arrow" id="historyArrow" viewBox="0 0 24 24" style="transition: transform 0.3s;"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+
+        <!-- Attendance History Section (hidden by default) -->
+        <div id="historySection" style="display: none; margin-top: 16px;">
+            <div id="historyLoading" style="text-align: center; padding: 20px; color: #666;">
+                <div class="spinner" style="margin: 0 auto 10px;"></div>
+                Loading attendance history...
+            </div>
+            <div id="historyEmpty" style="display: none; text-align: center; padding: 30px; color: #888; background: white; border-radius: 16px;">
+                <svg viewBox="0 0 24 24" style="width: 48px; height: 48px; fill: #ccc; margin-bottom: 10px;"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                <p>No attendance records found</p>
+            </div>
+            <div id="historyList"></div>
+            <div id="historyTotal" style="display: none; text-align: center; padding: 12px; background: rgba(255,107,53,0.1); border-radius: 12px; margin-top: 12px; font-weight: 600; color: #FF6B35;"></div>
+        </div>
+
+        <div style="height: 60px;"></div>
+
+        <!-- Change Role Card -->
+        <a href="presenter.html" class="action-card blue">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+            </div>
+            <div class="action-card-text">Switch to Presenter Mode</div>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        // Require authentication FIRST - block page until verified
+        if (!Utils.isLoggedIn()) {
+            window.location.replace('index.html');
+            throw new Error('Not authenticated');
+        }
+
+        // Show page only after auth verified
+        document.body.style.display = '';
+
+        const username = Utils.getUsername();
+
+        let historyExpanded = false;
+        let historyLoaded = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Update greeting
+            const userData = Utils.getUserData();
+            if (userData?.firstName) {
+                document.getElementById('userGreeting').textContent = `Hello, ${userData.firstName}`;
+            } else {
+                document.getElementById('userGreeting').textContent = `Hello, ${username}`;
+            }
+
+            // Setup logout
+            document.getElementById('logoutBtn').addEventListener('click', () => Utils.logout());
+
+            // Setup history card toggle
+            document.getElementById('historyCard').addEventListener('click', toggleHistory);
+        });
+
+        function toggleHistory() {
+            historyExpanded = !historyExpanded;
+            const section = document.getElementById('historySection');
+            const arrow = document.getElementById('historyArrow');
+
+            if (historyExpanded) {
+                section.style.display = 'block';
+                arrow.style.transform = 'rotate(90deg)';
+                if (!historyLoaded) {
+                    loadAttendanceHistory();
+                }
+            } else {
+                section.style.display = 'none';
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        async function loadAttendanceHistory() {
+            const loading = document.getElementById('historyLoading');
+            const empty = document.getElementById('historyEmpty');
+            const list = document.getElementById('historyList');
+            const total = document.getElementById('historyTotal');
+
+            loading.style.display = 'block';
+            empty.style.display = 'none';
+            list.innerHTML = '';
+            total.style.display = 'none';
+
+            try {
+                const response = await API.get(`/attendance/student/${username}`);
+                historyLoaded = true;
+                loading.style.display = 'none';
+
+                if (!response || response.length === 0) {
+                    empty.style.display = 'block';
+                    return;
+                }
+
+                // Sort by date (most recent first)
+                response.sort((a, b) => new Date(b.attendanceTime) - new Date(a.attendanceTime));
+
+                // Render attendance records
+                response.forEach(record => {
+                    const card = createHistoryCard(record);
+                    list.appendChild(card);
+                });
+
+                // Show total
+                total.textContent = `Total: ${response.length} session${response.length !== 1 ? 's' : ''} attended`;
+                total.style.display = 'block';
+
+            } catch (error) {
+                console.error('Failed to load attendance history:', error);
+                loading.style.display = 'none';
+                empty.innerHTML = '<p style="color: #e74c3c;">Failed to load attendance history</p>';
+                empty.style.display = 'block';
+            }
+        }
+
+        function createHistoryCard(record) {
+            const div = document.createElement('div');
+            div.style.cssText = 'background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);';
+
+            const date = new Date(record.attendanceTime);
+            const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+            const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+            const methodIcon = record.method === 'QR_SCAN' ?
+                '<svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:#4CAF50;"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5z"/></svg>' :
+                '<svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:#FF9800;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/></svg>';
+
+            const methodText = record.method === 'QR_SCAN' ? 'QR Scan' :
+                               record.method === 'MANUAL_REQUEST' ? 'Manual Request' :
+                               record.method === 'MANUAL' ? 'Manual' : record.method;
+
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${dateStr}</div>
+                        <div style="color: #666; font-size: 14px;">${timeStr}</div>
+                        ${record.topic ? `<div style="color: #888; font-size: 13px; margin-top: 6px;">${record.topic}</div>` : ''}
+                        ${record.presenter ? `<div style="color: #888; font-size: 13px;">Presenter: ${record.presenter}</div>` : ''}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; background: #f5f5f5; padding: 6px 10px; border-radius: 20px;">
+                        ${methodIcon}
+                        <span style="font-size: 12px; color: #666;">${methodText}</span>
+                    </div>
+                </div>
+            `;
+
+            return div;
+        }
+    </script>
+</body>
+</html>

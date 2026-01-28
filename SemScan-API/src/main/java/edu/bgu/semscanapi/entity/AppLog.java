@@ -59,7 +59,7 @@ public class AppLog {
     private LocalDateTime createdAt;
 
     public enum Source {
-        API, MOBILE
+        API, MOBILE, WEB
     }
 
     public enum UserRole {

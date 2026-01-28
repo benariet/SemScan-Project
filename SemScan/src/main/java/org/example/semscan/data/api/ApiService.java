@@ -46,6 +46,9 @@ public interface ApiService {
     Call<Boolean> hasAttended(@Query("sessionId") Long sessionId,
                               @Query("studentUsername") String studentUsername);
 
+    @GET("api/v1/attendance/student/{studentUsername}")
+    Call<List<Attendance>> getAttendanceByStudent(@Path("studentUsername") String studentUsername);
+
     // =============================
     // Manual attendance workflow
     // =============================
@@ -234,6 +237,12 @@ public interface ApiService {
         public String degree;
         public boolean alreadyRegistered;
         public String currentCycleId;
+        // Additional fields from API for syncing fresh data
+        public String topic;
+        public String seminarAbstract;
+        public String supervisorName;
+        public String supervisorEmail;
+        public String email;
     }
 
     class MySlotSummary {
@@ -264,6 +273,7 @@ public interface ApiService {
         public String name;
         public String degree;
         public String topic;
+        public String username;
     }
 
     class SlotCard {
@@ -438,6 +448,9 @@ public interface ApiService {
         public String participationPreference;
         public String nationalIdNumber;
         public String seminarAbstract;
+        public String presentationTopic;
+        public String supervisorName;
+        public String supervisorEmail;
     }
 
     class UserExistsRequest {

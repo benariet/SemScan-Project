@@ -32,6 +32,12 @@ public class UserProfileUpdateRequest {
 
     private String seminarAbstract;
 
+    private String presentationTopic;
+
+    private String supervisorName;
+
+    private String supervisorEmail;
+
     public String getBguUsername() {
         return bguUsername;
     }
@@ -94,6 +100,30 @@ public class UserProfileUpdateRequest {
 
     public void setSeminarAbstract(String seminarAbstract) {
         this.seminarAbstract = seminarAbstract;
+    }
+
+    public String getPresentationTopic() {
+        return presentationTopic;
+    }
+
+    public void setPresentationTopic(String presentationTopic) {
+        this.presentationTopic = presentationTopic;
+    }
+
+    public String getSupervisorName() {
+        return supervisorName;
+    }
+
+    public void setSupervisorName(String supervisorName) {
+        this.supervisorName = supervisorName;
+    }
+
+    public String getSupervisorEmail() {
+        return supervisorEmail;
+    }
+
+    public void setSupervisorEmail(String supervisorEmail) {
+        this.supervisorEmail = supervisorEmail;
     }
 
     public enum ParticipationPreference {

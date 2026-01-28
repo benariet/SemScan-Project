@@ -1,0 +1,305 @@
+/**
+ * SemScan Web App - Settings Page Styles
+ * Matches Android SettingsActivity design
+ */
+
+/* Section headers */
+.section-header {
+    font-size: 0.875rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    margin-top: 20px;
+    padding-left: 4px;
+}
+
+.section-header:first-of-type {
+    margin-top: 0;
+}
+
+.section-header.purple {
+    color: #6200EE;
+}
+
+.section-header.orange {
+    color: #FF9800;
+}
+
+.section-header.red {
+    color: #F44336;
+}
+
+.section-header.gray {
+    color: #757575;
+}
+
+/* Form card */
+.settings-card {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin-bottom: 16px;
+}
+
+/* Form group */
+.settings-form-group {
+    margin-bottom: 16px;
+}
+
+.settings-form-group:last-child {
+    margin-bottom: 0;
+}
+
+/* Input wrapper with floating label effect */
+.settings-input-wrapper {
+    position: relative;
+    border: 1px solid #E0E0E0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    background: white;
+    transition: border-color 0.2s;
+}
+
+.settings-input-wrapper:focus-within {
+    border-color: var(--primary);
+}
+
+.settings-input-wrapper.disabled {
+    background: #F5F5F5;
+}
+
+/* Floating label */
+.settings-label {
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    background: white;
+    padding: 0 4px;
+    font-size: 0.75rem;
+    color: #757575;
+}
+
+.settings-input-wrapper.disabled .settings-label {
+    background: linear-gradient(to bottom, white 50%, #F5F5F5 50%);
+}
+
+/* Input field */
+.settings-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 1rem;
+    color: var(--text-dark);
+    background: transparent;
+    padding: 0;
+}
+
+.settings-input:disabled {
+    color: #9E9E9E;
+    -webkit-text-fill-color: #9E9E9E;
+}
+
+.settings-input::placeholder {
+    color: #BDBDBD;
+}
+
+/* Input with icon */
+.settings-input-with-icon {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-input-icon {
+    width: 20px;
+    height: 20px;
+    fill: #9E9E9E;
+    flex-shrink: 0;
+}
+
+/* Select dropdown */
+.settings-select-wrapper {
+    position: relative;
+}
+
+.settings-select-label {
+    display: block;
+    font-size: 0.875rem;
+    color: #757575;
+    margin-bottom: 8px;
+}
+
+.settings-select {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 1rem;
+    border: 1px solid #E0E0E0;
+    border-radius: 12px;
+    background: #F5F5F5;
+    color: var(--text-dark);
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    outline: none;
+}
+
+.settings-select:focus {
+    border-color: var(--primary);
+}
+
+/* Dropdown arrow */
+.settings-select-wrapper::after {
+    content: '';
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #757575;
+    pointer-events: none;
+    margin-top: 12px;
+}
+
+/* Save button */
+.btn-save {
+    width: 100%;
+    padding: 16px;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: #64B5F6;
+    color: #000000;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 8px;
+    margin-bottom: 24px;
+}
+
+.btn-save:hover {
+    background: #42A5F5;
+}
+
+.btn-save:active {
+    transform: scale(0.98);
+}
+
+.btn-save:disabled {
+    background: #BDBDBD;
+    cursor: not-allowed;
+}
+
+/* Logout button */
+.btn-logout {
+    width: 100%;
+    padding: 14px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: white;
+    color: #F44336;
+    border: 2px solid #F44336;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.btn-logout:hover {
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.btn-logout:active {
+    transform: scale(0.98);
+}
+
+/* Confirmation dialog */
+.confirm-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.confirm-dialog.hidden {
+    display: none;
+}
+
+.confirm-dialog-content {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 320px;
+    width: 100%;
+    text-align: center;
+}
+
+.confirm-dialog-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text-dark);
+}
+
+.confirm-dialog-message {
+    font-size: 0.9375rem;
+    color: var(--text-medium);
+    margin-bottom: 24px;
+}
+
+.confirm-dialog-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.confirm-dialog-btn {
+    flex: 1;
+    padding: 12px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.confirm-dialog-btn.cancel {
+    background: #E0E0E0;
+    color: var(--text-dark);
+    border: none;
+}
+
+.confirm-dialog-btn.cancel:hover {
+    background: #D0D0D0;
+}
+
+.confirm-dialog-btn.confirm {
+    background: #F44336;
+    color: white;
+    border: none;
+}
+
+.confirm-dialog-btn.confirm:hover {
+    background: #D32F2F;
+}
+
+/* Version info footer */
+.version-info {
+    text-align: center;
+    padding: 24px 16px;
+    margin-top: 16px;
+    color: #9E9E9E;
+    font-size: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}

@@ -37,7 +37,10 @@ public class AppLogEntry {
     
     @JsonProperty("exceptionType")
     private String exceptionType;
-    
+
+    @JsonProperty("source")
+    private String source;
+
     // Constructors
     public AppLogEntry() {}
     
@@ -128,7 +131,15 @@ public class AppLogEntry {
     public void setExceptionType(String exceptionType) {
         this.exceptionType = exceptionType;
     }
-    
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
     @Override
     public String toString() {
         return "AppLogEntry{" +
@@ -142,6 +153,7 @@ public class AppLogEntry {
                 ", appVersion='" + appVersion + '\'' +
                 ", stackTrace='" + stackTrace + '\'' +
                 ", exceptionType='" + exceptionType + '\'' +
+                ", source='" + source + '\'' +
                 '}';
     }
 }

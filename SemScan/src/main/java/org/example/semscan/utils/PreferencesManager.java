@@ -263,6 +263,12 @@ public class PreferencesManager {
                 .remove(KEY_PARTICIPATION)
                 .remove(KEY_SETUP_COMPLETED)
                 .remove(KEY_LAST_SEEN_ANNOUNCEMENT_VERSION)  // Clear so new user sees announcements
+                .remove(KEY_NATIONAL_ID)
+                .remove(KEY_SUPERVISOR_NAME)
+                .remove(KEY_SUPERVISOR_EMAIL)
+                .remove(KEY_SEMINAR_ABSTRACT)
+                .remove(KEY_PRESENTATION_TOPIC)
+                .remove(KEY_FCM_TOKEN)
                 .apply();
     }
     

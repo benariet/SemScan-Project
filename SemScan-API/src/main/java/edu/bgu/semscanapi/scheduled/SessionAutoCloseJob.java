@@ -5,6 +5,7 @@ import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.SessionRepository;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
+import edu.bgu.semscanapi.service.SessionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,6 +20,7 @@ import java.util.List;
  * Scheduled job to automatically close expired attendance sessions.
  * This ensures that when a presenter opens a session and doesn't manually close it,
  * other presenters won't be blocked from opening their own sessions.
+ * Attendance report email is sent automatically via SessionService.closeSession().
  */
 @Component
 public class SessionAutoCloseJob {
@@ -29,13 +31,16 @@ public class SessionAutoCloseJob {
     private final SeminarSlotRepository slotRepository;
     private final SessionRepository sessionRepository;
     private final DatabaseLoggerService databaseLoggerService;
+    private final SessionService sessionService;
 
     public SessionAutoCloseJob(SeminarSlotRepository slotRepository,
                                SessionRepository sessionRepository,
-                               DatabaseLoggerService databaseLoggerService) {
+                               DatabaseLoggerService databaseLoggerService,
+                               SessionService sessionService) {
         this.slotRepository = slotRepository;
         this.sessionRepository = sessionRepository;
         this.databaseLoggerService = databaseLoggerService;
+        this.sessionService = sessionService;
     }
 
     /**
@@ -61,9 +66,8 @@ public class SessionAutoCloseJob {
                 if (slot.getLegacySessionId() != null) {
                     sessionRepository.findById(slot.getLegacySessionId()).ifPresent(session -> {
                         if (session.getStatus() == Session.SessionStatus.OPEN) {
-                            session.setStatus(Session.SessionStatus.CLOSED);
-                            session.setEndTime(slot.getAttendanceClosesAt());
-                            sessionRepository.save(session);
+                            // Use SessionService to close - this triggers attendance report email
+                            sessionService.closeSession(session.getSessionId());
                             logger.info("Auto-closed session {} for slot {}", session.getSessionId(), slot.getSlotId());
                             databaseLoggerService.logSessionEvent("SESSION_AUTO_CLOSED",
                                 session.getSessionId(), session.getSeminarId(), slot.getAttendanceOpenedBy());

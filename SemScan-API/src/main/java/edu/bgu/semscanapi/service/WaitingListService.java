@@ -833,9 +833,10 @@ public class WaitingListService {
     /**
      * Handle expired promotion offers - called by scheduler
      * Removes expired entries from waiting list and offers to next person
+     * @return number of expired offers processed
      */
     @Transactional
-    public void processExpiredPromotionOffers() {
+    public int processExpiredPromotionOffers() {
         List<WaitingListEntry> expired = waitingListRepository.findExpiredPromotionOffers(LocalDateTime.now());
 
         for (WaitingListEntry entry : expired) {
@@ -854,6 +855,8 @@ public class WaitingListService {
             // Offer to next person in line
             offerPromotionToNextFromWaitingList(slotId);
         }
+
+        return expired.size();
     }
 
     /**

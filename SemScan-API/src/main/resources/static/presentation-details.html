@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#FF6B35">
+    <title>SemScan - Presenter Dashboard</title>
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        /* Page background - matches Android bg_gradient_main */
+        body {
+            background: linear-gradient(135deg, #FDFBFB 0%, #F4F4F4 100%);
+            min-height: 100vh;
+        }
+
+        /* Header - matches Android bg_appbar_rounded: Purple → Light Purple → Orange */
+        .header {
+            background: linear-gradient(90deg, #5B4FCF 0%, #7B6BD6 50%, #FF8C42 100%);
+            border-radius: 0;
+            min-height: 56px;
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Hamburger menu button */
+        .menu-btn {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            margin-right: 12px;
+        }
+
+        .menu-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        /* Side menu overlay */
+        .side-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .side-menu-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Side menu */
+        .side-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 280px;
+            background: white;
+            z-index: 1000;
+            transform: translateX(-100%);
+            transition: transform 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .side-menu.open {
+            transform: translateX(0);
+        }
+
+        .side-menu-header {
+            background: linear-gradient(90deg, #5B4FCF 0%, #7B6BD6 50%, #FF8C42 100%);
+            padding: 40px 20px 20px 20px;
+            color: white;
+        }
+
+        .side-menu-header h3 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+        }
+
+        .side-menu-header p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .side-menu-items {
+            flex: 1;
+            padding: 16px 0;
+        }
+
+        .side-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 20px;
+            color: #333;
+            text-decoration: none;
+            transition: background 0.2s;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        .side-menu-item:hover {
+            background: #f5f5f5;
+        }
+
+        .side-menu-item svg {
+            width: 24px;
+            height: 24px;
+            fill: #666;
+            margin-right: 16px;
+        }
+
+        .side-menu-divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 8px 0;
+        }
+
+        .container {
+            padding: 24px;
+            padding-top: 40px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Presentation Details Card - orange/peach gradient for entire card */
+        .details-card {
+            background: linear-gradient(135deg, #FFE0B2 0%, #FFCC80 100%);
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            cursor: pointer;
+            user-select: none;
+            min-height: 80px;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            background: #FF9800;
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .card-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .card-title-section {
+            flex: 1;
+        }
+
+        .card-title {
+            font-size: 19px;
+            font-weight: 700;
+            color: #212121;
+            margin: 0;
+        }
+
+        .card-subtitle {
+            font-size: 13px;
+            color: #616161;
+            margin: 4px 0 0 0;
+        }
+
+        .card-expand-icon {
+            width: 32px;
+            height: 32px;
+            fill: #616161;
+            transition: transform 0.3s ease;
+        }
+
+        .card-expand-icon.expanded {
+            transform: rotate(180deg);
+        }
+
+        .card-content {
+            padding: 0 28px 24px 28px;
+            display: none;
+        }
+
+        .card-content.expanded {
+            display: block;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            color: #212121;
+            margin-bottom: 6px;
+        }
+
+        /* Form inputs - white with outlined style and thin gray border */
+        .details-card .form-input,
+        .details-card .form-textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #9E9E9E;
+            border-radius: 12px;
+            font-size: 16px;
+            background: white;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .details-card .form-input:focus,
+        .details-card .form-textarea:focus {
+            outline: none;
+            border-color: #FF9800;
+            box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.2);
+        }
+
+        .details-card .form-input::placeholder,
+        .details-card .form-textarea::placeholder {
+            color: #9E9E9E;
+        }
+
+        .details-card .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* Save Button - orange */
+        .btn-save {
+            width: 100%;
+            padding: 16px;
+            background: #FF9800;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 24px;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .btn-save:active {
+            transform: scale(0.98);
+        }
+
+        .btn-save:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Action Cards */
+        .action-card {
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 16px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .action-card:active {
+            transform: scale(0.98);
+        }
+
+        /* Orange card - Start Session, My Time Slot, Select Slot (matches bg_card_orange_light_gradient) */
+        /* Gradient direction: 135deg = diagonal (top-left to bottom-right), 90deg = horizontal (left to right) */
+        /* Orange gradient colors: first color is start, second is end */
+        .action-card.orange {
+            background: linear-gradient(135deg, #FFE0B2 0%, #FFCC80 100%);
+        }
+        .action-card.orange .action-card-icon {
+            background: #FF9800;
+        }
+
+        /* Blue card - Change Role (matches bg_card_blue_light_gradient) */
+        /* Gradient direction: 135deg = diagonal (top-left to bottom-right), 90deg = horizontal (left to right) */
+        /* Blue gradient colors: first color is start, second is end */
+        .action-card.blue {
+            background: linear-gradient(135deg, #90CAF9 0%, #90CAF9 100%);
+        }
+        .action-card.blue .action-card-icon {
+            background: #2196F3;
+        }
+
+        .action-card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .action-card-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .action-card-text {
+            flex: 1;
+            font-size: 19px;
+            font-weight: 700;
+            color: #212121;
+            line-height: 1.2;
+        }
+
+        .action-card-arrow {
+            width: 32px;
+            height: 32px;
+            fill: #616161;
+        }
+
+        /* Disabled card state - gray gradient for inaccessible/locked cards */
+        /* Gray gradient colors: first color is start (top-left), second is end (bottom-right) */
+        .action-card.disabled {
+            background: linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%) !important;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .action-card.disabled .action-card-icon {
+            background: #ff9800 !important;  /* <-- Change this to #FF9800 for orange */
+        }
+
+    </style>
+</head>
+<body style="display: none;">
+    <!-- Side Menu Overlay -->
+    <div class="side-menu-overlay" id="menuOverlay"></div>
+
+    <!-- Side Menu -->
+    <div class="side-menu" id="sideMenu">
+        <div class="side-menu-header">
+            <h3 id="menuUserName">User</h3>
+            <p id="menuUserEmail">user@bgu.ac.il</p>
+        </div>
+        <div class="side-menu-items">
+            <a href="#" class="side-menu-item" id="settingsMenuItem">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <span>Settings</span>
+            </a>
+            <div class="side-menu-divider"></div>
+            <a href="#" class="side-menu-item" id="logoutMenuItem">
+                <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                <span>Logout</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <button class="menu-btn" id="menuBtn">
+            <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+        <h1 class="header-title">Presenter Dashboard</h1>
+    </header>
+
+    <div class="container">
+        <!-- Presentation Details Card -->
+        <div class="details-card">
+            <div class="card-header" onclick="toggleCard()">
+                <div class="card-icon">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                </div>
+                <div class="card-title-section">
+                    <h2 class="card-title">Presentation Details</h2>
+                    <p class="card-subtitle" id="cardSubtitle">Tap to edit</p>
+                </div>
+                <svg class="card-expand-icon" id="expandIcon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+            </div>
+
+            <div class="card-content" id="cardContent">
+                <!-- Form Fields -->
+                <div class="form-group">
+                    <label class="form-label">Presentation Topic</label>
+                    <input type="text" class="form-input" id="topic" placeholder="Enter your presentation topic">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Seminar Abstract</label>
+                    <textarea class="form-textarea" id="abstract" placeholder="Enter a brief abstract of your presentation"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Supervisor Name</label>
+                    <input type="text" class="form-input" id="supervisorName" placeholder="Dr. / Prof. Name">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Supervisor Email</label>
+                    <input type="email" class="form-input" id="supervisorEmail" placeholder="supervisor@bgu.ac.il">
+                </div>
+
+                <button class="btn-save" id="saveBtn">Save Details</button>
+            </div>
+        </div>
+
+        <!-- Select Slot Card (Orange - same as other action cards) -->
+        <a href="slots.html" class="action-card orange disabled" id="selectSlotCard" onclick="return checkPresentationDetailsBeforeSlots(event)">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
+            </div>
+            <span class="action-card-text">Select a presentation slot</span>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+
+        <!-- Start Session Card (Orange) -->
+        <a href="#" class="action-card orange disabled" id="startSessionCard" onclick="startSession(event)">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            </div>
+            <span class="action-card-text">Start Session (Show QR)</span>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+
+        <!-- My Time Slot Card (Orange) -->
+        <a href="#" class="action-card orange disabled" id="myTimeSlotCard" onclick="viewMySlot(event)">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            </div>
+            <span class="action-card-text">My Time Slot</span>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+
+        <!-- Change Role Card (Blue) -->
+        <a href="presenter.html" class="action-card blue">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+            </div>
+            <span class="action-card-text">Change Role</span>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        // Require authentication FIRST - block page until verified
+        if (!Utils.isLoggedIn()) {
+            window.location.replace('index.html');
+            throw new Error('Not authenticated');
+        }
+
+        // Show page only after auth verified
+        document.body.style.display = '';
+
+        Logger.pageLoad('Presenter Dashboard');
+
+        const username = Utils.getUsername();
+        let presenterData = null;
+        let mySlot = null;
+        let cardExpanded = true; // Start expanded
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            Logger.pageInit('Presenter Dashboard');
+            loadData();
+            setupEventListeners();
+            // Start with card expanded
+            toggleCard(true);
+        });
+
+        function toggleCard(forceExpand) {
+            const content = document.getElementById('cardContent');
+            const icon = document.getElementById('expandIcon');
+
+            if (forceExpand === true) {
+                cardExpanded = true;
+            } else {
+                cardExpanded = !cardExpanded;
+            }
+
+            if (cardExpanded) {
+                content.classList.add('expanded');
+                icon.classList.add('expanded');
+            } else {
+                content.classList.remove('expanded');
+                icon.classList.remove('expanded');
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('saveBtn').addEventListener('click', saveDetails);
+
+            // Character counter for abstract
+            document.getElementById('abstract').addEventListener('input', (e) => {
+                if (e.target.value.length > 500) {
+                    e.target.value = e.target.value.substring(0, 500);
+                }
+            });
+
+            // Update card states when ANY presentation detail field changes (matches mobile app)
+            document.getElementById('topic').addEventListener('input', updateCardStates);
+            document.getElementById('abstract').addEventListener('input', updateCardStates);
+            document.getElementById('supervisorName').addEventListener('input', updateCardStates);
+            document.getElementById('supervisorEmail').addEventListener('input', updateCardStates);
+
+            // Side menu functionality
+            const menuBtn = document.getElementById('menuBtn');
+            const sideMenu = document.getElementById('sideMenu');
+            const menuOverlay = document.getElementById('menuOverlay');
+
+            menuBtn.addEventListener('click', () => {
+                sideMenu.classList.add('open');
+                menuOverlay.classList.add('open');
+                Logger.userAction('Opened side menu');
+            });
+
+            menuOverlay.addEventListener('click', () => {
+                sideMenu.classList.remove('open');
+                menuOverlay.classList.remove('open');
+            });
+
+            // Update menu user info
+            const userData = Utils.getUserData();
+            if (userData && userData.firstName) {
+                document.getElementById('menuUserName').textContent = `${userData.firstName} ${userData.lastName || ''}`.trim();
+            } else {
+                document.getElementById('menuUserName').textContent = username;
+            }
+            document.getElementById('menuUserEmail').textContent = `${username}@bgu.ac.il`;
+
+            // Settings click
+            document.getElementById('settingsMenuItem').addEventListener('click', (e) => {
+                e.preventDefault();
+                sideMenu.classList.remove('open');
+                menuOverlay.classList.remove('open');
+                Utils.showToast('Settings coming soon', 'info');
+            });
+
+            // Logout click
+            document.getElementById('logoutMenuItem').addEventListener('click', (e) => {
+                e.preventDefault();
+                Logger.userAction('Logout clicked');
+                Utils.logout();
+            });
+        }
+
+        async function loadData() {
+            Logger.info('LOAD_DATA', 'Loading presenter data...');
+            Utils.showLoading();
+
+            try {
+                const response = await API.getPresenterHome(username);
+                Logger.info('LOAD_DATA', 'Data received:', response);
+
+                presenterData = response.presenter;
+                mySlot = response.mySlot;
+
+                // Populate form with fresh API data
+                if (presenterData) {
+                    document.getElementById('topic').value = presenterData.topic || '';
+                    document.getElementById('abstract').value = presenterData.abstract || presenterData.seminarAbstract || '';
+                    document.getElementById('supervisorName').value = presenterData.supervisorName || '';
+                    document.getElementById('supervisorEmail').value = presenterData.supervisorEmail || '';
+
+                    // Update localStorage with fresh data
+                    const existingData = Utils.getUserData() || {};
+                    const updatedData = {
+                        ...existingData,
+                        firstName: presenterData.firstName || presenterData.name?.split(' ')[0] || existingData.firstName,
+                        lastName: presenterData.lastName || presenterData.name?.split(' ').slice(1).join(' ') || existingData.lastName,
+                        supervisorName: presenterData.supervisorName,
+                        supervisorEmail: presenterData.supervisorEmail,
+                        topic: presenterData.topic,
+                        seminarAbstract: presenterData.seminarAbstract || presenterData.abstract,
+                        degree: presenterData.degree
+                    };
+                    localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify(updatedData));
+
+                    // Update menu with fresh API data (don't rely on localStorage)
+                    const displayName = presenterData.name ||
+                        `${presenterData.firstName || ''} ${presenterData.lastName || ''}`.trim() ||
+                        username;
+                    document.getElementById('menuUserName').textContent = displayName;
+                }
+
+                // Update UI based on slot status
+                updateCardStates();
+
+            } catch (error) {
+                Logger.error('LOAD_DATA_ERROR', 'Failed to load data', error);
+                Utils.showToast('Failed to load data: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+                Logger.pageReady('Presenter Dashboard');
+            }
+        }
+
+        function updateCardStates() {
+            const subtitle = document.getElementById('cardSubtitle');
+            const selectSlotCard = document.getElementById('selectSlotCard');
+            const startSessionCard = document.getElementById('startSessionCard');
+            const myTimeSlotCard = document.getElementById('myTimeSlotCard');
+
+            // Check if ALL presentation details are filled (matches mobile app logic)
+            const topic = document.getElementById('topic').value.trim();
+            const abstract = document.getElementById('abstract').value.trim();
+            const supervisorName = document.getElementById('supervisorName').value.trim();
+            const supervisorEmail = document.getElementById('supervisorEmail').value.trim();
+
+            // Validate email format
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const isValidEmail = supervisorEmail && emailPattern.test(supervisorEmail);
+
+            // Must have ALL 4 fields filled (topic + abstract + supervisorName + valid supervisorEmail)
+            const hasPresentationDetails = topic && abstract && supervisorName && isValidEmail;
+
+            // Enable/disable Select Slot card based on ALL presentation details
+            if (hasPresentationDetails) {
+                selectSlotCard.classList.remove('disabled');
+            } else {
+                selectSlotCard.classList.add('disabled');
+            }
+
+            if (!mySlot) {
+                subtitle.textContent = hasPresentationDetails ? 'Details saved' : 'Tap to edit';
+                // Keep session cards disabled
+                startSessionCard.classList.add('disabled');
+                myTimeSlotCard.classList.add('disabled');
+                return;
+            }
+
+            subtitle.textContent = 'Details saved';
+
+            // Check if slot is approved - enable Start Session and My Time Slot
+            const status = mySlot.approvalStatus?.toUpperCase() || 'PENDING';
+            if (status === 'APPROVED') {
+                startSessionCard.classList.remove('disabled');
+                myTimeSlotCard.classList.remove('disabled');
+            } else {
+                startSessionCard.classList.add('disabled');
+                myTimeSlotCard.classList.add('disabled');
+            }
+        }
+
+        function checkPresentationDetailsBeforeSlots(event) {
+            const topic = document.getElementById('topic').value.trim();
+            const abstract = document.getElementById('abstract').value.trim();
+            const supervisorName = document.getElementById('supervisorName').value.trim();
+            const supervisorEmail = document.getElementById('supervisorEmail').value.trim();
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            if (!topic || !abstract || !supervisorName || !supervisorEmail || !emailPattern.test(supervisorEmail)) {
+                event.preventDefault();
+                Utils.showToast('Please fill in all presentation details first (topic, abstract, supervisor name and email)', 'error');
+                return false;
+            }
+            return true;
+        }
+
+        function startSession(event) {
+            event.preventDefault();
+            if (!mySlot || mySlot.approvalStatus?.toUpperCase() !== 'APPROVED') {
+                Utils.showToast('You need an approved slot to start a session', 'error');
+                return;
+            }
+            // Navigate to QR display page (to be implemented)
+            window.location.href = `qr-display.html?slotId=${mySlot.slotId}`;
+        }
+
+        function viewMySlot(event) {
+            event.preventDefault();
+            if (!mySlot) {
+                Utils.showToast('You are not registered for any slot', 'error');
+                return;
+            }
+            // Show slot details in a toast for now
+            const slotInfo = `${mySlot.date} ${mySlot.timeRange || ''}\nStatus: ${mySlot.approvalStatus || 'PENDING'}`;
+            Utils.showToast(slotInfo, 'info');
+        }
+
+        async function saveDetails() {
+            Logger.userAction('Save details clicked');
+
+            const topic = document.getElementById('topic').value.trim();
+            const abstract = document.getElementById('abstract').value.trim();
+            const supervisorName = document.getElementById('supervisorName').value.trim();
+            const supervisorEmail = document.getElementById('supervisorEmail').value.trim();
+
+            // Basic validation
+            if (supervisorEmail && !supervisorEmail.includes('@')) {
+                Utils.showToast('Please enter a valid email address', 'error');
+                return;
+            }
+
+            Utils.showLoading();
+            document.getElementById('saveBtn').disabled = true;
+
+            try {
+                // Get stored user data for required fields
+                const userData = Utils.getUserData() || {};
+
+                // Parse firstName/lastName from presenterData.name if available
+                let firstName = userData.firstName || username;
+                let lastName = userData.lastName || '';
+
+                if (presenterData?.name) {
+                    const nameParts = presenterData.name.trim().split(' ');
+                    if (nameParts.length >= 2) {
+                        firstName = nameParts[0];
+                        lastName = nameParts.slice(1).join(' ');
+                    } else if (nameParts.length === 1) {
+                        firstName = nameParts[0];
+                    }
+                }
+
+                // Build update data with required fields
+                const updateData = {
+                    // Required fields
+                    degree: presenterData?.degree || userData.degree || 'MSC',
+                    email: presenterData?.email || userData.email || `${username}@bgu.ac.il`,
+                    firstName: firstName,
+                    lastName: lastName,
+                    // Presentation-specific fields
+                    topic: topic,
+                    seminarAbstract: abstract,
+                    supervisorName: supervisorName,
+                    supervisorEmail: supervisorEmail
+                };
+
+                Logger.info('SAVE_DETAILS', 'Saving details:', updateData);
+
+                await API.upsertUser(username, updateData);
+
+                // Update localStorage with new data so other pages can access it
+                const existingData = Utils.getUserData() || {};
+                const updatedUserData = {
+                    ...existingData,
+                    supervisorName: supervisorName,
+                    supervisorEmail: supervisorEmail,
+                    topic: topic,
+                    seminarAbstract: abstract
+                };
+                localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify(updatedUserData));
+
+                // Update subtitle to show saved
+                document.getElementById('cardSubtitle').textContent = 'Details saved';
+
+                Logger.info('SAVE_DETAILS', 'Details saved successfully');
+                Utils.showToast('Details saved successfully', 'success');
+
+            } catch (error) {
+                Logger.error('SAVE_DETAILS_ERROR', 'Failed to save details', error);
+                Utils.showToast('Failed to save: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+                document.getElementById('saveBtn').disabled = false;
+            }
+        }
+
+        // Global error handlers
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            Logger.error('GLOBAL_ERROR', msg, { url, lineNo, columnNo, stack: error?.stack });
+            return false;
+        };
+        window.onunhandledrejection = function(event) {
+            Logger.error('UNHANDLED_REJECTION', event.reason?.message || 'Promise rejected', { reason: event.reason });
+        };
+    </script>
+</body>
+</html>

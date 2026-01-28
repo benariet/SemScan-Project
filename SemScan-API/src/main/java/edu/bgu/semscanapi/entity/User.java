@@ -45,6 +45,9 @@ public class User {
     @Column(name = "seminar_abstract", columnDefinition = "TEXT")
     private String seminarAbstract;
 
+    @Column(name = "presentation_topic")
+    private String presentationTopic;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -165,6 +168,14 @@ public class User {
 
     public void setSeminarAbstract(String seminarAbstract) {
         this.seminarAbstract = seminarAbstract;
+    }
+
+    public String getPresentationTopic() {
+        return presentationTopic;
+    }
+
+    public void setPresentationTopic(String presentationTopic) {
+        this.presentationTopic = presentationTopic;
     }
 
     public LocalDateTime getCreatedAt() {

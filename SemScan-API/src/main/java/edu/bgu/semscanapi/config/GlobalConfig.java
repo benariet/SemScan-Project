@@ -160,9 +160,11 @@ public class GlobalConfig {
     public String getServerUrl() {
         // Use HTTPS on standard port 443 (via nginx) for production
         // This eliminates browser warnings about non-standard ports
+        // Test mode (port 8081) should use HTTP with explicit port
         if (isProductionMode()) {
             return "https://132.72.50.53" + contextPath;
         }
+        // Development mode or Test mode - use HTTP with explicit port
         return "http://132.72.50.53:" + serverPort + contextPath;
     }
     
@@ -533,13 +535,24 @@ public class GlobalConfig {
         // Default: if not explicitly set to localhost, assume production
         return false;
     }
-    
-    public boolean isProductionMode() {
-        return !isDevelopmentMode();
+
+    public boolean isTestMode() {
+        // Port 8081 is always the test environment
+        return serverPort == 8081;
     }
-    
+
+    public boolean isProductionMode() {
+        // Production = not development AND not test
+        return !isDevelopmentMode() && !isTestMode();
+    }
+
     public String getEnvironment() {
-        return isDevelopmentMode() ? "development" : "production";
+        if (isDevelopmentMode()) {
+            return "development";
+        } else if (isTestMode()) {
+            return "test";
+        }
+        return "production";
     }
     
     // =============================================

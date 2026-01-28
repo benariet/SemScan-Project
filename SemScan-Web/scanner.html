@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1976D2">
+    <title>SemScan - Scanner</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/scanner.css">
+</head>
+<body style="display: none;">
+    <header class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <a href="participant.html" style="color: white; text-decoration: none;">← Back</a>
+            <h1 class="header-title">Scan QR</h1>
+            <div style="width: 50px;"></div>
+        </div>
+    </header>
+
+    <div class="container scanner-container">
+        <div id="qr-reader"></div>
+        <p class="scanner-instructions">Point your camera at the QR code</p>
+
+        <div class="scan-result hidden" id="scanResult">
+            <div class="scan-icon" id="resultIcon"></div>
+            <h2 id="resultTitle"></h2>
+            <p id="resultMessage"></p>
+            <button class="btn btn-primary mt-lg" onclick="resetScanner()">Scan Another</button>
+        </div>
+    </div>
+
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="lib/html5-qrcode.min.js"></script>
+    <script>
+        // Require authentication FIRST - block page until verified
+        if (!Utils.isLoggedIn()) {
+            window.location.replace('index.html');
+            throw new Error('Not authenticated');
+        }
+
+        // Show page only after auth verified
+        document.body.style.display = '';
+
+        const username = Utils.getUsername();
+        let html5QrCode = null;
+
+        document.addEventListener('DOMContentLoaded', initScanner);
+
+        function initScanner() {
+            html5QrCode = new Html5Qrcode("qr-reader");
+
+            Html5Qrcode.getCameras().then(cameras => {
+                if (cameras && cameras.length) {
+                    // Prefer back camera
+                    const backCamera = cameras.find(c => c.label.toLowerCase().includes('back')) || cameras[0];
+                    startScanner(backCamera.id);
+                }
+            }).catch(err => {
+                Utils.showToast('Camera access denied: ' + err, 'error');
+            });
+        }
+
+        function startScanner(cameraId) {
+            html5QrCode.start(
+                cameraId,
+                { fps: CONFIG.QR_SCAN_FPS, qrbox: CONFIG.QR_BOX_SIZE },
+                onScanSuccess,
+                () => {} // Ignore scan failures
+            ).catch(err => {
+                Utils.showToast('Failed to start camera: ' + err, 'error');
+            });
+        }
+
+        async function onScanSuccess(decodedText) {
+            // Stop scanner
+            html5QrCode.stop();
+
+            Utils.showLoading();
+            try {
+                // Parse QR data and submit attendance
+                const qrData = JSON.parse(decodedText);
+                qrData.studentUsername = username;
+
+                await API.submitAttendance(qrData);
+                showResult(true, 'Attendance Recorded!', 'Your attendance has been marked successfully.');
+            } catch (error) {
+                showResult(false, 'Failed', error.message || 'Could not record attendance.');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        function showResult(success, title, message) {
+            document.getElementById('qr-reader').classList.add('hidden');
+            document.querySelector('.scanner-instructions').classList.add('hidden');
+
+            const result = document.getElementById('scanResult');
+            result.classList.remove('hidden');
+            result.className = 'scan-result ' + (success ? 'scan-success' : 'scan-error');
+
+            document.getElementById('resultIcon').textContent = success ? '✓' : '✗';
+            document.getElementById('resultTitle').textContent = title;
+            document.getElementById('resultMessage').textContent = message;
+        }
+
+        function resetScanner() {
+            document.getElementById('qr-reader').classList.remove('hidden');
+            document.querySelector('.scanner-instructions').classList.remove('hidden');
+            document.getElementById('scanResult').classList.add('hidden');
+            initScanner();
+        }
+    </script>
+</body>
+</html>

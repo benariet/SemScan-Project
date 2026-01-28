@@ -62,10 +62,19 @@ public class PresenterHomeResponse {
     public static class PresenterSummary {
         private Long id;
         private String name;
+        private String firstName;
+        private String lastName;
+        private String nationalId;
         private String degree;
         private boolean alreadyRegistered;
         private String currentCycleId;
         private String bguUsername;
+        // Presentation details fields for webapp
+        private String topic;
+        private String seminarAbstract;
+        private String supervisorName;
+        private String supervisorEmail;
+        private String email;
 
         public Long getId() {
             return id;
@@ -81,6 +90,30 @@ public class PresenterHomeResponse {
 
         public void setName(String name) {
             this.name = name;
+        }
+
+        public String getFirstName() {
+            return firstName;
+        }
+
+        public void setFirstName(String firstName) {
+            this.firstName = firstName;
+        }
+
+        public String getLastName() {
+            return lastName;
+        }
+
+        public void setLastName(String lastName) {
+            this.lastName = lastName;
+        }
+
+        public String getNationalId() {
+            return nationalId;
+        }
+
+        public void setNationalId(String nationalId) {
+            this.nationalId = nationalId;
         }
 
         public String getDegree() {
@@ -114,6 +147,46 @@ public class PresenterHomeResponse {
         public void setBguUsername(String bguUsername) {
             this.bguUsername = bguUsername;
         }
+
+        public String getTopic() {
+            return topic;
+        }
+
+        public void setTopic(String topic) {
+            this.topic = topic;
+        }
+
+        public String getSeminarAbstract() {
+            return seminarAbstract;
+        }
+
+        public void setSeminarAbstract(String seminarAbstract) {
+            this.seminarAbstract = seminarAbstract;
+        }
+
+        public String getSupervisorName() {
+            return supervisorName;
+        }
+
+        public void setSupervisorName(String supervisorName) {
+            this.supervisorName = supervisorName;
+        }
+
+        public String getSupervisorEmail() {
+            return supervisorEmail;
+        }
+
+        public void setSupervisorEmail(String supervisorEmail) {
+            this.supervisorEmail = supervisorEmail;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
     }
 
     public static class MySlotSummary {
@@ -124,6 +197,7 @@ public class PresenterHomeResponse {
         private String building;
         private String dayOfWeek;
         private String semesterLabel;
+        private String approvalStatus; // PENDING, APPROVED, DECLINED, EXPIRED
         private List<RegisteredPresenter> coPresenters = new ArrayList<>();
 
         public Long getSlotId() {
@@ -180,6 +254,14 @@ public class PresenterHomeResponse {
 
         public void setSemesterLabel(String semesterLabel) {
             this.semesterLabel = semesterLabel;
+        }
+
+        public String getApprovalStatus() {
+            return approvalStatus;
+        }
+
+        public void setApprovalStatus(String approvalStatus) {
+            this.approvalStatus = approvalStatus;
         }
 
         public List<RegisteredPresenter> getCoPresenters() {
@@ -288,6 +370,7 @@ public class PresenterHomeResponse {
         private String name;
         private String degree;
         private String topic;
+        private String username;
 
         public String getName() {
             return name;
@@ -311,6 +394,14 @@ public class PresenterHomeResponse {
 
         public void setTopic(String topic) {
             this.topic = topic;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
         }
     }
 

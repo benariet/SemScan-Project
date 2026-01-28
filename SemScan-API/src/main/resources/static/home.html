@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1976D2">
+    <title>SemScan - Home</title>
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        .home-page {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #f5f5f5 0%, #ffffff 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .menu-btn {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .menu-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: #666;
+        }
+
+        .home-logo {
+            margin-top: 60px;
+            width: 120px;
+            height: 120px;
+        }
+
+        .home-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .home-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #FF6B00;
+            margin: 16px 0 8px 0;
+        }
+
+        .home-welcome {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin: 8px 0 4px 0;
+        }
+
+        .home-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .role-cards {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .role-card {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-radius: 16px;
+            text-decoration: none;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .role-card:active {
+            transform: scale(0.98);
+        }
+
+        .role-card.presenter {
+            background: linear-gradient(135deg, #5B7FFF 0%, #3B5FDF 100%);
+        }
+
+        .role-card.participant {
+            background: linear-gradient(135deg, #FFB74D 0%, #FFA726 100%);
+        }
+
+        .role-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+        }
+
+        .role-icon svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+        }
+
+        .role-text {
+            flex: 1;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .role-arrow {
+            width: 24px;
+            height: 24px;
+            fill: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Side menu */
+        .side-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .side-menu-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .side-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 280px;
+            background: white;
+            z-index: 1000;
+            transform: translateX(-100%);
+            transition: transform 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .side-menu.open {
+            transform: translateX(0);
+        }
+
+        .side-menu-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px 20px 20px;
+            color: white;
+        }
+
+        .side-menu-header h3 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+        }
+
+        .side-menu-header p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .side-menu-items {
+            flex: 1;
+            padding: 16px 0;
+        }
+
+        .side-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 20px;
+            color: #333;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .side-menu-item:hover {
+            background: #f5f5f5;
+        }
+
+        .side-menu-item svg {
+            width: 24px;
+            height: 24px;
+            fill: #666;
+            margin-right: 16px;
+        }
+
+        .side-menu-item span {
+            font-size: 16px;
+        }
+
+        .side-menu-divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body style="display: none;">
+    <!-- Side Menu Overlay -->
+    <div class="side-menu-overlay" id="menuOverlay"></div>
+
+    <!-- Side Menu -->
+    <div class="side-menu" id="sideMenu">
+        <div class="side-menu-header">
+            <h3 id="menuUserName">User</h3>
+            <p id="menuUserEmail">user@bgu.ac.il</p>
+        </div>
+        <div class="side-menu-items">
+            <a href="home.html" class="side-menu-item">
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                <span>Home</span>
+            </a>
+            <a href="presenter.html" class="side-menu-item">
+                <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                <span>Presenter Mode</span>
+            </a>
+            <a href="participant.html" class="side-menu-item">
+                <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                <span>Participant Mode</span>
+            </a>
+            <a href="#" class="side-menu-item" id="settingsMenuItem">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <span>Settings</span>
+            </a>
+            <div class="side-menu-divider"></div>
+            <a href="#" class="side-menu-item" id="logoutMenuItem">
+                <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                <span>Logout</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="home-page">
+        <!-- Menu Button -->
+        <button class="menu-btn" id="menuBtn">
+            <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+
+        <!-- Logo -->
+        <div class="home-logo">
+            <img src="assets/logo.svg" alt="SemScan" onerror="this.parentElement.innerHTML='<svg viewBox=\'0 0 100 100\' width=\'120\' height=\'120\'><rect x=\'10\' y=\'10\' width=\'80\' height=\'80\' rx=\'10\' fill=\'#FF6B00\' opacity=\'0.1\'/><text x=\'50\' y=\'60\' text-anchor=\'middle\' font-size=\'40\' fill=\'#FF6B00\'>S</text></svg>'">
+        </div>
+
+        <!-- Title -->
+        <h1 class="home-title">SemScan</h1>
+
+        <!-- Welcome -->
+        <h2 class="home-welcome" id="welcomeText">Welcome!</h2>
+        <p class="home-subtitle">What's my role today?</p>
+
+        <!-- Role Cards -->
+        <div class="role-cards">
+            <a href="presenter.html" class="role-card presenter">
+                <div class="role-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                </div>
+                <span class="role-text">Presenter</span>
+                <svg class="role-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </a>
+
+            <a href="participant.html" class="role-card participant">
+                <div class="role-icon">
+                    <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                </div>
+                <span class="role-text">Participant</span>
+                <svg class="role-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        // Require authentication FIRST - block page until verified
+        if (!Utils.isLoggedIn()) {
+            window.location.replace('index.html');
+            throw new Error('Not authenticated');
+        }
+
+        // Show page only after auth verified
+        document.body.style.display = '';
+
+        Logger.pageLoad('Home');
+
+        const username = Utils.getUsername();
+
+        // Initial display from localStorage (fast)
+        const userData = Utils.getUserData();
+        if (userData?.firstName) {
+            document.getElementById('welcomeText').textContent = `Welcome, ${userData.firstName}!`;
+            document.getElementById('menuUserName').textContent = `${userData.firstName} ${userData.lastName || ''}`.trim();
+        } else if (username) {
+            document.getElementById('welcomeText').textContent = `Welcome, ${username}!`;
+            document.getElementById('menuUserName').textContent = username;
+        }
+
+        // Update menu email
+        if (username) {
+            document.getElementById('menuUserEmail').textContent = `${username}@bgu.ac.il`;
+        }
+
+        // Fetch fresh data from API to ensure name is correct
+        async function refreshUserData() {
+            try {
+                const response = await API.getPresenterHome(username);
+                if (response.presenter) {
+                    const displayName = response.presenter.name ||
+                        `${response.presenter.firstName || ''} ${response.presenter.lastName || ''}`.trim() ||
+                        username;
+                    const firstName = response.presenter.firstName || response.presenter.name?.split(' ')[0] || username;
+
+                    document.getElementById('welcomeText').textContent = `Welcome, ${firstName}!`;
+                    document.getElementById('menuUserName').textContent = displayName;
+
+                    // Update localStorage with fresh data
+                    const existingData = Utils.getUserData() || {};
+                    localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify({
+                        ...existingData,
+                        firstName: response.presenter.firstName || response.presenter.name?.split(' ')[0],
+                        lastName: response.presenter.lastName || response.presenter.name?.split(' ').slice(1).join(' '),
+                        degree: response.presenter.degree
+                    }));
+                }
+            } catch (error) {
+                Logger.warn('HOME_REFRESH', 'Failed to refresh user data', { error: error.message });
+                // Keep using localStorage data on error
+            }
+        }
+        refreshUserData();
+
+        // Side menu functionality
+        const menuBtn = document.getElementById('menuBtn');
+        const sideMenu = document.getElementById('sideMenu');
+        const menuOverlay = document.getElementById('menuOverlay');
+
+        menuBtn.addEventListener('click', () => {
+            sideMenu.classList.add('open');
+            menuOverlay.classList.add('open');
+            Logger.userAction('Opened side menu');
+        });
+
+        menuOverlay.addEventListener('click', () => {
+            sideMenu.classList.remove('open');
+            menuOverlay.classList.remove('open');
+        });
+
+        // Logout
+        document.getElementById('logoutMenuItem').addEventListener('click', (e) => {
+            e.preventDefault();
+            Logger.userAction('Logout clicked');
+            Utils.logout();
+        });
+
+        // Settings
+        document.getElementById('settingsMenuItem').addEventListener('click', (e) => {
+            e.preventDefault();
+            sideMenu.classList.remove('open');
+            menuOverlay.classList.remove('open');
+            Utils.showToast('Settings coming soon', 'info');
+            Logger.userAction('Settings clicked');
+        });
+
+        Logger.pageReady('Home');
+    </script>
+</body>
+</html>

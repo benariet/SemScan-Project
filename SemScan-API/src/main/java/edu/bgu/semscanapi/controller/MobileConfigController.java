@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +28,7 @@ import java.util.Map;
 public class MobileConfigController {
 
     private static final Logger logger = LoggerUtil.getLogger(MobileConfigController.class);
+    private static final LocalDateTime SERVER_START_TIME = LocalDateTime.now();
 
     @Autowired
     private AppConfigService appConfigService;
@@ -70,6 +74,32 @@ public class MobileConfigController {
                         ex, null, "endpoint=/api/v1/config/mobile");
             }
 
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Get web app configuration (version info)
+     * Returns WEB_VERSION from app_config table
+     */
+    @GetMapping("/web")
+    public ResponseEntity<Map<String, String>> getWebConfig() {
+        LoggerUtil.logApiRequest(logger, "GET", "/api/v1/config/web", null);
+
+        try {
+            String webVersion = appConfigService.getStringConfig("WEB_VERSION", "1.0.0");
+            String deployTime = SERVER_START_TIME.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+
+            Map<String, String> response = new HashMap<>();
+            response.put("version", webVersion);
+            response.put("deployed", deployTime);
+
+            LoggerUtil.logApiResponse(logger, "GET", "/api/v1/config/web", HttpStatus.OK.value(),
+                    "Returned web version: " + webVersion + " deployed: " + deployTime);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception ex) {
+            LoggerUtil.logError(logger, "Error retrieving web config", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

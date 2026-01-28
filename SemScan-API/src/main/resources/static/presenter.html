@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#5B4FCF">
+    <title>SemScan - Presenter</title>
+    <link rel="stylesheet" href="css/main.css?v=3">
+    <style>
+        /* Header - rectangle, not rounded */
+        .header {
+            background: linear-gradient(90deg, #5B4FCF 0%, #7B6BD6 50%, #FF8C42 100%);
+            border-radius: 0;
+            min-height: 56px;
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Hamburger menu button */
+        .menu-btn {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            margin-right: 12px;
+        }
+
+        .menu-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        /* Side menu overlay */
+        .side-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .side-menu-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Side menu */
+        .side-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 280px;
+            background: white;
+            z-index: 1000;
+            transform: translateX(-100%);
+            transition: transform 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .side-menu.open {
+            transform: translateX(0);
+        }
+
+        .side-menu-header {
+            background: linear-gradient(90deg, #5B4FCF 0%, #7B6BD6 50%, #FF8C42 100%);
+            padding: 40px 20px 20px 20px;
+            color: white;
+        }
+
+        .side-menu-header h3 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+        }
+
+        .side-menu-header p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .side-menu-items {
+            flex: 1;
+            padding: 16px 0;
+        }
+
+        .side-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 20px;
+            color: #333;
+            text-decoration: none;
+            transition: background 0.2s;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        .side-menu-item:hover {
+            background: #f5f5f5;
+        }
+
+        .side-menu-item svg {
+            width: 24px;
+            height: 24px;
+            fill: #666;
+            margin-right: 16px;
+        }
+
+        .side-menu-divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body style="display: none;">
+    <!-- Side Menu Overlay -->
+    <div class="side-menu-overlay" id="menuOverlay"></div>
+
+    <!-- Side Menu -->
+    <div class="side-menu" id="sideMenu">
+        <div class="side-menu-header">
+            <h3 id="menuUserName">User</h3>
+            <p id="menuUserEmail">user@bgu.ac.il</p>
+        </div>
+        <div class="side-menu-items">
+            <a href="#" class="side-menu-item" id="settingsMenuItem">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <span>Settings</span>
+            </a>
+            <div class="side-menu-divider"></div>
+            <a href="#" class="side-menu-item" id="logoutMenuItem">
+                <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                <span>Logout</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <button class="menu-btn" id="menuBtn">
+            <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+        <h1 class="header-title">Presenter Dashboard</h1>
+    </header>
+
+    <div class="container">
+        <!-- Presentation Details Card -->
+        <a href="presentation-details.html" class="action-card" id="cardPresentationDetails">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+            </div>
+            <div style="flex: 1;">
+                <div class="action-card-text">Presentation Details</div>
+                <div class="action-card-subtitle" id="detailsSubtitle">Enter your details</div>
+            </div>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </a>
+
+        <!-- Select a presentation slot Card -->
+        <a href="slots.html" class="action-card" id="cardSelectSlot">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
+            </div>
+            <div class="action-card-text">Select a presentation slot</div>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+
+        <!-- Start Session (Show QR) Card - Disabled by default -->
+        <div class="action-card disabled" id="cardStartSession">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm13 0h-2v2h2v2h-2v2h2v-2h2v2h2v-2h-2v-2h2v-2h-2v2h-2v-2zm0-2h2v-2h-2v2zm-4 4h2v-2h-2v2zm0 4h2v-2h-2v2z"/></svg>
+            </div>
+            <div class="action-card-text">Start Session (Show QR)</div>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+
+        <!-- My Time Slot Card - Disabled by default -->
+        <div class="action-card disabled" id="cardMySlot">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            </div>
+            <div class="action-card-text">My Time Slot</div>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+
+        <!-- Change Role Card -->
+        <a href="participant.html" class="action-card blue">
+            <div class="action-card-icon">
+                <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+            </div>
+            <div class="action-card-text">Change Role</div>
+            <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </a>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal-overlay hidden" id="qrModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Attendance QR Code</h2>
+            </div>
+            <div class="modal-body">
+                <div class="qr-container">
+                    <div class="qr-timer" id="qrTimer">15:00</div>
+                    <div class="qr-code-wrapper">
+                        <img id="qrCodeImg" alt="QR Code" src="">
+                    </div>
+                    <div class="attendance-count">
+                        <span>Attendance:</span>
+                        <span class="attendance-count-number" id="attendanceCount">0</span>
+                    </div>
+                    <p class="qr-instructions mt-md">
+                        Show this QR code to participants. The session will automatically close when the timer ends.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="closeSessionBtn">Close Session</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container"></div>
+
+    <script src="js/config.js?v=3"></script>
+    <script src="js/utils.js?v=3"></script>
+    <script src="js/api.js?v=3"></script>
+    <script>
+        // Require authentication FIRST - block page until verified
+        if (!Utils.isLoggedIn()) {
+            window.location.replace('index.html');
+            throw new Error('Not authenticated');
+        }
+
+        // Show page only after auth verified
+        document.body.style.display = '';
+
+        Logger.pageLoad('Presenter Dashboard');
+
+        const username = Utils.getUsername();
+        Logger.info('AUTH_CHECK', `Authenticated as: ${username}`);
+
+        let mySlot = null;
+        let myWaitingListSlot = null;
+        let qrTimerInterval = null;
+        let activeSessionSlotId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            Logger.pageInit('Presenter Dashboard');
+            initPage();
+        });
+
+        async function initPage() {
+            try {
+                Logger.debug('INIT', 'Setting up...');
+                const userData = Utils.getUserData();
+                Logger.debug('INIT', 'User data from storage:', userData);
+
+                // Setup side menu
+                const menuBtn = document.getElementById('menuBtn');
+                const sideMenu = document.getElementById('sideMenu');
+                const menuOverlay = document.getElementById('menuOverlay');
+
+                menuBtn.addEventListener('click', () => {
+                    sideMenu.classList.add('open');
+                    menuOverlay.classList.add('open');
+                    Logger.userAction('Opened side menu');
+                });
+
+                menuOverlay.addEventListener('click', () => {
+                    sideMenu.classList.remove('open');
+                    menuOverlay.classList.remove('open');
+                });
+
+                // Update menu user info
+                if (userData && userData.firstName) {
+                    document.getElementById('menuUserName').textContent = `${userData.firstName} ${userData.lastName || ''}`.trim();
+                } else {
+                    document.getElementById('menuUserName').textContent = username;
+                }
+                document.getElementById('menuUserEmail').textContent = `${username}@bgu.ac.il`;
+
+                // Settings click - navigate to settings page
+                document.getElementById('settingsMenuItem').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.href = 'settings.html';
+                });
+
+                // Logout click
+                document.getElementById('logoutMenuItem').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    Logger.userAction('Logout clicked');
+                    Utils.logout();
+                });
+
+                // Setup other event listeners
+                Logger.debug('INIT', 'Setting up event listeners...');
+                document.getElementById('closeSessionBtn').addEventListener('click', closeQrModal);
+                document.getElementById('cardStartSession').addEventListener('click', openAttendance);
+                Logger.debug('INIT', 'Event listeners set up');
+
+                // Load presenter data
+                Logger.info('INIT', 'Loading presenter data...');
+                await loadPresenterData();
+
+                Logger.pageReady('Presenter Dashboard');
+            } catch (error) {
+                Logger.error('INIT_ERROR', 'Failed to initialize page', error);
+                Utils.showToast('Failed to initialize page: ' + error.message, 'error');
+            }
+        }
+
+        async function loadPresenterData() {
+            Logger.info('LOAD_DATA', 'Starting to load presenter data...');
+            Utils.showLoading();
+            try {
+                const response = await API.getPresenterHome(username);
+                Logger.info('LOAD_DATA', 'API response received:', response);
+
+                // Update localStorage with fresh presenter data from API
+                // This ensures supervisor info is always up-to-date
+                if (response.presenter) {
+                    const existingData = Utils.getUserData() || {};
+                    const updatedData = {
+                        ...existingData,
+                        firstName: response.presenter.firstName || response.presenter.name?.split(' ')[0] || existingData.firstName,
+                        lastName: response.presenter.lastName || response.presenter.name?.split(' ').slice(1).join(' ') || existingData.lastName,
+                        supervisorName: response.presenter.supervisorName,
+                        supervisorEmail: response.presenter.supervisorEmail,
+                        topic: response.presenter.topic,
+                        seminarAbstract: response.presenter.seminarAbstract,
+                        degree: response.presenter.degree
+                    };
+                    localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify(updatedData));
+
+                    // Update menu with fresh API data (don't rely on localStorage)
+                    const displayName = response.presenter.name ||
+                        `${response.presenter.firstName || ''} ${response.presenter.lastName || ''}`.trim() ||
+                        username;
+                    document.getElementById('menuUserName').textContent = displayName;
+                }
+
+                // Store data
+                mySlot = response.mySlot;
+                myWaitingListSlot = response.myWaitingListSlot;
+                Logger.info('LOAD_DATA', 'Slot data:', { mySlot, myWaitingListSlot });
+
+                // Update presentation details subtitle
+                const detailsSubtitle = document.getElementById('detailsSubtitle');
+                if (response.presenter?.topic) {
+                    detailsSubtitle.textContent = response.presenter.topic;
+                    Logger.debug('LOAD_DATA', `Topic: ${response.presenter.topic}`);
+                } else {
+                    detailsSubtitle.textContent = 'Enter your details';
+                    Logger.debug('LOAD_DATA', 'No topic set');
+                }
+
+                // Update UI based on registration status
+                Logger.info('LOAD_DATA', 'Updating UI state...');
+                updateUIState();
+                Logger.info('LOAD_DATA', 'Data load complete');
+
+            } catch (error) {
+                Logger.error('LOAD_DATA_ERROR', 'Failed to load presenter data', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                Utils.showToast('Failed to load data: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        function updateUIState() {
+            Logger.debug('UI_STATE', 'Updating UI state...');
+            const cardMySlot = document.getElementById('cardMySlot');
+            const cardStartSession = document.getElementById('cardStartSession');
+
+            Logger.debug('UI_STATE', 'Elements found:', {
+                cardMySlot: !!cardMySlot,
+                cardStartSession: !!cardStartSession
+            });
+
+            // By default, both cards are disabled (set in HTML)
+            // Enable them only if user has an approved slot
+
+            if (mySlot && mySlot.approvalStatus === 'APPROVED') {
+                Logger.info('UI_STATE', 'User has APPROVED slot, enabling cards', {
+                    slotId: mySlot.slotId,
+                    date: mySlot.date
+                });
+
+                // Enable "My Slot" and "Start Session" cards
+                cardMySlot.classList.remove('disabled');
+                cardMySlot.classList.add('enabled');
+                // Make My Slot clickable - navigate to slot details
+                cardMySlot.style.cursor = 'pointer';
+                cardMySlot.onclick = () => {
+                    Logger.userAction('My Slot card clicked', { slotId: mySlot.slotId });
+                    window.location.href = `slot-details.html?slotId=${mySlot.slotId}`;
+                };
+
+                cardStartSession.classList.remove('disabled');
+                cardStartSession.classList.add('enabled');
+                cardStartSession.style.cursor = 'pointer';
+
+                activeSessionSlotId = mySlot.slotId;
+                Logger.debug('UI_STATE', `Active session slot ID: ${activeSessionSlotId}`);
+            } else {
+                Logger.info('UI_STATE', 'No approved slot, keeping cards disabled', {
+                    hasSlot: !!mySlot,
+                    status: mySlot?.approvalStatus
+                });
+
+                // Keep cards disabled
+                cardMySlot.classList.add('disabled');
+                cardMySlot.classList.remove('enabled');
+                cardStartSession.classList.add('disabled');
+                cardStartSession.classList.remove('enabled');
+            }
+
+            Logger.debug('UI_STATE', 'UI state update complete');
+        }
+
+        async function openAttendance() {
+            Logger.userAction('Start Session clicked');
+
+            if (!activeSessionSlotId) {
+                Logger.warn('ATTENDANCE', 'No active slot ID, cannot open attendance');
+                Utils.showToast('No active slot found', 'error');
+                return;
+            }
+
+            Logger.info('ATTENDANCE', `Opening attendance for slot ${activeSessionSlotId}`);
+            Utils.showLoading();
+            try {
+                const response = await API.openAttendance(username, activeSessionSlotId);
+                Logger.info('ATTENDANCE', 'Attendance opened successfully', response);
+                showQrModal(response);
+            } catch (error) {
+                Logger.error('ATTENDANCE_ERROR', 'Failed to open attendance', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                Utils.showToast('Failed to open attendance: ' + error.message, 'error');
+            } finally {
+                Utils.hideLoading();
+            }
+        }
+
+        function showQrModal(data) {
+            Logger.info('QR_MODAL', 'Showing QR modal', data);
+
+            const modal = document.getElementById('qrModal');
+            const qrImg = document.getElementById('qrCodeImg');
+            const timerEl = document.getElementById('qrTimer');
+            const countEl = document.getElementById('attendanceCount');
+
+            // Set QR code image
+            if (data.qrCodeBase64) {
+                qrImg.src = 'data:image/png;base64,' + data.qrCodeBase64;
+                Logger.debug('QR_MODAL', 'QR code set from base64');
+            } else if (data.qrCodeUrl) {
+                qrImg.src = data.qrCodeUrl;
+                Logger.debug('QR_MODAL', 'QR code set from URL');
+            } else {
+                Logger.warn('QR_MODAL', 'No QR code data received!');
+            }
+
+            // Initialize timer (15 minutes)
+            let timeLeft = data.remainingSeconds || 15 * 60;
+            countEl.textContent = data.attendanceCount || 0;
+            Logger.debug('QR_MODAL', `Timer: ${timeLeft}s, Attendance: ${data.attendanceCount || 0}`);
+
+            updateTimer(timeLeft, timerEl);
+            qrTimerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimer(timeLeft, timerEl);
+                if (timeLeft <= 0) {
+                    Logger.info('QR_MODAL', 'Timer expired, closing modal');
+                    closeQrModal();
+                    Utils.showToast('Attendance session closed.', 'info');
+                }
+            }, 1000);
+
+            modal.classList.remove('hidden');
+            Logger.debug('QR_MODAL', 'Modal displayed');
+        }
+
+        function updateTimer(seconds, el) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            el.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+            // Change color based on time
+            el.classList.remove('warning', 'critical');
+            if (seconds <= 60) {
+                el.classList.add('critical');
+            } else if (seconds <= 300) {
+                el.classList.add('warning');
+            }
+        }
+
+        function closeQrModal() {
+            Logger.userAction('Close Session clicked');
+            const modal = document.getElementById('qrModal');
+            modal.classList.add('hidden');
+            if (qrTimerInterval) {
+                clearInterval(qrTimerInterval);
+                qrTimerInterval = null;
+                Logger.debug('QR_MODAL', 'Timer cleared');
+            }
+            Logger.info('QR_MODAL', 'Modal closed');
+        }
+
+        // Global error handler
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            Logger.error('GLOBAL_ERROR', msg, {
+                url, lineNo, columnNo,
+                stack: error?.stack
+            });
+            return false;
+        };
+
+        // Unhandled promise rejection handler
+        window.onunhandledrejection = function(event) {
+            Logger.error('UNHANDLED_REJECTION', event.reason?.message || 'Promise rejected', {
+                reason: event.reason
+            });
+        };
+    </script>
+</body>
+</html>

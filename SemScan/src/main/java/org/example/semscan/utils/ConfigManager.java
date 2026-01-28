@@ -296,10 +296,9 @@ public class ConfigManager {
     // =============================
     
     public String getServerUrl() {
-        if (cachedConfig != null && cachedConfig.serverUrl != null && !cachedConfig.serverUrl.trim().isEmpty()) {
-            return cachedConfig.serverUrl.trim();
-        }
-        return ApiConstants.SERVER_URL; // Fallback to hardcoded default
+        // ALWAYS use hardcoded value from ApiConstants (set at build time)
+        // Never use cached value - prevents environment confusion when switching TEST/PROD
+        return ApiConstants.SERVER_URL;
     }
     
     public String getExportEmailRecipients() {
