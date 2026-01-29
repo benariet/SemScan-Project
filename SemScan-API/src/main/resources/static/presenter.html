@@ -263,6 +263,7 @@
 
         let mySlot = null;
         let myWaitingListSlot = null;
+        let attendancePanel = null;
         let qrTimerInterval = null;
         let activeSessionSlotId = null;
 
@@ -365,7 +366,8 @@
                 // Store data
                 mySlot = response.mySlot;
                 myWaitingListSlot = response.myWaitingListSlot;
-                Logger.info('LOAD_DATA', 'Slot data:', { mySlot, myWaitingListSlot });
+                attendancePanel = response.attendance;
+                Logger.info('LOAD_DATA', 'Slot data:', { mySlot, myWaitingListSlot, attendancePanel });
 
                 // Update presentation details subtitle
                 const detailsSubtitle = document.getElementById('detailsSubtitle');
@@ -406,39 +408,56 @@
             // By default, both cards are disabled (set in HTML)
             // Enable them only if user has an approved slot
 
-            if (mySlot && mySlot.approvalStatus === 'APPROVED') {
-                Logger.info('UI_STATE', 'User has APPROVED slot, enabling cards', {
-                    slotId: mySlot.slotId,
-                    date: mySlot.date
-                });
+            // Check if user has an approved slot (for My Slot card)
+            const hasApprovedSlot = mySlot && mySlot.approvalStatus === 'APPROVED';
+            // Check if user can open attendance (for Start Session card) - uses API's canOpen flag
+            const canOpenSession = hasApprovedSlot && attendancePanel && attendancePanel.canOpen;
 
-                // Enable "My Slot" and "Start Session" cards
+            Logger.info('UI_STATE', 'Checking slot and attendance status', {
+                hasApprovedSlot,
+                canOpenSession,
+                slotId: mySlot?.slotId,
+                attendanceStatus: attendancePanel?.status,
+                attendanceCanOpen: attendancePanel?.canOpen
+            });
+
+            if (hasApprovedSlot) {
+                // Enable "My Slot" card
                 cardMySlot.classList.remove('disabled');
                 cardMySlot.classList.add('enabled');
-                // Make My Slot clickable - navigate to slot details
                 cardMySlot.style.cursor = 'pointer';
                 cardMySlot.onclick = () => {
                     Logger.userAction('My Slot card clicked', { slotId: mySlot.slotId });
-                    window.location.href = `slot-details.html?slotId=${mySlot.slotId}`;
+                    window.location.href = 'my-slot.html';
                 };
-
-                cardStartSession.classList.remove('disabled');
-                cardStartSession.classList.add('enabled');
-                cardStartSession.style.cursor = 'pointer';
 
                 activeSessionSlotId = mySlot.slotId;
                 Logger.debug('UI_STATE', `Active session slot ID: ${activeSessionSlotId}`);
             } else {
-                Logger.info('UI_STATE', 'No approved slot, keeping cards disabled', {
-                    hasSlot: !!mySlot,
-                    status: mySlot?.approvalStatus
-                });
-
-                // Keep cards disabled
+                // Keep My Slot card disabled
                 cardMySlot.classList.add('disabled');
                 cardMySlot.classList.remove('enabled');
+            }
+
+            // Start Session card - only enabled if canOpenSession is true
+            if (canOpenSession) {
+                cardStartSession.classList.remove('disabled');
+                cardStartSession.classList.add('enabled');
+                cardStartSession.style.cursor = 'pointer';
+                Logger.info('UI_STATE', 'Start Session enabled - ready to open attendance');
+            } else {
                 cardStartSession.classList.add('disabled');
                 cardStartSession.classList.remove('enabled');
+                cardStartSession.style.cursor = 'not-allowed';
+                // Log the reason why session card is disabled
+                if (attendancePanel) {
+                    Logger.info('UI_STATE', 'Start Session disabled', {
+                        status: attendancePanel.status,
+                        warning: attendancePanel.warning
+                    });
+                } else {
+                    Logger.info('UI_STATE', 'Start Session disabled - no attendance data');
+                }
             }
 
             Logger.debug('UI_STATE', 'UI state update complete');
@@ -450,6 +469,14 @@
             if (!activeSessionSlotId) {
                 Logger.warn('ATTENDANCE', 'No active slot ID, cannot open attendance');
                 Utils.showToast('No active slot found', 'error');
+                return;
+            }
+
+            // Check if session can be opened (double-check in case card was clicked somehow)
+            if (attendancePanel && !attendancePanel.canOpen) {
+                const message = attendancePanel.status || 'Cannot open attendance at this time';
+                Logger.warn('ATTENDANCE', 'Cannot open session', { status: attendancePanel.status, warning: attendancePanel.warning });
+                Utils.showToast(message, 'error');
                 return;
             }
 
@@ -543,6 +570,40 @@
                 Logger.debug('QR_MODAL', 'Timer cleared');
             }
             Logger.info('QR_MODAL', 'Modal closed');
+        }
+
+        function showMySlotInfo() {
+            if (!mySlot) {
+                Utils.showToast('No slot information available', 'error');
+                return;
+            }
+
+            // Build slot info message
+            let info = `Date: ${mySlot.date || 'N/A'}`;
+            if (mySlot.timeRange) {
+                info += `\nTime: ${mySlot.timeRange}`;
+            }
+            if (mySlot.dayOfWeek) {
+                info += ` (${mySlot.dayOfWeek})`;
+            }
+            if (mySlot.room) {
+                info += `\nRoom: ${mySlot.room}`;
+            }
+            if (mySlot.building) {
+                info += ` - ${mySlot.building}`;
+            }
+            info += `\nStatus: ${mySlot.approvalStatus || 'PENDING'}`;
+
+            // Show session completion status if applicable
+            if (mySlot.canCancel === false) {
+                info += `\n\nSession Completed`;
+                if (mySlot.cancelBlockedReason) {
+                    info += `\n(${mySlot.cancelBlockedReason})`;
+                }
+            }
+
+            Logger.info('SLOT_INFO', 'Showing slot info', { mySlot });
+            Utils.showToast(info, 'info');
         }
 
         // Global error handler

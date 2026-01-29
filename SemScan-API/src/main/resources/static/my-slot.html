@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#5B4FCF">
+    <title>SemScan - My Time Slot</title>
+    <link rel="stylesheet" href="css/main.css?v=6">
+    <style>
+        body {
+            background: #F5F5F5;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        /* Header - matches presenter.html */
+        .header {
+            background: linear-gradient(90deg, #5B4FCF 0%, #7B6BD6 50%, #FF8C42 100%);
+            border-radius: 0;
+            min-height: 56px;
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .header-back {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            color: white;
+            text-decoration: none;
+            margin-right: 12px;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+
+        .header-back svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        /* Content area */
+        .content {
+            padding: 24px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Slot Details Card */
+        .slot-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .slot-card-content {
+            padding: 20px;
+        }
+
+        .slot-card-header {
+            font-size: 14px;
+            color: #757575;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .slot-card-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #212121;
+            margin: 0 0 16px 0;
+        }
+
+        .slot-card-divider {
+            height: 1px;
+            background: #E0E0E0;
+            margin: 16px 0;
+        }
+
+        .slot-info-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .slot-info-row:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .slot-info-row svg {
+            width: 24px;
+            height: 24px;
+            fill: #2196F3;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .slot-info-text {
+            font-size: 16px;
+            color: #424242;
+        }
+
+        /* Approval Status Badge */
+        .approval-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 16px;
+        }
+
+        .approval-status.approved {
+            background: #E8F5E9;
+            color: #2E7D32;
+        }
+
+        .approval-status.pending {
+            background: #FFF3E0;
+            color: #E65100;
+        }
+
+        .approval-status.declined {
+            background: #FFEBEE;
+            color: #C62828;
+        }
+
+        /* Co-presenters */
+        .co-presenters {
+            margin-top: 16px;
+            font-size: 15px;
+            color: #616161;
+        }
+
+        .co-presenters-title {
+            font-weight: bold;
+            color: #424242;
+            margin-bottom: 8px;
+        }
+
+        .co-presenter-item {
+            padding: 4px 0;
+        }
+
+        /* Cancel Button */
+        .btn-cancel {
+            width: 100%;
+            padding: 14px;
+            margin-top: 20px;
+            background: white;
+            color: #D32F2F;
+            border: 2px solid #D32F2F;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-cancel:hover {
+            background: rgba(211, 47, 47, 0.1);
+        }
+
+        .btn-cancel:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #F5F5F5;
+        }
+
+        /* Session Completed Notice */
+        .session-completed-notice {
+            background: #E3F2FD;
+            border: 1px solid #2196F3;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .session-completed-notice svg {
+            width: 24px;
+            height: 24px;
+            fill: #2196F3;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .session-completed-notice span {
+            font-size: 14px;
+            color: #1565C0;
+        }
+
+        /* Waiting List Card */
+        .waiting-list-card {
+            background: #FFF8E1;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 16px;
+        }
+
+        .waiting-list-card .slot-card-header {
+            color: #F57C00;
+        }
+
+        .waiting-list-card .slot-info-row svg {
+            fill: #F57C00;
+        }
+
+        .waiting-position {
+            font-size: 14px;
+            font-weight: bold;
+            color: #E65100;
+            margin-bottom: 8px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            fill: #BDBDBD;
+            margin-bottom: 20px;
+        }
+
+        .empty-state-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #424242;
+            margin: 0 0 8px 0;
+        }
+
+        .empty-state-text {
+            font-size: 16px;
+            color: #757575;
+            margin: 0 0 24px 0;
+        }
+
+        .btn-browse-slots {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(90deg, #5B4FCF 0%, #7B6BD6 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        /* Loading state */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+        }
+
+        .loading-container .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #E0E0E0;
+            border-top-color: #5B4FCF;
+        }
+
+        .loading-text {
+            margin-top: 16px;
+            color: #757575;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body style="display: none;">
+    <!-- Header -->
+    <header class="header">
+        <button class="header-back" onclick="goBack()">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        </button>
+        <h1 class="header-title">My Time Slot</h1>
+    </header>
+
+    <!-- Main Content -->
+    <div class="content" id="mainContent" style="display: none;">
+        <!-- Slot Details Card -->
+        <div class="slot-card" id="slotCard" style="display: none;">
+            <div class="slot-card-content">
+                <div class="slot-card-header">Your Registered Presentation</div>
+                <h2 class="slot-card-title" id="slotTitle">Wednesday • 28/01/2026</h2>
+
+                <div class="slot-card-divider"></div>
+
+                <div class="slot-info-row">
+                    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                    <span class="slot-info-text" id="slotTime">10:00 - 12:00</span>
+                </div>
+
+                <div class="slot-info-row" id="locationRow">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    <span class="slot-info-text" id="slotLocation">Room 101 • Building 37</span>
+                </div>
+
+                <span class="approval-status" id="approvalStatus">APPROVED</span>
+
+                <!-- Co-presenters -->
+                <div class="co-presenters" id="coPresenters" style="display: none;">
+                    <div class="co-presenters-title">Co-presenters:</div>
+                    <div id="coPresentersList"></div>
+                </div>
+
+                <!-- Session Completed Notice -->
+                <div class="session-completed-notice" id="sessionCompletedNotice" style="display: none;">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    <span id="sessionCompletedText">Session completed - cannot cancel registration</span>
+                </div>
+
+                <!-- Cancel Button -->
+                <button class="btn-cancel" id="btnCancel">Cancel Registration</button>
+            </div>
+        </div>
+
+        <!-- Waiting List Card -->
+        <div class="slot-card waiting-list-card" id="waitingListCard" style="display: none;">
+            <div class="slot-card-content">
+                <div class="slot-card-header">On Waiting List</div>
+                <div class="waiting-position" id="waitingPosition">Position 1 of 3</div>
+                <h2 class="slot-card-title" id="waitingSlotTitle">Wednesday • 28/01/2026</h2>
+
+                <div class="slot-card-divider"></div>
+
+                <div class="slot-info-row">
+                    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                    <span class="slot-info-text" id="waitingSlotTime">10:00 - 12:00</span>
+                </div>
+
+                <div class="slot-info-row" id="waitingLocationRow">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    <span class="slot-info-text" id="waitingSlotLocation">Room 101 • Building 37</span>
+                </div>
+
+                <!-- Cancel Waiting List Button -->
+                <button class="btn-cancel" id="btnCancelWaitingList">Leave Waiting List</button>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
+            <h3 class="empty-state-title">No Presentation Scheduled</h3>
+            <p class="empty-state-text">You haven't registered for any presentation slot yet.</p>
+            <a href="slots.html" class="btn-browse-slots">Browse Available Slots</a>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-container" id="loadingState">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading slot information...</div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container"></div>
+
+    <script src="js/config.js?v=3"></script>
+    <script src="js/utils.js?v=3"></script>
+    <script src="js/api.js?v=3"></script>
+    <script>
+        // Require authentication
+        if (!Utils.isLoggedIn()) {
+            window.location.replace('index.html');
+            throw new Error('Not authenticated');
+        }
+
+        document.body.style.display = '';
+
+        const username = Utils.getUsername();
+        let mySlot = null;
+        let myWaitingListSlot = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('btnCancel').addEventListener('click', cancelRegistration);
+            document.getElementById('btnCancelWaitingList').addEventListener('click', cancelWaitingList);
+            loadSlotData();
+        });
+
+        function goBack() {
+            window.location.href = 'presenter.html';
+        }
+
+        async function loadSlotData() {
+            showLoading();
+            try {
+                const response = await API.getPresenterHome(username);
+                console.log('API response:', response);
+                mySlot = response.mySlot;
+                myWaitingListSlot = response.myWaitingListSlot;
+                console.log('mySlot:', mySlot, 'myWaitingListSlot:', myWaitingListSlot);
+                renderSlotData();
+            } catch (error) {
+                console.error('Failed to load slot data:', error);
+                Utils.showToast('Failed to load slot data: ' + error.message, 'error');
+                showEmpty();
+            } finally {
+                // Always hide loading state
+                document.getElementById('loadingState').style.display = 'none';
+            }
+        }
+
+        function renderSlotData() {
+            const hasSlot = mySlot && mySlot.slotId;
+            const hasWaitingList = myWaitingListSlot && myWaitingListSlot.slotId;
+            console.log('renderSlotData - hasSlot:', hasSlot, 'hasWaitingList:', hasWaitingList);
+
+            if (!hasSlot && !hasWaitingList) {
+                console.log('Showing empty state');
+                showEmpty();
+                return;
+            }
+
+            console.log('Showing content');
+            showContent();
+
+            // Render registered slot
+            if (hasSlot) {
+                renderSlotCard(mySlot);
+            }
+
+            // Render waiting list slot
+            if (hasWaitingList) {
+                renderWaitingListCard(myWaitingListSlot);
+            }
+        }
+
+        function renderSlotCard(slot) {
+            document.getElementById('slotCard').style.display = 'block';
+
+            // Title: Day + Date
+            const title = slot.dayOfWeek && slot.date
+                ? `${slot.dayOfWeek} \u2022 ${slot.date}`
+                : slot.date || 'Scheduled Presentation';
+            document.getElementById('slotTitle').textContent = title;
+
+            // Time
+            document.getElementById('slotTime').textContent = slot.timeRange || '';
+
+            // Location
+            const locationParts = [];
+            if (slot.room) locationParts.push(`Room ${slot.room}`);
+            if (slot.building) locationParts.push(`Building ${slot.building}`);
+            const location = locationParts.join(' \u2022 ');
+            document.getElementById('slotLocation').textContent = location;
+            document.getElementById('locationRow').style.display = location ? 'flex' : 'none';
+
+            // Approval Status
+            const statusEl = document.getElementById('approvalStatus');
+            const status = (slot.approvalStatus || 'PENDING').toUpperCase();
+            statusEl.textContent = status;
+            statusEl.className = 'approval-status ' + status.toLowerCase();
+
+            // Co-presenters
+            if (slot.coPresenters && slot.coPresenters.length > 0) {
+                document.getElementById('coPresenters').style.display = 'block';
+                const listEl = document.getElementById('coPresentersList');
+                listEl.innerHTML = slot.coPresenters.map(p => {
+                    let text = p.name || p.username || 'Unknown';
+                    if (p.topic) text += ` - ${p.topic}`;
+                    return `<div class="co-presenter-item">${text}</div>`;
+                }).join('');
+            } else {
+                document.getElementById('coPresenters').style.display = 'none';
+            }
+
+            // Cancel button state
+            const btnCancel = document.getElementById('btnCancel');
+            const sessionNotice = document.getElementById('sessionCompletedNotice');
+
+            if (slot.canCancel === false) {
+                // Session completed - disable cancel
+                btnCancel.disabled = true;
+                sessionNotice.style.display = 'flex';
+                if (slot.cancelBlockedReason) {
+                    document.getElementById('sessionCompletedText').textContent = slot.cancelBlockedReason;
+                }
+            } else {
+                btnCancel.disabled = false;
+                sessionNotice.style.display = 'none';
+            }
+        }
+
+        function renderWaitingListCard(slot) {
+            document.getElementById('waitingListCard').style.display = 'block';
+
+            // Position
+            document.getElementById('waitingPosition').textContent =
+                `Position ${slot.position} of ${slot.totalInQueue}`;
+
+            // Title
+            const title = slot.dayOfWeek && slot.date
+                ? `${slot.dayOfWeek} \u2022 ${slot.date}`
+                : slot.date || 'Scheduled Presentation';
+            document.getElementById('waitingSlotTitle').textContent = title;
+
+            // Time
+            document.getElementById('waitingSlotTime').textContent = slot.timeRange || '';
+
+            // Location
+            const locationParts = [];
+            if (slot.room) locationParts.push(`Room ${slot.room}`);
+            if (slot.building) locationParts.push(`Building ${slot.building}`);
+            const location = locationParts.join(' \u2022 ');
+            document.getElementById('waitingSlotLocation').textContent = location;
+            document.getElementById('waitingLocationRow').style.display = location ? 'flex' : 'none';
+        }
+
+        async function cancelRegistration() {
+            if (!mySlot || !mySlot.slotId) {
+                Utils.showToast('No slot to cancel', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to cancel your registration? This action cannot be undone.')) {
+                return;
+            }
+
+            Utils.showLoading();
+            try {
+                await API.cancelRegistration(username, mySlot.slotId);
+                Utils.hideLoading();
+                Utils.showToast('Registration cancelled successfully', 'success');
+                // Reload data
+                loadSlotData();
+            } catch (error) {
+                Utils.hideLoading();
+                Utils.showToast(error.message || 'Failed to cancel registration', 'error');
+            }
+        }
+
+        async function cancelWaitingList() {
+            if (!myWaitingListSlot || !myWaitingListSlot.slotId) {
+                Utils.showToast('No waiting list entry to cancel', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to leave the waiting list?')) {
+                return;
+            }
+
+            Utils.showLoading();
+            try {
+                await API.leaveWaitingList(myWaitingListSlot.slotId, username);
+                Utils.hideLoading();
+                Utils.showToast('Left waiting list successfully', 'success');
+                // Reload data
+                loadSlotData();
+            } catch (error) {
+                Utils.hideLoading();
+                Utils.showToast(error.message || 'Failed to leave waiting list', 'error');
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loadingState').style.display = 'flex';
+            document.getElementById('mainContent').style.display = 'none';
+        }
+
+        function showContent() {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('slotCard').style.display = 'none';
+            document.getElementById('waitingListCard').style.display = 'none';
+        }
+
+        function showEmpty() {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'block';
+            document.getElementById('slotCard').style.display = 'none';
+            document.getElementById('waitingListCard').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

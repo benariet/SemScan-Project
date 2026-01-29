@@ -59,6 +59,20 @@ public class DatabaseLoggerService {
     }
 
     /**
+     * Get device info for current request thread (for logging in other services)
+     */
+    public static String getDeviceInfo() {
+        return currentDeviceInfo.get();
+    }
+
+    /**
+     * Get app version for current request thread (for logging in other services)
+     */
+    public static String getAppVersion() {
+        return currentAppVersion.get();
+    }
+
+    /**
      * Log an action to the database
      * @param level Log level (INFO, WARN, ERROR, etc.)
      * @param tag Tag/category for the log

@@ -277,7 +277,10 @@ public class AttendanceService {
      */
     @Transactional(readOnly = true)
     public List<Attendance> getAttendanceBySession(Long sessionId) {
-        logger.info("Retrieving attendance records for session: {}", sessionId);
+        String username = LoggerUtil.getCurrentBguUsername();
+        String deviceInfo = DatabaseLoggerService.getDeviceInfo();
+        logger.info("[ATTENDANCE_GET_BY_SESSION_START] Retrieving attendance records: sessionId={}, requestedBy={}, device={}",
+            sessionId, username, deviceInfo);
         LoggerUtil.setSessionId(sessionId != null ? sessionId.toString() : null);
         
         try {

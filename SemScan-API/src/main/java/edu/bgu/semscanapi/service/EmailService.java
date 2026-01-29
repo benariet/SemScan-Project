@@ -4,6 +4,7 @@ import edu.bgu.semscanapi.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,10 @@ import java.util.stream.Collectors;
 public class EmailService {
 
     private static final Logger logger = LoggerUtil.getLogger(EmailService.class);
+
+    @Lazy
+    @Autowired
+    private DatabaseLoggerService databaseLoggerService;
 
     @Autowired(required = false)
     private JavaMailSender mailSender;
@@ -42,25 +47,65 @@ public class EmailService {
      * @return true if email was sent successfully, false otherwise
      */
     public boolean sendExportEmail(Long sessionId, String filename, byte[] fileData, String format) {
+        String username = LoggerUtil.getCurrentBguUsername();
+        String deviceInfo = DatabaseLoggerService.getDeviceInfo();
+
+        logger.info("[EXPORT_EMAIL_START] Starting export email process for sessionId={}, filename={}, format={}, fileSize={} bytes, user={}, device={}",
+            sessionId, filename, format, fileData != null ? fileData.length : 0, username, deviceInfo);
+
+        // Log to database
+        databaseLoggerService.logAction("INFO", "EXPORT_EMAIL_START",
+            String.format("Starting export email for session %d, file: %s, format: %s", sessionId, filename, format),
+            username, String.format("sessionId=%d,filename=%s,format=%s,fileSize=%d,device=%s",
+                sessionId, filename, format, fileData != null ? fileData.length : 0, deviceInfo));
+
         if (mailSender == null) {
-            logger.warn("JavaMailSender is not configured. Email sending is disabled.");
+            logger.error("[EXPORT_EMAIL_NOT_CONFIGURED] JavaMailSender is NULL - email sending is disabled. " +
+                "Check SMTP configuration in application.properties. sessionId={}", sessionId);
+            databaseLoggerService.logError("EXPORT_EMAIL_NOT_CONFIGURED",
+                "JavaMailSender is NULL - email sending disabled", null, username,
+                String.format("sessionId=%d,device=%s", sessionId, deviceInfo));
             return false;
         }
+        logger.info("[EXPORT_EMAIL_MAILSENDER_OK] JavaMailSender is configured and available");
 
         try {
+            // Parse recipients from configuration
+            logger.info("[EXPORT_EMAIL_PARSING_RECIPIENTS] Raw recipients config: '{}'", emailRecipients);
             List<String> recipients = parseEmailRecipients(emailRecipients);
+
             if (recipients.isEmpty()) {
-                logger.warn("No email recipients configured. Cannot send export email.");
+                logger.error("[EXPORT_EMAIL_NO_RECIPIENTS] No email recipients configured after parsing. " +
+                    "Raw config was: '{}'. sessionId={}", emailRecipients, sessionId);
+                databaseLoggerService.logError("EXPORT_EMAIL_NO_RECIPIENTS",
+                    String.format("No email recipients configured. Raw config: '%s'", emailRecipients),
+                    null, username, String.format("sessionId=%d,rawConfig=%s,device=%s", sessionId, emailRecipients, deviceInfo));
                 return false;
             }
 
+            String recipientList = String.join(", ", recipients);
+
+            // Log each recipient address explicitly
+            logger.info("[EXPORT_EMAIL_RECIPIENTS_PARSED] Found {} recipient(s) for sessionId={}: {}",
+                recipients.size(), sessionId, recipientList);
+            databaseLoggerService.logAction("INFO", "EXPORT_EMAIL_RECIPIENTS",
+                String.format("Email recipients for session %d: %s", sessionId, recipientList),
+                username, String.format("sessionId=%d,recipientCount=%d,recipients=%s,device=%s",
+                    sessionId, recipients.size(), recipientList, deviceInfo));
+
+            logger.info("[EXPORT_EMAIL_CREATING_MESSAGE] Creating MimeMessage with attachment for sessionId={}", sessionId);
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             // Configure email: sender address, recipient list, and subject line with session ID
+            logger.info("[EXPORT_EMAIL_SET_FROM] Setting From address: '{}'", fromEmail);
             helper.setFrom(fromEmail);
+
+            logger.info("[EXPORT_EMAIL_SET_TO] Setting To addresses: {}", recipientList);
             helper.setTo(recipients.toArray(new String[0]));
+
             String subject = String.format("Attendance Export - Session %d", sessionId);
+            logger.info("[EXPORT_EMAIL_SET_SUBJECT] Setting Subject: '{}'", subject);
             helper.setSubject(subject);
 
             // Generate plain text email body with session details and file information
@@ -81,30 +126,60 @@ public class EmailService {
             // Convert plain text body to HTML format (line breaks -> <br> tags) for email rendering
             String htmlBody = convertToHtml(body);
             helper.setText(htmlBody, true);
+            logger.info("[EXPORT_EMAIL_BODY_SET] Email body set (HTML format), length={} chars", htmlBody.length());
 
             // Attach exported file: determine MIME type (Excel XLSX or CSV) and attach file data
             String contentType = format.equalsIgnoreCase("xlsx")
                 ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 : "text/csv";
+            logger.info("[EXPORT_EMAIL_ATTACHING] Attaching file: filename='{}', contentType='{}', size={} bytes",
+                filename, contentType, fileData.length);
             helper.addAttachment(filename, () -> new java.io.ByteArrayInputStream(fileData), contentType);
 
             // Send email with attachment via SMTP server
+            logger.info("[EXPORT_EMAIL_SENDING] Sending email via SMTP... sessionId={}, recipients={}",
+                sessionId, recipientList);
+            databaseLoggerService.logAction("INFO", "EXPORT_EMAIL_SENDING",
+                String.format("Sending export email via SMTP for session %d to: %s", sessionId, recipientList),
+                username, String.format("sessionId=%d,recipients=%s,filename=%s,from=%s,subject=%s,device=%s",
+                    sessionId, recipientList, filename, fromEmail, subject, deviceInfo));
+
             mailSender.send(message);
-            logger.info("Export email sent successfully to {} recipients for session {}", recipients.size(), sessionId);
+
+            logger.info("[EXPORT_EMAIL_SUCCESS] Export email sent successfully! sessionId={}, recipientCount={}, recipients=[{}], filename={}, fileSize={} bytes",
+                sessionId, recipients.size(), recipientList, filename, fileData.length);
+            databaseLoggerService.logAction("INFO", "EXPORT_EMAIL_SUCCESS",
+                String.format("Export email sent successfully for session %d to %d recipients: %s",
+                    sessionId, recipients.size(), recipientList),
+                username, String.format("sessionId=%d,recipientCount=%d,recipients=%s,filename=%s,fileSize=%d,from=%s,device=%s",
+                    sessionId, recipients.size(), recipientList, filename, fileData.length, fromEmail, deviceInfo));
             return true;
 
         } catch (AuthenticationFailedException e) {
-            logger.error("Authentication failed when sending export email for session {}. " +
-                    "Email server authentication failed. Please check SMTP credentials in backend configuration. " +
-                    "Full error: {}", sessionId, getFullErrorMessage(e), e);
+            logger.error("[EXPORT_EMAIL_AUTH_FAILED] SMTP authentication failed for sessionId={}. " +
+                    "Check SMTP credentials. Recipients would have been: '{}'. Error: {}",
+                    sessionId, emailRecipients, getFullErrorMessage(e), e);
+            databaseLoggerService.logError("EXPORT_EMAIL_AUTH_FAILED",
+                String.format("SMTP auth failed for session %d. Recipients: %s", sessionId, emailRecipients),
+                e, username, String.format("sessionId=%d,recipients=%s,device=%s", sessionId, emailRecipients, deviceInfo));
             return false;
         } catch (MessagingException e) {
-            logger.error("MessagingException when sending export email for session {}. Full error: {}", 
-                sessionId, getFullErrorMessage(e), e);
+            logger.error("[EXPORT_EMAIL_MESSAGING_ERROR] MessagingException for sessionId={}. " +
+                    "Recipients: '{}'. Filename: '{}'. Error: {}",
+                    sessionId, emailRecipients, filename, getFullErrorMessage(e), e);
+            databaseLoggerService.logError("EXPORT_EMAIL_MESSAGING_ERROR",
+                String.format("MessagingException for session %d. Recipients: %s", sessionId, emailRecipients),
+                e, username, String.format("sessionId=%d,recipients=%s,filename=%s,device=%s",
+                    sessionId, emailRecipients, filename, deviceInfo));
             return false;
         } catch (Exception e) {
-            logger.error("Unexpected error sending export email for session {}. Full error: {}", 
-                sessionId, getFullErrorMessage(e), e);
+            logger.error("[EXPORT_EMAIL_ERROR] Unexpected error for sessionId={}. " +
+                    "Recipients: '{}'. Filename: '{}'. Error: {}",
+                    sessionId, emailRecipients, filename, getFullErrorMessage(e), e);
+            databaseLoggerService.logError("EXPORT_EMAIL_ERROR",
+                String.format("Unexpected error sending email for session %d. Recipients: %s", sessionId, emailRecipients),
+                e, username, String.format("sessionId=%d,recipients=%s,filename=%s,device=%s",
+                    sessionId, emailRecipients, filename, deviceInfo));
             return false;
         }
     }

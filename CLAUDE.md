@@ -262,41 +262,42 @@ cp "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "SemScan/build/outputs/ap
 
 ## Deployment
 
-### CRITICAL: Always Deploy to TEST First!
+### CRITICAL: Always Deploy to DEV First!
 **NEVER deploy directly to production.** Always:
 1. Build JAR locally
-2. Deploy to TEST environment (`/opt/semscan-api-test`)
-3. Test thoroughly on port 8081
-4. Only after testing, promote to PRODUCTION
+2. Deploy to DEV environment (132.72.50.52:8080)
+3. Test thoroughly
+4. Only after testing, promote to PRODUCTION (.53:8080)
 
 ### Environments
 
-| Environment | URL | Port | Database | API Path | Service |
-|-------------|-----|------|----------|----------|---------|
-| **Production** | http://132.72.50.53:8080 | 8080 | semscan_db | /opt/semscan-api | semscan-api |
-| **Test** | http://132.72.50.53:8081 | 8081 | semscan_db_test | /opt/semscan-api-test | semscan-api-test |
+| Environment | Server | URL | Port | Database | API Path | Service |
+|-------------|--------|-----|------|----------|----------|---------|
+| **Production** | 132.72.50.53 | http://132.72.50.53:8080 | 8080 | semscan_db | /opt/semscan-api | semscan-api |
+| **Development** | 132.72.50.52 | http://132.72.50.52:8080 | 8080 | semscan_db | /opt/semscan-api | semscan-api |
 
-### Remote Server
-- **Host**: 132.72.50.53
-- **Username**: webmaster
-- **Password**: TAL1234
+### Remote Servers
+| Server | Host | Username | Password |
+|--------|------|----------|----------|
+| **Production** | 132.72.50.53 | webmaster | TAL1234 |
+| **Development** | 132.72.50.52 | webmaster | TAL1234 |
 
-### Test Environment Deployment (DEFAULT)
+### Development Environment Deployment (DEFAULT)
 ```bash
 # 1. Build JAR locally
 cd SemScan-API && ./gradlew bootJar
 
-# 2. Upload JAR to TEST
-curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api-test/SemScan-API-1.0.0.jar"
+# 2. Upload JAR to DEV (.52)
+curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.52/opt/semscan-api/SemScan-API-1.0.0.jar"
 
-# 3. Restart TEST service
-ssh -o StrictHostKeyChecking=no webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S systemctl restart semscan-api-test"
+# 3. Restart DEV service
+ssh -o StrictHostKeyChecking=no webmaster@132.72.50.52 "echo 'TAL1234' | sudo -S systemctl restart semscan-api"
 
-# 4. Test on http://132.72.50.53:8081
+# 4. Test on http://132.72.50.52:8080
 ```
 
-### Promote Test to Production
-**Only run these commands after testing is complete:**
+### Promote DEV to Production
+**Only run these commands after testing is complete on DEV:**
 ```bash
 # 1. Upload JAR to PRODUCTION (same JAR that was tested)
 curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api/SemScan-API-1.0.0.jar"
@@ -307,11 +308,11 @@ ssh -o StrictHostKeyChecking=no webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S
 
 ### APK Upload Commands
 ```bash
-# Upload APK to PRODUCTION
-curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0.apk" "sftp://132.72.50.53/opt/semscan-api/semscan-1.0.0.apk"
+# Upload APK to DEV (.52)
+curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0.apk" "sftp://132.72.50.52/opt/semscan-api/semscan-1.0.0.apk"
 
-# Upload APK to TEST
-curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0.apk" "sftp://132.72.50.53/opt/semscan-api-test/semscan-1.0.0.apk"
+# Upload APK to PRODUCTION (.53)
+curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0.apk" "sftp://132.72.50.53/opt/semscan-api/semscan-1.0.0.apk"
 ```
 
 ### Note
@@ -325,49 +326,48 @@ curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/semscan-1.0.0
 
 | Component | How It Detects |
 |-----------|----------------|
-| **API JAR** | Port 8080 = production, Port 8081 = test (GlobalConfig.java) |
 | **Web App** | Relative URL `/api/v1` uses current origin automatically |
 
 **What needs manual change:**
 
-| Component | File | Production | Test |
-|-----------|------|------------|------|
-| **Android APK** | `SemScan/src/main/java/org/example/semscan/constants/ApiConstants.java` lines 17-18 | `8080` | `8081` |
+| Component | File | Production (.53) | Dev (.52) |
+|-----------|------|------------------|-----------|
+| **Android APK** | `SemScan/src/main/java/org/example/semscan/constants/ApiConstants.java` lines 17-18 | `.53:8080` | `.52:8080` |
 
 **Server paths:**
 
-| Environment | Port | Database | JAR/APK Path | Service |
-|-------------|------|----------|--------------|---------|
-| **Production** | 8080 | semscan_db | `/opt/semscan-api/` | semscan-api |
-| **Test** | 8081 | semscan_db_test | `/opt/semscan-api-test/` | semscan-api-test |
+| Environment | Server | Port | Database | JAR/APK Path | Service |
+|-------------|--------|------|----------|--------------|---------|
+| **Production** | .53 | 8080 | semscan_db | `/opt/semscan-api/` | semscan-api |
+| **Development** | .52 | 8080 | semscan_db | `/opt/semscan-api/` | semscan-api |
 
-**Switch to TEST:**
+**Switch to DEV (.52):**
 ```bash
-# 1. Edit ApiConstants.java - change 8080 → 8081
+# 1. Edit ApiConstants.java - change .53 → .52 (port stays 8080)
 # 2. Build
 cd SemScan && ./gradlew assembleDebug
 cd SemScan-API && ./gradlew bootJar
-# 3. Upload to TEST (same JAR works for both environments)
-curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api-test/"
-curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "sftp://132.72.50.53/opt/semscan-api-test/semscan-1.0.0.apk"
-ssh webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S systemctl restart semscan-api-test"
+# 3. Upload to DEV (.52)
+curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.52/opt/semscan-api/SemScan-API-1.0.0.jar"
+curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "sftp://132.72.50.52/opt/semscan-api/semscan-1.0.0.apk"
+ssh webmaster@132.72.50.52 "echo 'TAL1234' | sudo -S systemctl restart semscan-api"
 # 4. Install on device
 adb install -r SemScan/build/outputs/apk/debug/SemScan-debug.apk
 ```
 
-**Switch to PRODUCTION:**
+**Switch to PRODUCTION (.53):**
 ```bash
-# 1. Edit ApiConstants.java - change 8081 → 8080
+# 1. Edit ApiConstants.java - change .52 → .53 (port stays 8080)
 # 2. Build
 cd SemScan && ./gradlew assembleDebug
 cd SemScan-API && ./gradlew bootJar
-# 3. Upload to PRODUCTION
-curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api/"
+# 3. Upload to PRODUCTION (.53)
+curl -k -u "webmaster:TAL1234" -T "SemScan-API/build/libs/SemScan-API-1.0.0.jar" "sftp://132.72.50.53/opt/semscan-api/SemScan-API-1.0.0.jar"
 curl -k -u "webmaster:TAL1234" -T "SemScan/build/outputs/apk/debug/SemScan-debug.apk" "sftp://132.72.50.53/opt/semscan-api/semscan-1.0.0.apk"
 ssh webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S systemctl restart semscan-api"
 ```
 
-**Note:** The API JAR is identical for both environments - the systemd service files specify the port and database via command-line arguments.
+**Note:** Both environments use identical configuration (port 8080, semscan_db) - only the server IP differs.
 
 ## Common Commands
 
@@ -382,16 +382,19 @@ cd SemScan && ./gradlew assembleDebug
 
 ### Check Logs on Server
 ```bash
-# SSH to server
+# SSH to DEV server (.52)
+ssh webmaster@132.72.50.52
+
+# SSH to PRODUCTION server (.53)
 ssh webmaster@132.72.50.53
 
-# Check service status
+# Check service status (same command on both servers)
 sudo systemctl status semscan-api
 
-# View recent logs
+# View recent logs (same command on both servers)
 sudo journalctl -u semscan-api -f
 
-# Query app_logs table
+# Query app_logs table (same on both servers)
 mysql -u semscan_admin -pTAL1234 semscan_db -e "SELECT * FROM app_logs ORDER BY id DESC LIMIT 20;"
 ```
 

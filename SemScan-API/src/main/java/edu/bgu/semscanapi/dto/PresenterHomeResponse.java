@@ -198,6 +198,8 @@ public class PresenterHomeResponse {
         private String dayOfWeek;
         private String semesterLabel;
         private String approvalStatus; // PENDING, APPROVED, DECLINED, EXPIRED
+        private boolean canCancel = true; // Can presenter cancel this registration? False if session completed
+        private String cancelBlockedReason; // Why cancellation is blocked (if canCancel=false)
         private List<RegisteredPresenter> coPresenters = new ArrayList<>();
 
         public Long getSlotId() {
@@ -262,6 +264,22 @@ public class PresenterHomeResponse {
 
         public void setApprovalStatus(String approvalStatus) {
             this.approvalStatus = approvalStatus;
+        }
+
+        public boolean isCanCancel() {
+            return canCancel;
+        }
+
+        public void setCanCancel(boolean canCancel) {
+            this.canCancel = canCancel;
+        }
+
+        public String getCancelBlockedReason() {
+            return cancelBlockedReason;
+        }
+
+        public void setCancelBlockedReason(String cancelBlockedReason) {
+            this.cancelBlockedReason = cancelBlockedReason;
         }
 
         public List<RegisteredPresenter> getCoPresenters() {

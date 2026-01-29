@@ -419,12 +419,27 @@ public class ExportController {
             @RequestParam Long sessionId,
             @RequestParam(defaultValue = "csv") String format) {
         String correlationId = LoggerUtil.generateAndSetCorrelationId();
-        logger.info("Uploading export file for session: {} in format: {}", sessionId, format);
+        String username = LoggerUtil.getCurrentBguUsername();
+        String deviceInfo = DatabaseLoggerService.getDeviceInfo();
+        String appVersion = DatabaseLoggerService.getAppVersion();
+
+        logger.info("[EXPORT_UPLOAD_START] Starting export upload: sessionId={}, format={}, user={}, device={}, appVersion={}",
+            sessionId, format, username, deviceInfo, appVersion);
         LoggerUtil.logApiRequest(logger, "POST", "/api/v1/export/upload?sessionId=" + sessionId + "&format=" + format, null);
+
+        // Log START to database
+        databaseLoggerService.logAction("INFO", "EXPORT_UPLOAD_START",
+            String.format("Starting export upload for session %d, format: %s", sessionId, format),
+            username, String.format("sessionId=%d,format=%s,device=%s,appVersion=%s", sessionId, format, deviceInfo, appVersion));
 
         try {
             // Validate format
+            logger.info("[EXPORT_UPLOAD_VALIDATE_FORMAT] Validating format: '{}' for sessionId={}", format, sessionId);
             if (!format.equalsIgnoreCase("csv") && !format.equalsIgnoreCase("xlsx")) {
+                logger.error("[EXPORT_UPLOAD_INVALID_FORMAT] Invalid format '{}' for sessionId={}, user={}", format, sessionId, username);
+                databaseLoggerService.logError("EXPORT_UPLOAD_INVALID_FORMAT",
+                    String.format("Invalid format '%s' for session %d", format, sessionId),
+                    null, username, String.format("sessionId=%d,format=%s,device=%s", sessionId, format, deviceInfo));
                 ErrorResponse errorResponse = new ErrorResponse(
                         "Invalid format. Supported formats: csv, xlsx",
                         "Bad Request",
@@ -433,19 +448,21 @@ public class ExportController {
                 LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", 400, "Invalid format");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
             }
+            logger.info("[EXPORT_UPLOAD_FORMAT_OK] Format validated: {} for sessionId={}", format, sessionId);
 
             // Check for pending manual attendance requests
+            logger.info("[EXPORT_UPLOAD_CHECK_PENDING] Checking for pending manual attendance requests: sessionId={}", sessionId);
             if (manualAttendanceService.hasPendingRequests(sessionId)) {
                 long pendingCount = manualAttendanceService.getPendingRequestCount(sessionId);
-                String errorMsg = String.format("Cannot upload export for session: %s - %d pending manual attendance requests", 
+                String errorMsg = String.format("Cannot upload export for session: %s - %d pending manual attendance requests",
                     sessionId, pendingCount);
-                logger.warn(errorMsg);
+                logger.warn("[EXPORT_UPLOAD_BLOCKED_PENDING] {} - user={}", errorMsg, username);
                 LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", 409,
                         "Conflict - " + pendingCount + " pending requests");
-                
+
                 // Log to database
-                databaseLoggerService.logError("EXPORT_UPLOAD_BLOCKED_PENDING_REQUESTS", errorMsg, null, null, 
-                    String.format("sessionId=%s,pendingCount=%d,format=%s", sessionId, pendingCount, format));
+                databaseLoggerService.logError("EXPORT_UPLOAD_BLOCKED_PENDING_REQUESTS", errorMsg, null, username,
+                    String.format("sessionId=%d,pendingCount=%d,format=%s,device=%s", sessionId, pendingCount, format, deviceInfo));
 
                 ErrorResponse errorResponse = new ErrorResponse(
                         "Cannot upload export while " + pendingCount
@@ -455,14 +472,26 @@ public class ExportController {
                         "/api/v1/export/upload");
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
             }
+            logger.info("[EXPORT_UPLOAD_NO_PENDING] No pending requests for sessionId={}", sessionId);
 
             // Get attendance records for the session
+            logger.info("[EXPORT_UPLOAD_GET_ATTENDANCE] Fetching attendance records for sessionId={}", sessionId);
             List<Attendance> attendanceList = attendanceService.getAttendanceBySession(sessionId);
+            logger.info("[EXPORT_UPLOAD_ATTENDANCE_FETCHED] Retrieved {} attendance records for sessionId={}, user={}",
+                attendanceList.size(), sessionId, username);
+
+            // Log attendance retrieval to database
+            databaseLoggerService.logAction("INFO", "EXPORT_UPLOAD_ATTENDANCE_FETCHED",
+                String.format("Retrieved %d attendance records for session %d", attendanceList.size(), sessionId),
+                username, String.format("sessionId=%d,recordCount=%d,device=%s", sessionId, attendanceList.size(), deviceInfo));
 
             // Generate export data
             byte[] exportData;
             String filename;
             String contentType;
+            logger.info("[EXPORT_UPLOAD_GENERATING] Generating {} export file for sessionId={}, recordCount={}",
+                format.toUpperCase(), sessionId, attendanceList.size());
+
             if (format.equalsIgnoreCase("xlsx")) {
                 exportData = generateExcelForSession(sessionId, attendanceList);
                 filename = generateExportFilename(sessionId);
@@ -480,22 +509,38 @@ public class ExportController {
                 }
                 contentType = "text/csv";
             }
+            logger.info("[EXPORT_UPLOAD_GENERATED] Export file generated: filename={}, size={} bytes, contentType={}, sessionId={}, user={}",
+                filename, exportData.length, contentType, sessionId, username);
+
+            // Log file generation to database
+            databaseLoggerService.logAction("INFO", "EXPORT_UPLOAD_FILE_GENERATED",
+                String.format("Export file generated for session %d: %s (%d bytes)", sessionId, filename, exportData.length),
+                username, String.format("sessionId=%d,filename=%s,fileSize=%d,contentType=%s,recordCount=%d,device=%s",
+                    sessionId, filename, exportData.length, contentType, attendanceList.size(), deviceInfo));
 
             // Upload file to server
+            logger.info("[EXPORT_UPLOAD_UPLOADING] Uploading file to server: filename={}, sessionId={}, user={}",
+                filename, sessionId, username);
+            databaseLoggerService.logAction("INFO", "EXPORT_UPLOAD_UPLOADING",
+                String.format("Uploading export file to server for session %d: %s", sessionId, filename),
+                username, String.format("sessionId=%d,filename=%s,fileSize=%d,device=%s", sessionId, filename, exportData.length, deviceInfo));
+
             FileUploadService.UploadResult uploadResult = fileUploadService.uploadFile(
                 exportData, filename, contentType, sessionId);
 
             if (!uploadResult.isSuccess()) {
-                String errorMsg = String.format("Failed to upload export file for session: %s - %s", 
+                String errorMsg = String.format("Failed to upload export file for session: %s - %s",
                     sessionId, uploadResult.getMessage());
-                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", uploadResult.getStatusCode(), 
+                logger.error("[EXPORT_UPLOAD_UPLOAD_FAILED] {} - statusCode={}, user={}, device={}",
+                    errorMsg, uploadResult.getStatusCode(), username, deviceInfo);
+                LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", uploadResult.getStatusCode(),
                     "Upload failed: " + uploadResult.getMessage());
-                
+
                 // Log upload failure to database
-                databaseLoggerService.logError("EXPORT_UPLOAD_FAILED", errorMsg, uploadResult.getException(), null, 
-                    String.format("sessionId=%s,format=%s,statusCode=%d,filename=%s", 
-                        sessionId, format, uploadResult.getStatusCode(), filename));
-                
+                databaseLoggerService.logError("EXPORT_UPLOAD_FAILED", errorMsg, uploadResult.getException(), username,
+                    String.format("sessionId=%d,format=%s,statusCode=%d,filename=%s,device=%s",
+                        sessionId, format, uploadResult.getStatusCode(), filename, deviceInfo));
+
                 ErrorResponse errorResponse = new ErrorResponse(
                         errorMsg,
                         "Upload Failed",
@@ -505,48 +550,94 @@ public class ExportController {
                     uploadResult.getStatusCode() > 0 ? HttpStatus.valueOf(uploadResult.getStatusCode()) : HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(errorResponse);
             }
+            logger.info("[EXPORT_UPLOAD_UPLOADED] File uploaded successfully: filename={}, sessionId={}, response={}",
+                filename, sessionId, uploadResult.getResponseBody());
+
+            // Log upload success to database
+            databaseLoggerService.logAction("INFO", "EXPORT_UPLOAD_FILE_UPLOADED",
+                String.format("Export file uploaded successfully for session %d: %s", sessionId, filename),
+                username, String.format("sessionId=%d,filename=%s,device=%s,uploadResponse=%s",
+                    sessionId, filename, deviceInfo, uploadResult.getResponseBody()));
 
             // Verify file was uploaded successfully
+            logger.info("[EXPORT_UPLOAD_VERIFYING] Verifying file exists on server: filename={}, sessionId={}", filename, sessionId);
             boolean fileExists = fileUploadService.verifyFileExists(filename, sessionId);
             if (!fileExists) {
-                logger.warn("File upload reported success but verification failed - filename: {}, sessionId: {}", 
-                    filename, sessionId);
-                databaseLoggerService.logError("EXPORT_UPLOAD_VERIFICATION_FAILED", 
-                    String.format("File upload reported success but verification failed - filename: %s, sessionId: %s", 
-                        filename, sessionId), null, null,
-                    String.format("sessionId=%s,format=%s,filename=%s", sessionId, format, filename));
+                logger.warn("[EXPORT_UPLOAD_VERIFY_FAILED] File upload reported success but verification failed - filename={}, sessionId={}, user={}",
+                    filename, sessionId, username);
+                databaseLoggerService.logError("EXPORT_UPLOAD_VERIFICATION_FAILED",
+                    String.format("File upload reported success but verification failed - filename: %s, sessionId: %d",
+                        filename, sessionId), null, username,
+                    String.format("sessionId=%d,format=%s,filename=%s,device=%s", sessionId, format, filename, deviceInfo));
+            } else {
+                logger.info("[EXPORT_UPLOAD_VERIFIED] File verified on server: filename={}, sessionId={}", filename, sessionId);
             }
 
             // Send email automatically after successful upload
             boolean emailSent = false;
             String emailError = null;
+            logger.info("[EXPORT_UPLOAD_EMAIL_CHECK] Checking if email service is configured for sessionId={}", sessionId);
+
             if (emailService.isEmailConfigured()) {
+                logger.info("[EXPORT_UPLOAD_EMAIL_CONFIGURED] Email service is configured, attempting to send email for sessionId={}", sessionId);
+                List<String> recipients = emailService.getEmailRecipients();
+                String recipientList = String.join(", ", recipients);
+                logger.info("[EXPORT_UPLOAD_EMAIL_RECIPIENTS] Email will be sent to: {} for sessionId={}",
+                    recipientList, sessionId);
+
+                // Log email attempt to database
+                databaseLoggerService.logAction("INFO", "EXPORT_UPLOAD_EMAIL_ATTEMPT",
+                    String.format("Attempting to send export email for session %d to: %s", sessionId, recipientList),
+                    username, String.format("sessionId=%d,recipients=%s,filename=%s,device=%s",
+                        sessionId, recipientList, filename, deviceInfo));
+
                 try {
+                    logger.info("[EXPORT_UPLOAD_EMAIL_SENDING] Calling emailService.sendExportEmail() for sessionId={}, filename={}, format={}",
+                        sessionId, filename, format);
                     emailSent = emailService.sendExportEmail(sessionId, filename, exportData, format);
                     if (!emailSent) {
                         emailError = "Email service returned false";
-                        logger.warn("Failed to send export email after upload for session: {}", sessionId);
+                        logger.warn("[EXPORT_UPLOAD_EMAIL_RETURNED_FALSE] emailService.sendExportEmail() returned false for sessionId={}, user={}, recipients={}",
+                            sessionId, username, recipientList);
+                        databaseLoggerService.logError("EXPORT_UPLOAD_EMAIL_RETURNED_FALSE",
+                            String.format("emailService.sendExportEmail() returned false for session %d", sessionId),
+                            null, username, String.format("sessionId=%d,recipients=%s,filename=%s,device=%s",
+                                sessionId, recipientList, filename, deviceInfo));
                     } else {
-                        logger.info("Export email sent successfully after upload for session: {}", sessionId);
+                        logger.info("[EXPORT_UPLOAD_EMAIL_SENT] Export email sent successfully for sessionId={}, user={}, recipients={}, filename={}",
+                            sessionId, username, recipientList, filename);
+                        databaseLoggerService.logAction("INFO", "EXPORT_UPLOAD_EMAIL_SENT",
+                            String.format("Export email sent successfully for session %d to: %s", sessionId, recipientList),
+                            username, String.format("sessionId=%d,recipients=%s,filename=%s,device=%s",
+                                sessionId, recipientList, filename, deviceInfo));
                     }
                 } catch (Exception e) {
                     emailError = e.getMessage();
-                    logger.error("Error sending export email after upload for session: {}", sessionId, e);
+                    logger.error("[EXPORT_UPLOAD_EMAIL_EXCEPTION] Exception sending export email for sessionId={}, user={}, recipients={}, error={}",
+                        sessionId, username, recipientList, e.getMessage(), e);
+                    databaseLoggerService.logError("EXPORT_UPLOAD_EMAIL_EXCEPTION",
+                        String.format("Exception sending export email for session %d: %s", sessionId, e.getMessage()),
+                        e, username, String.format("sessionId=%d,recipients=%s,filename=%s,device=%s",
+                            sessionId, recipientList, filename, deviceInfo));
                 }
             } else {
-                logger.info("Email service not configured, skipping email send for session: {}", sessionId);
+                logger.warn("[EXPORT_UPLOAD_EMAIL_NOT_CONFIGURED] Email service NOT configured, skipping email for sessionId={}, user={}",
+                    sessionId, username);
+                databaseLoggerService.logAction("WARN", "EXPORT_UPLOAD_EMAIL_NOT_CONFIGURED",
+                    String.format("Email service not configured, skipping email for session %d", sessionId),
+                    username, String.format("sessionId=%d,device=%s", sessionId, deviceInfo));
             }
 
-            String successMsg = String.format("Export file uploaded successfully for session: %s - %d records, format: %s, filename: %s, verified: %s, emailSent: %s", 
-                sessionId, attendanceList.size(), format, filename, fileExists, emailSent);
-            logger.info(successMsg);
+            String successMsg = String.format("Export upload completed: sessionId=%s, records=%d, format=%s, filename=%s, verified=%s, emailSent=%s, user=%s, device=%s",
+                sessionId, attendanceList.size(), format, filename, fileExists, emailSent, username, deviceInfo);
+            logger.info("[EXPORT_UPLOAD_SUCCESS] {}", successMsg);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", 200,
                     "File uploaded successfully - " + attendanceList.size() + " records");
-            
+
             // Log successful upload to database
-            databaseLoggerService.logBusinessEvent("EXPORT_UPLOAD_SUCCESS", successMsg, 
-                String.format("sessionId=%s,format=%s,filename=%s,fileSize=%d,verified=%s,emailSent=%s,uploadResponse=%s", 
-                    sessionId, format, filename, exportData.length, fileExists, emailSent, uploadResult.getResponseBody()));
+            databaseLoggerService.logBusinessEvent("EXPORT_UPLOAD_SUCCESS", successMsg,
+                String.format("sessionId=%d,format=%s,filename=%s,fileSize=%d,recordCount=%d,verified=%s,emailSent=%s,user=%s,device=%s,uploadResponse=%s",
+                    sessionId, format, filename, exportData.length, attendanceList.size(), fileExists, emailSent, username, deviceInfo, uploadResult.getResponseBody()));
 
             // Build response with upload details
             Map<String, Object> responseMap = new java.util.HashMap<>();
@@ -570,14 +661,14 @@ public class ExportController {
             return ResponseEntity.ok(responseMap);
 
         } catch (Exception e) {
-            String errorMsg = String.format("Failed to upload export file for session: %s", sessionId);
-            logger.error(errorMsg, e);
+            String errorMsg = String.format("Failed to upload export file for session: %d", sessionId);
+            logger.error("[EXPORT_UPLOAD_ERROR] {} - user={}, device={}, error={}", errorMsg, username, deviceInfo, e.getMessage(), e);
             LoggerUtil.logError(logger, "Failed to upload export file for session", e);
             LoggerUtil.logApiResponse(logger, "POST", "/api/v1/export/upload", 500, "Internal Server Error");
-            
+
             // Log error to database
-            databaseLoggerService.logError("EXPORT_UPLOAD_ERROR", errorMsg, e, null, 
-                String.format("sessionId=%s,format=%s,exceptionType=%s", sessionId, format, e.getClass().getName()));
+            databaseLoggerService.logError("EXPORT_UPLOAD_ERROR", errorMsg, e, username,
+                String.format("sessionId=%d,format=%s,exceptionType=%s,device=%s", sessionId, format, e.getClass().getName(), deviceInfo));
 
             ErrorResponse errorResponse = new ErrorResponse(
                     "An unexpected error occurred while uploading export file",

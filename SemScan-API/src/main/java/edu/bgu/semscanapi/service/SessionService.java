@@ -395,8 +395,48 @@ public class SessionService {
      * Close session
      */
     public Session closeSession(Long sessionId) {
-        logger.info("Closing session: {}", sessionId);
-        return updateSessionStatus(sessionId, Session.SessionStatus.CLOSED);
+        String username = LoggerUtil.getCurrentBguUsername();
+        String deviceInfo = DatabaseLoggerService.getDeviceInfo();
+        String appVersion = DatabaseLoggerService.getAppVersion();
+
+        logger.info("[SESSION_CLOSE_START] Closing session: sessionId={}, user={}, device={}, appVersion={}",
+            sessionId, username, deviceInfo, appVersion);
+
+        // Log to database
+        databaseLoggerService.logAction("INFO", "SESSION_CLOSE_START",
+            String.format("Starting to close session %d", sessionId),
+            username, String.format("sessionId=%d,device=%s,appVersion=%s", sessionId, deviceInfo, appVersion));
+
+        // Log session details before closing
+        Optional<Session> sessionOpt = sessionRepository.findById(sessionId);
+        if (sessionOpt.isPresent()) {
+            Session session = sessionOpt.get();
+            logger.info("[SESSION_CLOSE_DETAILS] Session before close: sessionId={}, seminarId={}, currentStatus={}, startTime={}, endTime={}, user={}",
+                sessionId, session.getSeminarId(), session.getStatus(), session.getStartTime(), session.getEndTime(), username);
+            databaseLoggerService.logAction("INFO", "SESSION_CLOSE_DETAILS",
+                String.format("Session %d details before close: seminarId=%d, status=%s, startTime=%s",
+                    sessionId, session.getSeminarId(), session.getStatus(), session.getStartTime()),
+                username, String.format("sessionId=%d,seminarId=%d,currentStatus=%s,startTime=%s,endTime=%s",
+                    sessionId, session.getSeminarId(), session.getStatus(), session.getStartTime(), session.getEndTime()));
+        } else {
+            logger.warn("[SESSION_CLOSE_NOT_FOUND] Session not found for closing: sessionId={}, user={}", sessionId, username);
+            databaseLoggerService.logError("SESSION_CLOSE_NOT_FOUND",
+                String.format("Session %d not found for closing", sessionId),
+                null, username, String.format("sessionId=%d,device=%s", sessionId, deviceInfo));
+        }
+
+        Session closedSession = updateSessionStatus(sessionId, Session.SessionStatus.CLOSED);
+
+        logger.info("[SESSION_CLOSE_SUCCESS] Session closed successfully: sessionId={}, newStatus={}, endTime={}, user={}, device={}",
+            sessionId, closedSession.getStatus(), closedSession.getEndTime(), username, deviceInfo);
+
+        // Log success to database
+        databaseLoggerService.logAction("INFO", "SESSION_CLOSE_SUCCESS",
+            String.format("Session %d closed successfully at %s", sessionId, closedSession.getEndTime()),
+            username, String.format("sessionId=%d,newStatus=%s,endTime=%s,device=%s",
+                sessionId, closedSession.getStatus(), closedSession.getEndTime(), deviceInfo));
+
+        return closedSession;
     }
     
     /**

@@ -386,6 +386,8 @@
                 if (response.closesAt) {
                     const closesDate = new Date(response.closesAt);
                     document.getElementById('validUntil').textContent = `Valid until ${formatDateTime(closesDate)}`;
+                    // Start auto-close timer based on server's closesAt
+                    startAutoCloseTimer(closesDate.getTime());
                 }
 
                 showContent();
@@ -423,7 +425,8 @@
                 // Delete the session (cancels and removes attendance records)
                 await API.delete(`/sessions/${sessionData.sessionId}`);
                 Utils.showToast('Session cancelled', 'info');
-                window.location.href = 'presenter.html';
+                // Navigate to summary page with canceled status
+                navigateToSummary('canceled', 0);
             } catch (error) {
                 Utils.hideLoading();
                 Utils.showToast('Failed to cancel session: ' + error.message, 'error');
@@ -440,12 +443,69 @@
             try {
                 // Close the session using PUT /sessions/{sessionId}/close
                 await API.request(`/sessions/${sessionData.sessionId}/close`, { method: 'PUT' });
+
+                // Try to get attendance count
+                let attendeeCount = 0;
+                try {
+                    const attendanceData = await API.get(`/attendance/session/${sessionData.sessionId}`);
+                    if (Array.isArray(attendanceData)) {
+                        attendeeCount = attendanceData.length;
+                    } else if (attendanceData && typeof attendanceData === 'object') {
+                        // Handle wrapped response
+                        if (Array.isArray(attendanceData.data)) {
+                            attendeeCount = attendanceData.data.length;
+                        } else if (typeof attendanceData.count === 'number') {
+                            attendeeCount = attendanceData.count;
+                        }
+                    }
+                    console.log('Attendance data:', attendanceData, 'Count:', attendeeCount);
+                } catch (e) {
+                    console.log('Could not fetch attendance count:', e);
+                }
+
+                // Upload export report (sends email)
+                try {
+                    const uploadResult = await API.post(`/export/upload?sessionId=${sessionData.sessionId}&format=xlsx`, {});
+                    console.log('Export upload result:', uploadResult);
+                    if (uploadResult && uploadResult.records) {
+                        attendeeCount = uploadResult.records;
+                    }
+                } catch (e) {
+                    console.log('Could not upload export:', e);
+                    // Continue anyway - report upload is not critical
+                }
+
                 Utils.showToast('Session ended successfully', 'success');
-                window.location.href = 'presenter.html';
+                // Navigate to summary page
+                navigateToSummary('closed', attendeeCount);
             } catch (error) {
                 Utils.hideLoading();
                 Utils.showToast('Failed to end session: ' + error.message, 'error');
             }
+        }
+
+        function navigateToSummary(status, attendees) {
+            const params = new URLSearchParams();
+            params.set('status', status);
+            params.set('attendees', attendees.toString());
+
+            // Pass session times
+            if (sessionData) {
+                if (sessionData.openedAt) {
+                    params.set('openedAt', sessionData.openedAt);
+                }
+                params.set('closedAt', new Date().toISOString());
+            }
+
+            // Pass slot info from URL params
+            if (slotDay) {
+                params.set('day', slotDay);
+            }
+            if (slotDate) {
+                params.set('date', slotDate);
+            }
+
+            window.location.href = `session-summary.html?${params.toString()}`;
         }
 
         function showLoading() {
@@ -467,6 +527,76 @@
             // Format any ISO dates in the message
             const formattedMessage = formatDatesInMessage(message);
             document.getElementById('errorMessage').textContent = formattedMessage;
+        }
+
+        // Auto-close timer - checks every 10 seconds if session has expired
+        let autoCloseTimerId = null;
+        let isAutoClosing = false;
+
+        function startAutoCloseTimer(closesAtMs) {
+            if (autoCloseTimerId) clearInterval(autoCloseTimerId);
+
+            autoCloseTimerId = setInterval(() => {
+                if (isAutoClosing) return;
+                const now = Date.now();
+                if (now >= closesAtMs) {
+                    console.log('[AUTO_CLOSE] Session expired, auto-closing...');
+                    isAutoClosing = true;
+                    clearInterval(autoCloseTimerId);
+                    autoCloseSession();
+                }
+            }, 10000); // Check every 10 seconds
+
+            // Also check immediately in case already expired
+            if (Date.now() >= closesAtMs) {
+                console.log('[AUTO_CLOSE] Session already expired, closing now...');
+                isAutoClosing = true;
+                clearInterval(autoCloseTimerId);
+                autoCloseSession();
+            }
+        }
+
+        async function autoCloseSession() {
+            if (!sessionData || !sessionData.sessionId) return;
+
+            try {
+                // Close the session
+                await API.request(`/sessions/${sessionData.sessionId}/close`, { method: 'PUT' });
+                console.log('[AUTO_CLOSE] Session closed via API');
+
+                // Get attendance count
+                let attendeeCount = 0;
+                try {
+                    const attendanceData = await API.get(`/attendance/session/${sessionData.sessionId}`);
+                    if (Array.isArray(attendanceData)) {
+                        attendeeCount = attendanceData.length;
+                    } else if (attendanceData && Array.isArray(attendanceData.data)) {
+                        attendeeCount = attendanceData.data.length;
+                    } else if (attendanceData && typeof attendanceData.count === 'number') {
+                        attendeeCount = attendanceData.count;
+                    }
+                } catch (e) {
+                    console.log('[AUTO_CLOSE] Could not fetch attendance count:', e);
+                }
+
+                // Upload export report (sends email)
+                try {
+                    const uploadResult = await API.post(`/export/upload?sessionId=${sessionData.sessionId}&format=xlsx`, {});
+                    console.log('[AUTO_CLOSE] Export upload result:', uploadResult);
+                    if (uploadResult && uploadResult.records) {
+                        attendeeCount = uploadResult.records;
+                    }
+                } catch (e) {
+                    console.log('[AUTO_CLOSE] Could not upload export:', e);
+                }
+
+                // Navigate to summary
+                navigateToSummary('closed', attendeeCount);
+            } catch (error) {
+                console.error('[AUTO_CLOSE] Failed to auto-close session:', error);
+                // Still navigate to summary even if close fails (backend job will handle it)
+                navigateToSummary('closed', 0);
+            }
         }
 
         function formatDatesInMessage(message) {

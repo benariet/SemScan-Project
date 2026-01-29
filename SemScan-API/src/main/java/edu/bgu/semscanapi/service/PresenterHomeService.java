@@ -712,6 +712,25 @@ public class PresenterHomeService {
 
         SeminarSlotRegistration registration = existing.get();
 
+        // CRITICAL: Block cancellation if this presenter has completed their session
+        String sessionOpenedBy = normalizeUsername(slot.getAttendanceOpenedBy());
+        boolean openedByThisPresenter = presenterUsername.equalsIgnoreCase(sessionOpenedBy);
+        if (openedByThisPresenter && slot.getLegacySessionId() != null) {
+            Optional<Session> sessionOpt = sessionRepository.findById(slot.getLegacySessionId());
+            if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == Session.SessionStatus.CLOSED) {
+                logger.warn("Blocking cancellation for {} on slot {} - session {} is already CLOSED",
+                        presenterUsername, slotId, slot.getLegacySessionId());
+                databaseLoggerService.logAction("WARN", "CANCELLATION_BLOCKED_SESSION_CLOSED",
+                        String.format("Cancellation blocked for presenter %s on slot %d - session already completed",
+                                presenterUsername, slotId),
+                        presenterUsername,
+                        String.format("slotId=%d,sessionId=%d,reason=SESSION_CLOSED", slotId, slot.getLegacySessionId()));
+                return new PresenterSlotRegistrationResponse(false,
+                        "Cannot cancel - you have already completed your session for this slot",
+                        "SESSION_COMPLETED");
+            }
+        }
+
         // Log registration state before cancellation
         databaseLoggerService.logAction("INFO", "CANCELLATION_SLOT_STATE",
                 String.format("Slot %d state before cancellation: presenterDegree=%s, approvalStatus=%s, supervisorEmail=%s",
@@ -1623,6 +1642,29 @@ public class PresenterHomeService {
                 .collect(Collectors.toList());
         summary.setCoPresenters(coPresenters);
 
+        // Determine if presenter can cancel this registration
+        // Block cancellation if:
+        // 1. This presenter opened the session AND
+        // 2. The session is now CLOSED (completed)
+        boolean canCancel = true;
+        String cancelBlockedReason = null;
+
+        String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
+        boolean openedByThisPresenter = presenterUsername != null && presenterUsername.equalsIgnoreCase(openedBy);
+
+        if (openedByThisPresenter && slot.getLegacySessionId() != null) {
+            Optional<Session> sessionOpt = sessionRepository.findById(slot.getLegacySessionId());
+            if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == Session.SessionStatus.CLOSED) {
+                canCancel = false;
+                cancelBlockedReason = "Session already completed - cannot cancel after presenting";
+                logger.debug("Blocking cancellation for {} on slot {} - session {} is CLOSED",
+                        presenterUsername, slot.getSlotId(), slot.getLegacySessionId());
+            }
+        }
+
+        summary.setCanCancel(canCancel);
+        summary.setCancelBlockedReason(cancelBlockedReason);
+
         return summary;
     }
 
@@ -2125,7 +2167,21 @@ public class PresenterHomeService {
                 panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
                 return panel;
             }
-            // Session was manually closed - fall through to allow re-opening or show closed state
+            // Check if THIS presenter's session was manually CLOSED (even before closesAt passed)
+            if (openedByPresenter && session != null && session.getStatus() == Session.SessionStatus.CLOSED) {
+                // This presenter manually closed their session - block them from re-opening
+                panel.setCanOpen(false);
+                panel.setAlreadyOpen(false);
+                panel.setStatus("Session already completed");
+                panel.setWarning("You already completed your session for this slot");
+                panel.setOpenQrUrl(null);
+                panel.setOpenedAt(DATE_TIME_FORMAT.format(openedAt));
+                panel.setClosesAt(DATE_TIME_FORMAT.format(closesAt));
+                panel.setSessionId(null);
+                panel.setQrPayload(null);
+                return panel;
+            }
+            // Another presenter's session or session cancelled - continue
         }
 
         // Check if session was already opened and is now closed (past closesAt)

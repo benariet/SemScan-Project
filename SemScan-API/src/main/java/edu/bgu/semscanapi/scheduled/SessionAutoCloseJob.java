@@ -8,9 +8,11 @@ import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.SessionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -20,7 +22,7 @@ import java.util.List;
  * Scheduled job to automatically close expired attendance sessions.
  * This ensures that when a presenter opens a session and doesn't manually close it,
  * other presenters won't be blocked from opening their own sessions.
- * Attendance report email is sent automatically via SessionService.closeSession().
+ * After closing, triggers export upload + email report via internal API call.
  */
 @Component
 public class SessionAutoCloseJob {
@@ -32,6 +34,10 @@ public class SessionAutoCloseJob {
     private final SessionRepository sessionRepository;
     private final DatabaseLoggerService databaseLoggerService;
     private final SessionService sessionService;
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Value("${server.port:8080}")
+    private int serverPort;
 
     public SessionAutoCloseJob(SeminarSlotRepository slotRepository,
                                SessionRepository sessionRepository,
@@ -63,16 +69,17 @@ public class SessionAutoCloseJob {
         for (SeminarSlot slot : expiredSlots) {
             try {
                 // Close any OPEN sessions linked to this slot
+                Long closedSessionId = null;
                 if (slot.getLegacySessionId() != null) {
-                    sessionRepository.findById(slot.getLegacySessionId()).ifPresent(session -> {
-                        if (session.getStatus() == Session.SessionStatus.OPEN) {
-                            // Use SessionService to close - this triggers attendance report email
-                            sessionService.closeSession(session.getSessionId());
-                            logger.info("Auto-closed session {} for slot {}", session.getSessionId(), slot.getSlotId());
-                            databaseLoggerService.logSessionEvent("SESSION_AUTO_CLOSED",
-                                session.getSessionId(), session.getSeminarId(), slot.getAttendanceOpenedBy());
-                        }
-                    });
+                    Long sessionId = slot.getLegacySessionId();
+                    Session session = sessionRepository.findById(sessionId).orElse(null);
+                    if (session != null && session.getStatus() == Session.SessionStatus.OPEN) {
+                        sessionService.closeSession(session.getSessionId());
+                        closedSessionId = session.getSessionId();
+                        logger.info("Auto-closed session {} for slot {}", session.getSessionId(), slot.getSlotId());
+                        databaseLoggerService.logSessionEvent("SESSION_AUTO_CLOSED",
+                            session.getSessionId(), session.getSeminarId(), slot.getAttendanceOpenedBy());
+                    }
                 }
 
                 // Clear the slot's attendance fields so other presenters can open their sessions
@@ -93,9 +100,39 @@ public class SessionAutoCloseJob {
                     previousOpenedBy,
                     String.format("slotId=%d,closesAt=%s", slot.getSlotId(), previousClosesAt));
 
+                // Trigger export upload + email report for the closed session
+                if (closedSessionId != null) {
+                    triggerExportReport(closedSessionId);
+                }
+
             } catch (Exception e) {
                 logger.error("Error closing expired session for slot {}: {}", slot.getSlotId(), e.getMessage(), e);
             }
+        }
+    }
+
+    /**
+     * Trigger export upload + email report for a closed session via internal API call.
+     * This is a safety net - normally the client (Android/Web) triggers the export.
+     */
+    private void triggerExportReport(Long sessionId) {
+        try {
+            String url = String.format("http://localhost:%d/api/v1/export/upload?sessionId=%d&format=xlsx", serverPort, sessionId);
+            logger.info("Auto-close triggering export report for session {} via {}", sessionId, url);
+            databaseLoggerService.logAction("INFO", "SESSION_AUTO_CLOSE_EXPORT_TRIGGER",
+                String.format("Triggering export report for auto-closed session %d", sessionId),
+                null, String.format("sessionId=%d,url=%s", sessionId, url));
+
+            var response = restTemplate.postForEntity(url, null, String.class);
+            logger.info("Export report triggered for session {}: status={}, body={}", sessionId, response.getStatusCode(), response.getBody());
+            databaseLoggerService.logAction("INFO", "SESSION_AUTO_CLOSE_EXPORT_SUCCESS",
+                String.format("Export report sent for auto-closed session %d, status: %s", sessionId, response.getStatusCode()),
+                null, String.format("sessionId=%d,httpStatus=%s", sessionId, response.getStatusCode()));
+        } catch (Exception e) {
+            logger.error("Failed to trigger export report for auto-closed session {}: {}", sessionId, e.getMessage(), e);
+            databaseLoggerService.logError("SESSION_AUTO_CLOSE_EXPORT_FAILED",
+                String.format("Failed to trigger export report for auto-closed session %d", sessionId),
+                e, null, String.format("sessionId=%d,error=%s", sessionId, e.getMessage()));
         }
     }
 }
