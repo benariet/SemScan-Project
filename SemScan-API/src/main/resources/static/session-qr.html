@@ -291,8 +291,16 @@
     <!-- Toast container -->
     <div class="toast-container"></div>
 
-    <!-- QR Code generator library (qrcodejs - browser-native) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- QR Code generator library (qrcodejs - local with CDN fallback) -->
+    <script src="lib/qrcode.min.js"></script>
+    <script>
+        // Fallback to CDN if local file failed to load (createElement avoids document.write page destruction)
+        if (typeof QRCode === 'undefined') {
+            var cdnScript = document.createElement('script');
+            cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+            document.head.appendChild(cdnScript);
+        }
+    </script>
     <script src="js/config.js?v=3"></script>
     <script src="js/utils.js?v=3"></script>
     <script src="js/api.js?v=3"></script>
@@ -320,9 +328,9 @@
                 return;
             }
 
-            // Set slot title if provided via URL params
+            // Set slot title if provided via URL params (textContent prevents XSS)
             if (slotDay && slotDate) {
-                document.getElementById('slotTitle').innerHTML = `${decodeURIComponent(slotDay)} &bull; ${decodeURIComponent(slotDate)}`;
+                document.getElementById('slotTitle').textContent = `${decodeURIComponent(slotDay)} • ${decodeURIComponent(slotDate)}`;
             } else {
                 // Hide slot title if no date info
                 document.getElementById('slotTitle').style.display = 'none';

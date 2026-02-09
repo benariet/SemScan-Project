@@ -143,8 +143,8 @@
                 statusClass = 'slot-semi';
             }
 
-            // Status text - show available spots
-            const availableCount = slot.availableCount !== undefined ? slot.availableCount : (capacity - approvedCount - pendingCount);
+            // Status text - show available spots (Math.max prevents negative from race conditions)
+            const availableCount = Math.max(0, slot.availableCount !== undefined ? slot.availableCount : (capacity - approvedCount - pendingCount));
             const statusText = isFull ? 'Full' : `${availableCount}/${capacity} Available`;
 
             // Date and time (matches mobile format: "Tuesday • 27/01/2026")
@@ -201,12 +201,12 @@
             // Mobile format: "Approved:\n    PhD, Name (me)"
             let presentersHtml = '';
 
-            // Approved presenters - plain text
+            // Approved presenters - plain text (escape user data to prevent XSS)
             const approvedPresenters = slot.registered || [];
             if (approvedPresenters.length > 0) {
                 const names = approvedPresenters.map(p => {
-                    const name = p.name || 'Unknown';
-                    const degree = p.degree || '';
+                    const name = Utils.escapeHtml(p.name || 'Unknown');
+                    const degree = Utils.escapeHtml(p.degree || '');
                     const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
                     const displayName = isMe ? `${name} (me)` : name;
                     return degree ? `${degree}, ${displayName}` : displayName;
@@ -217,12 +217,12 @@
                 </div>`;
             }
 
-            // Pending presenters - plain text
+            // Pending presenters - plain text (escape user data to prevent XSS)
             const pendingPresenters = slot.pendingPresenters || [];
             if (pendingPresenters.length > 0) {
                 const names = pendingPresenters.map(p => {
-                    const name = p.name || 'Unknown';
-                    const degree = p.degree || '';
+                    const name = Utils.escapeHtml(p.name || 'Unknown');
+                    const degree = Utils.escapeHtml(p.degree || '');
                     const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
                     const displayName = isMe ? `${name} (me)` : name;
                     return degree ? `${degree}, ${displayName}` : displayName;
@@ -233,13 +233,13 @@
                 </div>`;
             }
 
-            // Waiting list - plain text with priorities
+            // Waiting list - plain text with priorities (escape user data to prevent XSS)
             const waitingListEntries = slot.waitingListEntries || [];
             let waitingListHtml = '';
             if (waitingListEntries.length > 0) {
                 const names = waitingListEntries.map((p, idx) => {
-                    const name = p.name || 'Unknown';
-                    const degree = p.degree || '';
+                    const name = Utils.escapeHtml(p.name || 'Unknown');
+                    const degree = Utils.escapeHtml(p.degree || '');
                     const isMe = p.username && p.username.toLowerCase() === username.toLowerCase();
                     const displayName = isMe ? `${name} (me)` : name;
                     const degreePrefix = degree ? `${degree}, ` : '';
@@ -254,10 +254,10 @@
             // Combine all (pendingHtml is now part of presentersHtml)
             let pendingHtml = '';
 
-            // Warning message
+            // Warning message (escape to prevent XSS)
             let warningHtml = '';
             if (slot.warningMessage) {
-                warningHtml = `<div class="slot-warning">${slot.warningMessage}</div>`;
+                warningHtml = `<div class="slot-warning">${Utils.escapeHtml(slot.warningMessage)}</div>`;
             }
 
             return `

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logout</title>
+</head>
+<body>
+    <h1>Clearing session...</h1>
+    <script>
+        // Clear ALL localStorage
+        localStorage.clear();
+        // Clear ALL sessionStorage
+        sessionStorage.clear();
+        // Show message
+        document.body.innerHTML = '<h1>Session cleared!</h1><p>Redirecting to login...</p>';
+        // Redirect after 1 second
+        setTimeout(function() {
+            window.location.href = 'index.html';
+        }, 1000);
+    </script>
+</body>
+</html>

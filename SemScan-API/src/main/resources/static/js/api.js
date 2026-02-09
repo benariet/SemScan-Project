@@ -43,11 +43,19 @@ const API = {
             const response = await fetch(url, config);
             Logger.debug('API_FETCH', `Response received: ${response.status} ${response.statusText}`);
 
-            // Handle session expiry
+            // Handle session expiry (but NOT for login endpoint - that's just wrong credentials)
             if (response.status === 401 || response.status === 403) {
-                Logger.warn('SESSION_EXPIRED', `Session expired (${response.status})`, { endpoint });
-                this.handleSessionExpired();
-                throw new Error('Session expired');
+                const isLoginEndpoint = endpoint.includes('/auth/login');
+                if (isLoginEndpoint) {
+                    // Login failure - let it fall through to normal error handling
+                    Logger.warn('AUTH_FAILED', `Authentication failed (${response.status})`, { endpoint });
+                    // Don't throw here - let response parsing handle the error message
+                } else {
+                    // Other endpoints - session expired
+                    Logger.warn('SESSION_EXPIRED', `Session expired (${response.status})`, { endpoint });
+                    this.handleSessionExpired();
+                    throw new Error('Session expired');
+                }
             }
 
             // Parse response
@@ -73,17 +81,29 @@ const API = {
                 Logger.debug('API_PARSE', `Text response: ${data.substring(0, 200)}`);
             }
 
-            Logger.apiResponse(method, endpoint, response.status, data);
+            // Log response - use WARN for login auth failures (expected behavior), ERROR for other failures
+            const isLoginEndpoint = endpoint.includes('/auth/login');
+            const isAuthFailure = isLoginEndpoint && (response.status === 401 || response.status === 403);
+            Logger.apiResponse(method, endpoint, response.status, data, isAuthFailure);
 
             if (!response.ok) {
                 const errorMsg = data.message || data.error || data || 'Request failed';
-                Logger.error('API_ERROR', `Request failed: ${errorMsg}`, { status: response.status, data });
+                if (isAuthFailure) {
+                    // Login failure is expected behavior, not an error
+                    Logger.warn('AUTH_INVALID_CREDENTIALS', `${errorMsg}`, { status: response.status });
+                } else {
+                    Logger.error('API_ERROR', `Request failed: ${errorMsg}`, { status: response.status, data });
+                }
                 throw new Error(errorMsg);
             }
 
             return data;
         } catch (error) {
-            if (error.message !== 'Session expired') {
+            // Don't log as error for session expired or login auth failures
+            const isLoginEndpoint = endpoint.includes('/auth/login');
+            const isExpectedFailure = error.message === 'Session expired' ||
+                (isLoginEndpoint && error.message.includes('Invalid'));
+            if (!isExpectedFailure) {
                 Logger.apiError(method, endpoint, error);
             }
             throw error;
@@ -181,7 +201,8 @@ const API = {
             Logger.info('AUTH_LOGIN_SUCCESS', `Login successful for ${username}`);
             return result;
         } catch (error) {
-            Logger.error('AUTH_LOGIN_FAILED', `Login failed for ${username}`, { error: error.message });
+            // Login failure with wrong credentials is expected behavior, use WARN not ERROR
+            Logger.warn('AUTH_LOGIN_FAILED', `Login failed for ${username}`, { error: error.message });
             throw error;
         }
     },
@@ -284,7 +305,7 @@ const API = {
     async leaveWaitingList(slotId, username) {
         Logger.info('WAITING_LIST_LEAVE', `Leaving waiting list for slot ${slotId}`);
         try {
-            const result = await this.delete(`/slots/${slotId}/waiting-list?username=${username}`);
+            const result = await this.delete(`/slots/${slotId}/waiting-list?username=${encodeURIComponent(username)}`);
             Logger.info('WAITING_LIST_LEAVE_SUCCESS', `Left waiting list`);
             return result;
         } catch (error) {
@@ -333,12 +354,8 @@ const API = {
     async upsertUser(username, data) {
         Logger.info('USER_UPSERT', `Updating user details for: ${username}`, data);
         try {
-            // Include username in request body
-            const requestData = {
-                bguUsername: username,
-                ...data
-            };
-            const result = await this.post('/users', requestData);
+            // POST to /users/{username}/upsert endpoint
+            const result = await this.post(`/users/${encodeURIComponent(username)}/upsert`, data);
             Logger.info('USER_UPSERT_SUCCESS', `User details updated`);
             return result;
         } catch (error) {

@@ -482,13 +482,13 @@
             statusEl.textContent = status;
             statusEl.className = 'approval-status ' + status.toLowerCase();
 
-            // Co-presenters
+            // Co-presenters (escape user data to prevent XSS)
             if (slot.coPresenters && slot.coPresenters.length > 0) {
                 document.getElementById('coPresenters').style.display = 'block';
                 const listEl = document.getElementById('coPresentersList');
                 listEl.innerHTML = slot.coPresenters.map(p => {
-                    let text = p.name || p.username || 'Unknown';
-                    if (p.topic) text += ` - ${p.topic}`;
+                    let text = Utils.escapeHtml(p.name || p.username || 'Unknown');
+                    if (p.topic) text += ` - ${Utils.escapeHtml(p.topic)}`;
                     return `<div class="co-presenter-item">${text}</div>`;
                 }).join('');
             } else {

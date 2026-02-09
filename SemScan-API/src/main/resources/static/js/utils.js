@@ -89,7 +89,9 @@ const Logger = {
      * Queue log entry for server
      */
     queueForServer(level, tag, message, data) {
-        const username = localStorage.getItem('bgu_username') || null;
+        // Use CONFIG.USERNAME_KEY if available, fallback to legacy key
+        const usernameKey = (typeof CONFIG !== 'undefined' && CONFIG.USERNAME_KEY) ? CONFIG.USERNAME_KEY : 'bgu_username';
+        const username = localStorage.getItem(usernameKey) || null;
 
         // Build server log entry matching AppLogEntry DTO
         const serverEntry = {
@@ -297,10 +299,12 @@ const Logger = {
 
     /**
      * Log API response
+     * @param {boolean} isAuthFailure - If true, use WARN instead of ERROR for 4xx status
      */
-    apiResponse(method, endpoint, status, data) {
+    apiResponse(method, endpoint, status, data, isAuthFailure = false) {
         const tag = this.getApiTag(endpoint) + '_API_RESPONSE';
-        const level = status >= 400 ? 'ERROR' : 'INFO';
+        // Use WARN for expected auth failures, ERROR for unexpected failures, INFO for success
+        const level = status >= 400 ? (isAuthFailure ? 'WARN' : 'ERROR') : 'INFO';
         this.log(level, tag, `${method} ${endpoint} -> ${status}`, { status, data });
     },
 
