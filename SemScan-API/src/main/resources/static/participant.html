@@ -7,20 +7,37 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#1976D2">
     <title>SemScan - Participant</title>
-    <link rel="stylesheet" href="css/main.css?v=6">
+    <link rel="stylesheet" href="css/main.css?v=7">
 </head>
 <body style="display: none;">
+    <!-- Side Menu Overlay -->
+    <div class="side-menu-overlay" id="menuOverlay"></div>
+
+    <!-- Side Menu -->
+    <div class="side-menu" id="sideMenu">
+        <div class="side-menu-header">
+            <h3 id="menuUserName">User</h3>
+            <p id="menuUserEmail">user@bgu.ac.il</p>
+        </div>
+        <div class="side-menu-items">
+            <a href="settings.html" class="side-menu-item">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <span>Settings</span>
+            </a>
+            <div class="side-menu-divider"></div>
+            <a href="#" class="side-menu-item" id="logoutMenuItem">
+                <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                <span>Logout</span>
+            </a>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="header">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h1 class="header-title">Participant Home</h1>
-                <p class="header-subtitle" id="userGreeting">Hello, Participant</p>
-            </div>
-            <button class="btn btn-secondary" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px;" id="logoutBtn">
-                Logout
-            </button>
-        </div>
+        <button class="menu-btn" id="menuBtn">
+            <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+        <h1 class="header-title">Participant Home</h1>
     </header>
 
     <div class="container">
@@ -105,26 +122,54 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Initial greeting from localStorage (fast)
-            const userData = Utils.getUserData();
-            if (userData?.firstName) {
-                document.getElementById('userGreeting').textContent = `Hello, ${userData.firstName}`;
-            } else {
-                document.getElementById('userGreeting').textContent = `Hello, ${username}`;
-            }
-
-            // Setup logout
-            document.getElementById('logoutBtn').addEventListener('click', () => Utils.logout());
+            // Setup menu
+            setupMenu();
 
             // Setup history card toggle
             document.getElementById('historyCard').addEventListener('click', toggleHistory);
 
-            // Fetch fresh user data from API
-            refreshUserData();
-
             // Check if manual attendance is enabled
             checkManualAttendanceEnabled();
         });
+
+        function setupMenu() {
+            const menuBtn = document.getElementById('menuBtn');
+            const menuOverlay = document.getElementById('menuOverlay');
+            const sideMenu = document.getElementById('sideMenu');
+            const logoutMenuItem = document.getElementById('logoutMenuItem');
+
+            // Populate user info in menu
+            const userData = Utils.getUserData();
+            const menuUserName = document.getElementById('menuUserName');
+            const menuUserEmail = document.getElementById('menuUserEmail');
+
+            if (userData?.firstName && userData?.lastName) {
+                menuUserName.textContent = `${userData.firstName} ${userData.lastName}`;
+            } else if (userData?.firstName) {
+                menuUserName.textContent = userData.firstName;
+            } else {
+                menuUserName.textContent = username;
+            }
+            menuUserEmail.textContent = `${username}@bgu.ac.il`;
+
+            // Toggle menu
+            menuBtn.addEventListener('click', () => {
+                sideMenu.classList.add('open');
+                menuOverlay.classList.add('open');
+            });
+
+            // Close menu on overlay click
+            menuOverlay.addEventListener('click', () => {
+                sideMenu.classList.remove('open');
+                menuOverlay.classList.remove('open');
+            });
+
+            // Logout from menu
+            logoutMenuItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                Utils.logout();
+            });
+        }
 
         async function checkManualAttendanceEnabled() {
             try {
@@ -135,28 +180,6 @@
             } catch (error) {
                 console.warn('Failed to fetch config:', error);
                 // Keep hidden if config fetch fails
-            }
-        }
-
-        async function refreshUserData() {
-            try {
-                const response = await API.getPresenterHome(username);
-                if (response.presenter) {
-                    const firstName = response.presenter.firstName || response.presenter.name?.split(' ')[0] || username;
-                    document.getElementById('userGreeting').textContent = `Hello, ${firstName}`;
-
-                    // Update localStorage with fresh data
-                    const existingData = Utils.getUserData() || {};
-                    localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify({
-                        ...existingData,
-                        firstName: response.presenter.firstName || response.presenter.name?.split(' ')[0],
-                        lastName: response.presenter.lastName || response.presenter.name?.split(' ').slice(1).join(' '),
-                        degree: response.presenter.degree
-                    }));
-                }
-            } catch (error) {
-                // Keep using localStorage data on error
-                console.warn('Failed to refresh user data:', error);
             }
         }
 

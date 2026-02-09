@@ -112,17 +112,126 @@ a {
     border-radius: 0;  /* Rectangle, not rounded - matches Android */
     box-shadow: var(--shadow-card);
     min-height: 56px;
+    display: flex;
+    align-items: center;
 }
 
 .header-title {
     font-size: 1.25rem;
     font-weight: 700;
+    color: #212121;
 }
 
 .header-subtitle {
     font-size: 0.875rem;
     opacity: 0.9;
     margin-top: 2px;
+}
+
+/* Hamburger menu button */
+.menu-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    margin-right: 12px;
+}
+
+.menu-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: #212121;
+}
+
+/* Side menu overlay */
+.side-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+
+.side-menu-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Side menu */
+.side-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    background: white;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+    display: flex;
+    flex-direction: column;
+}
+
+.side-menu.open {
+    transform: translateX(0);
+}
+
+.side-menu-header {
+    background: linear-gradient(90deg, #5B4FCF 0%, #7B6BD6 50%, #FF8C42 100%);
+    padding: 40px 20px 20px 20px;
+    color: white;
+}
+
+.side-menu-header h3 {
+    margin: 0 0 4px 0;
+    font-size: 18px;
+}
+
+.side-menu-header p {
+    margin: 0;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.side-menu-items {
+    flex: 1;
+    padding: 16px 0;
+}
+
+.side-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    color: #333;
+    text-decoration: none;
+    transition: background 0.2s;
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    font-size: 16px;
+}
+
+.side-menu-item:hover {
+    background: #f5f5f5;
+}
+
+.side-menu-item svg {
+    width: 24px;
+    height: 24px;
+    fill: #666;
+    margin-right: 16px;
+}
+
+.side-menu-divider {
+    height: 1px;
+    background: #e0e0e0;
+    margin: 8px 0;
 }
 
 /* Header refresh button - matches mobile toolbar button */
