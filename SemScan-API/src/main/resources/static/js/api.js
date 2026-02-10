@@ -354,8 +354,9 @@ const API = {
     async upsertUser(username, data) {
         Logger.info('USER_UPSERT', `Updating user details for: ${username}`, data);
         try {
-            // POST to /users/{username}/upsert endpoint
-            const result = await this.post(`/users/${encodeURIComponent(username)}/upsert`, data);
+            // POST to /users endpoint (same as Android app)
+            // bguUsername is included in the body, not the URL
+            const result = await this.post('/users', data);
             Logger.info('USER_UPSERT_SUCCESS', `User details updated`);
             return result;
         } catch (error) {

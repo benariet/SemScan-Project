@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1976D2">
+    <meta name="theme-color" content="#5B4FCF">
     <title>SemScan - Participant</title>
-    <link rel="stylesheet" href="css/main.css?v=7">
+    <link rel="stylesheet" href="css/main.css?v=8">
 </head>
 <body style="display: none;">
     <!-- Side Menu Overlay -->
@@ -42,13 +42,13 @@
 
     <div class="container">
         <!-- Scan Attendance Card -->
-        <a href="scanner.html" class="action-card">
+        <div class="action-card" id="cardScanAttendance" style="cursor: pointer;">
             <div class="action-card-icon">
                 <svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM19 16h1.5v1.5H19V16z"/></svg>
             </div>
             <div class="action-card-text">Scan Attendance QR</div>
             <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-        </a>
+        </div>
 
         <!-- Manual Attendance Request Card (hidden by default, shown if enabled in config) -->
         <a href="manual-attendance.html" class="action-card" id="manualAttendanceCard" style="display: none;">
@@ -102,14 +102,22 @@
     <!-- Toast container -->
     <div class="toast-container"></div>
 
-    <script src="js/config.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/api.js"></script>
+    <script src="js/config.js?v=101"></script>
+    <script src="js/utils.js?v=101"></script>
+    <script src="js/api.js?v=101"></script>
     <script>
         // Require authentication FIRST - block page until verified
         if (!Utils.isLoggedIn()) {
             window.location.replace('index.html');
             throw new Error('Not authenticated');
+        }
+
+        // COPY FROM ANDROID: Check hasCompletedInitialSetup()
+        // If setup not completed, redirect to first-time setup page
+        if (localStorage.getItem('setup_completed') !== 'true') {
+            Logger.info('AUTH_CHECK', 'Setup not completed, redirecting to first-time-setup.html');
+            window.location.replace('first-time-setup.html');
+            throw new Error('Setup not completed');
         }
 
         // Show page only after auth verified
@@ -125,12 +133,53 @@
             // Setup menu
             setupMenu();
 
+            // Setup scan attendance card click - check for open sessions first (COPY FROM ANDROID)
+            document.getElementById('cardScanAttendance').addEventListener('click', openQRScanner);
+
             // Setup history card toggle
             document.getElementById('historyCard').addEventListener('click', toggleHistory);
 
             // Check if manual attendance is enabled
             checkManualAttendanceEnabled();
         });
+
+        // COPY FROM ANDROID: Check for open sessions before allowing QR scanner
+        async function openQRScanner() {
+            Logger.userAction('Scan Attendance clicked', 'Checking for open sessions');
+            Utils.showLoading();
+
+            try {
+                const sessions = await API.get('/sessions/open');
+                Utils.hideLoading();
+
+                // Filter to only OPEN sessions (same as Android)
+                const openSessions = (sessions || []).filter(s =>
+                    s && s.status && s.status.toUpperCase() === 'OPEN'
+                );
+
+                Logger.info('QR_SCAN', `Found ${openSessions.length} open sessions`);
+
+                if (openSessions.length === 0) {
+                    // No open sessions - show error (same as Android showNoSessionsError)
+                    Logger.warn('QR_SCAN', 'No open sessions - blocking scanner');
+                    showNoSessionsError();
+                } else {
+                    // Open sessions available - proceed to scanner
+                    Logger.info('QR_SCAN', 'Open sessions available - opening scanner');
+                    window.location.href = 'scanner.html';
+                }
+            } catch (error) {
+                Utils.hideLoading();
+                Logger.error('QR_SCAN', 'Failed to check for open sessions', error);
+                // On error, show no sessions error (same as Android - don't allow scanner without verification)
+                showNoSessionsError();
+            }
+        }
+
+        function showNoSessionsError() {
+            // Same message as Android app
+            alert('No Active Sessions\n\nThere are no active sessions available right now. Please wait for a presenter to open a session before scanning a QR code.');
+        }
 
         function setupMenu() {
             const menuBtn = document.getElementById('menuBtn');

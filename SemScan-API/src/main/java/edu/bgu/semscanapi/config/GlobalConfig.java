@@ -158,7 +158,23 @@ public class GlobalConfig {
     }
     
     public String getServerUrl() {
-        // Use HTTPS on standard port 443 (via nginx) for production
+        // Read server_url from app_config table (allows per-environment configuration)
+        if (appConfigService != null) {
+            try {
+                String configuredUrl = appConfigService.getStringConfig("server_url", null);
+                if (configuredUrl != null && !configuredUrl.isEmpty()) {
+                    // Remove trailing slash if present, then add context path
+                    if (configuredUrl.endsWith("/")) {
+                        configuredUrl = configuredUrl.substring(0, configuredUrl.length() - 1);
+                    }
+                    return configuredUrl + contextPath;
+                }
+            } catch (Exception e) {
+                // Fall through to default logic
+            }
+        }
+
+        // Fallback: Use HTTPS on standard port 443 (via nginx) for production
         // This eliminates browser warnings about non-standard ports
         // Test mode (port 8081) should use HTTP with explicit port
         if (isProductionMode()) {

@@ -81,10 +81,14 @@ public class AuthController {
             }
 
             // TEST BYPASS: Allow specific test users to login without BGU SOAP validation
-            // These users exist in DB with proper data for testing purposes
+            // 10 PhD + 20 MSc test users, all use password: Test123!
             Set<String> testUsers = Set.of(
-                    "testphd1", "testphd2", "testphd3",
-                    "testmsc1", "testmsc2", "testmsc3", "testmsc4", "testmsc5"
+                    "testphd1", "testphd2", "testphd3", "testphd4", "testphd5",
+                    "testphd6", "testphd7", "testphd8", "testphd9", "testphd10",
+                    "testmsc1", "testmsc2", "testmsc3", "testmsc4", "testmsc5",
+                    "testmsc6", "testmsc7", "testmsc8", "testmsc9", "testmsc10",
+                    "testmsc11", "testmsc12", "testmsc13", "testmsc14", "testmsc15",
+                    "testmsc16", "testmsc17", "testmsc18", "testmsc19", "testmsc20"
             );
             String tempUsername = request.getUsername().trim().toLowerCase(Locale.ROOT);
             if (tempUsername.contains("@")) {

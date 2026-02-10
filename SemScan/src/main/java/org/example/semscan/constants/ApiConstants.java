@@ -14,8 +14,8 @@ public class ApiConstants {
     // These hardcoded values are now used as fallback defaults only
     // The app fetches configuration from backend API endpoint /api/v1/config/mobile on every login
     // See: org.example.semscan.utils.ConfigManager
-    public static final String SERVER_URL = "http://132.72.50.53:8080"; // PRODUCTION
-    public static final String API_BASE_URL = "http://132.72.50.53:8080/api/v1"; // PRODUCTION
+    public static final String SERVER_URL = "https://132.72.50.52"; // DEVELOPMENT
+    public static final String API_BASE_URL = "https://132.72.50.52/api/v1"; // DEVELOPMENT
     public static final String API_VERSION = "v1";
     // =============================================
     // API ENDPOINTS

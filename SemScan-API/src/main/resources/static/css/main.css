@@ -143,6 +143,30 @@ a {
     fill: #212121;
 }
 
+/* Back button */
+.back-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+}
+
+.back-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: #212121;
+}
+
+/* Header with back button and menu - space between */
+.header.header-with-nav {
+    justify-content: space-between;
+}
+
+.header.header-with-nav .header-title {
+    flex: 1;
+    text-align: center;
+}
+
 /* Side menu overlay */
 .side-menu-overlay {
     position: fixed;
@@ -374,11 +398,12 @@ a {
     background:  #FF9800 !important;
 }
 
-/* Enabled state (when slot is approved) */
+/* Enabled state (when slot is approved) - must override disabled !important */
 .action-card.enabled {
-    opacity: 1;
-    cursor: pointer;
-    pointer-events: auto;
+    background: linear-gradient(135deg, var(--card-orange-start), var(--card-orange-end)) !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
 }
 
 /* ============================================

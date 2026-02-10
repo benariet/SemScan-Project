@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1976D2">
+    <meta name="theme-color" content="#5B4FCF">
     <title>SemScan - Home</title>
-    <link rel="stylesheet" href="css/main.css?v=6">
+    <link rel="stylesheet" href="css/main.css?v=8">
     <style>
         .home-page {
             min-height: 100vh;
@@ -18,24 +18,8 @@
             padding: 20px;
         }
 
-        .menu-btn {
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            background: none;
-            border: none;
-            padding: 8px;
-            cursor: pointer;
-        }
-
-        .menu-btn svg {
-            width: 24px;
-            height: 24px;
-            fill: #666;
-        }
-
         .home-logo {
-            margin-top: 60px;
+            margin-top: 20px;
             width: 120px;
             height: 120px;
         }
@@ -164,7 +148,7 @@
         }
 
         .side-menu-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, #5B4FCF 0%, #7B6BD6 50%, #FF8C42 100%);
             padding: 40px 20px 20px 20px;
             color: white;
         }
@@ -239,7 +223,7 @@
                 <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
                 <span>Participant Mode</span>
             </a>
-            <a href="#" class="side-menu-item" id="settingsMenuItem">
+            <a href="settings.html" class="side-menu-item">
                 <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                 <span>Settings</span>
             </a>
@@ -251,12 +235,15 @@
         </div>
     </div>
 
-    <div class="home-page">
-        <!-- Menu Button -->
+    <!-- Header -->
+    <header class="header">
         <button class="menu-btn" id="menuBtn">
             <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
+        <h1 class="header-title">Home</h1>
+    </header>
 
+    <div class="home-page">
         <!-- Logo -->
         <div class="home-logo">
             <img src="assets/logo.svg" alt="SemScan" onerror="this.parentElement.innerHTML='<svg viewBox=\'0 0 100 100\' width=\'120\' height=\'120\'><rect x=\'10\' y=\'10\' width=\'80\' height=\'80\' rx=\'10\' fill=\'#FF6B00\' opacity=\'0.1\'/><text x=\'50\' y=\'60\' text-anchor=\'middle\' font-size=\'40\' fill=\'#FF6B00\'>S</text></svg>'">
@@ -294,14 +281,22 @@
         <div class="spinner"></div>
     </div>
 
-    <script src="js/config.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/api.js"></script>
+    <script src="js/config.js?v=101"></script>
+    <script src="js/utils.js?v=101"></script>
+    <script src="js/api.js?v=101"></script>
     <script>
         // Require authentication FIRST - block page until verified
         if (!Utils.isLoggedIn()) {
             window.location.replace('index.html');
             throw new Error('Not authenticated');
+        }
+
+        // COPY FROM ANDROID: Check hasCompletedInitialSetup()
+        // If setup not completed, redirect to first-time setup page
+        if (localStorage.getItem('setup_completed') !== 'true') {
+            Logger.info('AUTH_CHECK', 'Setup not completed, redirecting to first-time-setup.html');
+            window.location.replace('first-time-setup.html');
+            throw new Error('Setup not completed');
         }
 
         // Show page only after auth verified
@@ -350,7 +345,14 @@
                 }
             } catch (error) {
                 Logger.warn('HOME_REFRESH', 'Failed to refresh user data', { error: error.message });
-                // Keep using localStorage data on error
+                // If presenter not found, this is a new user - redirect to setup
+                if (error.message && error.message.includes('not found')) {
+                    Logger.info('HOME_REFRESH', 'User not found in DB, redirecting to first-time setup');
+                    localStorage.setItem('first_time_setup', 'true');
+                    window.location.replace('presentation-details.html');
+                    return;
+                }
+                // Keep using localStorage data on other errors
             }
         }
         refreshUserData();
@@ -376,15 +378,6 @@
             e.preventDefault();
             Logger.userAction('Logout clicked');
             Utils.logout();
-        });
-
-        // Settings
-        document.getElementById('settingsMenuItem').addEventListener('click', (e) => {
-            e.preventDefault();
-            sideMenu.classList.remove('open');
-            menuOverlay.classList.remove('open');
-            Utils.showToast('Settings coming soon', 'info');
-            Logger.userAction('Settings clicked');
         });
 
         Logger.pageReady('Home');

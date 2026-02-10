@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#5B4FCF">
     <title>SemScan - Presenter</title>
-    <link rel="stylesheet" href="css/main.css?v=7">
+    <link rel="stylesheet" href="css/main.css?v=9">
 </head>
 <body style="display: none;">
     <!-- Side Menu Overlay -->
@@ -53,14 +53,14 @@
             <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
         </a>
 
-        <!-- Select a presentation slot Card -->
-        <a href="slots.html" class="action-card" id="cardSelectSlot">
+        <!-- Select a presentation slot Card - Disabled by default until details are filled -->
+        <div class="action-card disabled" id="cardSelectSlot">
             <div class="action-card-icon">
                 <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
             </div>
             <div class="action-card-text">Select a presentation slot</div>
             <svg class="action-card-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-        </a>
+        </div>
 
         <!-- Start Session (Show QR) Card - Disabled by default -->
         <div class="action-card disabled" id="cardStartSession">
@@ -125,14 +125,22 @@
     <!-- Toast container -->
     <div class="toast-container"></div>
 
-    <script src="js/config.js?v=3"></script>
-    <script src="js/utils.js?v=3"></script>
-    <script src="js/api.js?v=3"></script>
+    <script src="js/config.js?v=101"></script>
+    <script src="js/utils.js?v=101"></script>
+    <script src="js/api.js?v=101"></script>
     <script>
         // Require authentication FIRST - block page until verified
         if (!Utils.isLoggedIn()) {
             window.location.replace('index.html');
             throw new Error('Not authenticated');
+        }
+
+        // COPY FROM ANDROID: Check hasCompletedInitialSetup()
+        // If setup not completed, redirect to first-time setup page
+        if (localStorage.getItem('setup_completed') !== 'true') {
+            Logger.info('AUTH_CHECK', 'Setup not completed, redirecting to first-time-setup.html');
+            window.location.replace('first-time-setup.html');
+            throw new Error('Setup not completed');
         }
 
         // Show page only after auth verified
@@ -146,6 +154,7 @@
         let mySlot = null;
         let myWaitingListSlot = null;
         let attendancePanel = null;
+        let presenterData = null;
         let qrTimerInterval = null;
         let activeSessionSlotId = null;
 
@@ -153,6 +162,15 @@
         document.addEventListener('DOMContentLoaded', () => {
             Logger.pageInit('Presenter Dashboard');
             initPage();
+        });
+
+        // COPY FROM ANDROID: onResume() behavior - reload data when user returns to tab
+        // This handles the case where supervisor approves while user is on another tab
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                Logger.info('VISIBILITY', 'Tab became visible, reloading data (like Android onResume)');
+                loadPresenterData();
+            }
         });
 
         async function initPage() {
@@ -249,7 +267,8 @@
                 mySlot = response.mySlot;
                 myWaitingListSlot = response.myWaitingListSlot;
                 attendancePanel = response.attendance;
-                Logger.info('LOAD_DATA', 'Slot data:', { mySlot, myWaitingListSlot, attendancePanel });
+                presenterData = response.presenter;
+                Logger.info('LOAD_DATA', 'Slot data:', { mySlot, myWaitingListSlot, attendancePanel, presenterData });
 
                 // Update presentation details subtitle
                 const detailsSubtitle = document.getElementById('detailsSubtitle');
@@ -271,6 +290,13 @@
                     message: error.message,
                     stack: error.stack
                 });
+                // If presenter not found, this is a new user - redirect to first-time setup
+                if (error.message && error.message.toLowerCase().includes('not found')) {
+                    Logger.info('LOAD_DATA_ERROR', 'Presenter not found - redirecting to first-time setup');
+                    localStorage.setItem('first_time_setup', 'true');
+                    window.location.replace('presentation-details.html');
+                    return;
+                }
                 Utils.showToast('Failed to load data: ' + error.message, 'error');
             } finally {
                 Utils.hideLoading();
@@ -279,15 +305,43 @@
 
         function updateUIState() {
             Logger.debug('UI_STATE', 'Updating UI state...');
+            const cardSelectSlot = document.getElementById('cardSelectSlot');
             const cardMySlot = document.getElementById('cardMySlot');
             const cardStartSession = document.getElementById('cardStartSession');
 
             Logger.debug('UI_STATE', 'Elements found:', {
+                cardSelectSlot: !!cardSelectSlot,
                 cardMySlot: !!cardMySlot,
                 cardStartSession: !!cardStartSession
             });
 
-            // By default, both cards are disabled (set in HTML)
+            // Check if presenter has filled in required details (topic and supervisor)
+            const hasDetails = presenterData && presenterData.topic && presenterData.supervisorEmail;
+            Logger.info('UI_STATE', 'Checking presenter details', {
+                hasDetails,
+                topic: presenterData?.topic,
+                supervisorEmail: presenterData?.supervisorEmail
+            });
+
+            // Enable "Select a presentation slot" only if presenter has filled in details
+            if (hasDetails) {
+                cardSelectSlot.classList.remove('disabled');
+                cardSelectSlot.classList.add('enabled');
+                cardSelectSlot.style.cursor = 'pointer';
+                cardSelectSlot.onclick = () => {
+                    Logger.userAction('Select Slot card clicked');
+                    window.location.href = 'slots.html';
+                };
+            } else {
+                cardSelectSlot.classList.add('disabled');
+                cardSelectSlot.classList.remove('enabled');
+                cardSelectSlot.style.cursor = 'not-allowed';
+                cardSelectSlot.onclick = () => {
+                    Utils.showToast('Please fill in your presentation details first', 'error');
+                };
+            }
+
+            // By default, My Slot and Start Session cards are disabled (set in HTML)
             // Enable them only if user has an approved slot
 
             // Check if user has an approved slot (for My Slot card)
@@ -452,40 +506,6 @@
                 Logger.debug('QR_MODAL', 'Timer cleared');
             }
             Logger.info('QR_MODAL', 'Modal closed');
-        }
-
-        function showMySlotInfo() {
-            if (!mySlot) {
-                Utils.showToast('No slot information available', 'error');
-                return;
-            }
-
-            // Build slot info message
-            let info = `Date: ${mySlot.date || 'N/A'}`;
-            if (mySlot.timeRange) {
-                info += `\nTime: ${mySlot.timeRange}`;
-            }
-            if (mySlot.dayOfWeek) {
-                info += ` (${mySlot.dayOfWeek})`;
-            }
-            if (mySlot.room) {
-                info += `\nRoom: ${mySlot.room}`;
-            }
-            if (mySlot.building) {
-                info += ` - ${mySlot.building}`;
-            }
-            info += `\nStatus: ${mySlot.approvalStatus || 'PENDING'}`;
-
-            // Show session completion status if applicable
-            if (mySlot.canCancel === false) {
-                info += `\n\nSession Completed`;
-                if (mySlot.cancelBlockedReason) {
-                    info += `\n(${mySlot.cancelBlockedReason})`;
-                }
-            }
-
-            Logger.info('SLOT_INFO', 'Showing slot info', { mySlot });
-            Utils.showToast(info, 'info');
         }
 
         // Global error handler

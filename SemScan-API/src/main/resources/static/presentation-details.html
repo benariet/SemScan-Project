@@ -509,6 +509,15 @@
             toggleCard(true);
         });
 
+        // COPY FROM ANDROID: onResume() behavior - reload data when user returns to tab
+        // This handles the case where supervisor approves while user is on another tab
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                Logger.info('VISIBILITY', 'Tab became visible, reloading data (like Android onResume)');
+                loadData();
+            }
+        });
+
         function toggleCard(forceExpand) {
             const content = document.getElementById('cardContent');
             const icon = document.getElementById('expandIcon');
@@ -586,6 +595,15 @@
         }
 
         async function loadData() {
+            // COPY FROM ANDROID: For first-time setup, don't try to load data
+            // The user doesn't exist in DB yet
+            if (localStorage.getItem('setup_completed') !== 'true') {
+                Logger.info('LOAD_DATA', 'First-time setup - skipping data load (user not in DB yet)');
+                Utils.hideLoading();
+                updateCardStates();
+                return;
+            }
+
             Logger.info('LOAD_DATA', 'Loading presenter data...');
             Utils.showLoading();
 
@@ -595,6 +613,7 @@
 
                 presenterData = response.presenter;
                 mySlot = response.mySlot;
+                Logger.info('LOAD_DATA', 'mySlot object:', JSON.stringify(mySlot));
 
                 // Populate form with fresh API data
                 if (presenterData) {
@@ -672,14 +691,17 @@
 
             subtitle.textContent = 'Details saved';
 
-            // Check if slot is approved - enable Start Session and My Time Slot
+            // Both cards enabled only when APPROVED
             const status = mySlot.approvalStatus?.toUpperCase() || 'PENDING';
+            Logger.info('CARD_STATE', `mySlot status: "${mySlot.approvalStatus}" -> normalized: "${status}"`);
             if (status === 'APPROVED') {
                 startSessionCard.classList.remove('disabled');
                 myTimeSlotCard.classList.remove('disabled');
+                Logger.info('CARD_STATE', 'Cards ENABLED - status is APPROVED');
             } else {
                 startSessionCard.classList.add('disabled');
                 myTimeSlotCard.classList.add('disabled');
+                Logger.info('CARD_STATE', `Cards DISABLED - status is ${status}, not APPROVED`);
             }
         }
 
@@ -773,15 +795,16 @@
                     }
                 }
 
-                // Build update data with required fields
+                // Build update data with required fields (same field names as Android/API)
                 const updateData = {
                     // Required fields
+                    bguUsername: username,
                     degree: presenterData?.degree || userData.degree || 'MSC',
                     email: presenterData?.email || userData.email || `${username}@bgu.ac.il`,
                     firstName: firstName,
                     lastName: lastName,
                     // Presentation-specific fields
-                    topic: topic,
+                    presentationTopic: topic,
                     seminarAbstract: abstract,
                     supervisorName: supervisorName,
                     supervisorEmail: supervisorEmail
@@ -806,7 +829,24 @@
                 document.getElementById('cardSubtitle').textContent = 'Details saved';
 
                 Logger.info('SAVE_DETAILS', 'Details saved successfully');
-                Utils.showToast('Details saved successfully', 'success');
+
+                // COPY FROM ANDROID: After saving profile, setInitialSetupCompleted(true)
+                // Check if this is first-time setup (setup_completed was false)
+                const wasFirstTimeSetup = localStorage.getItem('setup_completed') !== 'true';
+
+                // Mark setup as completed (same as Android's setInitialSetupCompleted(true))
+                localStorage.setItem('setup_completed', 'true');
+                Logger.info('SAVE_DETAILS', 'setup_completed set to true');
+
+                if (wasFirstTimeSetup) {
+                    Logger.info('SAVE_DETAILS', 'First-time setup complete, redirecting to home');
+                    Utils.showToast('Setup complete! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'home.html';
+                    }, 1000);
+                } else {
+                    Utils.showToast('Details saved successfully', 'success');
+                }
 
             } catch (error) {
                 Logger.error('SAVE_DETAILS_ERROR', 'Failed to save details', error);

@@ -12,7 +12,7 @@
     
     <!-- Specific domain configuration for production server -->
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">132.72.50.53</domain>
+        <domain includeSubdomains="true">132.72.50.52</domain>
         <trust-anchors>
             <!-- Trust system certificates -->
             <certificates src="system"/>

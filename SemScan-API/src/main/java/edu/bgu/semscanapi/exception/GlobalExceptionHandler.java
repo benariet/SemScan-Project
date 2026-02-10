@@ -89,21 +89,35 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException ex, HttpServletRequest request) {
         String correlationId = LoggerUtil.getCurrentCorrelationId();
         String bguUsername = LoggerUtil.getCurrentBguUsername();
-        logger.error("Resource not found - Correlation ID: {}, Path: {}", correlationId, request.getRequestURI(), ex);
+        String requestPath = request.getRequestURI();
+
+        // Build a clear error message
+        String errorMessage = String.format(
+            "The requested resource '%s' was not found. This may occur if: " +
+            "(1) The URL is incorrect, " +
+            "(2) The server was restarting when you made the request, " +
+            "(3) The resource does not exist. " +
+            "Try refreshing the page.",
+            requestPath
+        );
+
+        String logMessage = String.format("Resource not found: %s (original: %s)", requestPath, ex.getMessage());
+
+        logger.error("Resource not found - Correlation ID: {}, Path: {}", correlationId, requestPath, ex);
         databaseLoggerService.logError(
-                "GLOBAL_EXCEPTION",
-                ex.getMessage(),
+                "RESOURCE_NOT_FOUND",
+                logMessage,
                 ex,
                 bguUsername,
-                String.format("correlationId=%s", correlationId));
-        
+                String.format("correlationId=%s,path=%s", correlationId, requestPath));
+
         ErrorResponse errorResponse = new ErrorResponse(
             "Resource Not Found",
-            ex.getMessage(),
+            errorMessage,
             HttpStatus.NOT_FOUND.value(),
-            request.getRequestURI()
+            requestPath
         );
-        
+
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
     

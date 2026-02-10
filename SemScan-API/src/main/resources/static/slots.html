@@ -5,27 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1976D2">
+    <meta name="theme-color" content="#5B4FCF">
     <title>SemScan - Select Slot</title>
-    <link rel="stylesheet" href="css/main.css?v=6">
+    <link rel="stylesheet" href="css/main.css?v=8">
     <link rel="stylesheet" href="css/slots.css">
 </head>
 <body style="display: none;">
-    <!-- Header with Refresh button (matches mobile toolbar design) -->
-    <header class="header">
-        <div style="display: flex; align-items: center; width: 100%;">
-            <!-- Back arrow only (no text, matches mobile) -->
-            <a href="presenter.html" style="color: white; text-decoration: none; display: flex; align-items: center; padding: 8px; flex-shrink: 0;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    <!-- Side Menu Overlay -->
+    <div class="side-menu-overlay" id="menuOverlay"></div>
+
+    <!-- Side Menu -->
+    <div class="side-menu" id="sideMenu">
+        <div class="side-menu-header">
+            <h3 id="menuUserName">User</h3>
+            <p id="menuUserEmail">user@bgu.ac.il</p>
+        </div>
+        <div class="side-menu-items">
+            <a href="settings.html" class="side-menu-item">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M19.14,12.94c0.04-0.31,0.06-0.63,0.06-0.94c0-0.31-0.02-0.63-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.37,4.8,11.69,4.8,12s0.02,0.63,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+                <span>Settings</span>
             </a>
-            <!-- Title - allows shrinking so refresh button stays visible -->
-            <h1 class="header-title" style="flex: 1; text-align: center; margin: 0; color: white; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Available seminar slots</h1>
-            <!-- Refresh button in header (matches mobile) -->
-            <button class="header-refresh-btn" id="refreshBtn" onclick="loadSlots()" style="flex-shrink: 0;">
+            <div class="side-menu-divider"></div>
+            <a href="#" class="side-menu-item" id="logoutMenuItem">
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                <span>Logout</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header header-with-nav">
+        <button class="back-btn" onclick="history.back()">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        </button>
+        <h1 class="header-title">Select Slot</h1>
+        <div style="display: flex; align-items: center; gap: 4px;">
+            <button class="header-refresh-btn" id="refreshBtn" onclick="loadSlots()">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                     <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                 </svg>
-                Refresh
+            </button>
+            <button class="menu-btn" id="menuBtn">
+                <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
             </button>
         </div>
     </header>
@@ -70,8 +91,37 @@
         let allSlots = [];
         let presenterData = null; // Store fresh API data to use instead of localStorage
 
+        // Setup side menu
+        function setupMenu() {
+            const menuBtn = document.getElementById('menuBtn');
+            const menuOverlay = document.getElementById('menuOverlay');
+            const sideMenu = document.getElementById('sideMenu');
+            const logoutMenuItem = document.getElementById('logoutMenuItem');
+
+            // Populate user info
+            document.getElementById('menuUserName').textContent = username;
+            document.getElementById('menuUserEmail').textContent = username + '@bgu.ac.il';
+
+            menuBtn.addEventListener('click', () => {
+                sideMenu.classList.add('open');
+                menuOverlay.classList.add('open');
+            });
+
+            menuOverlay.addEventListener('click', () => {
+                sideMenu.classList.remove('open');
+                menuOverlay.classList.remove('open');
+            });
+
+            logoutMenuItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                localStorage.clear();
+                window.location.href = 'index.html';
+            });
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            setupMenu();
             loadSlots();
         });
 

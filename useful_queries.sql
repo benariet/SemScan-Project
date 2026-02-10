@@ -152,23 +152,7 @@ SELECT * FROM semscan_db.slots ORDER BY slot_date;
 SELECT slot_id, slot_date FROM semscan_db.slots
 WHERE slot_date >= CURDATE() AND status = 'FREE' LIMIT 10;
 
--- Open attendance sessions with status
-SELECT
-    s.slot_id,
-    s.slot_date,
-    CONCAT(u.first_name, ' ', u.last_name) AS opened_by_name,
-    s.attendance_opened_by AS username,
-    s.attendance_opened_at,
-    s.attendance_closes_at,
-    CASE
-        WHEN s.attendance_closes_at IS NULL THEN 'No session'
-        WHEN NOW() < s.attendance_closes_at THEN 'OPEN'
-        ELSE 'CLOSED'
-    END AS session_status
-FROM semscan_db.slots s
-LEFT JOIN semscan_db.users u ON s.attendance_opened_by = u.bgu_username
-WHERE s.attendance_opened_at IS NOT NULL
-ORDER BY s.slot_date DESC;
+
 
 
 -- Insert slot for TODAY (morning)

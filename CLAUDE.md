@@ -15,6 +15,12 @@
 - Keep changes minimal and focused
 - Ask: "Is this needed for 20 users?" → usually NO
 
+**Android App is the Source of Truth (CRITICAL):**
+- BEFORE implementing ANY new feature in Web App: Check how it's done in the Android app FIRST
+- BEFORE fixing ANY bug in Web App: Check how the Android app handles it FIRST
+- The Android app is WORKING - copy its logic exactly
+- Don't reinvent solutions - the Android app has already solved these problems
+
 **Deployment:**
 - NEVER deploy directly to production
 - ALWAYS deploy to TEST first, then promote to PRODUCTION
@@ -677,7 +683,11 @@ cd SemScan-API && ./gradlew test
 | `testmsc4` | `Test123!` | Eitan Peretz | MSc |
 | `testmsc5` | `Test123!` | Shira Avraham | MSc |
 
-**Note:** Only these 8 test users bypass BGU authentication: `testphd1`, `testphd2`, `testphd3`, `testmsc1`, `testmsc2`, `testmsc3`, `testmsc4`, `testmsc5` (all use `Test123!`). All other users authenticate via BGU SOAP.
+**Note:** These 30 test users bypass BGU authentication (all use password `Test123!`):
+- PhD: `testphd1` through `testphd10`
+- MSc: `testmsc1` through `testmsc20`
+
+All other users authenticate via BGU SOAP.
 
 
 ## Critical Test Cases

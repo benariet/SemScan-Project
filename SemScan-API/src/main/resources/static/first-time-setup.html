@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#5B4FCF">
+    <title>SemScan - Complete Your Profile</title>
+    <link rel="stylesheet" href="css/main.css?v=8">
+    <style>
+        body {
+            background: linear-gradient(180deg, #f5f5f5 0%, #ffffff 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(90deg, #5B4FCF 0%, #7B6BD6 50%, #FF8C42 100%);
+            padding: 16px 20px;
+            color: white;
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .container {
+            padding: 24px 20px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .welcome-title {
+            color: #5B4FCF;
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+        }
+
+        .welcome-subtitle {
+            color: #666;
+            font-size: 16px;
+            margin: 0 0 32px 0;
+        }
+
+        .section-title {
+            color: #FF8C42;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 24px 0 16px 0;
+        }
+
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #5B4FCF;
+            box-shadow: 0 0 0 3px rgba(91, 79, 207, 0.1);
+        }
+
+        .form-input.error {
+            border-color: #f44336;
+        }
+
+        .form-input::placeholder {
+            color: #9e9e9e;
+        }
+
+        .error-text {
+            color: #f44336;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .error-text.visible {
+            display: block;
+        }
+
+        /* Radio buttons for degree */
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .radio-option:hover {
+            border-color: #5B4FCF;
+            background: rgba(91, 79, 207, 0.05);
+        }
+
+        .radio-option.selected {
+            border-color: #5B4FCF;
+            background: rgba(91, 79, 207, 0.1);
+        }
+
+        .radio-option input[type="radio"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            accent-color: #5B4FCF;
+        }
+
+        .radio-label {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        /* Submit button */
+        .btn-submit {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #5B4FCF 0%, #7B6BD6 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 32px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(91, 79, 207, 0.3);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        .btn-submit:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-submit.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .btn-submit.loading::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            top: 50%;
+            left: 50%;
+            margin-left: -12px;
+            margin-top: -12px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast container */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1 class="header-title">Complete Your Profile</h1>
+    </header>
+
+    <div class="container">
+        <h2 class="welcome-title">Welcome to SemScan</h2>
+        <p class="welcome-subtitle">We need a few details to get started.</p>
+
+        <!-- Personal Information -->
+        <div class="section-title">Personal Information</div>
+        <div class="form-card">
+            <div class="form-group">
+                <input type="text" class="form-input" id="firstName" placeholder="First name" autocomplete="given-name">
+                <div class="error-text" id="firstNameError">First name is required</div>
+            </div>
+            <div class="form-group">
+                <input type="text" class="form-input" id="lastName" placeholder="Last name" autocomplete="family-name">
+                <div class="error-text" id="lastNameError">Last name is required</div>
+            </div>
+            <div class="form-group">
+                <input type="text" class="form-input" id="nationalId" placeholder="National ID number" inputmode="numeric" maxlength="9">
+                <div class="error-text" id="nationalIdError">Please enter a valid 9-digit ID</div>
+            </div>
+        </div>
+
+        <!-- Academic Degree -->
+        <div class="section-title">Academic degree</div>
+        <div class="form-card">
+            <p style="color: #666; margin: 0 0 16px 0;">Select your degree</p>
+            <div class="radio-group">
+                <label class="radio-option" id="phdOption">
+                    <input type="radio" name="degree" value="PhD">
+                    <span class="radio-label">PhD</span>
+                </label>
+                <label class="radio-option" id="mscOption">
+                    <input type="radio" name="degree" value="MSc">
+                    <span class="radio-label">MSc</span>
+                </label>
+            </div>
+            <div class="error-text" id="degreeError" style="margin-top: 8px;">Please select your degree</div>
+        </div>
+
+        <button class="btn-submit" id="submitBtn">Continue</button>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container"></div>
+
+    <script src="js/config.js?v=101"></script>
+    <script src="js/utils.js?v=101"></script>
+    <script src="js/api.js?v=101"></script>
+    <script>
+        // Require authentication
+        if (!Utils.isLoggedIn()) {
+            window.location.replace('index.html');
+            throw new Error('Not authenticated');
+        }
+
+        Logger.pageLoad('FirstTimeSetup');
+
+        const username = Utils.getUsername();
+
+        // Radio button selection
+        document.querySelectorAll('.radio-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.radio-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                option.querySelector('input').checked = true;
+                document.getElementById('degreeError').classList.remove('visible');
+            });
+        });
+
+        // Israeli ID checksum validation (same as Android)
+        function validateIsraeliIdChecksum(id) {
+            if (!id || id.length !== 9 || !/^\d{9}$/.test(id)) {
+                return false;
+            }
+
+            let sum = 0;
+            for (let i = 0; i < 9; i++) {
+                let digit = parseInt(id.charAt(i), 10);
+                let multiplier = (i % 2 === 0) ? 1 : 2;
+                let product = digit * multiplier;
+
+                if (product >= 10) {
+                    product = Math.floor(product / 10) + (product % 10);
+                }
+
+                sum += product;
+            }
+
+            return (sum % 10) === 0;
+        }
+
+        // Real-time national ID validation
+        document.getElementById('nationalId').addEventListener('input', (e) => {
+            const id = e.target.value.trim();
+            const errorEl = document.getElementById('nationalIdError');
+            const inputEl = e.target;
+
+            if (!id) {
+                errorEl.textContent = 'National ID is required';
+                errorEl.classList.add('visible');
+                inputEl.classList.add('error');
+            } else if (id.length !== 9) {
+                errorEl.textContent = 'ID must be exactly 9 digits';
+                errorEl.classList.add('visible');
+                inputEl.classList.add('error');
+            } else if (!/^\d{9}$/.test(id)) {
+                errorEl.textContent = 'ID must contain only digits';
+                errorEl.classList.add('visible');
+                inputEl.classList.add('error');
+            } else if (!validateIsraeliIdChecksum(id)) {
+                errorEl.textContent = 'Invalid ID number (checksum failed)';
+                errorEl.classList.add('visible');
+                inputEl.classList.add('error');
+            } else {
+                errorEl.classList.remove('visible');
+                inputEl.classList.remove('error');
+            }
+        });
+
+        // Clear errors on input
+        document.getElementById('firstName').addEventListener('input', () => {
+            document.getElementById('firstNameError').classList.remove('visible');
+            document.getElementById('firstName').classList.remove('error');
+        });
+
+        document.getElementById('lastName').addEventListener('input', () => {
+            document.getElementById('lastNameError').classList.remove('visible');
+            document.getElementById('lastName').classList.remove('error');
+        });
+
+        // Submit handler
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const nationalId = document.getElementById('nationalId').value.trim();
+            const degreeEl = document.querySelector('input[name="degree"]:checked');
+            const degree = degreeEl ? degreeEl.value : null;
+
+            let valid = true;
+
+            // Validate first name
+            if (!firstName) {
+                document.getElementById('firstNameError').classList.add('visible');
+                document.getElementById('firstName').classList.add('error');
+                valid = false;
+            }
+
+            // Validate last name
+            if (!lastName) {
+                document.getElementById('lastNameError').classList.add('visible');
+                document.getElementById('lastName').classList.add('error');
+                valid = false;
+            }
+
+            // Validate national ID
+            if (!nationalId) {
+                document.getElementById('nationalIdError').textContent = 'National ID is required';
+                document.getElementById('nationalIdError').classList.add('visible');
+                document.getElementById('nationalId').classList.add('error');
+                valid = false;
+            } else if (!validateIsraeliIdChecksum(nationalId)) {
+                document.getElementById('nationalIdError').textContent = 'Invalid ID number';
+                document.getElementById('nationalIdError').classList.add('visible');
+                document.getElementById('nationalId').classList.add('error');
+                valid = false;
+            }
+
+            // Validate degree
+            if (!degree) {
+                document.getElementById('degreeError').classList.add('visible');
+                valid = false;
+            }
+
+            if (!valid) {
+                return;
+            }
+
+            // Show loading
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+
+            try {
+                Logger.info('SETUP', 'Submitting profile...', { firstName, lastName, degree });
+
+                // Call upsertUser API (same as Android)
+                const response = await API.upsertUser(username, {
+                    bguUsername: username,
+                    email: username + '@bgu.ac.il',
+                    firstName: firstName,
+                    lastName: lastName,
+                    degree: degree,
+                    participationPreference: 'BOTH',  // Everyone is always BOTH (same as Android)
+                    nationalIdNumber: nationalId
+                });
+
+                Logger.info('SETUP_SUCCESS', 'Profile created successfully');
+
+                // COPY FROM ANDROID: Mark setup as completed
+                localStorage.setItem('setup_completed', 'true');
+
+                // Store user data locally
+                localStorage.setItem(CONFIG.USER_DATA_KEY, JSON.stringify({
+                    firstName: firstName,
+                    lastName: lastName,
+                    degree: degree,
+                    nationalId: nationalId
+                }));
+
+                Utils.showToast('Profile created successfully!', 'success');
+
+                // Navigate to home (same as Android navigateToHome)
+                setTimeout(() => {
+                    window.location.href = 'home.html';
+                }, 1000);
+
+            } catch (error) {
+                Logger.error('SETUP_ERROR', 'Failed to create profile', error);
+                Utils.showToast('Failed to save profile: ' + error.message, 'error');
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        });
+
+        Logger.pageReady('FirstTimeSetup');
+    </script>
+</body>
+</html>

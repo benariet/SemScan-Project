@@ -1868,6 +1868,17 @@ public class PresenterHomeService {
             logger.debug("Slot {} attendance window has closed at {}, marking as unavailable", slot.getSlotId(), slot.getAttendanceClosesAt());
         }
 
+        // CRITICAL: Check if THIS specific presenter has a closed session for this slot
+        // This uses seminar-based lookup which works even after SessionAutoCloseJob clears slot fields
+        boolean presenterHasClosedSession = false;
+        if (presenterUsername != null && presenterInThisSlot) {
+            Session closedSession = findPresenterClosedSessionForSlot(presenterUsername, slot.getSlotId(), slot);
+            if (closedSession != null) {
+                presenterHasClosedSession = true;
+                logger.debug("Presenter {} has closed session {} for slot {}", presenterUsername, closedSession.getSessionId(), slot.getSlotId());
+            }
+        }
+
         // Calculate available count: capacity minus effective usage (PhD=2, MSc=1)
         // If effective usage meets or exceeds capacity, available should be 0
         int available = Math.max(capacity - effectiveCapacityUsage, 0);
@@ -2001,7 +2012,8 @@ public class PresenterHomeService {
         // Set session status fields for client-side filtering
         card.setAttendanceOpenedAt(slot.getAttendanceOpenedAt() != null ? DATE_TIME_FORMAT.format(slot.getAttendanceOpenedAt()) : null);
         card.setAttendanceClosesAt(slot.getAttendanceClosesAt() != null ? DATE_TIME_FORMAT.format(slot.getAttendanceClosesAt()) : null);
-        card.setHasClosedSession(attendanceClosed);
+        // hasClosedSession: true if slot-level shows closed OR this presenter has a closed session (seminar lookup)
+        card.setHasClosedSession(attendanceClosed || presenterHasClosedSession);
 
         // Check if CURRENT USER has an open session for this slot
         boolean mySessionOpen = false;
@@ -2010,7 +2022,8 @@ public class PresenterHomeService {
                 && presenterUsername.equalsIgnoreCase(slot.getAttendanceOpenedBy())
                 && slot.getAttendanceClosesAt() != null
                 && now.isBefore(slot.getAttendanceClosesAt())
-                && !attendanceClosed) {
+                && !attendanceClosed
+                && !presenterHasClosedSession) {
             mySessionOpen = true;
             mySessionClosesAt = DATE_TIME_FORMAT.format(slot.getAttendanceClosesAt());
             logger.debug("User {} has an open session for slot {} that closes at {}",
@@ -2109,6 +2122,23 @@ public class PresenterHomeService {
             panel.setAlreadyOpen(false);
             panel.setStatus("Waiting for supervisor approval");
             panel.setWarning("You can open attendance after your supervisor approves your registration");
+            return panel;
+        }
+
+        // CRITICAL: Check if this presenter already has a CLOSED session for this slot
+        // This uses seminar-based lookup which works even after SessionAutoCloseJob clears slot fields
+        Session existingClosedSession = findPresenterClosedSessionForSlot(presenterUsername, slot.getSlotId(), slot);
+        if (existingClosedSession != null) {
+            String closedAt = existingClosedSession.getEndTime() != null
+                    ? DISPLAY_DATE_TIME_FORMAT.format(existingClosedSession.getEndTime())
+                    : "earlier";
+            panel.setCanOpen(false);
+            panel.setAlreadyOpen(false);
+            panel.setStatus("Session already completed");
+            panel.setWarning("You completed your session at " + closedAt);
+            panel.setSessionId(existingClosedSession.getSessionId());
+            logger.info("Blocking attendance for {} - found existing closed session {} for slot {}",
+                presenterUsername, existingClosedSession.getSessionId(), slot.getSlotId());
             return panel;
         }
 
@@ -2395,12 +2425,16 @@ public class PresenterHomeService {
         // because legacySessionId gets cleared after session closes
 
         // First, find the presenter's seminar for this slot
+        // NOTE: Seminar names use dd/MM/yyyy format (e.g., "09/02/2026 09:00-17:00")
+        // so we need to format the slot date accordingly for matching
+        java.time.format.DateTimeFormatter seminarDateFormat = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        String formattedSlotDate = slot.getSlotDate() != null ? slot.getSlotDate().format(seminarDateFormat) : null;
+
         Optional<Seminar> presenterSeminar = seminarRepository.findByPresenterUsername(presenterUsername)
             .stream()
             .filter(sem -> {
-                // Match seminar to slot by checking if seminar name contains slot date/time
-                String slotDate = slot.getSlotDate() != null ? slot.getSlotDate().toString() : null;
-                return sem.getSeminarName() != null && slotDate != null && sem.getSeminarName().contains(slotDate);
+                // Match seminar to slot by checking if seminar name contains slot date
+                return sem.getSeminarName() != null && formattedSlotDate != null && sem.getSeminarName().contains(formattedSlotDate);
             })
             .findFirst();
 
