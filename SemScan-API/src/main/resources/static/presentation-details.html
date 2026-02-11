@@ -498,6 +498,7 @@
         const username = Utils.getUsername();
         let presenterData = null;
         let mySlot = null;
+        let attendancePanel = null; // Store attendance status for session completion check
         let cardExpanded = true; // Start expanded
 
         // Initialize
@@ -581,9 +582,7 @@
             // Settings click
             document.getElementById('settingsMenuItem').addEventListener('click', (e) => {
                 e.preventDefault();
-                sideMenu.classList.remove('open');
-                menuOverlay.classList.remove('open');
-                Utils.showToast('Settings coming soon', 'info');
+                window.location.href = 'settings.html';
             });
 
             // Logout click
@@ -613,7 +612,9 @@
 
                 presenterData = response.presenter;
                 mySlot = response.mySlot;
+                attendancePanel = response.attendance; // Store for session completion check
                 Logger.info('LOAD_DATA', 'mySlot object:', JSON.stringify(mySlot));
+                Logger.info('LOAD_DATA', 'attendancePanel:', JSON.stringify(attendancePanel));
 
                 // Populate form with fresh API data
                 if (presenterData) {
@@ -673,9 +674,14 @@
 
             // Must have ALL 4 fields filled (topic + abstract + supervisorName + valid supervisorEmail)
             const hasPresentationDetails = topic && abstract && supervisorName && isValidEmail;
+            // Check if presenter already completed their session
+            const sessionCompleted = attendancePanel && attendancePanel.status === 'Session already completed';
 
-            // Enable/disable Select Slot card based on ALL presentation details
-            if (hasPresentationDetails) {
+            // Enable/disable Select Slot card based on ALL presentation details AND session not completed
+            if (sessionCompleted) {
+                // Session already completed - disable slot selection
+                selectSlotCard.classList.add('disabled');
+            } else if (hasPresentationDetails) {
                 selectSlotCard.classList.remove('disabled');
             } else {
                 selectSlotCard.classList.add('disabled');
@@ -694,10 +700,20 @@
             // Both cards enabled only when APPROVED
             const status = mySlot.approvalStatus?.toUpperCase() || 'PENDING';
             Logger.info('CARD_STATE', `mySlot status: "${mySlot.approvalStatus}" -> normalized: "${status}"`);
+            Logger.info('CARD_STATE', `attendancePanel: ${JSON.stringify(attendancePanel)}`);
             if (status === 'APPROVED') {
-                startSessionCard.classList.remove('disabled');
+                // My Time Slot: enabled when APPROVED
                 myTimeSlotCard.classList.remove('disabled');
-                Logger.info('CARD_STATE', 'Cards ENABLED - status is APPROVED');
+
+                // Start Session: must be APPROVED AND canOpen from attendance panel
+                // COPY FROM ANDROID: PresenterHomeActivity checks attendance.canOpen
+                if (attendancePanel && attendancePanel.canOpen) {
+                    startSessionCard.classList.remove('disabled');
+                    Logger.info('CARD_STATE', 'Start Session ENABLED - APPROVED and canOpen=true');
+                } else {
+                    startSessionCard.classList.add('disabled');
+                    Logger.info('CARD_STATE', `Start Session DISABLED - APPROVED but canOpen=${attendancePanel?.canOpen}`);
+                }
             } else {
                 startSessionCard.classList.add('disabled');
                 myTimeSlotCard.classList.add('disabled');
@@ -755,9 +771,8 @@
                 Utils.showToast('You are not registered for any slot', 'error');
                 return;
             }
-            // Show slot details in a toast for now
-            const slotInfo = `${mySlot.date} ${mySlot.timeRange || ''}\nStatus: ${mySlot.approvalStatus || 'PENDING'}`;
-            Utils.showToast(slotInfo, 'info');
+            // Navigate to my-slot.html (like Android PresenterMySlotActivity)
+            window.location.href = 'my-slot.html';
         }
 
         async function saveDetails() {

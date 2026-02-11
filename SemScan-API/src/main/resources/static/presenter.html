@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#5B4FCF">
     <title>SemScan - Presenter</title>
-    <link rel="stylesheet" href="css/main.css?v=9">
+    <link rel="stylesheet" href="css/main.css?v=10">
 </head>
 <body style="display: none;">
     <!-- Side Menu Overlay -->
@@ -41,6 +41,18 @@
     </header>
 
     <div class="container">
+        <!-- Session Open Banner - shown when presenter has an active session -->
+        <div class="session-open-banner hidden" id="sessionOpenBanner">
+            <div class="banner-content">
+                <div class="pulse-indicator"></div>
+                <div class="banner-text">
+                    <div class="banner-title">YOUR SESSION IS OPEN</div>
+                    <div class="banner-subtitle">Tap to show QR code or close session</div>
+                </div>
+                <svg class="banner-arrow" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </div>
+        </div>
+
         <!-- Presentation Details Card -->
         <a href="presentation-details.html" class="action-card" id="cardPresentationDetails">
             <div class="action-card-icon">
@@ -158,6 +170,11 @@
         let qrTimerInterval = null;
         let activeSessionSlotId = null;
 
+        // Session open banner state (COPY FROM ANDROID: PresenterHomeActivity)
+        let hasOpenSession = false;
+        let openSessionId = null;
+        let openSessionQrPayload = null;
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             Logger.pageInit('Presenter Dashboard');
@@ -220,6 +237,10 @@
                 Logger.debug('INIT', 'Setting up event listeners...');
                 document.getElementById('closeSessionBtn').addEventListener('click', closeQrModal);
                 document.getElementById('cardStartSession').addEventListener('click', openAttendance);
+
+                // Session open banner - click to resume session (COPY FROM ANDROID)
+                document.getElementById('sessionOpenBanner').addEventListener('click', resumeOpenSession);
+
                 Logger.debug('INIT', 'Event listeners set up');
 
                 // Load presenter data
@@ -270,6 +291,20 @@
                 presenterData = response.presenter;
                 Logger.info('LOAD_DATA', 'Slot data:', { mySlot, myWaitingListSlot, attendancePanel, presenterData });
 
+                // COPY FROM ANDROID: Check if user has an open session and show banner
+                if (attendancePanel && attendancePanel.alreadyOpen && attendancePanel.sessionId) {
+                    hasOpenSession = true;
+                    openSessionId = attendancePanel.sessionId;
+                    openSessionQrPayload = attendancePanel.qrPayload;
+                    showSessionOpenBanner();
+                    Logger.info('LOAD_DATA', 'User has open session', { sessionId: openSessionId });
+                } else {
+                    hasOpenSession = false;
+                    openSessionId = null;
+                    openSessionQrPayload = null;
+                    hideSessionOpenBanner();
+                }
+
                 // Update presentation details subtitle
                 const detailsSubtitle = document.getElementById('detailsSubtitle');
                 if (response.presenter?.topic) {
@@ -317,14 +352,25 @@
 
             // Check if presenter has filled in required details (topic and supervisor)
             const hasDetails = presenterData && presenterData.topic && presenterData.supervisorEmail;
+            // Check if presenter already completed their session
+            const sessionCompleted = attendancePanel && attendancePanel.status === 'Session already completed';
             Logger.info('UI_STATE', 'Checking presenter details', {
                 hasDetails,
+                sessionCompleted,
                 topic: presenterData?.topic,
                 supervisorEmail: presenterData?.supervisorEmail
             });
 
-            // Enable "Select a presentation slot" only if presenter has filled in details
-            if (hasDetails) {
+            // Enable "Select a presentation slot" only if presenter has filled in details AND hasn't completed session
+            if (sessionCompleted) {
+                // Session already completed - disable slot selection
+                cardSelectSlot.classList.add('disabled');
+                cardSelectSlot.classList.remove('enabled');
+                cardSelectSlot.style.cursor = 'not-allowed';
+                cardSelectSlot.onclick = () => {
+                    Utils.showToast('You have already completed your presentation', 'info');
+                };
+            } else if (hasDetails) {
                 cardSelectSlot.classList.remove('disabled');
                 cardSelectSlot.classList.add('enabled');
                 cardSelectSlot.style.cursor = 'pointer';
@@ -397,6 +443,58 @@
             }
 
             Logger.debug('UI_STATE', 'UI state update complete');
+        }
+
+        // COPY FROM ANDROID: Session open banner functions
+        function showSessionOpenBanner() {
+            const banner = document.getElementById('sessionOpenBanner');
+            if (banner) {
+                banner.classList.remove('hidden');
+                Logger.info('BANNER', 'Showing session open banner for session ' + openSessionId);
+            }
+        }
+
+        function hideSessionOpenBanner() {
+            const banner = document.getElementById('sessionOpenBanner');
+            if (banner) {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function resumeOpenSession() {
+            Logger.userAction('Session open banner clicked');
+
+            if (!hasOpenSession || !openSessionId) {
+                Utils.showToast('No open session found', 'error');
+                return;
+            }
+
+            // Navigate to session QR page to resume/close the open session
+            let url = `session-qr.html?sessionId=${openSessionId}`;
+
+            // Add slot info if available
+            if (mySlot && mySlot.slotId) {
+                url += `&slotId=${mySlot.slotId}`;
+
+                // Add slot date info if available
+                if (mySlot.date) {
+                    let date = new Date(mySlot.date);
+                    if (isNaN(date.getTime()) && mySlot.date.includes('/')) {
+                        const parts = mySlot.date.split('/');
+                        if (parts.length === 3) {
+                            date = new Date(parts[2], parts[1] - 1, parts[0]);
+                        }
+                    }
+                    if (!isNaN(date.getTime())) {
+                        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+                        const dateStr = date.toLocaleDateString('en-GB');
+                        url += `&day=${encodeURIComponent(dayName)}&date=${encodeURIComponent(dateStr)}`;
+                    }
+                }
+            }
+
+            Logger.info('BANNER', 'Resuming session ' + openSessionId + ' from home banner');
+            window.location.href = url;
         }
 
         function openAttendance() {

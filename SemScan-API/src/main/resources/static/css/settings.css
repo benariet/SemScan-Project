@@ -292,14 +292,54 @@
     background: #D32F2F;
 }
 
+/* Report Bug button */
+.btn-report-bug {
+    width: 100%;
+    padding: 14px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background: white;
+    color: #1976D2;
+    border: 2px solid #1976D2;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-report-bug:hover {
+    background: rgba(25, 118, 210, 0.1);
+}
+
+.btn-report-bug:active {
+    transform: scale(0.98);
+}
+
+.btn-report-bug svg {
+    flex-shrink: 0;
+}
+
 /* Version info footer */
 .version-info {
     text-align: center;
     padding: 24px 16px;
     margin-top: 16px;
     color: #9E9E9E;
-    font-size: 1rem;
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+
+.version-text {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: #757575;
+}
+
+.version-subtext {
+    font-size: 0.8125rem;
+    color: #9E9E9E;
 }

@@ -26,7 +26,8 @@ public class EmailQueue {
         EXPIRATION_WARNING,      // Warning to student before token expires
         APPROVAL_NOTIFICATION,   // Notification to student after approval/decline
         EXPORT_EMAIL,            // Export file email
-        SUPERVISOR_NOTIFICATION  // Notification to supervisor for direct registration
+        SUPERVISOR_NOTIFICATION, // Notification to supervisor for direct registration
+        BUG_REPORT               // Bug report from user
     }
 
     @Id

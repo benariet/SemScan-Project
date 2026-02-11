@@ -1643,23 +1643,18 @@ public class PresenterHomeService {
         summary.setCoPresenters(coPresenters);
 
         // Determine if presenter can cancel this registration
-        // Block cancellation if:
-        // 1. This presenter opened the session AND
-        // 2. The session is now CLOSED (completed)
+        // Block cancellation if this presenter has a CLOSED session for this slot
+        // NOTE: We use findPresenterClosedSessionForSlot because slot.legacySessionId gets cleared
+        // after session closes (by SessionAutoCloseJob) to allow other presenters to open their sessions
         boolean canCancel = true;
         String cancelBlockedReason = null;
 
-        String openedBy = normalizeUsername(slot.getAttendanceOpenedBy());
-        boolean openedByThisPresenter = presenterUsername != null && presenterUsername.equalsIgnoreCase(openedBy);
-
-        if (openedByThisPresenter && slot.getLegacySessionId() != null) {
-            Optional<Session> sessionOpt = sessionRepository.findById(slot.getLegacySessionId());
-            if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == Session.SessionStatus.CLOSED) {
-                canCancel = false;
-                cancelBlockedReason = "Session already completed - cannot cancel after presenting";
-                logger.debug("Blocking cancellation for {} on slot {} - session {} is CLOSED",
-                        presenterUsername, slot.getSlotId(), slot.getLegacySessionId());
-            }
+        Session closedSession = findPresenterClosedSessionForSlot(presenterUsername, slot.getSlotId(), slot);
+        if (closedSession != null) {
+            canCancel = false;
+            cancelBlockedReason = "Session already completed - cannot cancel after presenting";
+            logger.debug("Blocking cancellation for {} on slot {} - found closed session {}",
+                    presenterUsername, slot.getSlotId(), closedSession.getSessionId());
         }
 
         summary.setCanCancel(canCancel);
@@ -2031,6 +2026,22 @@ public class PresenterHomeService {
         }
         card.setMySessionOpen(mySessionOpen);
         card.setMySessionClosesAt(mySessionClosesAt);
+
+        // Set alreadyRegistered flag for web app compatibility
+        card.setAlreadyRegistered(presenterInThisSlot);
+
+        // Set canCancel flag - false if presenter has a closed session for this slot
+        // COPY FROM: getSlotRegistrationSummary() logic for canCancel
+        boolean canCancel = true;
+        String cancelBlockedReason = null;
+        if (presenterInThisSlot && presenterHasClosedSession) {
+            canCancel = false;
+            cancelBlockedReason = "Session already completed - cannot cancel after presenting";
+            logger.debug("Setting canCancel=false for {} on slot {} - presenter has closed session",
+                    presenterUsername, slot.getSlotId());
+        }
+        card.setCanCancel(canCancel);
+        card.setCancelBlockedReason(cancelBlockedReason);
 
         // NOTE: Registration limits are enforced at the API level, not UI level
         // Being registered in another slot or on a waiting list does NOT block registration

@@ -768,3 +768,80 @@ a {
         font-size: 1rem;
     }
 }
+
+/* ============================================
+   Session Open Banner
+   Copy from Android: card_session_open_banner.xml
+============================================ */
+.session-open-banner {
+    background: linear-gradient(135deg, #F44336, #D32F2F);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.session-open-banner:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(244, 67, 54, 0.4);
+}
+
+.session-open-banner:active {
+    transform: scale(0.98);
+}
+
+.session-open-banner.hidden {
+    display: none;
+}
+
+.session-open-banner .banner-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.session-open-banner .pulse-indicator {
+    width: 12px;
+    height: 12px;
+    background: #FFFFFF;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+}
+
+.session-open-banner .banner-text {
+    flex: 1;
+}
+
+.session-open-banner .banner-title {
+    color: #FFFFFF;
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.session-open-banner .banner-subtitle {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.8125rem;
+    margin-top: 4px;
+}
+
+.session-open-banner .banner-arrow {
+    width: 24px;
+    height: 24px;
+    fill: #FFFFFF;
+    flex-shrink: 0;
+}

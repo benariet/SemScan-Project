@@ -73,6 +73,14 @@ public interface SeminarSlotRegistrationRepository extends JpaRepository<Seminar
            "AND r.approvalToken IS NOT NULL AND r.approvalTokenExpiresAt BETWEEN :start AND :end")
     List<SeminarSlotRegistration> findPendingByApprovalTokenExpiresAtBetween(
         @Param("status") ApprovalStatus status, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    /**
+     * Check if user has ANY active registration (PENDING or APPROVED) across all slots.
+     * Used to prevent degree changes while registered.
+     */
+    @Query("SELECT COUNT(r) > 0 FROM SeminarSlotRegistration r WHERE r.id.presenterUsername = :presenterUsername " +
+           "AND r.approvalStatus IN (edu.bgu.semscanapi.entity.ApprovalStatus.PENDING, edu.bgu.semscanapi.entity.ApprovalStatus.APPROVED)")
+    boolean hasAnyActiveRegistration(@Param("presenterUsername") String presenterUsername);
 }
 
 

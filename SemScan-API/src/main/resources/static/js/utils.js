@@ -330,7 +330,10 @@ const Logger = {
         if (endpoint.includes('/home')) return 'PRESENTER_HOME';
         if (endpoint.includes('/slots')) return 'SLOTS';
         if (endpoint.includes('/sessions')) return 'SESSIONS';
-        return 'API';
+        if (endpoint.includes('/users')) return 'USER';
+        if (endpoint.includes('/support')) return 'SUPPORT';
+        if (endpoint.includes('/config')) return 'CONFIG';
+        return 'GENERAL';
     },
 
     /**

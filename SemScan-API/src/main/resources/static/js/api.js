@@ -87,12 +87,19 @@ const API = {
             Logger.apiResponse(method, endpoint, response.status, data, isAuthFailure);
 
             if (!response.ok) {
-                const errorMsg = data.message || data.error || data || 'Request failed';
+                // Prefer data.error (specific message) over data.message (generic status text)
+                const errorMsg = data.error || data.message || data || 'Request failed';
                 if (isAuthFailure) {
                     // Login failure is expected behavior, not an error
                     Logger.warn('AUTH_INVALID_CREDENTIALS', `${errorMsg}`, { status: response.status });
                 } else {
-                    Logger.error('API_ERROR', `Request failed: ${errorMsg}`, { status: response.status, data });
+                    // Determine if this is expected business logic vs actual error
+                    const logDetails = this.categorizeApiResponse(endpoint, response.status, errorMsg);
+                    if (logDetails.isExpected) {
+                        Logger.warn(logDetails.tag, errorMsg, { status: response.status });
+                    } else {
+                        Logger.error(logDetails.tag, `Request failed: ${errorMsg}`, { status: response.status, data });
+                    }
                 }
                 throw new Error(errorMsg);
             }
@@ -132,6 +139,65 @@ const API = {
      */
     async delete(endpoint) {
         return this.request(endpoint, { method: 'DELETE' });
+    },
+
+    /**
+     * Categorize API response to determine appropriate log level and tag
+     * @param {string} endpoint - API endpoint
+     * @param {number} status - HTTP status code
+     * @param {string} errorMsg - Error message from server
+     * @returns {object} - { tag: string, isExpected: boolean }
+     */
+    categorizeApiResponse(endpoint, status, errorMsg) {
+        const msg = (errorMsg || '').toLowerCase();
+
+        // Waiting list expected rejections (business logic, not errors)
+        if (endpoint.includes('/waiting-list')) {
+            if (msg.includes('phd-only') || msg.includes('msc-only') || msg.includes('degree')) {
+                return { tag: 'WAITING_LIST_DEGREE_MISMATCH', isExpected: true };
+            }
+            if (msg.includes('full')) {
+                return { tag: 'WAITING_LIST_FULL', isExpected: true };
+            }
+            if (msg.includes('already on')) {
+                return { tag: 'WAITING_LIST_ALREADY_ON', isExpected: true };
+            }
+            return { tag: 'WAITING_LIST_JOIN_FAILED', isExpected: false };
+        }
+
+        // Registration expected rejections
+        if (endpoint.includes('/register')) {
+            if (msg.includes('slot_full') || msg.includes('slot full')) {
+                return { tag: 'REGISTRATION_SLOT_FULL', isExpected: true };
+            }
+            if (msg.includes('slot_locked') || msg.includes('locked')) {
+                return { tag: 'REGISTRATION_SLOT_LOCKED', isExpected: true };
+            }
+            if (msg.includes('blocked') || msg.includes('phd') || msg.includes('msc')) {
+                return { tag: 'REGISTRATION_DEGREE_BLOCKED', isExpected: true };
+            }
+            if (msg.includes('already')) {
+                return { tag: 'REGISTRATION_ALREADY_EXISTS', isExpected: true };
+            }
+            return { tag: 'REGISTRATION_FAILED', isExpected: false };
+        }
+
+        // Attendance expected rejections
+        if (endpoint.includes('/attendance')) {
+            if (msg.includes('window') || msg.includes('early') || msg.includes('late')) {
+                return { tag: 'ATTENDANCE_OUTSIDE_WINDOW', isExpected: true };
+            }
+            if (msg.includes('already') || msg.includes('duplicate')) {
+                return { tag: 'ATTENDANCE_DUPLICATE', isExpected: true };
+            }
+            if (msg.includes('closed')) {
+                return { tag: 'ATTENDANCE_SESSION_CLOSED', isExpected: true };
+            }
+            return { tag: 'ATTENDANCE_FAILED', isExpected: false };
+        }
+
+        // Default - actual error
+        return { tag: 'API_ERROR', isExpected: false };
     },
 
     /**

@@ -6,6 +6,7 @@ import edu.bgu.semscanapi.dto.UserProfileResponse;
 import edu.bgu.semscanapi.dto.UserProfileUpdateRequest;
 import edu.bgu.semscanapi.entity.Supervisor;
 import edu.bgu.semscanapi.entity.User;
+import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.repository.SupervisorRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.service.FcmService;
@@ -32,11 +33,14 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final SupervisorRepository supervisorRepository;
+    private final SeminarSlotRegistrationRepository registrationRepository;
     private final FcmService fcmService;
 
-    public UserController(UserRepository userRepository, SupervisorRepository supervisorRepository, FcmService fcmService) {
+    public UserController(UserRepository userRepository, SupervisorRepository supervisorRepository,
+                          SeminarSlotRegistrationRepository registrationRepository, FcmService fcmService) {
         this.userRepository = userRepository;
         this.supervisorRepository = supervisorRepository;
+        this.registrationRepository = registrationRepository;
         this.fcmService = fcmService;
     }
 
@@ -163,6 +167,14 @@ public class UserController {
         }
 
         if (request.getDegree() != null && request.getDegree() != user.getDegree()) {
+            // Check if user has active registrations before allowing degree change
+            if (registrationRepository.hasAnyActiveRegistration(user.getBguUsername())) {
+                logger.warn("User {} attempted to change degree from {} to {} while having active registrations",
+                    user.getBguUsername(), user.getDegree(), request.getDegree());
+                throw new IllegalArgumentException("Cannot change degree while you have active registrations. Please cancel your registration first.");
+            }
+            logger.info("Changing degree for user {} from {} to {}",
+                user.getBguUsername(), user.getDegree(), request.getDegree());
             user.setDegree(request.getDegree());
             changed = true;
         }

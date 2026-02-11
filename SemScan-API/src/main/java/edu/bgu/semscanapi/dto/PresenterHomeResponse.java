@@ -453,6 +453,9 @@ public class PresenterHomeResponse {
         private List<RegisteredPresenter> waitingListEntries = new ArrayList<>(); // List of waiting list entries with names
         private boolean mySessionOpen; // True if CURRENT USER has an open attendance session for this slot
         private String mySessionClosesAt; // When the current user's session closes (if open)
+        private boolean canCancel = true; // Can presenter cancel this registration? False if session completed
+        private String cancelBlockedReason; // Why cancellation is blocked (if canCancel=false)
+        private boolean alreadyRegistered; // Is current user registered in this slot?
 
         public Long getSlotId() {
             return slotId;
@@ -668,6 +671,30 @@ public class PresenterHomeResponse {
 
         public void setMySessionClosesAt(String mySessionClosesAt) {
             this.mySessionClosesAt = mySessionClosesAt;
+        }
+
+        public boolean isCanCancel() {
+            return canCancel;
+        }
+
+        public void setCanCancel(boolean canCancel) {
+            this.canCancel = canCancel;
+        }
+
+        public String getCancelBlockedReason() {
+            return cancelBlockedReason;
+        }
+
+        public void setCancelBlockedReason(String cancelBlockedReason) {
+            this.cancelBlockedReason = cancelBlockedReason;
+        }
+
+        public boolean isAlreadyRegistered() {
+            return alreadyRegistered;
+        }
+
+        public void setAlreadyRegistered(boolean alreadyRegistered) {
+            this.alreadyRegistered = alreadyRegistered;
         }
     }
 

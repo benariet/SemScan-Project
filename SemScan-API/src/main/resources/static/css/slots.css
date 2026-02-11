@@ -203,6 +203,18 @@
     background: rgba(255, 59, 48, 0.1);
 }
 
+/* Status message when action is blocked (e.g., cannot cancel after presenting) */
+.slot-status-message {
+    font-size: 0.8125rem;
+    font-style: italic;
+    color: var(--text-medium);
+    text-align: center;
+    padding: 8px;
+    background: rgba(255,255,255,0.5);
+    border-radius: var(--radius-sm);
+    margin-top: 12px;
+}
+
 /* Attendance button - green for visibility */
 .slot-actions .btn-attendance {
     background: #4CAF50;

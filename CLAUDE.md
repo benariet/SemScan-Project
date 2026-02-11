@@ -48,58 +48,7 @@ Output as: `| Line | Issue | Severity | Fix |`
 
 ## Project Structure
 
-### Android App (`SemScan/`)
-```
-src/main/java/org/example/semscan/
-├── data/api/
-│   ├── ApiClient.java          # Retrofit client with interceptors
-│   ├── ApiService.java         # API endpoint definitions
-│   ├── AuthInterceptor.java    # Session expiry detection (401/403)
-│   ├── DeviceInfoInterceptor.java  # Adds X-Device-Info headers
-│   └── ApiLoggingInterceptor.java  # Logs to ServerLogger
-├── ui/
-│   ├── auth/LoginActivity.java
-│   ├── teacher/PresenterHomeActivity.java
-│   ├── teacher/PresenterSlotsAdapter.java  # Slot cards with colors
-│   ├── student/StudentHomeActivity.java
-│   ├── BaseActivity.java       # Session expired broadcast receiver
-│   └── SettingsActivity.java
-└── utils/
-    ├── ConfigManager.java      # Fetches config from API
-    ├── ServerLogger.java       # Logs to app_logs table
-    ├── PreferencesManager.java # Local preferences
-    └── ErrorMessageHelper.java # User-friendly error messages
-```
 
-### Spring Boot API (`SemScan-API/`)
-```
-src/main/java/edu/bgu/semscanapi/
-├── controller/
-│   ├── AuthController.java           # Login, account setup
-│   ├── PresenterHomeController.java  # Registration, cancellation
-│   ├── WaitingListController.java    # Join/leave waiting list
-│   ├── RegistrationApprovalController.java  # Supervisor approval
-│   └── AttendanceController.java     # QR scan attendance
-├── service/
-│   ├── PresenterHomeService.java     # Core registration logic
-│   ├── WaitingListService.java       # Waiting list management
-│   ├── RegistrationApprovalService.java  # Email approval flow
-│   ├── DatabaseLoggerService.java    # Logs to app_logs table
-│   ├── EmailQueueService.java        # Async email sending
-│   └── AppConfigService.java         # DB-based configuration
-├── entity/
-│   ├── User.java                     # bgu_username, degree, supervisor
-│   ├── SeminarSlot.java              # Date, time, capacity, state
-│   ├── SeminarSlotRegistration.java  # Composite key (slotId, username)
-│   ├── WaitingListEntry.java
-│   ├── AppLog.java                   # Logging entity
-│   └── AppConfig.java                # Configuration entity
-├── repository/                       # JPA repositories
-├── dto/                              # Request/Response DTOs
-└── config/
-    ├── DeviceInfoInterceptor.java    # Extracts X-Device-Info header
-    └── WebMvcConfig.java             # Registers interceptors
-```
 
 ## Database (MySQL - semscan_db)
 
@@ -683,11 +632,7 @@ cd SemScan-API && ./gradlew test
 | `testmsc4` | `Test123!` | Eitan Peretz | MSc |
 | `testmsc5` | `Test123!` | Shira Avraham | MSc |
 
-**Note:** These 30 test users bypass BGU authentication (all use password `Test123!`):
-- PhD: `testphd1` through `testphd10`
-- MSc: `testmsc1` through `testmsc20`
-
-All other users authenticate via BGU SOAP.
+**Note:** Only these 8 test users bypass BGU authentication: `testphd1`, `testphd2`, `testphd3`, `testmsc1`, `testmsc2`, `testmsc3`, `testmsc4`, `testmsc5` (all use `Test123!`). All other users authenticate via BGU SOAP.
 
 
 ## Critical Test Cases

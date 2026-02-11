@@ -64,7 +64,7 @@
 | Change Role card | ✅ | ✅ |
 | Cards disabled until details filled | ✅ | ✅ |
 | Cards disabled until approved | ✅ | ✅ |
-| Session Open Banner (pulsing) | ✅ | ❌ Missing |
+| Session Open Banner (pulsing) | ✅ | ✅ |
 | Hamburger menu | ✅ | ✅ |
 | Auto-refresh on resume/tab switch | ✅ | ✅ |
 
@@ -122,8 +122,8 @@
 | Degree dropdown | ✅ | ✅ |
 | Save button | ✅ | ✅ |
 | Logout button | ✅ | ✅ |
-| Report Bug button | ✅ | ❌ Missing |
-| Version display | ✅ | ❌ Missing |
+| Report Bug button | ✅ | ✅ |
+| Version display | ✅ | ✅ |
 
 ---
 
@@ -131,9 +131,9 @@
 
 | Priority | Feature | Location | Notes |
 |----------|---------|----------|-------|
-| Low | Session Open Banner | presenter.html | Pulsing banner when session already open |
-| Low | Report Bug button | settings.html | Opens email with template |
-| Low | Version display | settings.html | Shows app version |
+| ✅ Done | Session Open Banner | presenter.html | Pulsing banner when session already open |
+| ✅ Done | Report Bug button | settings.html | Opens email with template |
+| ✅ Done | Version display | settings.html | Shows app version |
 | Low | Role Picker screen | N/A | Web uses direct navigation |
 | Info | Presentation Details | Different UX | Android: expandable card. Web: separate page |
 | Info | Attendance History | Different UX | Android: separate screen. Web: expandable section |

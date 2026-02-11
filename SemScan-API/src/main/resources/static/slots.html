@@ -211,12 +211,22 @@
                 slot.approvalStatus === 'PENDING_APPROVAL';
 
             if (isUserRegisteredInThisSlot) {
-                // User has a registration for this slot - show cancel button
-                actionsHtml = `
-                    <button class="btn btn-cancel" data-action="cancel" data-slot-id="${slot.slotId}">
-                        CANCEL REGISTRATION
-                    </button>
-                `;
+                // User has a registration for this slot - check if can cancel
+                // COPY FROM ANDROID: canCancel is false if session already completed
+                if (slot.canCancel === false) {
+                    // Cannot cancel - show disabled message
+                    const reason = slot.cancelBlockedReason || 'Cannot cancel after presenting';
+                    actionsHtml = `
+                        <div class="slot-status-message">${Utils.escapeHtml(reason)}</div>
+                    `;
+                } else {
+                    // Can cancel - show cancel button
+                    actionsHtml = `
+                        <button class="btn btn-cancel" data-action="cancel" data-slot-id="${slot.slotId}">
+                            CANCEL REGISTRATION
+                        </button>
+                    `;
+                }
             } else if (slot.approvalStatus === 'DECLINED' || slot.approvalStatus === 'EXPIRED') {
                 // User's previous registration was declined/expired - can register again
                 actionsHtml = `
@@ -232,11 +242,23 @@
                     </button>
                 `;
             } else if (slot.state === 'FULL') {
-                actionsHtml = `
-                    <button class="btn btn-waiting" data-action="join-waiting" data-slot-id="${slot.slotId}">
-                        Join Waiting List
-                    </button>
-                `;
+                // Check if waiting list is full (limit is 3 from config)
+                // COPY FROM ANDROID: PresenterSlotsAdapter checks isWaitingListFull
+                const waitingListLimit = 3; // TODO: get from config if available
+                const isWaitingListFull = (slot.waitingListCount || 0) >= waitingListLimit;
+
+                if (!isWaitingListFull) {
+                    actionsHtml = `
+                        <button class="btn btn-waiting" data-action="join-waiting" data-slot-id="${slot.slotId}">
+                            Join Waiting List
+                        </button>
+                    `;
+                } else {
+                    // Waiting list is also full - show message
+                    actionsHtml = `
+                        <div class="slot-status-message">Waiting list is also full</div>
+                    `;
+                }
             } else if (slot.canRegister) {
                 actionsHtml = `
                     <button class="btn btn-register" data-action="register" data-slot-id="${slot.slotId}">
