@@ -14,13 +14,9 @@ public class ApiConstants {
     // These hardcoded values are now used as fallback defaults only
     // The app fetches configuration from backend API endpoint /api/v1/config/mobile on every login
     // See: org.example.semscan.utils.ConfigManager
-    // CURRENT: HTTP with port (working config until IT sets up HTTPS reverse proxy)
-    public static final String SERVER_URL = "http://132.72.50.52:8080"; // DEVELOPMENT
-    public static final String API_BASE_URL = "http://132.72.50.52:8080/api/v1"; // DEVELOPMENT
-
-    // FUTURE (Phase 2): When IT provides HTTPS with BGU domains, uncomment these:
-    // public static final String SERVER_URL = "https://test-semscan.bgu.ac.il"; // TEST
-    // public static final String API_BASE_URL = "https://test-semscan.bgu.ac.il/api/v1"; // TEST
+    // HTTPS with BGU domain (via IT reverse proxy)
+    public static final String SERVER_URL = "https://testsemscan.bgu.ac.il"; // TEST
+    public static final String API_BASE_URL = "https://testsemscan.bgu.ac.il/api/v1"; // TEST
     // public static final String SERVER_URL = "https://semscan.bgu.ac.il"; // PRODUCTION
     // public static final String API_BASE_URL = "https://semscan.bgu.ac.il/api/v1"; // PRODUCTION
     public static final String API_VERSION = "v1";

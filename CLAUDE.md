@@ -324,54 +324,46 @@ ssh webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S systemctl restart semscan-a
 
 **Note:** Both environments use identical configuration (port 8080, semscan_db) - only the server IP differs.
 
-### HTTPS Migration (Pending IT Setup)
+### HTTPS Configuration (Active)
 
-**Current Status:** Phase 1 (HTTP with IP addresses)
-**Future:** Phase 2 (HTTPS with BGU domain names)
+**Status:** HTTPS enabled via BGU IT reverse proxy with SSL termination.
 
-| Phase | Status | URL Format | Port |
-|-------|--------|------------|------|
-| **Phase 1 (Current)** | Active | `http://132.72.50.52:8080` | 8080 |
-| **Phase 2 (Future)** | Pending IT | `https://semscan.bgu.ac.il` | 443 |
+| Environment | Domain | URL |
+|-------------|--------|-----|
+| **TEST** | testsemscan.bgu.ac.il | `https://testsemscan.bgu.ac.il` |
+| **PRODUCTION** | semscan.bgu.ac.il | `https://semscan.bgu.ac.il` |
 
-**IT Will Provide:**
-- Reverse proxy with SSL termination (nginx)
-- SSL certificate from BGU
-- DNS records for `semscan.bgu.ac.il` (PROD) and `test-semscan.bgu.ac.il` (TEST)
-- Port 443 (standard HTTPS)
+**Architecture:**
+- BGU IT provides: Reverse proxy (nginx), SSL certificate, DNS records, port 443
+- API servers still run on port 8080 internally
+- Reverse proxy handles SSL termination and forwards to internal port
 
-**Files Already Prepared for Phase 2:**
+**Switch Between TEST and PRODUCTION:**
 
-| File | Status | Notes |
-|------|--------|-------|
-| `ApiConstants.java` | Ready | HTTPS URLs in comments (lines 21-25) |
-| `network_security_config.xml` | Ready | BGU domains already added |
-| `app_config.server_url` | Needs update | Run SQL when IT ready |
+1. Update `ApiConstants.java` (lines 18-21):
+```java
+// For TEST:
+public static final String SERVER_URL = "https://testsemscan.bgu.ac.il";
+public static final String API_BASE_URL = "https://testsemscan.bgu.ac.il/api/v1";
 
-**Phase 2 Switch Commands (Run When IT Ready):**
-```bash
-# 1. Update ApiConstants.java - uncomment HTTPS lines, comment HTTP lines
-# In SemScan/src/main/java/org/example/semscan/constants/ApiConstants.java
-
-# 2. Update database server_url
-# For TEST:
-mysql -u semscan_admin -pTAL1234 semscan_db -e "UPDATE app_config SET config_value = 'https://test-semscan.bgu.ac.il' WHERE config_key = 'server_url';"
-
-# For PRODUCTION:
-mysql -u semscan_admin -pTAL1234 semscan_db -e "UPDATE app_config SET config_value = 'https://semscan.bgu.ac.il' WHERE config_key = 'server_url';"
-
-# 3. Build and deploy APK
-cd SemScan && ./gradlew assembleDebug
-# Upload APK to server...
-
-# 4. Restart API service to pick up config change
-ssh webmaster@132.72.50.52 "echo 'TAL1234' | sudo -S systemctl restart semscan-api"
+// For PRODUCTION:
+public static final String SERVER_URL = "https://semscan.bgu.ac.il";
+public static final String API_BASE_URL = "https://semscan.bgu.ac.il/api/v1";
 ```
 
-**Verification After Phase 2:**
-1. Open `https://semscan.bgu.ac.il` in browser - should show green lock
-2. Android app connects successfully
-3. Email approval links use HTTPS domain
+2. Update database `server_url`:
+```bash
+# TEST (.52):
+ssh webmaster@132.72.50.52 "mysql -u semscan_admin -pTAL1234 semscan_db -e \"UPDATE app_config SET config_value = 'https://testsemscan.bgu.ac.il' WHERE config_key = 'server_url';\""
+
+# PRODUCTION (.53):
+ssh webmaster@132.72.50.53 "mysql -u semscan_admin -pTAL1234 semscan_db -e \"UPDATE app_config SET config_value = 'https://semscan.bgu.ac.il' WHERE config_key = 'server_url';\""
+```
+
+3. Restart API service to pick up config change:
+```bash
+ssh webmaster@132.72.50.52 "echo 'TAL1234' | sudo -S systemctl restart semscan-api"
+```
 
 ## Common Commands
 

@@ -20,12 +20,11 @@
         </trust-anchors>
     </domain-config>
 
-    <!-- Phase 2: BGU domain configuration for HTTPS (when IT provides reverse proxy) -->
+    <!-- BGU HTTPS domains (via IT reverse proxy with SSL) -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">semscan.bgu.ac.il</domain>
-        <domain includeSubdomains="true">test-semscan.bgu.ac.il</domain>
+        <domain includeSubdomains="true">testsemscan.bgu.ac.il</domain>
         <trust-anchors>
-            <!-- Trust system certificates (BGU SSL cert will be signed by trusted CA) -->
             <certificates src="system"/>
         </trust-anchors>
     </domain-config>
