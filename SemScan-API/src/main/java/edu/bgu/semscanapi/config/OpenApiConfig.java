@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -18,6 +19,9 @@ import java.util.List;
  */
 @Configuration
 public class OpenApiConfig {
+
+    @Autowired
+    private GlobalConfig globalConfig;
 
     @Bean
     public OpenAPI customOpenAPI() {
@@ -35,11 +39,11 @@ public class OpenApiConfig {
                                 .url("https://opensource.org/licenses/MIT")))
                 .servers(List.of(
                         new Server()
-                                .url("http://localhost:8080")
-                                .description("Development server"),
+                                .url(globalConfig.getServerUrl())
+                                .description("Current server (from app_config)"),
                         new Server()
-                                .url("https://132.72.50.53")
-                                .description("Production server (HTTPS)")))
+                                .url("http://localhost:8080")
+                                .description("Local development")))
                 .addSecurityItem(new SecurityRequirement().addList("NoAuth"))
                 .components(new io.swagger.v3.oas.models.Components()
                         .addSecuritySchemes("NoAuth", new SecurityScheme()
