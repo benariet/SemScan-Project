@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- HTTP configuration - allows cleartext traffic for development -->
+    <!-- HTTP configuration - allows cleartext traffic for development (Phase 1) -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <!-- Trust system certificates -->
@@ -9,15 +9,24 @@
             <certificates src="user"/>
         </trust-anchors>
     </base-config>
-    
-    <!-- Specific domain configuration for production server -->
+
+    <!-- Current: IP-based access (Phase 1 - HTTP with port 8080) -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">132.72.50.52</domain>
+        <domain includeSubdomains="true">132.72.50.53</domain>
         <trust-anchors>
-            <!-- Trust system certificates -->
             <certificates src="system"/>
-            <!-- Trust user-added certificates (for self-signed) -->
             <certificates src="user"/>
+        </trust-anchors>
+    </domain-config>
+
+    <!-- Phase 2: BGU domain configuration for HTTPS (when IT provides reverse proxy) -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">semscan.bgu.ac.il</domain>
+        <domain includeSubdomains="true">test-semscan.bgu.ac.il</domain>
+        <trust-anchors>
+            <!-- Trust system certificates (BGU SSL cert will be signed by trusted CA) -->
+            <certificates src="system"/>
         </trust-anchors>
     </domain-config>
 </network-security-config>

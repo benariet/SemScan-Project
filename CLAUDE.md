@@ -324,6 +324,55 @@ ssh webmaster@132.72.50.53 "echo 'TAL1234' | sudo -S systemctl restart semscan-a
 
 **Note:** Both environments use identical configuration (port 8080, semscan_db) - only the server IP differs.
 
+### HTTPS Migration (Pending IT Setup)
+
+**Current Status:** Phase 1 (HTTP with IP addresses)
+**Future:** Phase 2 (HTTPS with BGU domain names)
+
+| Phase | Status | URL Format | Port |
+|-------|--------|------------|------|
+| **Phase 1 (Current)** | Active | `http://132.72.50.52:8080` | 8080 |
+| **Phase 2 (Future)** | Pending IT | `https://semscan.bgu.ac.il` | 443 |
+
+**IT Will Provide:**
+- Reverse proxy with SSL termination (nginx)
+- SSL certificate from BGU
+- DNS records for `semscan.bgu.ac.il` (PROD) and `test-semscan.bgu.ac.il` (TEST)
+- Port 443 (standard HTTPS)
+
+**Files Already Prepared for Phase 2:**
+
+| File | Status | Notes |
+|------|--------|-------|
+| `ApiConstants.java` | Ready | HTTPS URLs in comments (lines 21-25) |
+| `network_security_config.xml` | Ready | BGU domains already added |
+| `app_config.server_url` | Needs update | Run SQL when IT ready |
+
+**Phase 2 Switch Commands (Run When IT Ready):**
+```bash
+# 1. Update ApiConstants.java - uncomment HTTPS lines, comment HTTP lines
+# In SemScan/src/main/java/org/example/semscan/constants/ApiConstants.java
+
+# 2. Update database server_url
+# For TEST:
+mysql -u semscan_admin -pTAL1234 semscan_db -e "UPDATE app_config SET config_value = 'https://test-semscan.bgu.ac.il' WHERE config_key = 'server_url';"
+
+# For PRODUCTION:
+mysql -u semscan_admin -pTAL1234 semscan_db -e "UPDATE app_config SET config_value = 'https://semscan.bgu.ac.il' WHERE config_key = 'server_url';"
+
+# 3. Build and deploy APK
+cd SemScan && ./gradlew assembleDebug
+# Upload APK to server...
+
+# 4. Restart API service to pick up config change
+ssh webmaster@132.72.50.52 "echo 'TAL1234' | sudo -S systemctl restart semscan-api"
+```
+
+**Verification After Phase 2:**
+1. Open `https://semscan.bgu.ac.il` in browser - should show green lock
+2. Android app connects successfully
+3. Email approval links use HTTPS domain
+
 ## Common Commands
 
 ### Build Commands
