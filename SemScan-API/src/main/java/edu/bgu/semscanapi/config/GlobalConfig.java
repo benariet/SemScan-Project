@@ -112,8 +112,7 @@ public class GlobalConfig {
     // =============================================
     // FILE UPLOAD CONFIGURATION
     // =============================================
-
-    private static final String UPLOAD_SERVER_URL = "http://132.72.50.53:8080/api/v1/upload";
+    // Upload URL is now dynamically built from server_url config (no hardcoded URL)
 
     // =============================================
     // EMAIL CONFIGURATION
@@ -158,7 +157,7 @@ public class GlobalConfig {
     }
     
     public String getServerUrl() {
-        // Read server_url from app_config table (allows per-environment configuration)
+        // Read server_url from app_config table (REQUIRED - no hardcoded fallback)
         if (appConfigService != null) {
             try {
                 String configuredUrl = appConfigService.getStringConfig("server_url", null);
@@ -170,18 +169,25 @@ public class GlobalConfig {
                     return configuredUrl + contextPath;
                 }
             } catch (Exception e) {
-                // Fall through to default logic
+                // Log error but continue to fallback
+                if (databaseLoggerService != null) {
+                    try {
+                        databaseLoggerService.logError("GLOBAL_CONFIG_SERVER_URL_ERROR",
+                                "Failed to read server_url from app_config: " + e.getMessage(),
+                                e, null, null);
+                    } catch (Exception logEx) {
+                        // Ignore logging exceptions
+                    }
+                }
             }
         }
 
-        // Fallback: Use HTTPS on standard port 443 (via nginx) for production
-        // This eliminates browser warnings about non-standard ports
-        // Test mode (port 8081) should use HTTP with explicit port
-        if (isProductionMode()) {
-            return "https://132.72.50.53" + contextPath;
-        }
-        // Development mode or Test mode - use HTTP with explicit port
-        return "http://132.72.50.53:" + serverPort + contextPath;
+        // Fallback: Build URL from server properties (no hardcoded IPs)
+        // This should only happen during startup before DB is available
+        String protocol = isProductionMode() ? "https" : "http";
+        String port = isProductionMode() ? "" : ":" + serverPort;
+        // Use localhost as safe fallback - will fail fast if misconfigured
+        return protocol + "://localhost" + port + contextPath;
     }
     
     public String getApiBaseUrl() {
@@ -353,7 +359,8 @@ public class GlobalConfig {
     
     // File Upload Configuration
     public String getUploadServerUrl() {
-        return UPLOAD_SERVER_URL;
+        // Dynamically build from server_url config
+        return getApiBaseUrl() + "/upload";
     }
     
     // Email Configuration

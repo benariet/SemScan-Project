@@ -9,6 +9,7 @@ import edu.bgu.semscanapi.repository.SupervisorRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.service.BguAuthSoapService;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -54,6 +55,9 @@ class AuthControllerTest {
 
     @MockBean
     private DatabaseLoggerService databaseLoggerService;
+
+    @MockBean
+    private GlobalConfig globalConfig;
 
     private User existingUser;
     private Supervisor existingSupervisor;

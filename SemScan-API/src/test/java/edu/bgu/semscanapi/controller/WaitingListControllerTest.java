@@ -6,6 +6,7 @@ import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.entity.WaitingListEntry;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.WaitingListService;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -47,6 +48,9 @@ class WaitingListControllerTest {
 
     @MockBean
     private DatabaseLoggerService databaseLoggerService;
+
+    @MockBean
+    private GlobalConfig globalConfig;
 
     private WaitingListEntry testEntry;
 

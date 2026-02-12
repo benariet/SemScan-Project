@@ -6,8 +6,11 @@ import edu.bgu.semscanapi.dto.UserExistsRequest;
 import edu.bgu.semscanapi.dto.UserProfileUpdateRequest;
 import edu.bgu.semscanapi.entity.User;
 import edu.bgu.semscanapi.repository.UserRepository;
+import edu.bgu.semscanapi.repository.SupervisorRepository;
+import edu.bgu.semscanapi.repository.SeminarSlotRegistrationRepository;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.FcmService;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -46,10 +49,19 @@ class UserControllerTest {
     private UserRepository userRepository;
 
     @MockBean
+    private SupervisorRepository supervisorRepository;
+
+    @MockBean
+    private SeminarSlotRegistrationRepository registrationRepository;
+
+    @MockBean
     private FcmService fcmService;
 
     @MockBean
     private DatabaseLoggerService databaseLoggerService;
+
+    @MockBean
+    private GlobalConfig globalConfig;
 
     private User testUser;
 

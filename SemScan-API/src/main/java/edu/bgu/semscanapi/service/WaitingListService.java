@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import edu.bgu.semscanapi.entity.SeminarSlotRegistrationId;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -38,6 +39,7 @@ public class WaitingListService {
     private final WaitingListPromotionRepository waitingListPromotionRepository;
     private final AppConfigService appConfigService;
     private final FcmService fcmService;
+    private final GlobalConfig globalConfig;
 
     @Value("${app.registration.msc.max-per-slot:3}")
     private int mscMaxPerSlot;
@@ -45,8 +47,7 @@ public class WaitingListService {
     @Value("${app.registration.phd.max-per-slot:1}")
     private int phdMaxPerSlot;
 
-    @Value("${app.server.base-url:http://132.72.50.53:8080}")
-    private String serverBaseUrl;
+    // serverBaseUrl is now obtained from GlobalConfig (reads from app_config table)
 
     // Removed hardcoded PROMOTION_OFFER_EXPIRY_HOURS - now using config "promotion_offer_expiry_hours"
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -61,7 +62,8 @@ public class WaitingListService {
             MailService mailService,
             WaitingListPromotionRepository waitingListPromotionRepository,
             AppConfigService appConfigService,
-            FcmService fcmService) {
+            FcmService fcmService,
+            GlobalConfig globalConfig) {
         this.waitingListRepository = waitingListRepository;
         this.registrationRepository = registrationRepository;
         this.slotRepository = slotRepository;
@@ -71,6 +73,7 @@ public class WaitingListService {
         this.waitingListPromotionRepository = waitingListPromotionRepository;
         this.appConfigService = appConfigService;
         this.fcmService = fcmService;
+        this.globalConfig = globalConfig;
     }
 
     /**
@@ -876,6 +879,7 @@ public class WaitingListService {
                 ? user.getFirstName() + " " + user.getLastName()
                 : entry.getPresenterUsername();
 
+        String serverBaseUrl = globalConfig.getServerUrl();
         String confirmUrl = serverBaseUrl + "/api/waiting-list/confirm?token=" + token;
         String declineUrl = serverBaseUrl + "/api/waiting-list/decline?token=" + token;
 

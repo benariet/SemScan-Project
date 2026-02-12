@@ -12,6 +12,7 @@ import edu.bgu.semscanapi.repository.SeminarSlotRepository;
 import edu.bgu.semscanapi.repository.UserRepository;
 import edu.bgu.semscanapi.repository.WaitingListRepository;
 import edu.bgu.semscanapi.repository.WaitingListPromotionRepository;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -65,6 +66,9 @@ class WaitingListServiceTest {
 
     @Mock
     private FcmService fcmService;
+
+    @Mock
+    private GlobalConfig globalConfig;
 
     @InjectMocks
     private WaitingListService waitingListService;

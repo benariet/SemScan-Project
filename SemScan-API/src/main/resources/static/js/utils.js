@@ -249,7 +249,7 @@ const Logger = {
             // Use CONFIG if available, fallback to hardcoded URL
             const baseUrl = (typeof CONFIG !== 'undefined' && CONFIG.API_BASE)
                 ? CONFIG.API_BASE
-                : 'http://132.72.50.53:8080/api/v1';
+                : '/api/v1';
 
             const response = await fetch(`${baseUrl}/logs`, {
                 method: 'POST',
@@ -401,7 +401,7 @@ const Logger = {
             if (this.serverQueue.length > 0) {
                 const baseUrl = (typeof CONFIG !== 'undefined' && CONFIG.API_BASE)
                     ? CONFIG.API_BASE
-                    : 'http://132.72.50.53:8080/api/v1';
+                    : '/api/v1';
                 const blob = new Blob(
                     [JSON.stringify({ logs: this.serverQueue })],
                     { type: 'application/json' }

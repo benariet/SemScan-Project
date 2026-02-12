@@ -3,6 +3,7 @@ package edu.bgu.semscanapi.controller;
 import edu.bgu.semscanapi.entity.Session;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.SessionService;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,9 @@ class StudentControllerTest {
 
     @MockBean
     private DatabaseLoggerService databaseLoggerService;
+
+    @MockBean
+    private GlobalConfig globalConfig;
 
     private Session testSession;
 

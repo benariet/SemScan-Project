@@ -3,6 +3,7 @@ package edu.bgu.semscanapi.controller;
 import edu.bgu.semscanapi.entity.Attendance;
 import edu.bgu.semscanapi.service.AttendanceService;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +45,9 @@ class AttendanceControllerTest {
 
     @MockBean
     private DatabaseLoggerService databaseLoggerService;
+
+    @MockBean
+    private GlobalConfig globalConfig;
 
     @Autowired
     private ObjectMapper objectMapper;

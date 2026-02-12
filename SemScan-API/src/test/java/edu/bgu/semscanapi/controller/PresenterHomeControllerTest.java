@@ -8,6 +8,7 @@ import edu.bgu.semscanapi.dto.PresenterSlotRegistrationResponse;
 import edu.bgu.semscanapi.dto.SupervisorEmailRequest;
 import edu.bgu.semscanapi.service.DatabaseLoggerService;
 import edu.bgu.semscanapi.service.PresenterHomeService;
+import edu.bgu.semscanapi.config.GlobalConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,6 +54,9 @@ class PresenterHomeControllerTest {
 
     @MockBean
     private DatabaseLoggerService databaseLoggerService;
+
+    @MockBean
+    private GlobalConfig globalConfig;
 
     private static final String TEST_USERNAME = "testuser";
     private static final Long TEST_SLOT_ID = 1L;
