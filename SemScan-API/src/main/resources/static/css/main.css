@@ -139,12 +139,16 @@ a {
     padding: 8px;
     cursor: pointer;
     margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .menu-btn svg {
     width: 24px;
     height: 24px;
     fill: white;
+    display: block;
 }
 
 /* Back button */
@@ -153,12 +157,16 @@ a {
     border: none;
     padding: 8px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .back-btn svg {
     width: 24px;
     height: 24px;
     fill: #FFFFFF;
+    display: block;
 }
 
 /* Header with back button and menu - space between */
