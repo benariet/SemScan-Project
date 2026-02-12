@@ -71,7 +71,7 @@
 
 /* Base */
 html {
-    font-size: 16px;
+    font-size: 18px; /* Increased from 16px for better mobile readability */
     -webkit-text-size-adjust: 100%;
 }
 
