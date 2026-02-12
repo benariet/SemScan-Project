@@ -437,5 +437,5 @@
     <string name="registration_details_incomplete">Please fill in all presentation details first</string>
 
     <!-- WiFi Warning -->
-    <string name="wifi_warning">This app requires the BGU-WIFI network.</string>
+    <string name="wifi_warning">This app requires <b>BGU-WIFI</b> or <b>just4visitors</b> network.</string>
 </resources>

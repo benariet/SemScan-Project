@@ -6,10 +6,10 @@
 
 /* CSS Variables - Match Android exactly */
 :root {
-    /* Primary colors */
-    --primary: #1976D2;
-    --primary-dark: #1565C0;
-    --primary-light: #42A5F5;
+    /* Primary colors - Match Android purple_500 */
+    --primary: #6200EE;
+    --primary-dark: #5000D4;
+    --primary-light: #7C4DFF;
 
     /* Slot card gradients - from Android drawables */
     --slot-green-start: #C8E6C9;
